@@ -183,6 +183,34 @@ during CP-0 after USD 0.29; its reads of whole filings led to the read limit abo
 CPOS_LIVE_RULING=docs/rulings/<file>.md PYTHONPATH=src:. .venv/bin/python -m pytest tests/test_cpos_launch.py -m live -q
 ```
 
+### Host mode: an agent answers each module, no provider call
+
+Use `--config host` in place of a model, with no `--cap`, `--live` or `--ruling`. The run id
+ends in `-host`. CP-OS keeps ordering, checks, resume and delivery as for a live run.
+
+```bash
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
+  --context path/to/context.json --sources path/to/issuer-folder \
+  --config host --out runs/<run-folder>
+```
+
+1. The command runs CP-OS until a module has no answer. It prints `Answer needed`, the
+   `Method` and `Request` files, the `Answer` path, each pinned source and each upstream
+   handoff with its sha256 and file, and any `Feedback`. Then it exits with status 3.
+2. The agent writes the module's Markdown answer at the `Answer` path and runs the same
+   command again. CP-OS rechecks every earlier answer, checks the new one and continues.
+3. A rejected answer gets a new request with the feedback, up to three attempts. Status 0
+   prints the published report. Status 1 is a stop: a changed accepted answer, a third
+   rejection, or a second process on the same run folder.
+
+An accepted answer cannot be replaced. To repair one, start a new run folder and keep the old
+one as the earlier attempt. The automated check covers structure and anchors only: a second
+reviewer must compare each handoff with the sources before the run is used. The pilot in
+[`runs/cpos-launch-host-002`](runs/cpos-launch-host-002/verification.json) shows why: its first
+attempt, [`runs/cpos-launch-host-001`](runs/cpos-launch-host-001), passed every automated check but
+omitted covenant terms that the paid run found. The paid run in turn missed findings that the
+host found.
+
 ## Development loop
 
 Develop one bounded module result and its next handoff at a time:

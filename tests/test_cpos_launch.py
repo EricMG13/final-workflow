@@ -716,3 +716,150 @@ def test_live_evidence_check_can_pass_and_refuses_each_kind_of_fake(tmp_path, pr
         assert_live_evidence(
             launched("wrong", reported="gpt-6.1-sol", filed="| Observed | 1 |"), Decimal(12)
         )
+
+
+def host_argv(tmp_path: Path) -> list[str]:
+    argv = launch(tmp_path, "--modules", "CP-4")
+    argv[argv.index("sol-medium")] = "host"
+    del argv[argv.index("--cap") : argv.index("--cap") + 2]
+    return argv
+
+
+def printed(out: str, label: str) -> list[str]:
+    return [line.split(None, 1)[1] for line in out.splitlines() if line.startswith(label + ":")]
+
+
+def host_answer(out: str, routes: list) -> tuple[dict, Path, str]:
+    """The request CP-OS printed, where its answer goes, and a complete answer to it."""
+    (request,) = map(Path, printed(out, "Request"))
+    (answer_path,) = map(Path, printed(out, "Answer"))
+    asked = json.loads(request.read_text())
+    context = {**asked, "handoffs": {n: {"sha256": h} for n, h in asked["handoffs"].items()}}
+    return asked, answer_path, answer(context, routes)
+
+
+def test_host_session_runs_each_module_from_answers_written_beside_its_request(
+    tmp_path, provider, capsys
+):
+    argv = host_argv(tmp_path)
+    routes = prepare_routes(tmp_path, "sol-medium")
+    answered = []
+    while (code := main(argv)) == 3:
+        out = capsys.readouterr().out
+        asked, answer_path, text = host_answer(out, routes)
+        assert answer_path.parent == next(map(Path, printed(out, "Request"))).parent
+        # Every file named for the host exists and holds the bytes the request pins.
+        for line in printed(out, "Source") + printed(out, "Handoff"):
+            name, _, digest, _, path = line.split(" ", 4)
+            assert hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest
+            assert asked["sources" if name not in asked["handoffs"] else "handoffs"][name] == digest
+        assert set(asked["handoffs"]) == set(answered)
+        assert "search_source" not in asked["instructions"]
+        assert "Use calculate" not in asked["instructions"]
+        answered.append(asked["module_id"])
+        answer_path.write_text(text)
+    assert code == 0, capsys.readouterr()
+    assert answered == ["CP-0", "CP-1", "CP-4"]
+    assert provider.calls == []
+    out = tmp_path / "out"
+    assert not (out / "live").exists()
+    report = next((out / "deliveries").glob("*/report.html"))
+    assert verify_delivery(next(out.glob("delivery-*.json")), report.parent) == report
+    assert str(report) in capsys.readouterr().out
+    assert "using a host session, with no provider call" in report.read_text()
+    completed = json.loads(next(out.glob("completed-*.json")).read_text())
+    assert completed["execution"] == "host-session"
+    assert set(completed["module_execution"].values()) == {"host-session"}
+    manifest = json.loads((out / "workflow.json").read_text())
+    assert manifest["run"]["run_id"].endswith("-host")
+    assert (manifest["execution"], manifest["provider_cap_usd"]) == ("host-session", "0")
+    # A finished run publishes the same report again without asking for anything.
+    assert main(argv) == 0
+    assert str(report) in capsys.readouterr().out
+
+
+def test_host_relaunch_without_an_answer_asks_again_and_writes_nothing(tmp_path, capsys):
+    argv = host_argv(tmp_path)
+    assert main(argv) == 3
+    first = capsys.readouterr().out
+    files = sorted((tmp_path / "out").rglob("*"))
+    assert main(argv) == 3
+    again = capsys.readouterr().out
+    assert printed(again, "Request") == printed(first, "Request")
+    assert sorted((tmp_path / "out").rglob("*")) == files
+
+
+def test_rejected_host_answer_is_asked_again_with_feedback_then_stops(tmp_path, capsys):
+    argv = host_argv(tmp_path)
+    for attempt in (1, 2, 3):
+        assert main(argv) == 3
+        out = capsys.readouterr().out
+        asked, answer_path, _ = host_answer(out, [])
+        assert (asked["module_id"], asked["attempt"]) == ("CP-0", attempt)
+        assert bool(printed(out, "Feedback")) == (attempt > 1)
+        answer_path.write_text("## Request\n\nNot a handoff.")
+    assert main(argv) == 1
+    assert "cpos_module_failed: CP-0" in capsys.readouterr().err
+    assert not (tmp_path / "out/deliveries").exists()
+
+
+def test_changed_host_answer_after_review_is_refused(tmp_path, capsys):
+    argv = host_argv(tmp_path)
+    routes = prepare_routes(tmp_path, "sol-medium")
+    assert main(argv) == 3
+    _, answer_path, text = host_answer(capsys.readouterr().out, routes)
+    answer_path.write_text(text)
+    assert main(argv) == 3
+    capsys.readouterr()
+    answer_path.write_text(text + "\nLater edit.\n")
+    assert main(argv) == 1
+    assert "cpos_response_changed: CP-0" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    "extra", [("--live",), ("--ruling", str(RULING)), ("--cap", "5")], ids=lambda e: e[0]
+)
+def test_host_refuses_provider_options(tmp_path, capsys, extra):
+    assert main([*host_argv(tmp_path), *extra]) == 2
+    assert "--config host calls no provider" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_provider_model_still_needs_a_cap(tmp_path, capsys):
+    argv = launch(tmp_path)
+    del argv[argv.index("--cap") : argv.index("--cap") + 2]
+    assert main(argv) == 2
+    assert "needs --cap" in capsys.readouterr().err
+    assert not (tmp_path / "out").exists()
+
+
+def test_host_mode_leaves_the_retained_live_request_unchanged(tmp_path):
+    """The paid rerun of runs/cpos-launch-live-002 must still find the same request."""
+    prepared = prepare(
+        LIVE_CASE / "context.json",
+        ROOT / "data/public-corpus/v1/TDG",
+        tmp_path / "out",
+        config="sol-medium",
+        cap="11.71",
+        modules=("CP-1", "CP-1A"),
+    )
+    kept = json.loads((LIVE_CASE / "workflow.json").read_text())
+    assert {m: i.sha256 for m, i in prepared.plan.instructions.items()} == {
+        m: i["sha256"] for m, i in kept["instructions"].items()
+    }
+    assert prepared.plan.layout.model_dump(mode="json") == kept["layout"]
+
+
+def test_second_host_on_the_same_run_folder_is_refused_and_the_wait_survives(tmp_path, capsys):
+    from deploy_workflow.run_pathway import _single_writer
+
+    argv = host_argv(tmp_path)
+    assert main(argv) == 3
+    first = printed(capsys.readouterr().out, "Request")
+    files = sorted((tmp_path / "out").rglob("*"))
+    with _single_writer(tmp_path / "out"):
+        assert main(argv) == 1
+    assert "held by another" in capsys.readouterr().err
+    assert sorted((tmp_path / "out").rglob("*")) == files
+    assert main(argv) == 3
+    assert printed(capsys.readouterr().out, "Request") == first

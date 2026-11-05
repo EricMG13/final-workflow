@@ -1,0 +1,15 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for TransDigm Group Incorporated as of 2024-09-30, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: key-findings, model-chart-strip, capital-structure, strengths-weaknesses, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "4b4d18ad4bb2204a1bdf41fa56460873b3516ea4f1c42147be065e8075c5727e",
+    "CP-1.md": "612bf90a19cd2cd5ecf07de8354ef64554bb163241a808664772f0f4e957ab7c",
+    "CP-1A.md": "999b317a3739ee329831e3cdcf3199d70cbcee003f13d143a04159a1f9854e72",
+    "view.json": "eead022934b3eaaa29a5f37680b1b7a61b920ed80b12dd16a2e0cb6ea9bcb2f1",
+    "report-view.json": "53c176aacfbcb819f7f981e649de7435c6f350f2232d611f823a8e8d76b6fbef",
+    "report.html": "4affdd0ff656c3735b5fab692c74650a55fe65143630cd1469fa364b5ed0566c"
+  }
+}

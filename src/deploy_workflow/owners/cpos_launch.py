@@ -57,6 +57,9 @@ SOURCE_SUFFIXES = frozenset(
     {".pdf", ".htm", ".html", ".txt", ".md", ".xlsx", ".csv", ".json", ".jsonl"}
 )
 NOT_ANALYTICAL = frozenset({"CP-MODEL", "CP-8"})  # In the presets; each has its own route.
+# Named sets for --modules. `minimum` needs only an issuer's own public filings (CP-0 joins as the
+# dependency): the financial foundation, business profile, credit view and evidence-trace check.
+MODULE_SETS = {"minimum": ("CP-1", "CP-1A", "CP-2", "CP-5")}
 MAX_OUTPUT_TOKENS = 32000  # What the retained live campaigns ran with.
 
 _SKILLS = "docs/reuse/selected-methods/skills/"
@@ -354,7 +357,7 @@ def prepare(
     raw_context = context_path.read_bytes()
     settings = load_context(raw_context)
     requested = (
-        tuple(modules)
+        tuple(dict.fromkeys(m for name in modules for m in MODULE_SETS.get(name, (name,))))
         if modules
         else tuple(m for m in PATHWAY_MODULES[settings.run.pathway] if m not in NOT_ANALYTICAL)
     )
@@ -579,7 +582,12 @@ def _parser() -> argparse.ArgumentParser:
         help="model and effort, or host: this session answers; no provider call",
     )
     parser.add_argument("--cap", type=_cap, help="USD ceiling for this run folder; not for host")
-    parser.add_argument("--modules", nargs="+", help="default: the context's pathway preset")
+    parser.add_argument(
+        "--modules",
+        nargs="+",
+        help="default: the context's pathway preset; `minimum` = CP-1 CP-1A CP-2 CP-5, and can "
+        "be combined with more modules",
+    )
     parser.add_argument("--max-turns", type=int, default=32, help="model turns per module")
     parser.add_argument("--out", type=Path, help="run folder; default runs/<run id>")
     parser.add_argument("--live", action="store_true", help="make paid provider calls")

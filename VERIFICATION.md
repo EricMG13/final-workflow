@@ -8,6 +8,53 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-05 — minimum module set, Caesars pilot and ETF issuer universe
+
+`--modules minimum` selects CP-1, CP-1A, CP-2 and CP-5, with CP-0 as the dependency: the modules
+that need only an issuer's own public filings. Names can be combined, for example `minimum CP-4`.
+
+**Pilot, host session, Caesars Entertainment as of 2026-10-02, explicit cutoff 2026-10-02.** This
+session answered all five modules from the retained FY2025 10-K, Q2 2026 10-Q and Q2 2026 release
+in [`runs/cpos-launch-host-czr-001`](runs/cpos-launch-host-czr-001/verification.json). CP-1A
+attempt 1 quoted source text with pipe characters inside a table cell; the report adapter refused
+it and attempt 2 was accepted. The report fills 6 of 6 selected sections. `verify.py` finds 23 of
+24 answer-key values from `cases/czr-2026q2-earnings-update/expected.json` in the handoffs; the
+missing one is the December 31, 2025 book value of debt, which CP-1 does not carry. It recomputes
+9 metric cells from the cited source lines with Fraction, and a relaunch writes nothing. CP-5,
+written by the same host, graded the run Passed with a Confidence Score of 47 (Low) from the
+method's script, and found four MINOR locator and restatement defects. The credit view rests on
+lease obligations larger than debt and on a pending take-private whose financing is not supplied.
+
+**Issuer universe.** `python -m deploy_workflow.issuer_universe` reads N-PORT XML and groups
+corporate bonds and loans by issuer LEI. On the retained LQD filing it keeps 2,908 bonds from 497
+issuers; tests check those counts and one issuer's value sum against a separate regex reading of
+the raw XML. A synthetic filing covers loans, missing LEIs and missing values.
+
+**Blocked.** This environment's network policy refuses `www.sec.gov`, `data.sec.gov`,
+`www.ishares.com`, `www.ssga.com` and `www.invesco.com`. No high-yield or loan ETF holdings were
+fetched, so no issuer list was built, and SEC registrant matching and the EDGAR filing fetcher
+are not written: neither can be tested here against real data.
+
+Checks: launcher, app and universe tests 93 passed, the paid test skipped.
+
+### Confidence review — issuer universe
+
+- A fund holding with no filed value showed `value_usd` "0". Found while writing the synthetic
+  test; now null, with `values_missing` counted.
+- `LON` and the government issuer codes come from the N-PORT XML specification; the retained
+  filing has only `DBT`, `STIV`, `CORP`, `RF` and `OTHER`. An unexpected code is counted in
+  `excluded_holdings` with its value, never dropped silently. Confirm on the first loan ETF filing.
+- Holdings without an LEI are keyed by the printed name, which N-PORT abbreviates; one issuer can
+  split across spellings. 100 of the 2,910 LQD holdings have no LEI.
+- The LEI is the security's legal issuer, often a financing subsidiary; the SEC check must map it
+  to the 10-K filer.
+
+### Post-edit rewrite tournament — `universe`
+
+Candidates: (a) one pass that groups into dictionaries of sets and sums Decimals; (b) a dataframe
+group-by, which adds a dependency; (c) collect rows, sort, then `itertools.groupby`, which needs
+the same per-issuer fields and an extra sort. (a) is kept.
+
 ## 2026-11-05 — host-session launcher mode and TDG pilot
 
 `cpos_launch --config host` runs CP-OS with no provider. CP-OS stops at the first module request

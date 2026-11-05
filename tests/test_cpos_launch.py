@@ -863,3 +863,18 @@ def test_second_host_on_the_same_run_folder_is_refused_and_the_wait_survives(tmp
     assert sorted((tmp_path / "out").rglob("*")) == files
     assert main(argv) == 3
     assert printed(capsys.readouterr().out, "Request") == first
+
+
+def test_minimum_set_needs_only_public_filings_and_takes_more_modules(tmp_path):
+    context, folder = context_file(tmp_path, "credit_snapshot"), issuer_folder(tmp_path)
+    minimum = prepare(context, folder, tmp_path / "a", config="host", cap=0, modules=("minimum",))
+    assert minimum.ordered == ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-5")
+    assert minimum.plan.run.requested_modules == ("CP-1", "CP-1A", "CP-2", "CP-5")
+    # Market prices, ratings and a committee question are not public filings.
+    assert {"relative-value", "portfolio-fit", "committee-challenge"} <= set(minimum.omitted)
+    more = prepare(
+        context, folder, tmp_path / "b", config="host", cap=0, modules=("minimum", "CP-4", "CP-1")
+    )
+    assert more.plan.run.requested_modules == ("CP-1", "CP-1A", "CP-2", "CP-5", "CP-4")
+    assert set(more.ordered) == {*minimum.ordered, "CP-4"}
+    assert "capital-structure" in more.plan.layout.blocks

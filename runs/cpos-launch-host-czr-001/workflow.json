@@ -1,0 +1,163 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "czr-2026-10-02-credit_snapshot-host",
+    "issuer_id": "czr",
+    "issuer_name": "Caesars Entertainment, Inc.",
+    "as_of": "2026-10-02",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "CZR_FY2025_10K.txt": {
+      "path": "../../cases/czr-2026q2-earnings-update/documents/CZR_FY2025_10K.txt",
+      "sha256": "172309048af2a6a2dab515d765f00a7c89bf8c874c6104a5e3a052b66cad4512"
+    },
+    "CZR_Q2_2026_10Q.txt": {
+      "path": "../../cases/czr-2026q2-earnings-update/documents/CZR_Q2_2026_10Q.txt",
+      "sha256": "f369ce5f1ebeddd9a0d4ce02ce3958112267d8701d1a348dfd6dc82d2034793a"
+    },
+    "CZR_Q2_2026_Earnings_Release.txt": {
+      "path": "../../cases/czr-2026q2-earnings-update/documents/CZR_Q2_2026_Earnings_Release.txt",
+      "sha256": "b385f76ff631243d1053fa8073ebde4f8886b4a50c9ce34ce3498d6b2ac3e9f8"
+    },
+    "context": {
+      "path": "context.json",
+      "sha256": "70a1a94c5cc4a6bf8f11bf47e9f0a41d9be046e2bcfa93425809b6450d15d5c1"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "5fefe0776eb739a4cd58ca05f3e8d05f85a20baf6da065bcf1160a3716edce94"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "439f3cf94828e08477f1e73ad7c83e350cb7155367a51197ca800ee46451b2a3"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "d60d82a2880135c2784778006b0b379b0e85a12f032c181fbf5b9adb7de9e052"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "487cc98da61c60fe52a32c95e8102a7dbc4a0333deae1c1388cef7c130cd39c0"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "8d254bba774a2e2eb13fcf7473f67d3ea6e5beaad37fdaab6c9c7fe3cacc4690"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Caesars Entertainment, Inc. as of 2026-10-02, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Caesars Entertainment, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -152,7 +152,10 @@ CP-OS then runs the modules in order and publishes `deliveries/<id>/report.html`
   against the cap until it settles (USD 5.73 for `gpt-6.1-sol`), and a cap too small
   for one call of the largest module is refused before anything is sent.
 - **Modules:** the pathway's preset by default. `--modules` narrows it, keeping
-  dependencies, and must fill at least one report section.
+  dependencies, and must fill at least one report section. `--modules minimum` selects
+  CP-1, CP-1A, CP-2 and CP-5 (CP-0 joins as the dependency): the set that needs only an
+  issuer's own public filings. Add modules after it when their sources exist, for example
+  `--modules minimum CP-4` with the executed debt documents.
 - **Run folder:** `--out`, or `runs/<run id>`. A changed request, including a new file
   in the issuer folder or a new cap, needs a new folder. Relaunching the same request
   rechecks finished modules without resending them.
@@ -210,6 +213,29 @@ reviewer must compare each handoff with the sources before the run is used. The 
 attempt, [`runs/cpos-launch-host-001`](runs/cpos-launch-host-001), passed every automated check but
 omitted covenant terms that the paid run found. The paid run in turn missed findings that the
 host found.
+
+The [Caesars pilot](runs/cpos-launch-host-czr-001/verification.json) runs `--modules minimum`
+in host mode on the retained Caesars filings: 6 of 6 selected sections populated, 23 of 24 answer
+keys found, one rejected answer repaired through the feedback loop.
+
+### Prospective issuer universe from ETF holdings
+
+High-yield bond ETFs (for example HYG, USHY and JNK) and loan ETFs (for example BKLN and SRLN)
+file their holdings with the SEC on Form N-PORT. The builder reads those XML filings, keeps
+corporate bonds and loans, and groups them by issuer LEI, or by printed name where no LEI is
+given. It records which funds hold each issuer, exact filed values and whether the issuer has
+both bonds and loans. It does not decide which issuers file 10-K reports: that check needs EDGAR
+and is recorded as not run.
+
+```bash
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.issuer_universe \
+  --nport path/to/HYG-nport.xml path/to/BKLN-nport.xml --out path/to/universe.json
+```
+
+Holdings are dated by each filing's holdings date. An issuer's LEI is the legal issuer of the
+security, often a financing subsidiary, so matching it to the parent that files 10-K reports is
+part of the SEC check. The tests use the retained LQD filing (2,908 bonds, 497 issuers); no high-yield or loan ETF filing is
+retained yet.
 
 ## Development loop
 

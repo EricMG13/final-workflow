@@ -218,24 +218,19 @@ The [Caesars pilot](runs/cpos-launch-host-czr-001/verification.json) runs `--mod
 in host mode on the retained Caesars filings: 6 of 6 selected sections populated, 23 of 24 answer
 keys found, one rejected answer repaired through the feedback loop.
 
-### Prospective issuer universe from ETF holdings
+### Issuer corpus and filing packs
 
-High-yield bond ETFs (for example HYG, USHY and JNK) and loan ETFs (for example BKLN and SRLN)
-file their holdings with the SEC on Form N-PORT. The builder reads those XML filings, keeps
-corporate bonds and loans, and groups them by issuer LEI, or by printed name where no LEI is
-given. It records which funds hold each issuer, exact filed values and whether the issuer has
-both bonds and loans. It does not decide which issuers file 10-K reports: that check needs EDGAR
-and is recorded as not run.
+The issuer corpus is a separate project: [EricMG13/SECData](https://github.com/EricMG13/SECData).
+It builds the list of issuers from high-yield and loan ETF holdings filed on SEC Form N-PORT,
+keeps those that file 10-K reports, and stores each issuer's minimum pack from EDGAR: the latest
+10-K, the three latest 10-Qs and three quarterly presentations, or the earnings release for a
+quarter whose deck is not on EDGAR. A pack folder is a ready `--sources` folder for this launcher:
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m deploy_workflow.issuer_universe \
-  --nport path/to/HYG-nport.xml path/to/BKLN-nport.xml --out path/to/universe.json
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
+  --context path/to/context.json --sources ../SECData/data/<date>/packs/<cik>-<name> \
+  --config host --modules minimum --out runs/<run-folder>
 ```
-
-Holdings are dated by each filing's holdings date. An issuer's LEI is the legal issuer of the
-security, often a financing subsidiary, so matching it to the parent that files 10-K reports is
-part of the SEC check. The tests use the retained LQD filing (2,908 bonds, 497 issuers); no high-yield or loan ETF filing is
-retained yet.
 
 ## Development loop
 

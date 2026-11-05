@@ -25,35 +25,14 @@ written by the same host, graded the run Passed with a Confidence Score of 47 (L
 method's script, and found four MINOR locator and restatement defects. The credit view rests on
 lease obligations larger than debt and on a pending take-private whose financing is not supplied.
 
-**Issuer universe.** `python -m deploy_workflow.issuer_universe` reads N-PORT XML and groups
-corporate bonds and loans by issuer LEI. On the retained LQD filing it keeps 2,908 bonds from 497
-issuers; tests check those counts and one issuer's value sum against a separate regex reading of
-the raw XML. A synthetic filing covers loans, missing LEIs and missing values.
+**Issuer universe.** The N-PORT universe builder first written here now lives with the corpus in
+the separate [SECData](https://github.com/EricMG13/SECData) project, which records its own checks.
+After the network policy was widened for `www.sec.gov`, `data.sec.gov` and `efts.sec.gov`, SECData
+built a 100-issuer corpus from eight high-yield and loan ETFs. Two of its packs, American
+Airlines and Caesars, were prepared here with `--config host --modules minimum`: every document
+was pinned and converted, and CP-OS issued the CP-0 request.
 
-**Blocked.** This environment's network policy refuses `www.sec.gov`, `data.sec.gov`,
-`www.ishares.com`, `www.ssga.com` and `www.invesco.com`. No high-yield or loan ETF holdings were
-fetched, so no issuer list was built, and SEC registrant matching and the EDGAR filing fetcher
-are not written: neither can be tested here against real data.
-
-Checks: launcher, app and universe tests 93 passed, the paid test skipped.
-
-### Confidence review — issuer universe
-
-- A fund holding with no filed value showed `value_usd` "0". Found while writing the synthetic
-  test; now null, with `values_missing` counted.
-- `LON` and the government issuer codes come from the N-PORT XML specification; the retained
-  filing has only `DBT`, `STIV`, `CORP`, `RF` and `OTHER`. An unexpected code is counted in
-  `excluded_holdings` with its value, never dropped silently. Confirm on the first loan ETF filing.
-- Holdings without an LEI are keyed by the printed name, which N-PORT abbreviates; one issuer can
-  split across spellings. 100 of the 2,910 LQD holdings have no LEI.
-- The LEI is the security's legal issuer, often a financing subsidiary; the SEC check must map it
-  to the 10-K filer.
-
-### Post-edit rewrite tournament — `universe`
-
-Candidates: (a) one pass that groups into dictionaries of sets and sums Decimals; (b) a dataframe
-group-by, which adds a dependency; (c) collect rows, sort, then `itertools.groupby`, which needs
-the same per-issuer fields and an extra sort. (a) is kept.
+Checks: launcher and app tests 90 passed, the paid test skipped.
 
 ## 2026-11-05 — host-session launcher mode and TDG pilot
 

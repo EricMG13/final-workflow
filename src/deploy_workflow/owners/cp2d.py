@@ -1862,10 +1862,23 @@ def submission_issues(
         refs += s.minimum_cash.basis_refs
     if any(r not in offered_refs for r in refs):
         issues.append(BASIS_ISSUE)
-    for a in s.assessments:
-        if a.section == "maturity_wall" and not maturity_date_refs & set(a.basis_refs):
+    issues += _assessment_issues(s, maturity_date_refs)
+    return tuple(dict.fromkeys(issues))
+
+
+def _assessment_issues(
+    submission: LiquidityBridgeSubmission, maturity_date_refs: frozenset[str]
+) -> list[str]:
+    """The wall-citation issues, then the limitation issues, of the assessments in order."""
+    issues: list[str] = []
+    # Ruling D-5 binds the wall to a T4.18 maturity_date only when the view offers one: with no
+    # facility row (no schedule, or an empty one) nothing is citable, and the core settles the
+    # wall as a gap or a known zero instead of the validator refusing every submission.
+    for a in submission.assessments:
+        cited = maturity_date_refs & set(a.basis_refs)
+        if a.section == "maturity_wall" and maturity_date_refs and not cited:
             issues.append(WALL_DATE_ISSUE)
-    for a in s.assessments:
+    for a in submission.assessments:
         carried = a.limitation is not None
         stated = a.limitation is not None and not is_blank(a.limitation)
         insufficient = a.category == "Insufficient Information"
@@ -1873,7 +1886,7 @@ def submission_issues(
             issues.append(INSUFFICIENT_ISSUE)
         if carried and not insufficient:
             issues.append(LIMITATION_ISSUE)
-    return tuple(dict.fromkeys(issues))
+    return issues
 
 
 # =============================================================================================

@@ -24,6 +24,7 @@ from typing import Any, Literal, Protocol, Self
 
 from pydantic import SerializerFunctionWrapHandler, TypeAdapter, ValidationError, model_serializer
 
+from deploy_vii.cp3_relative_value import TALK_MARKERS
 from deploy_vii.contracts import (
     Citation,
     Claim,
@@ -800,17 +801,53 @@ def _labelled(kind: str, level_text: str, quote: str) -> bool:
     )
 
 
+# Wording that marks a quoted level as talk or as conditional, not an executable bid or offer:
+# CP-3's talk markers (an `observed` row never quotes them) and the conditional-quote phrases.
+FIRM_MARKERS = (*TALK_MARKERS, "subject to", "not firm", "non-firm")
+_FIRM = tuple(
+    (p, re.compile(rf"(?<![A-Za-z]){re.escape(p)}(?![A-Za-z])", re.IGNORECASE))
+    for p in FIRM_MARKERS
+)
+_SENTENCE_BREAK = re.compile(r"[.!?](?= )")  # a full stop, `!` or `?` before a space
+
+
+def _sentences(quote: str, page: str) -> list[str]:
+    """The page sentence around each occurrence of the quote, in each reading (`_readings`): from
+    the break before the occurrence to the first break at or after its last character."""
+    found: list[str] = []
+    for needle in _readings(quote):
+        for text in _readings(page):
+            for at in _occurrences(needle, text):
+                breaks = [m.end() for m in _SENTENCE_BREAK.finditer(text, 0, at)]
+                after = _SENTENCE_BREAK.search(text, max(at, at + len(needle) - 1))
+                found.append(text[breaks[-1] if breaks else 0 : after.end() if after else None])
+    return found
+
+
+def _firm_ok(o: Observation, path: str, out: _Issues) -> bool:
+    """Whether a sheet bid or offer is quoted as firm: neither its quote nor the page sentence
+    holding it carries talk or conditional wording (`FIRM_MARKERS`); else the issue."""
+    page = out.context.pages[o.source_id][o.locator]
+    held = " ".join([o.quote, *_sentences(o.quote, page)])
+    markers = [phrase for phrase, pattern in _FIRM if pattern.search(held)]
+    for marker in markers:
+        out.add(f'{path}: {o.kind} is quoted with indicative or conditional wording: "{marker}"')
+    return not markers
+
+
 def _label_ok(o: Observation, path: str, out: _Issues) -> bool:
-    """Whether the quote labels the level as the observation's kind (ruling 6b C1); else the issue."""
+    """Whether the quote labels the level as the observation's kind (ruling 6b C1) and, for a bid
+    or offer, quotes it as firm (`_firm_ok`); else the issue."""
     lt = o.level_text
     if o.kind == "indicative_talk":
         if _labelled("(?:bid|offer)", lt, o.quote):
             out.add(f"{path}: indicative_talk level_text {lt} is a bid or offer level in the quote")
             return False
-    elif not _labelled(o.kind, lt, o.quote):
+        return True
+    if not _labelled(o.kind, lt, o.quote):
         out.add(f"{path}: {o.kind} level_text {lt} is not labelled {o.kind} in the quote")
         return False
-    return True
+    return _firm_ok(o, path, out)
 
 
 def _observation_level(o: Observation, path: str, out: _Issues) -> Decimal | None:

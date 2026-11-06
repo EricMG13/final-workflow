@@ -1951,3 +1951,68 @@ def test_r13_w_minus_is_no_b3_wrap_split(page: str, quote: str, name: str, occur
     """`_name_occurs`: a `- ` matching W's minus, with something before it in the value, occurs;
     `A-\\n25`, `2024-\\n2025`, `a - b`, a `- ` at index 0 and any other `- ` stay B3 refusals."""
     assert cp3d._name_occurs(name, quote) is occurs
+
+
+# --- review fixes S08-cp3: a sheet bid or offer is bound, firm, priced and dated ---------------
+
+_SHEET_QUOTE = (
+    "Dealer quotation on January 9, 2026: bid 98.50 and offer 99.25, expressed as a percentage "
+    "of par."
+)
+
+
+def _sheet_case(sentence: str) -> tuple[dict[str, Any], cp3d.MarketContext]:
+    """The positive submission with the sheet's quotation sentence replaced by `sentence` on the
+    page and in the bid and offer quotes (both keep their positive level_text and as_of_text)."""
+    base = _context("positive")
+    page = base.pages["market"]["page:1"]
+    assert _SHEET_QUOTE in page
+    ctx = _with_page(base, "market", "page:1", page.replace(_SHEET_QUOTE, sentence))
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    for o in raw["observations"][:2]:
+        o["quote"] = sentence
+    return raw, ctx
+
+
+def _issues_of(raw: dict[str, Any], ctx: cp3d.MarketContext) -> tuple[str, ...]:
+    return cp3d.submission_issues(submission=_submission(raw), context=ctx)
+
+
+def test_s08_a01_an_indicative_conditional_bid_offer_is_refused() -> None:
+    """S08-cp3-A01/C07: a quotation that calls itself indicative, subject to confirmation and not
+    firm is no executable bid or offer; each side gets one issue per marker, in marker order."""
+    sentence = (
+        "Indicative dealer quotation on January 9, 2026, subject to confirmation and not firm: "
+        "bid 98.50 and offer 99.25, expressed as a percentage of par."
+    )
+    raw, ctx = _sheet_case(sentence)
+    assert _issues_of(raw, ctx) == tuple(
+        f'observations[{i}]: {kind} is quoted with indicative or conditional wording: "{m}"'
+        for i, kind in ((0, "bid"), (1, "offer"))
+        for m in ("indicative", "subject to", "not firm")
+    )
+
+
+def test_s08_a01_the_marker_in_the_unquoted_part_of_the_sentence_still_refuses() -> None:
+    """The model quotes only the dated part after the marker: the page sentence holding the quote
+    still says `Indicative`, so the bid and the offer are refused."""
+    sentence = (
+        "Indicative dealer quotation on January 9, 2026: bid 98.50 and offer 99.25, expressed as "
+        "a percentage of par."
+    )
+    raw, ctx = _sheet_case(sentence)
+    for o in raw["observations"][:2]:
+        o["quote"] = "quotation on January 9, 2026: bid 98.50 and offer 99.25"
+    assert _issues_of(raw, ctx) == (
+        'observations[0]: bid is quoted with indicative or conditional wording: "indicative"',
+        'observations[1]: offer is quoted with indicative or conditional wording: "indicative"',
+    )
+
+
+def test_s08_a01_talk_in_another_sentence_of_the_page_does_not_refuse_a_firm_quote() -> None:
+    """A following sentence that calls the commentary talk is not the quotation's sentence."""
+    sentence = _SHEET_QUOTE + " Separate dealer talk is around 99.75."
+    raw, ctx = _sheet_case(sentence)
+    for o in raw["observations"][:2]:
+        o["quote"] = _SHEET_QUOTE
+    assert _issues_of(raw, ctx) == ()

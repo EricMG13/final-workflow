@@ -529,3 +529,51 @@ def test_unusual_handoff_names_are_labelled_one_by_one_and_hide_no_run(tmp_path)
         "CP-1-[draft]-attempt-1.md": "[draft] · attempt 1 of 2",
         "CP-1-[draft]-attempt-2.md": "[draft] · attempt 2 of 2",
     }
+
+
+def test_a_folder_named_like_a_route_key_does_not_replace_the_retained_case(tmp_path):
+    """Expected: the curated route key frontier-2020 keeps folder frontier-2020-001 (module CP-1);
+    the new CLI run in runs/frontier-2020 is not shown and Settings says why."""
+    put(tmp_path, "runs/frontier-2020-001/CP-1.md", CP1)
+    put(tmp_path, "runs/frontier-2020/CP-2.md", "# CP-2\n\nNew run.\n")
+    catalogue = {
+        "issues": [],
+        "real": [
+            {"id": "frontier-2020-001", "name": "Frontier"},
+            {"id": "frontier-2020", "name": "Frontier new"},
+        ],
+    }
+    result = store.workspace_store(tmp_path, catalogue)
+    assert {k: (v["folder"], list(v["modules"])) for k, v in result["runs"].items()} == {
+        "frontier-2020": ("frontier-2020-001", ["CP-1"])
+    }
+    assert [i for i in result["issues"] if i.startswith("frontier-2020:")] != []
+
+
+def test_a_curated_report_label_needs_the_curated_issuer_in_view_json(tmp_path):
+    """Expected: the folder name alone does not make a Ford Otosan delivery a TransDigm build;
+    it keeps its recorded issuer and a label built from view.json (as of 2025-06-30), no status.
+    A build recorded as TransDigm Group Incorporated keeps build 6's hand-written label."""
+    delivery(tmp_path, "deliverables/tdg-fy2024-snapshot-7", "Ford Otosan", {"CP-1.md": CP1})
+    delivery(
+        tmp_path,
+        "deliverables/tdg-fy2024-snapshot-6",
+        "TransDigm Group Incorporated",
+        {"CP-1.md": CP1},
+    )
+    names = ("deliverables/tdg-fy2024-snapshot-7", "deliverables/tdg-fy2024-snapshot-6")
+    reports = {
+        r["id"]: r for r in store.workspace_store(tmp_path, report_catalogue(*names))["reports"]
+    }
+    ford, transdigm = reports["tdg-fy2024-snapshot-7"], reports["tdg-fy2024-snapshot-6"]
+    assert (ford["issuer"], ford["label"], ford["status"], ford["build"]) == (
+        "Ford Otosan",
+        "Ford Otosan · as of 2025-06-30",
+        None,
+        None,
+    )
+    assert (transdigm["issuer"], transdigm["label"], transdigm["build"]) == (
+        "TransDigm Group",
+        "Peer comparison · exact fiscal dates added",
+        6,
+    )

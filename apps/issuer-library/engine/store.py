@@ -529,11 +529,18 @@ def report_record(
     identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"]
     issuer_name, as_of = identity["issuer_name"], identity["as_of"]
     files = {str(n): str(h) for n, h in delivery["files"].items()}
-    curated = name in CURATED_REPORTS
+    # The hand-written labels describe TransDigm builds; a folder of that name for another issuer
+    # keeps the issuer its own view.json records.
+    curated = name in CURATED_REPORTS and str(issuer_name).startswith("TransDigm Group")
     issuer = "TransDigm Group" if curated else issuer_name
     default = artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
-    label, status = CURATED_REPORTS.get(
-        name, (default, "Superseded" if artifact.get("state") == "superseded" else None)
+    label, status = (
+        CURATED_REPORTS[name]
+        if curated
+        else (
+            default,
+            "Superseded" if artifact.get("state") == "superseded" else None,
+        )
     )
     return {
         "id": name,
@@ -574,12 +581,12 @@ def catalogue_reports(
     return reports, issues
 
 
-def visual_catalogue():
+def visual_catalogue() -> list[dict[str, str]]:
     with (REPO / "docs/visualisations/catalogue.csv").open(encoding="utf-8-sig") as source:
         return list(csv.DictReader(source))
 
 
-def recorded_run(run_dir):
+def recorded_run(run_dir: Path) -> dict[str, str]:
     """The text fields of the launcher's own manifest; a run without a readable one records none."""
     try:
         manifest = json.loads((run_dir / "workflow.json").read_text(encoding="utf-8"))
@@ -588,7 +595,7 @@ def recorded_run(run_dir):
         return {}
 
 
-def run_row(root, run):
+def run_row(root: Path, run: dict[str, Any]) -> tuple[str, ...]:
     """Labels for a run with no curated ones: the launcher's own manifest, else the catalogue."""
     folder = run["id"]
     identity = recorded_run(root / "runs" / folder)
@@ -603,12 +610,13 @@ def run_row(root, run):
     return (folder, issuer, issuer, label, run.get("sector") or "Unclassified", period)
 
 
-def workspace_store(root, catalogue):
-    """Everything the app reads. A curated pin that stopped matching is dropped and reported, not fatal."""
+def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, Any]:
+    """Everything the app reads. A curated pin that stopped matching is dropped, not fatal."""
     root = Path(root)
     catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
     curated = {row[0]: (key, row) for key, row in CURATED_RUNS.items()}
     shown, issues = {}, list(catalogue.get("issues") or [])
+    route_keys = {curated[run["id"]][0] for run in catalogue["real"] if run["id"] in curated}
     for run in catalogue["real"]:
         folder = run["id"]
         if folder.startswith("delivery:"):
@@ -616,17 +624,26 @@ def workspace_store(root, catalogue):
         if not SAFE_FOLDER.fullmatch(folder):
             issues.append(f"{folder}: folder name cannot be linked; rename it to show this run")
             continue
+        if folder in route_keys and folder not in curated:
+            # The route key names the retained case in links and pins: never replace it.
+            issues.append(f"{folder}: name is a retained case's route key; rename it to show it")
+            continue
         key, row = curated.get(folder) or (folder, run_row(root, run))
         shown[key] = row
 
-    def link(folder, relative, digest):
+    def link(folder: str, relative: str, digest: str) -> str:
         return f"/files/{quote(f'runs/{folder}/{relative}')}?sha256={digest}"
 
-    runs, outputs, inputs, sources, pins, found = {}, {}, {}, {}, {}, []
+    runs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+    inputs: dict[str, Any] = {}
+    sources: dict[str, list[dict[str, Any]]] = {}
+    pins: dict[str, Any] = {}
+    found: list[str] = []
     for key, row in shown.items():
         # Documented fail-open: one run that cannot be read is hidden and reported in Settings.
         try:
-            part = collect_runs(root, {key: row}, catalog, link, strict=False)
+            part = collect_runs(root, {key: row}, catalog, link, strict=False)  # type: ignore[no-untyped-call]  # legacy untyped parser
         except Exception as error:  # noqa: BLE001
             found.append(f"{row[0]}: could not be read ({error!r})")
             continue

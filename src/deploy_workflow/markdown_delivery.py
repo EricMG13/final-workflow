@@ -11,6 +11,8 @@ import hashlib
 import html
 import json
 import re
+from collections.abc import Mapping
+from dataclasses import replace
 from datetime import date
 from decimal import Context, Decimal
 from pathlib import Path
@@ -41,6 +43,7 @@ from deploy_vii.report_view import (
     _figure_of_points,
     _prose_lines,
     _refs_by_fact,
+    _Slot,
     _slot,
     _spec_of,
     _unplaced,
@@ -466,6 +469,32 @@ def _section_sentences(bound: tuple[Binding, ...], modules: list[ModuleView]) ->
     return tuple(dict.fromkeys(t.limitation for t in found if t is not None and t.limitation))
 
 
+def _registers(
+    bound: tuple[Binding, ...],
+    modules: list[ModuleView],
+    refs: Mapping[tuple[str, str], tuple[str, ...]],
+) -> list[_Slot]:
+    """One register per whole table, and one per route for the rows a route selected.
+
+    A partial selection binds each selected row separately; rows of one table that share a
+    label are one register, so a route's rows are one tab and tab labels stay distinct.
+    """
+    by_module = {m.module_id: m for m in modules}
+    slots: list[_Slot] = []
+    merged: dict[tuple[str, str | None, str], int] = {}
+    for entry in bound:
+        coord = entry.fact_coord
+        slot = _slot(entry, by_module[coord.module_id], refs)
+        key = (coord.module_id, coord.table_id, slot.label)
+        if coord.row_id is None or key not in merged:
+            merged[key] = len(slots)
+            slots.append(slot)
+        else:
+            held = slots[merged[key]]
+            slots[merged[key]] = replace(held, rows=held.rows + slot.rows)
+    return slots
+
+
 def markdown_files(  # noqa: C901, PLR0912, PLR0915 - existing function, only its block note changes
     request: DeliveryRequest, base: Path
 ) -> dict[str, bytes]:
@@ -782,16 +811,11 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - existing function, only it
                 )
             )
         else:
-            slots = (
-                _slot(
-                    e, next(m for m in module_views if m.module_id == e.fact_coord.module_id), refs
-                )
-                for e in bound
-            )
-            primary = next(slots)
+            slots = _registers(bound, module_views, refs)
+            primary, *further = slots
             tabs = tuple(
                 BlockTab(label=s.label, row_header=s.row_header, columns=s.columns, rows=s.rows)
-                for s in slots
+                for s in further
             )
             blocks.append(
                 Block(

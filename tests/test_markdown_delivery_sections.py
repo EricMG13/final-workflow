@@ -8,6 +8,8 @@ import hashlib
 import json
 from pathlib import Path
 
+import pytest
+
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
 from deploy_workflow.markdown_delivery import markdown_files
@@ -109,3 +111,60 @@ def test_table_section_without_prose_has_only_the_route_label(tmp_path):
     unlabelled = {k: v for k, v in ROUTE.items() if k != "label"}
     got = deliver(tmp_path, handoff("Scope.", "### Financials\n" + TABLE), [unlabelled])["block"]
     assert got.note is None
+
+
+PARAGRAPHS = "Earnings view: first.\n\nEarnings view: second.\n\nScope note, not selected.\n"
+PROSE = {"heading": "Request", "kind": "prose", "prefix": "Earnings view"}
+
+
+def test_partial_row_selection_is_one_register_not_one_tab_per_row(tmp_path):
+    # Hand-derived: two of three paragraphs match, so they form the block's one register of two
+    # rows in handoff order; the third paragraph is not shown here (it stays in Evidence).
+    findings = "### Financials\n" + TABLE
+    got = deliver(tmp_path, handoff(PARAGRAPHS, findings), [{**PROSE, "label": "View"}])["block"]
+    assert got.tabs == () and got.tab_label is None
+    assert [[c.text for c in r.cells] for r in got.rows] == [
+        ["Earnings view: first."],
+        ["Earnings view: second."],
+    ]
+    assert got.note == "View"
+
+
+def test_two_partial_routes_with_different_labels_stay_two_tabs(tmp_path):
+    text = handoff("Alpha one.\n\nBeta one.\n\nAlpha two.\n", "### Financials\n" + TABLE)
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "A"},
+        {"heading": "Request", "kind": "prose", "prefix": "Beta", "label": "B"},
+    ]
+    got = deliver(tmp_path, text, routes)["block"]
+    assert got.tab_label == "A" and [t.label for t in got.tabs] == ["B"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["Alpha one."], ["Alpha two."]]
+    assert [[c.text for c in r.cells] for r in got.tabs[0].rows] == [["Beta one."]]
+
+
+def test_full_selection_still_binds_the_whole_table(tmp_path):
+    text = handoff("Earnings view: first.\n\nEarnings view: second.\n", "### Financials\n" + TABLE)
+    got = deliver(tmp_path, text, [{**PROSE, "label": "View"}])["block"]
+    assert got.tabs == ()
+    assert [r.cells[0].text for r in got.rows] == [
+        "Earnings view: first.",
+        "Earnings view: second.",
+    ]
+
+
+def test_unselected_prefix_still_refuses(tmp_path):
+    text = handoff("Other.\n", "### Financials\n" + TABLE)
+    with pytest.raises(ValueError, match="markdown_selector"):
+        deliver(tmp_path, text, [PROSE])
+
+
+def test_two_routes_on_one_table_with_one_label_share_a_register_in_route_order(tmp_path):
+    # Hand-derived: rows follow route order (Gamma route first), and no row is shown twice.
+    text = handoff("Alpha one.\n\nGamma one.\n\nAlpha two.\n\nBeta.\n", "### Financials\n" + TABLE)
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Gamma"},
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha"},
+    ]
+    got = deliver(tmp_path, text, routes)["block"]
+    assert got.tabs == ()
+    assert [r.cells[0].text for r in got.rows] == ["Gamma one.", "Alpha one.", "Alpha two."]

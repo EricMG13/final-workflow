@@ -15,7 +15,8 @@ from deploy_vii.live.prompts import CP4_METHOD
 SRC = Path(__file__).resolve().parents[1] / "src" / "deploy_vii"
 PHRASE = "executed, filed or, on a draft-documents run, draft"
 OLD_CP4_SHA = "99ec34c7a8257e15325456eb5466388eeb656fa01cf30db91e8474334bb39ff0"
-OLD_CONTEXT_SHA = "71be7583fae72d5b719ba7167026d46576f5a4e7da4f4be1410417d50bd1a7aa"
+# S13 C01 restated the kpi evidence line (period_basis_id); the pin follows that edit.
+OLD_CONTEXT_SHA = "1eb8ce32bb494d604e67a797eb0a32ffd9d8f0da663bdb8f45f75eb81730d700"
 
 
 def flat(text: str) -> str:

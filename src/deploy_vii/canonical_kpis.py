@@ -37,7 +37,10 @@ from deploy_vii.preparation import PreparedPack
 
 class CanonicalKpi(Contract):
     calculation_id: Identifier
+    # The column the KPI is displayed in; `period_basis_id` is the basis its operands
+    # use (a trailing ratio on a QUARTER column reads the rolling four-quarter basis).
     display_basis_id: Identifier
+    period_basis_id: Identifier
     key: Text
     operation: Literal["value", "ratio", "growth", "unavailable"]
     unit: Text
@@ -287,7 +290,7 @@ def _kpi_rows(
             ),
         )
 
-    def add(
+    def add(  # noqa: PLR0913 - one parameter per CanonicalKpi field the row does not derive
         column: Column,
         key: str,
         operation: Literal["value", "ratio", "growth"],
@@ -296,6 +299,7 @@ def _kpi_rows(
         top: MetricLeg,
         bottom: MetricLeg | None,
         cell: Cell,
+        period_basis: str | None = None,
     ) -> None:
         basis = _basis_id(column)
         value = _value(cell, observations, evidence, normalizations)
@@ -310,6 +314,7 @@ def _kpi_rows(
             CanonicalKpi(
                 calculation_id=_id("canonical-kpi", basis, key),
                 display_basis_id=basis,
+                period_basis_id=period_basis or basis,
                 key=key,
                 operation=operation,
                 unit=unit,
@@ -362,7 +367,7 @@ def _kpi_rows(
                     + " + ".join(f"{s} * {k}" for k, s in recipe.denominator)
                     + ")"
                 )
-                add(column, key, "ratio", recipe.unit, formula, top, bottom, cell)
+                add(column, key, "ratio", recipe.unit, formula, top, bottom, cell, selected_basis)
             prior = metrics._prior_cells(column, columns, frame, rolling)
             growth = metrics._growth(column, own, prior, frozenset())
             for target in metrics._GROWTH:

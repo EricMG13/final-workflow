@@ -896,15 +896,22 @@ def test_a_key_shaped_source_path_is_redacted_in_run_json(args: dict[str, Any]) 
 def test_a_double_fault_does_not_chain_the_raw_fault_into_the_escaping_error(
     args: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The mapped fault carries a key; writing ``run.json`` then fails (a leftover temp file).
-    The error that escapes must not hold the raw fault as its context."""
+    """The mapped fault carries a key; writing ``run.json`` then fails (its rename is refused; a
+    leftover temp file no longer fails it, S01-C04). The error that escapes must not hold the raw
+    fault as its context."""
+    real_replace = os.replace
+
+    def refuse_run_json(source: Any, target: Any) -> None:
+        if Path(target).name == "run.json":
+            raise PermissionError(13, "Permission denied")
+        real_replace(source, target)
 
     def prepare(request: object, sources: object, out: object) -> NoReturn:
-        (args["run_dir"] / "run.json.tmp").write_bytes(b"")
+        monkeypatch.setattr(rp.os, "replace", refuse_run_json)
         raise ValueError(f"cannot prepare with {SECRET}")
 
     monkeypatch.setattr(run_inputs_module, "prepare", prepare)
-    with pytest.raises(FileExistsError) as escaped:
+    with pytest.raises(PermissionError) as escaped:
         run_pathway(**args)
     text = "".join(traceback.format_exception(escaped.value))
     assert SECRET not in text
@@ -1078,6 +1085,46 @@ def test_resume_continues_call_index_and_digest_and_counts_the_spend_once(
     ]
     assert len(markers) == 2
     assert run_json(run_dir)["stopped_reason"] == outcome.stopped_reason
+
+
+def test_a_run_json_temp_left_by_a_dead_writer_does_not_wedge_the_resume(
+    killed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S01-C04: `run.json.tmp` was created with O_EXCL and never removed, so one left by a write
+    killed before `os.replace` made every later `run.json` write raise FileExistsError. Expected,
+    by hand: the resume records its stop (`ProviderRejected`) in a complete `run.json` and no
+    `run.json.tmp` remains; the stale fragment is not read."""
+    run_dir: Path = killed["run_dir"]
+    (run_dir / "run.json.tmp").write_bytes(b"{partial")
+    scripted_complete(monkeypatch, [pack_helpers.failed("sent_known", "ProviderRejected", 400)])
+    outcome = run_pathway(**killed, resume=True)
+    assert outcome.outcome == "stopped"
+    assert run_json(run_dir)["stopped_reason"] == outcome.stopped_reason
+    assert outcome.stopped_reason is not None
+    assert outcome.stopped_reason.startswith("ProviderRejected")
+    assert not (run_dir / "run.json.tmp").exists()
+
+
+def test_a_failed_run_json_write_removes_its_temp_file(
+    killed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A write that fails between creating the temp file and the rename (EIO on fsync here) leaves
+    neither `run.json` nor `run.json.tmp`. Expected, by hand: the OSError propagates (the run
+    stays resumable: no `run.json`), and the directory holds no `run.json.tmp` afterwards."""
+    run_dir: Path = killed["run_dir"]
+    scripted_complete(monkeypatch, [pack_helpers.failed("sent_known", "ProviderRejected", 400)])
+    real_replace = os.replace
+
+    def failing_replace(source: Any, target: Any) -> None:
+        if Path(target).name == "run.json":
+            raise OSError(5, "Input/output error")
+        real_replace(source, target)
+
+    monkeypatch.setattr(rp.os, "replace", failing_replace)
+    with pytest.raises(OSError, match="Input/output error"):
+        run_pathway(**killed, resume=True)
+    assert not (run_dir / "run.json").exists()
+    assert not (run_dir / "run.json.tmp").exists()
 
 
 def test_a_reservation_left_by_a_crash_stops_the_resume_and_sends_nothing(

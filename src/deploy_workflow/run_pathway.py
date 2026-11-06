@@ -580,7 +580,7 @@ def _fsync_directory(directory: Path) -> None:
     fsync_directory(directory)
 
 
-def _write_run_json(
+def _write_run_json(  # noqa: PLR0913 - existing signature; each run.json key has its input
     run_dir: Path,
     meta: _Meta,
     outcome: str,
@@ -612,13 +612,27 @@ def _write_run_json(
         body["ruling_sha256"] = checked.gate.sha256
         body["ruling_date"] = checked.gate.date.isoformat()
     data = (json.dumps(meta.redactor.json_value(body), indent=2) + "\n").encode()
+    _replace_run_json(run_dir, data)
+
+
+def _replace_run_json(run_dir: Path, data: bytes) -> None:
+    """``run.json`` from a synced temp file and ``os.replace``. Only the run's one writer gets here
+    (holding the run's ``flock``, or staging the directory its exclusive mkdir just made), so a
+    ``run.json.tmp`` found here was left by a dead writer and is removed; a failed write removes
+    its own, so neither wedges a later write (S01-C04)."""
     temp = run_dir / "run.json.tmp"
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | flags("O_CLOEXEC", "O_NOFOLLOW", "O_BINARY"), 0o600)
-    with os.fdopen(fd, "wb") as handle:
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(temp, run_dir / "run.json")
+    temp.unlink(missing_ok=True)
+    options = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    fd = os.open(temp, options | flags("O_CLOEXEC", "O_NOFOLLOW", "O_BINARY"), 0o600)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, run_dir / "run.json")
+    except BaseException:
+        temp.unlink(missing_ok=True)
+        raise
     _fsync_directory(run_dir)
 
 

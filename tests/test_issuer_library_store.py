@@ -447,3 +447,22 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
     output = result["outputs"]["web-1/CP-1.md"]
     assert output["summary"] is None
     assert any(s["heading"] == "Chart data: leverage" for s in output["sections"])
+
+
+def test_an_admitted_manifest_name_groups_runs_and_reports_in_one_spelling(tmp_path):
+    """library.json names win over the launcher's EDGAR spelling, for the run and its report."""
+    catalogue = workspace(tmp_path)
+    put(
+        tmp_path,
+        "runs/launched/workflow.json",
+        json.dumps({"run": {"issuer_name": "BETA GROUP INC", "as_of": "2025-06-30"}}),
+    )
+    launched = next(run for run in catalogue["real"] if run["id"] == "launched")
+    launched.update({"name": "Beta Group Inc", "identity_source": "launched.context"})
+    result = store.workspace_store(tmp_path, catalogue)
+    assert result["runs"]["launched"]["issuer"] == "Beta Group Inc"
+    assert [r["issuer"] for r in result["reports"] if r["id"] == "abc"] == ["Beta Group Inc"]
+    # Without an admitted manifest the launcher's own spelling is kept.
+    launched.pop("identity_source")
+    result = store.workspace_store(tmp_path, catalogue)
+    assert result["runs"]["launched"]["issuer"] == "BETA GROUP INC"

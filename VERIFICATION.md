@@ -8,6 +8,68 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-06 — Populating the Issuer Library from SECData
+
+Scope: the host-session runs of draft PRs #5, #11 and #13, landed on one branch, gated, given
+`library.json` manifests, read by the real server and shipped beside the repository. No provider
+call. No retained run file was edited: manifests are new files beside the runs. Runs that fail the
+gate stay unchanged on their own PR commits (#5 `b4692c6`, #11 `6317d47`, #13 `62d7752`); links to
+them in the entries below resolve there. SECData's restored packs (`claude/restore-filing-packs`,
+`5120db9`) matched all 827 converted source files of the 119 swarm runs by SHA-256 of file bytes.
+
+- **Landed:** the three branches merged in that order onto `main` `a313b50`. The launcher keeps
+  main's Copilot checks under `--live`, where the host config (no provider) never looks up a key; the
+  launcher test file and this record keep both sides.
+- **Gate (user's rule: include runs that match the latest methodology and populate all required
+  fields, charts and visualisations):** `deploy_workflow.cpos_library --gate`. A run passes when its
+  instructions and layout are byte-identical to what the current launcher writes for it, its report
+  is published and hash-checked, every layout section is populated, every chart (S.1 leverage, S.2
+  cover, S.3 liquidity, S.4 maturities) has a plotted value in every series, and its manifest has
+  every field the library shows. 101 of 127 pass. Left out:
+  - 8 pilots (`cpos-launch-host-*`, `cpos-launch-swarm-*-001`): instructions predate the current ones.
+  - `cpos-swarm-20261105-svc`: stopped before publication; its repair `-svc-002` passes.
+  - 6 issuers reporting in Canadian dollars or thousands (ats, bte, gfl, pds, tac, tu): the chart
+    routes are fixed at US$m, so the method writes `Not supplied: reported in <unit>` and S.3/S.4 draw
+    nothing. They cannot pass without a change to the chart routes.
+  - 8 without EBITDA (fsk, ritm, stwd, syf, trtx, ubs, gmab, ske): S.1 and S.2 draw nothing; fsk
+    also has no sector in its SECData context.
+  - 3 with one empty series (alks: cover and undrawn facilities; amc: undrawn facilities; q: cover).
+- **Not required of these runs:** the full Credit Snapshot has 12 sections and the HTML Model. The
+  `minimum` set fills 7; the other five and the Model need CP-4, CP-3, CP-6, CP-8 and CP-MODEL, and the
+  launcher publishes no Model. S.5 (revenue and EBITDA history) is in no launcher layout.
+- **Manifests:** identity, sector and dates pinned to the SECData context kept under each run's
+  `inputs/`. Leverage, cover and cash from the chart tables; revenue, EBITDA and operating cash flow
+  from the financials table where the row, a whole period and its unit (Unit column, label, a note
+  column that opens with it, header, or the line above the table) are explicit; else null. Of 101:
+  revenue 78, EBITDA 78, leverage 100, cover 99, cash 101, operating cash flow 78. Names: 56 as in
+  the context, 11 from the funds' spelling, 34 recased. `--check` regenerates all 101 byte-identical.
+- **Server, this Linux host, headless Chromium 1440×1000:** every included run has five modules with
+  a reader summary and four charts parsed for its Overview, no parse issue; library 123 issuers,
+  145 runs, 120 reports; home in 3.8 s; `/api/workspace` 22 MB in 2.9 s; search and the sector filter
+  work; the aap report renders in the sandbox. No console errors. Go `vet` and `test ./...` pass;
+  `TestCurrentRetainedWorkspace` admits all 101. Python: `test_cpos_library.py` 47 passed; launcher,
+  app, handoffs and store 248 passed, 1 failed (the `chmod 0` test that fails as root, also on main).
+- **Confidence review:** the first reader read a depreciation row noted "EBITDA basis" as EBITDA, ranked
+  a March fiscal year above a later trailing-twelve-month column, and dropped valid EBITDA rows on
+  "interest", "bridge" and "adjustments". Fixed: EBITDA must be the head noun, an explicit date
+  outranks a fiscal-year name, and a table unit is read from the line above only when it says
+  amounts, unless or figures are. Each has a test; a changed instruction hash fails the gate (tested).
+- **Shipped beside the repository:** at the user's instruction that downloads from the repository
+  must not be too large, the 101 run folders (1.0 GB, 162 MB compressed) are not in git. A ZIP of the
+  branch tip is 192 MB, as for `main`; with the runs it was 355 MB. `cpos_library --package` writes the
+  runs that pass the gate into five parts, the largest 39.8 MB, with `SHA256SUMS.txt`. This session
+  may not create releases, so the parts are on the branch `claude/issuer-runs-20261105`, which shares
+  no history with `main`; each part downloaded back from GitHub matches its checksum. Two builds were
+  byte-identical. Extracted, the parts
+  recreate all 5,625 files committed at `a7812217`, byte for byte, with none missing or extra. On a
+  fresh checkout of the branch with the parts extracted: all 101 pass the gate and `--check`;
+  Go tests pass; 250 Python tests pass, including the three that read a retained run, with the same
+  root-only failure; the real server shows the same 123 issuers, 145 runs and 120 reports, four
+  charts for every included run, and no console errors.
+- **Still open:** no independent review of any run's content; every manifest's first gap says so.
+  Not verified: Windows, the Node DOM suites (no jsdom here), `validate.py` as a whole, the Playwright
+  gate. Merge with squash so `main`'s history does not carry the run folders that #13 committed.
+
 ## 2026-11-06 — GitHub Copilot SDK adapter
 
 Dependency decision: the standard library cannot speak the runtime's JSON-RPC in a few lines and
@@ -185,6 +247,175 @@ and rewrite tournament), all pass.
 Not verified: the Playwright browser gate (selectors renamed, not executed here); validate.py quick/full
 modes as a whole; the 6s iframe failure path and Retry in Windows Edge; Windows rendering of the activity
 icon and the tokenised ramp; nothing committed.
+## 2026-11-06 — Swarm run: 118 SECData issuers, host mode, `minimum` set
+
+At the user's instruction ("30x sonnet agents"; goal "complete minimum 100 issuers"), 15 workflows
+with 2 concurrent Sonnet analysts each ran `cpos_launch --config host --modules minimum`. They
+covered all 118 usable SECData packs as of 2026-11-05, with SECData's contexts (commit `b5d5faa`
+on SECData PR #1) and `docs/templates/host-analyst-checklist.md`. That made about 30 analysts at
+a time. Each analyst drafted every module, worked through the checklist's "Before you submit" on
+the draft, then submitted. There was no review loop, by the user's ruling ("remove the review
+process, too slow"). Run folders are `runs/cpos-swarm-20261105-<issuer id>`. The code is this
+branch on main `579b55b` (reader summary, persona and view-first openings for every module).
+
+Results:
+
+- **Published:** 117 of 118 in the swarm, and 118 of 118 after one repair run.
+- **Relaunch check:** a relaunch of each published run's own command exits 0, prints its report
+  and writes no file. CP-OS rechecks every accepted answer on that relaunch.
+- **First-time acceptance:** 64 runs had every module accepted on the first attempt.
+- **Rejected attempts by module:**
+  - CP-0: 3
+  - CP-1: 23
+  - CP-1A: 18
+  - CP-2: 17
+  - CP-5: 5
+- **What CP-OS rejected:** only format, never content. The causes were a reader-summary number
+  missing from the body, a cell over the word limit, a missing report selector, or an H2 heading
+  in the wrong place.
+- **Stopped run:** `cpos-swarm-20261105-svc` stopped after three CP-2 rejections and is kept
+  unchanged as the earlier attempt. Its repair, `cpos-swarm-20261105-svc-002`, is a new run
+  folder; it published with every module accepted first time and passes the same relaunch check.
+- **Usage:** about 49.7 million Sonnet subagent tokens (about 0.42 million per issuer), from
+  02:02 to about 03:45 UTC. Host usage per module is still not measured.
+
+The runs had no independent review. Each CP-5 is a self-review by the analyst that wrote the other
+modules, and its notes say so. The analysts reported defects that their own CP-5 found but could
+not correct, because an accepted answer cannot be replaced:
+
+- wrong page locators;
+- unsupported wording;
+- a misread pro forma table;
+- in four runs, an edit script failed and the uncorrected draft was submitted.
+
+The checklist did fix the pilot's main GFL defect: revolver availability is now derived from the
+letter-of-credit notes, not called "Not calculable". Pack and context limits the analysts met:
+
+- Viasat's and Cimpress's 8-K releases carry no figures (call notices or image-only).
+- The 40-F packs hold only cover documents, with no audited annual statements.
+- Flutter's context gives the Netherlands, the funds' country; its filings say Ireland.
+- Most packs have no credit agreement or indenture, so covenant headroom is usually not
+  calculable.
+
+Checks: Go `TestCurrentRetainedWorkspace` passes with the 119 new run folders. No run folder
+contains the SEC contact string.
+
+## 2026-11-06 — Sonnet swarm pilot, five issuers, independent review
+
+At the user's instruction ("use a workflow for the 5-issuer pilot"), workflow run `wf_ffe44974-253`
+ran one Sonnet analyst per issuer through `cpos_launch --config host --modules minimum` on its
+SECData pack (as of 2026-11-05). It then ran one independent Sonnet reviewer per run, which saw
+only the pack and the accepted handoffs. Each run folder's `review.json` holds both returns.
+
+| Run | Pack | Launches | Rejected attempts | Figures matching | Reviewer verdict |
+| --- | --- | ---: | --- | ---: | --- |
+| `cpos-launch-swarm-aal-001` | American Airlines, Inc., 10-K, three decks | 6 | none | 62 of 62 | usable with fixes |
+| `cpos-launch-swarm-czr-001` | Caesars, 10-K, releases | 9 | CP-2 (no `### Credit view` opening), CP-5 (seventh H2) | 36 of 38 | usable with fixes |
+| `cpos-launch-swarm-cc-001` | Chemours, 10-K, releases | 6 | none | 32 of 36 | usable with fixes |
+| `cpos-launch-swarm-gfl-001` | GFL, 40-F and 6-K | 6 | none | 42 of 42 | usable with fixes |
+| `cpos-launch-swarm-tigo-001` | Millicom, 20-F and 6-K documents | 7 | CP-2 (no `### Credit view` opening) | 58 of 62 | usable with fixes |
+
+All five reports published. The CP-OS checks caught only structure; every content defect below
+passed them. The reviewers found major defects in four runs:
+
+- American Airlines:
+  - CP-1A claims record revenue in all three quarters; the Q3 deck makes no such claim.
+  - Leverage and coverage use the parent's figures although the issuer's own statements are in
+    the 10-Q.
+- GFL:
+  - CP-2 calls the revolver "largely undrawn" while it is 868.0 drawn against 2,025.0.
+  - Liquidity is marked "Not calculable" although the 6-K notes print the letter-of-credit
+    split.
+  - Checked here: the Q2 note gives 424.3 of letters of credit in total, 145.4 of them under the
+    EDC facility.
+- Caesars: the VICI and GLPI lease payment schedule and escalators are omitted.
+- Chemours: the security package and guarantees of the secured facilities are omitted.
+
+In three runs CP-5 found these defects but could not correct them: an accepted answer cannot be
+replaced, so the published text keeps errors that its own QA lists. The swarm needs the
+independent review before acceptance, or a repair run per issuer. No reviewer found a cutoff
+breach. The workflow used 2.48 million subagent tokens in 43 minutes across 10 agents; host-mode
+usage per module is still not measured.
+
+Checks: Go `TestCurrentRetainedWorkspace` passes with the five new run folders.
+
+## 2026-11-05 — minimum module set, Caesars pilot and ETF issuer universe
+
+`--modules minimum` selects CP-1, CP-1A, CP-2 and CP-5, with CP-0 as the dependency: the modules
+that need only an issuer's own public filings. Names can be combined, for example `minimum CP-4`.
+
+**Pilot, host session, Caesars Entertainment as of 2026-10-02, explicit cutoff 2026-10-02.** This
+session answered all five modules from the retained FY2025 10-K, Q2 2026 10-Q and Q2 2026 release
+in [`runs/cpos-launch-host-czr-001`](runs/cpos-launch-host-czr-001/verification.json). CP-1A
+attempt 1 quoted source text with pipe characters inside a table cell; the report adapter refused
+it and attempt 2 was accepted. The report fills 6 of 6 selected sections. `verify.py` finds 23 of
+24 answer-key values from `cases/czr-2026q2-earnings-update/expected.json` in the handoffs; the
+missing one is the December 31, 2025 book value of debt, which CP-1 does not carry. It recomputes
+9 metric cells from the cited source lines with Fraction, and a relaunch writes nothing. CP-5,
+written by the same host, graded the run Passed with a Confidence Score of 47 (Low) from the
+method's script, and found four MINOR locator and restatement defects. The credit view rests on
+lease obligations larger than debt and on a pending take-private whose financing is not supplied.
+
+**Issuer universe.** The N-PORT universe builder first written here now lives with the corpus in
+the separate [SECData](https://github.com/EricMG13/SECData) project, which records its own checks.
+After the network policy was widened for `www.sec.gov`, `data.sec.gov` and `efts.sec.gov`, SECData
+built a 100-issuer corpus from eight high-yield and loan ETFs. Two of its packs, American
+Airlines and Caesars, were prepared here with `--config host --modules minimum`: every document
+was pinned and converted, and CP-OS issued the CP-0 request.
+
+Checks: launcher and app tests 90 passed, the paid test skipped.
+
+## 2026-11-05 — host-session launcher mode and TDG pilot
+
+`cpos_launch --config host` runs CP-OS with no provider. CP-OS stops at the first module request
+that has no answer (exit status 3) and prints the request, the answer path, the pinned sources
+and the upstream handoffs. The host writes the answer and runs the same command again.
+
+**Pilot, host session, historical TDG FY2024 as of 2024-09-30, CP-0 → CP-1 → CP-1A.** This
+session was the host, with the same context, issuer folder and modules as `cpos-launch-live-002`.
+[`runs/cpos-launch-host-001`](runs/cpos-launch-host-001) passed every automated check first time
+and published 4 of 4 sections. A comparison with the live answers then found three omissions,
+each confirmed on the 10-K pages: the covenant terms on pages 61, 62 and 70, the November 7, 2024
+publication date after the as-of date, and an overstated claim that the PDF reproduces the whole
+10-K. [`runs/cpos-launch-host-002`](runs/cpos-launch-host-002/verification.json) repairs them in a
+new run folder; attempt 1 is unchanged. Its `verify.py` checks both runs offline: 79 reported
+CP-1 rows (220 cells) against their cited pages, 18 metric cells recomputed with Fraction from
+source rows, consumption anchors, `verify_delivery`, and a relaunch that writes nothing. It
+refuses a changed figure, swapped years and a wrong ratio.
+
+Comparison with the paid sol-medium answers: every checked statement figure agrees. Leverage
+differs by basis: gross principal 6.01x (live) against carrying debt 5.96x (host). Only the live
+run found the springing revolver test and the publication-date boundary on its first pass. Only
+the host found the incremental-debt tests, the conflict between the two covenant descriptions
+(pages 62 and 70) and the 132 against 131 dividend-equivalent conflict. Neither single pass was
+complete. Host usage is not measured.
+
+Checks: `tests/test_cpos_launch.py` 72 passed, the paid test skipped. The new tests cover the
+answer-and-relaunch loop to a verified report, a relaunch with no answer, three rejections, a
+changed accepted answer, refused provider options, a second process on the same folder, and the
+unchanged live-002 request. Go `TestCurrentRetainedWorkspace` passes with the two new run folders.
+
+### Confidence review — host mode
+
+- A relaunch with no answer first skipped CP-OS. A test with an edited accepted answer then
+  crashed with `KeyError` instead of a stop. Cause: the skip also bypassed CP-OS's recheck of
+  earlier answers. Fixed: every launch runs CP-OS, and its `cpos_interrupted` refusal is the
+  wait. In host mode that refusal has no other cause: a request with no answer.
+- A second process on the same folder gets `RunDirBusy`, a `ValueError`: it stops with status 1
+  and writes nothing, and the first process keeps the wait (tested).
+- Live requests are unchanged: the launcher reproduces `cpos-launch-live-002`'s instructions and
+  layout byte for byte (tested). The provider-key check now runs only with `--live`, where it
+  was used before.
+- Not covered: Windows, the Issuer Library app (which still offers provider models only), and
+  host usage limits.
+
+### Post-edit rewrite tournament — `_host`
+
+Candidates: (a) run CP-OS on each launch and read `cpos_interrupted` as the wait; (b) skip CP-OS
+when a request is unanswered; (c) an executor that blocks until the answer file appears; (d) a new
+typed pending error in `cpos._handoff`. (b) failed the edited-answer test. (c) holds the run lock
+and a process for the whole time an agent works. (d) changes the shared core that the live loop
+uses for its never-resend rule. (a) is kept, with no change to `cpos.py`.
 
 ## 2026-11-05 — The M365 custom instruction applies to every module
 

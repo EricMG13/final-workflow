@@ -144,6 +144,19 @@ fictional and will be rejected until replaced with real hashes and excerpts.
 The CP-OS app adapter emits context-labelled metadata for new app runs. Screening
 metrics and a verified completeness checklist remain unassessed until supplied. Write the manifest atomically after its
 referenced handoffs exist; incomplete writes remain visible as discovery notices.
+Host-session runs (`cpos_launch --config host`) get their manifest afterwards from
+`PYTHONPATH=src python -m deploy_workflow.cpos_library --secdata <SECData data folder> runs/<id>...`:
+identity, sector and dates pinned to the run's own retained context input, leverage, cover and
+cash from the CP-1 chart tables, revenue, EBITDA and operating cash flow from its financials
+table only where the unit and a whole period are explicit, and null otherwise. It never
+overwrites a manifest; `--check` reports one whose run folder has changed. `--gate` decides
+which host runs belong in the library: instructions and layout byte-identical to the current
+launcher's, a published and hash-checked report, every layout section populated, every chart
+series with a plotted value, and every field the library shows. `--package` writes the runs
+that pass into ZIP parts of at most 40 MB, so they ship beside the repository rather than in it
+(see the top-level README). An admitted
+manifest's issuer name is the name the library groups by, ahead of the launcher's own
+`workflow.json` spelling, so an issuer's runs sit under one spelling.
 
 - `run.id` must equal its folder name. `issuer`, `name` and `identity_source` are
   required. Non-unknown sector requires `sector_source`. Dates are ISO calendar dates.

@@ -11,9 +11,9 @@ entries below retain their historical case scope.
 ## 2026-11-06 — Populating the Issuer Library from SECData
 
 Scope: the host-session runs of draft PRs #5, #11 and #13, landed on one branch, gated, given
-`library.json` manifests and read by the real server. No provider call. No retained run file was
-edited: manifests are new files beside the runs, and runs that fail the gate are left out of this
-branch, unchanged on their own PR commits (#5 `b4692c6`, #11 `6317d47`, #13 `62d7752`). Links to
+`library.json` manifests, read by the real server and shipped beside the repository. No provider
+call. No retained run file was edited: manifests are new files beside the runs. Runs that fail the
+gate stay unchanged on their own PR commits (#5 `b4692c6`, #11 `6317d47`, #13 `62d7752`); links to
 them in the entries below resolve there. SECData's restored packs (`claude/restore-filing-packs`,
 `5120db9`) matched all 827 converted source files of the 119 swarm runs by SHA-256 of file bytes.
 
@@ -54,9 +54,19 @@ them in the entries below resolve there. SECData's restored packs (`claude/resto
   "interest", "bridge" and "adjustments". Fixed: EBITDA must be the head noun, an explicit date
   outranks a fiscal-year name, and a table unit is read from the line above only when it says
   amounts, unless or figures are. Each has a test; a changed instruction hash fails the gate (tested).
+- **Shipped beside the repository:** at the user's instruction that downloads from the repository
+  must not be too large, the 101 run folders (1.0 GB, 162 MB compressed) are not in git. A ZIP of the
+  branch tip is 192 MB, as for `main`; with the runs it was 355 MB. `cpos_library --package` writes the
+  runs that pass the gate into five parts, the largest 39.8 MB, on the draft release
+  `issuer-runs-20261105`, with `SHA256SUMS.txt`. Two builds were byte-identical. Extracted, the parts
+  recreate all 5,625 files committed at `a7812217`, byte for byte, with none missing or extra. On a
+  fresh checkout of the branch with the parts extracted: all 101 pass the gate and `--check`;
+  Go tests pass; 250 Python tests pass, including the three that read a retained run, with the same
+  root-only failure; the real server shows the same 123 issuers, 145 runs and 120 reports, four
+  charts for every included run, and no console errors.
 - **Still open:** no independent review of any run's content; every manifest's first gap says so.
   Not verified: Windows, the Node DOM suites (no jsdom here), `validate.py` as a whole, the Playwright
-  gate. The included run folders are 976 MB in git.
+  gate. Merge with squash so `main`'s history does not carry the run folders that #13 committed.
 
 ## 2026-11-06 — GitHub Copilot SDK adapter
 

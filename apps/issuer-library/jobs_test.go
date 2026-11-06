@@ -647,3 +647,99 @@ func TestRunListFollowsRecencyAndAlwaysKeepsActiveJobs(t *testing.T) {
 		t.Fatal("an older finished job displaced a newer one")
 	}
 }
+
+func waitIdle(t *testing.T, app *Application) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		app.mu.RLock()
+		active := len(app.activeJobs)
+		app.mu.RUnlock()
+		if active == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("worker did not finish")
+}
+
+// A spawn that never produced a process made no call, so the one-shot claim is released;
+// once a worker did start the claim keeps refusing a second Start.
+func TestFailedSpawnReleasesTheStartClaimButAStartedWorkerKeepsIt(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	good := app.engine
+	app.engine = Engine{Python: filepath.Join(t.TempDir(), "no-such-python"), Script: good.Script}
+	first := call(app, "POST", "/api/runs/start", payload)
+	if first.Code != 503 || !strings.Contains(first.Body.String(), "no model call was made") {
+		t.Fatalf("spawn failure: %d %q", first.Code, first.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim survived a spawn that never ran: %v", err)
+	}
+	status := call(app, "GET", "/api/runs/status?id="+id, "")
+	if !strings.Contains(status.Body.String(), `"state":"failed"`) || !strings.Contains(status.Body.String(), "can be tried again") {
+		t.Fatalf("status: %s", status.Body.String())
+	}
+	app.engine = good
+	second := call(app, "POST", "/api/runs/start", payload)
+	if second.Code != 202 {
+		t.Fatalf("retry after a failed spawn: %d %q", second.Code, second.Body.String())
+	}
+	third := call(app, "POST", "/api/runs/start", payload)
+	if third.Code != 409 {
+		t.Fatalf("a second Start while the worker runs: %d %q", third.Code, third.Body.String())
+	}
+	waitIdle(t, app)
+	if raw, _ := os.ReadFile(filepath.Join(folder, "synthetic-starts.txt")); string(raw) != "one\n" {
+		t.Fatalf("worker ran %q", raw)
+	}
+	if again := call(app, "POST", "/api/runs/start", payload); again.Code != 409 || !strings.Contains(again.Body.String(), "already been started") {
+		t.Fatalf("a finished worker must keep the claim: %d %q", again.Code, again.Body.String())
+	}
+}
+
+// If the running status cannot be saved the worker is never spawned, so the claim is released too.
+func TestUnsavableStartStatusReleasesTheStartClaim(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	status := filepath.Join(folder, "status.json")
+	if err := os.Remove(status); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(status, "blocker"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	first := call(app, "POST", "/api/runs/start", payload)
+	if first.Code != 500 {
+		t.Fatalf("expected the status write to fail: %d %q", first.Code, first.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(folder, "synthetic-starts.txt")); err == nil {
+		t.Fatal("a worker ran")
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim survived: %v", err)
+	}
+	if err := os.RemoveAll(status); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(status, []byte(`{"state":"reviewed"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if second := call(app, "POST", "/api/runs/start", payload); second.Code != 202 {
+		t.Fatalf("retry: %d %q", second.Code, second.Body.String())
+	}
+	waitIdle(t, app)
+}

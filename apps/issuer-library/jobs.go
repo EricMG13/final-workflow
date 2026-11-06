@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -446,16 +447,25 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claim.Close()
+	// The claim guards a worker that started. Until the process exists nothing was run or
+	// paid for, so a failure before that releases it and the reviewed run can be started again.
+	release := func() {
+		if err := os.Remove(filepath.Join(folder, "start.claim")); err != nil && !os.IsNotExist(err) {
+			log.Printf("Release start claim for %s: %v", request.ID, err)
+		}
+	}
 	command := app.engine.command(context.Background(), "start", folder)
 	// Discard command output; structured, redacted status is the only browser contract.
 	command.Stdout = io.Discard
 	if err = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "running", Message: "CP-OS is validating the reviewed inputs and starting the selected workflow.", ID: request.ID}); err != nil {
-		http.Error(w, "Could not retain start state", 500)
+		release()
+		http.Error(w, "Could not retain start state; no run was started and no model call was made. Start can be tried again.", 500)
 		return
 	}
 	if err = command.Start(); err != nil {
-		_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "failed", Message: "CP-OS runtime could not start."})
-		http.Error(w, "CP-OS runtime could not start", 503)
+		release()
+		_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "failed", Message: "CP-OS runtime could not start; no run was started and no model call was made. Start can be tried again.", ID: request.ID})
+		http.Error(w, "CP-OS runtime could not start; no run was started and no model call was made. Start can be tried again.", 503)
 		return
 	}
 	if app.activeJobs == nil {

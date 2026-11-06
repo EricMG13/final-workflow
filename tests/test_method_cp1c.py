@@ -8,6 +8,7 @@ probe recorded in the manifest and the literal analyst payloads).
 import hashlib
 import json
 import re
+from datetime import date
 from decimal import Decimal
 from functools import cache
 from pathlib import Path
@@ -136,6 +137,7 @@ def inputs(
         sources=sources(pack or case),
         cp1_metrics=cp1_metrics() if cp1 is None else cp1,
         submission=cp1c.PeerBenchmarkSubmission.model_validate_json(json.dumps(body)),
+        as_of=date.fromisoformat(manifest()["cases"][case]["run"]["as_of"]),
     )
 
 
@@ -458,6 +460,7 @@ def _with_sources(
         sources=edited,
         cp1_metrics=base.cp1_metrics,
         submission=base.submission,
+        as_of=base.as_of,
     )
 
 
@@ -622,6 +625,64 @@ def test_tie_out_on_cp1s_period_end_still_reconciles() -> None:
     facts = _facts(found)
     assert facts["T1C.6.total_leverage_adjusted.result"].text == "Reconciled"
     assert TIED_LIMITATION in found.limitations
+
+
+# A03: the run is as of 2026-01-10 and CP-1's LTM column ends 2025-12-31 (manifest and
+# cp1_metrics above). REF_CP-1C trigger 7: peer data more than 12 months older than the
+# borrower's cannot be Comparable without disclosure; 12 calendar months before 2025-12-31 is
+# 2024-12-31, so a period end on 2024-12-31 is in the window and 2024-12-30 is not.
+BROOKMERE = "Brookmere Industries  2025-12-31  150.0  33.0  99.0  11.0  30.0"
+STALE_BROOKMERE = (
+    "Peer period end more than 12 months before the issuer's LTM end 2025-12-31: assess it "
+    "Partly comparable with a limitation, or Not comparable: Brookmere Industries"
+)
+
+
+@pytest.mark.parametrize("end", ["2026-01-11", "2027-12-31"])
+def test_a_period_end_after_the_run_as_of_is_a_table_rule_breach(end: str) -> None:
+    """No source can report twelve months ending after the run's as-of date (2026-01-10)."""
+    edited = _edited("positive", 1, ALDER, ALDER.replace("2025-12-31", end))
+    assert cp1c.calculation_issues(_with_sources("positive", edited)) == ("Peer table not found",)
+
+
+def test_a_period_end_on_the_run_as_of_is_read() -> None:
+    edited = _edited("positive", 1, ALDER, ALDER.replace("2025-12-31", "2026-01-10"))
+    assert cp1c.calculation_issues(_with_sources("positive", edited)) == ()
+
+
+@pytest.mark.parametrize(
+    ("end", "issues"),
+    [
+        ("2012-12-31", (STALE_BROOKMERE,)),
+        ("2024-12-30", (STALE_BROOKMERE,)),
+        ("2024-12-31", ()),
+    ],
+)
+def test_a_comparable_peer_older_than_twelve_months_is_refused(
+    end: str, issues: tuple[str, ...]
+) -> None:
+    edited = _edited("positive", 1, BROOKMERE, BROOKMERE.replace("2025-12-31", end))
+    assert cp1c.calculation_issues(_with_sources("positive", edited)) == issues
+
+
+@pytest.mark.parametrize(
+    ("comparability", "included"),
+    [("Partly comparable", "Included"), ("Not comparable", "Excluded")],
+)
+def test_an_old_peer_assessed_with_its_limitation_is_composed(
+    comparability: str, included: str
+) -> None:
+    payload = submissions()["positive"]["peer_benchmark"]
+    payload = json.loads(json.dumps(payload))
+    brookmere = next(a for a in payload["assessments"] if a["peer"] == "Brookmere Industries")
+    brookmere["comparability"] = comparability
+    brookmere["limitation"] = "Figures are for the twelve months to 2012-12-31."
+    edited = _edited("positive", 1, BROOKMERE, BROOKMERE.replace("2025-12-31", "2012-12-31"))
+    case = _with_sources("positive", edited, payload=payload)
+    assert cp1c.calculation_issues(case) == ()
+    facts = _facts(cp1c.compute(case))
+    assert facts["T1C.1.p02.period_end"].text == "2012-12-31"
+    assert facts["T1C.1.p02.included"].text == included
 
 
 def test_negative_denominator_is_not_meaningful_with_its_reason() -> None:

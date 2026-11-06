@@ -15,7 +15,7 @@ pure.
 
 import re
 import unicodedata
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal, localcontext
@@ -1016,6 +1016,38 @@ def _check_facilities(sub: MarketImpliedSubmission, out: _Issues) -> None:
             out.add(PAIR_ISSUE.format(i=i, j=j))
 
 
+_QUOTED_LEVEL = re.compile(r"\b(?:bid|offer)\s+[0-9]", re.IGNORECASE)
+UNBOUND = (
+    "{path}: the {kind} quote is not bound to the instrument {name}: its sentence does not name "
+    "it and it is not the only bid or offer quotation on the instrument's page"
+)
+
+
+def _bound(o: Observation, instrument: Instrument, page: str) -> bool:
+    """Whether a sheet bid or offer is the instrument's: its quote or the page sentence holding
+    it names the instrument, or it sits on the page of `instrument.quote` and its sentence is the
+    only one on that page that labels a bid or offer level (a single-instrument sheet)."""
+    sentences = _sentences(o.quote, page)
+    if any(_name_occurs(instrument.name, text) for text in (o.quote, *sentences)):
+        return True
+    if (o.source_id, o.locator) != (instrument.quote.source_id, instrument.quote.locator):
+        return False
+    labelled = {x for x in _SENTENCE_BREAK.split(normalise(page)) if _QUOTED_LEVEL.search(x)}
+    return len(labelled) == 1 and all(_QUOTED_LEVEL.search(x) for x in sentences)
+
+
+def _check_bound(sub: MarketImpliedSubmission, out: _Issues, valid: Collection[str]) -> None:
+    """S08-cp3-A02: every sheet bid or offer of a `valid` kind (its own rules passed) is bound to
+    the instrument (`_bound`). Python-built context rows are bound to their CP-1 facility."""
+    for i, o in enumerate(sub.observations):
+        if o.context_row is not None or o.kind not in ("bid", "offer") or o.kind not in valid:
+            continue
+        page = out.context.pages.get(o.source_id, {}).get(o.locator)
+        if page is not None and quoted(o.quote, page) and not _bound(o, sub.instrument, page):
+            name = sub.instrument.name
+            out.add(UNBOUND.format(path=f"observations[{i}]", kind=o.kind, name=name))
+
+
 def _check_observations(sub: MarketImpliedSubmission, out: _Issues) -> date | None:
     """Observation rules; returns the quotation date (bid's, else offer's) when one is valid."""
     if bool(sub.observations) == bool(sub.market_absence):
@@ -1029,6 +1061,7 @@ def _check_observations(sub: MarketImpliedSubmission, out: _Issues) -> date | No
     for i, submitted in enumerate(sub.observations):
         _check_observation(f"observations[{i}]", submitted, out, levels, dates)
     _check_facilities(sub, out)
+    _check_bound(sub, out, levels)
     if "bid" in levels and "offer" in levels:
         if levels["bid"] > levels["offer"]:
             out.add("observations: bid exceeds offer")

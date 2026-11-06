@@ -264,8 +264,12 @@ def test_blocked_case_attempt_issues(attempt: str) -> None:
 
 
 def test_bid_exceeding_offer_is_refused_on_a_synthetic_page() -> None:
-    """The retired `crossed_quote` rule (lease open question 14): a synthetic page, no oracle literal."""
-    page = "Dealer quotation on January 9, 2026: bid 99.50 and offer 99.25."
+    """The retired `crossed_quote` rule (lease open question 14): a synthetic page, no oracle
+    literal. The sentence names the instrument, so the quote is bound to it (S08-cp3-A02)."""
+    page = (
+        "Dealer quotation on January 9, 2026 for the Northbridge Term Loan: bid 99.50 and "
+        "offer 99.25."
+    )
     raw = copy.deepcopy(SUBMISSIONS["positive"])
     for obs, level in ((raw["observations"][0], "99.50"), (raw["observations"][1], "99.25")):
         obs.update(locator="page:9", quote=page, level_text=level)
@@ -541,8 +545,8 @@ def test_d2_lvl_date_is_the_bid_as_of_text_verbatim() -> None:
 
 def test_x1_iv_mid_above_par() -> None:
     page = (
-        "Published January 10, 2026.\nDealer quotation on January 9, 2026: bid 100.50 and "
-        "offer 101.00, expressed as a percentage of par."
+        "Published January 10, 2026.\nDealer quotation on January 9, 2026 for the Northbridge "
+        "Term Loan: bid 100.50 and offer 101.00, expressed as a percentage of par."
     )
     ctx = _with_page(_context("positive"), "market", "page:9", page)
     raw = copy.deepcopy(SUBMISSIONS["positive"])
@@ -1576,6 +1580,14 @@ def test_r11_class_text_cases(
     assert dc.quote_failure(c, adapter, refusal) is None
 
 
+def _unbound(name: str) -> tuple[str, ...]:
+    return tuple(
+        f"observations[{i}]: the {kind} quote is not bound to the instrument {name}: its sentence "
+        "does not name it and it is not the only bid or offer quotation on the instrument's page"
+        for i, kind in ((0, "bid"), (1, "offer"))
+    )
+
+
 @pytest.mark.parametrize(
     ("reader", "adapter", "refusal"), _CLASS_TEXTS, ids=[r[0] for r in _CLASS_TEXTS]
 )
@@ -1586,11 +1598,14 @@ def test_r11_b3_names_the_wrap_refusal_accepts(
     prints `- ` keeps the name, and a wrapped quote keeps a name with a plain hyphen (whose
     digit takes its own refusal)."""
     page = "The Acme first- priority Term Loan is quoted."
-    assert adapter(page, page, "Acme first- priority Term Loan") == ()
+    # S08-cp3-A02: renaming the instrument leaves the case's Northbridge bid and offer unbound.
+    unbound = _unbound("Acme first- priority Term Loan") if reader == "instrument.name" else ()
+    assert adapter(page, page, "Acme first- priority Term Loan") == unbound
     wrapped = "The Acme Term Loan B-2 first-\npriority tranche is quoted."
     issues = tuple(adapter(wrapped, wrapped, "Acme Term Loan B-2"))
     assert refusal not in issues
-    assert issues == (f"{reader}: digits are not allowed",)
+    unbound = _unbound("Acme Term Loan B-2") if reader == "instrument.name" else ()
+    assert issues == (*unbound, f"{reader}: digits are not allowed")
 
 
 def test_r11_b1_an_overlapping_occurrence_is_read() -> None:
@@ -1747,10 +1762,11 @@ def test_r11_b1_a_full_stop_after_the_figure_is_still_its_end_edge(
 @pytest.mark.parametrize(
     ("line", "accepted"),
     (
-        ("Dealers quote the loan at bid - 1.25.", False),
-        ("Dealers quote the loan at bid -\n1.25.", False),
-        ("Dealers quote the loan at bid 1.25.", True),
-        ("Dealers quote the loan at bid\n1.25.", True),
+        # S08-cp3-A02: each line names the instrument, so an accepted bid is bound to it.
+        ("Dealers quote the Northbridge Term Loan at bid - 1.25.", False),
+        ("Dealers quote the Northbridge Term Loan at bid -\n1.25.", False),
+        ("Dealers quote the Northbridge Term Loan at bid 1.25.", True),
+        ("Dealers quote the Northbridge Term Loan at bid\n1.25.", True),
     ),
     ids=("bid-minus-space", "bid-minus-wrap", "bid-genuine", "bid-break"),
 )
@@ -2177,3 +2193,38 @@ def test_s08_a04_the_unit_on_the_page_after_a_truncated_quote_counts() -> None:
     ref = {"source_id": "financial", "locator": "page:9", "quote": "a margin of 3.25"}
     raw["terms"]["margin"] = {"quote": ref, "bps_text": "3.25", "absence": None}
     assert _issues_of(raw, ctx) == ("margin: bps_text 3.25 is not quoted in basis points",)
+
+
+_SOUTHGATE = (
+    "Dealer quotation on January 9, 2026 for the Southgate Notes due 2027: bid 88.50 and offer "
+    "89.25, expressed as a percentage of par."
+)
+
+
+def test_s08_a02_another_instruments_quotation_is_not_bound_to_the_instrument() -> None:
+    """S08-cp3-A02: the instrument's sheet page also prints the Southgate Notes' quotation; its
+    levels (mid 88.875, DM 279.7 bp) must not be read as the Northbridge Term Loan's."""
+    base = _context("positive")
+    ctx = _with_page(base, "market", "page:1", base.pages["market"]["page:1"] + "\n" + _SOUTHGATE)
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    raw["observations"][0].update(quote=_SOUTHGATE, level_text="88.50")
+    raw["observations"][1].update(quote=_SOUTHGATE, level_text="89.25")
+    assert _issues_of(raw, ctx) == _unbound("Northbridge Term Loan")
+
+
+def test_s08_a02_an_unnamed_quotation_on_another_page_is_not_bound() -> None:
+    """A page other than the instrument's whose sentence names no instrument binds to none."""
+    page = (
+        "Published January 10, 2026.\nDealer quotation on January 9, 2026: bid 98.50 and "
+        "offer 99.25."
+    )
+    ctx = _with_page(_context("positive"), "market", "page:9", page)
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    for o in raw["observations"][:2]:
+        o.update(locator="page:9", quote=page.split("\n")[1])
+    assert _issues_of(raw, ctx) == _unbound("Northbridge Term Loan")
+    named = page.replace("2026: bid", "2026 for the Northbridge Term Loan: bid")
+    ctx = _with_page(_context("positive"), "market", "page:9", named)
+    for o in raw["observations"][:2]:
+        o["quote"] = named.split("\n")[1]
+    assert _issues_of(raw, ctx) == ()

@@ -315,7 +315,11 @@ func runDeliveryIdentityIssue(root *os.Root, folder, id string, run Run, view de
 			IssuerID string `json:"issuer_id"`
 		} `json:"run"`
 	}
-	_ = readJSON(root, folder+"/workflow.json", &recorded) // Unreadable: fall back to the folder id alone.
+	if readJSON(root, folder+"/workflow.json", &recorded) != nil {
+		// Unreadable or malformed: fall back to the folder id alone. A type error leaves a
+		// partial decode (run_id kept, issuer_id dropped), so none of it may be used.
+		recorded.Run.RunID, recorded.Run.IssuerID = "", ""
+	}
 	if view.Run.RunID != id && (recorded.Run.RunID == "" || view.Run.RunID != recorded.Run.RunID) {
 		return "Delivery run identity does not match this run"
 	}

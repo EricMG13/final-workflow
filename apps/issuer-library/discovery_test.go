@@ -412,3 +412,63 @@ func TestForeignRunDeliveryDoesNotSatisfyTheDeliveryCheckpoint(t *testing.T) {
 		}
 	}
 }
+
+// Review (S18 medium, A06/C04): adversarial identities for deliveries kept inside a run.
+func TestReviewRunDeliveryIdentityAdversarial(t *testing.T) {
+	root, _ := fixture(t)
+	// web-2 has no manifest (issuer Unclassified) and a workflow.json whose issuer_id has the
+	// wrong type. Expected: the file counts as unreadable, so only the folder id is accepted;
+	// the recorded run id must not be honoured without its issuer (before review: attached).
+	put(t, root, "runs/web-2/CP-0.md", []byte("x"))
+	put(t, root, "runs/web-2/workflow.json", []byte(`{"run":{"run_id":"ex-run","issuer_id":7}}`))
+	addDelivery(t, root, "typed", "ex-run", "ZZZ")
+	addDelivery(t, root, "folder-id", "web-2", "EX")
+	typed := moveDelivery(t, root, "typed", "web-2")
+	folderID := moveDelivery(t, root, "folder-id", "web-2")
+	// web-3: no workflow.json at all. Expected: only view run_id == "web-3" is accepted.
+	put(t, root, "runs/web-3/CP-0.md", []byte("x"))
+	addDelivery(t, root, "none-own", "web-3", "EX")
+	addDelivery(t, root, "none-other", "ex-run", "EX")
+	noneOwn := moveDelivery(t, root, "none-own", "web-3")
+	noneOther := moveDelivery(t, root, "none-other", "web-3")
+	// web-4: a CP-8 comparison plan recorded as workflow.json (ComparisonPlan also has "run").
+	// Expected: its comparison delivery is accepted; an issuer differing only in case is not.
+	put(t, root, "runs/web-4/CP-0.md", []byte("x"))
+	put(t, root, "runs/web-4/workflow.json", []byte(`{"run":{"run_id":"tdg-cp8-comparison","issuer_id":"TDG"},"prior":{"path":"p","sha256":"x"}}`))
+	addDelivery(t, root, "cp8", "tdg-cp8-comparison", "TDG")
+	addDelivery(t, root, "cp8-case", "tdg-cp8-comparison", "tdg")
+	cp8 := moveDelivery(t, root, "cp8", "web-4")
+	cp8Case := moveDelivery(t, root, "cp8-case", "web-4")
+	// case-a has an admitted manifest (issuer EX). A delivery naming case-a as its run but
+	// another issuer, and one naming the other run web-3 with issuer EX. Expected: both refused.
+	addDelivery(t, root, "case-other-issuer", "case-a", "ex")
+	addDelivery(t, root, "case-other-run", "web-3", "EX")
+	caseIssuer := moveDelivery(t, root, "case-other-issuer", "case-a")
+	caseRun := moveDelivery(t, root, "case-other-run", "case-a")
+
+	cat := discover(root, Catalogue{})
+	for _, want := range []struct {
+		run, folder string
+		ok          bool
+	}{
+		{"web-2", typed, false}, {"web-2", folderID, true},
+		{"web-3", noneOwn, true}, {"web-3", noneOther, false},
+		{"web-4", cp8, true}, {"web-4", cp8Case, false},
+		{"case-a", caseIssuer, false}, {"case-a", caseRun, false},
+	} {
+		if _, ok := attached(cat, want.run, want.folder); ok != want.ok {
+			t.Errorf("%s attached=%v, want %v (issues %v)", want.folder, ok, want.ok, cat.Issues)
+		}
+		if pinned := cat.Allowed[want.folder+"/report.html"] != ""; pinned != want.ok {
+			t.Errorf("%s pinned=%v, want %v", want.folder, pinned, want.ok)
+		}
+	}
+	// A refused run delivery never appears as an available artifact under any run.
+	for _, run := range cat.Real {
+		for _, artifact := range run.Artifacts {
+			if artifact.Available && (artifact.Folder == typed || artifact.Folder == caseIssuer || artifact.Folder == caseRun) {
+				t.Errorf("%s available under %s", artifact.Folder, run.ID)
+			}
+		}
+	}
+}

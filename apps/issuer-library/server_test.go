@@ -453,3 +453,119 @@ func TestReportPresentationSplicesBeforeTheFinalBodyTagInTheOriginalBytes(t *tes
 		}
 	}
 }
+
+// Review (S18 medium, A02/C06): boundary inputs for the splice offset. Expected values are
+// written out by hand; "end" means len(input), i.e. the adapter is appended.
+func TestReviewLastBodyCloseBoundaries(t *testing.T) {
+	for _, c := range []struct {
+		html string
+		want int // -1 means len(html)
+	}{
+		{"", -1},                       // empty: no tag, no panic
+		{"</body", -1},                 // 6 bytes, shorter than the tag
+		{"</body>", 0},                 // tag is the whole input
+		{"x</BODY>", 1},                // upper case at the very end
+		{"<p>İ</bOdY></html>", 5},      // U+0130 is 2 bytes and stays 2 bytes in the offset
+		{"</body ></html>", -1},        // whitespace inside the tag is not matched: appended
+		{"</body\n></html>", -1},       // likewise for a newline
+		{"<</body>>", 1},               // the scan starts at a '<' preceded by another '<'
+		{"</body></body>", 7},          // the final tag wins
+		{"\xff\xff\xff</body>\xff", 3}, // invalid UTF-8 does not move the offset
+		{"</bödy></html>", -1},         // a non-ASCII lookalike never matches
+		{"</Kody></html>", -1},         // Kelvin sign is not 'b' (nor 'k') here
+		{"<body>x</bodyx></html>", -1}, // a longer name is not the tag
+		{"<body>x</bod></html>", -1},   // nor a shorter one
+	} {
+		want := c.want
+		if want < 0 {
+			want = len(c.html)
+		}
+		if got := lastBodyClose([]byte(c.html)); got != want {
+			t.Errorf("%q: %d, want %d", c.html, got, want)
+		}
+		// Splicing never drops or reorders an original byte.
+		out := reportPresentation([]byte(c.html))
+		start := bytes.Index(out, []byte("<style data-library-presentation>"))
+		block := len(out) - len(c.html)
+		if start != want || string(out[:start])+string(out[start+block:]) != c.html {
+			t.Errorf("%q: spliced at %d (want %d) or bytes changed", c.html, start, want)
+		}
+	}
+}
+
+// Differential check against an oracle built differently from production: a same-length
+// ASCII-lowered copy searched with bytes.LastIndex. Expected: identical offsets on 50,000
+// random strings over an alphabet of tag fragments, length-changing runes and invalid bytes.
+func TestReviewLastBodyCloseMatchesAnASCIILoweredOracle(t *testing.T) {
+	oracle := func(html []byte) int {
+		low := make([]byte, len(html))
+		for i, c := range html {
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			low[i] = c
+		}
+		if i := bytes.LastIndex(low, []byte("</body>")); i >= 0 {
+			return i
+		}
+		return len(html)
+	}
+	alphabet := []string{"<", "/", "b", "B", "o", "O", "d", "D", "y", "Y", ">", " ", "</body>", "</BODY>", "</bOdY", "İ", "K", "Ⱥ", "\xff", "\xc4"}
+	state := uint64(1)
+	next := func(n int) int { // xorshift: deterministic, no shared RNG state
+		state ^= state << 13
+		state ^= state >> 7
+		state ^= state << 17
+		return int(state % uint64(n))
+	}
+	for n := 0; n < 50000; n++ {
+		var s []byte
+		for k := next(12); k > 0; k-- {
+			s = append(s, alphabet[next(len(alphabet))]...)
+		}
+		if got, want := lastBodyClose(s), oracle(s); got != want {
+			t.Fatalf("%q: %d, oracle %d", s, got, want)
+		}
+	}
+}
+
+// Review (S18 medium, A02/C06): the reported crash through the HTTP path. A delivered report
+// with 40 x U+023A, invalid UTF-8 and a trailing licence comment. Expected: 200, adapter
+// directly before the final </body> (outside the comment), every guard header unchanged,
+// and the download still the exact original bytes.
+func TestReviewEmbeddedGlyphReportOverHTTP(t *testing.T) {
+	app, root := testApp(t)
+	report := []byte("<!doctype html><html><body><p>" + strings.Repeat("Ⱥ", 40) + "\xff\xfe İstanbul</p><script>render()</script>\n<!-- font licence -->\n</body></html>")
+	view := []byte(`{"run":{"run_id":"case-a","issuer_id":"EX","issuer_name":"Example Industries","as_of":"2024-12-31"}}`)
+	put(t, root, "deliverables/glyph/report.html", report)
+	put(t, root, "deliverables/glyph/view.json", view)
+	putJSON(t, root, "deliverables/glyph/delivery.json", map[string]any{"files": map[string]string{"report.html": digest(report), "view.json": digest(view)}})
+	if response := call(app, "POST", "/api/refresh", "{}"); response.Code != 200 {
+		t.Fatal(response.Body.String())
+	}
+	href := ""
+	for _, run := range app.catalogue.Real {
+		for _, artifact := range run.Artifacts {
+			if artifact.Folder == "deliverables/glyph" && artifact.Available {
+				href = artifact.Href
+			}
+		}
+	}
+	if href == "" {
+		t.Fatalf("glyph delivery not available: %v", app.catalogue.Issues)
+	}
+	shown := call(app, "GET", href+"&embedded=1", "")
+	body := shown.Body.Bytes()
+	at := bytes.Index(body, []byte("<style data-library-presentation>"))
+	if shown.Code != 200 || at < 0 || !bytes.HasSuffix(body, []byte("</script></body></html>")) || !bytes.HasPrefix(body, report[:bytes.LastIndex(report, []byte("</body>"))]) {
+		t.Fatalf("embedded: %d, adapter at %d, tail %q", shown.Code, at, body[max(0, len(body)-40):])
+	}
+	csp := shown.Header().Get("Content-Security-Policy")
+	if !strings.HasPrefix(csp, "sandbox allow-scripts allow-downloads;") || !strings.Contains(csp, "connect-src 'none'") || !strings.HasSuffix(csp, "frame-ancestors http://"+app.host) {
+		t.Fatalf("CSP changed: %q", csp)
+	}
+	saved := call(app, "GET", href+"&download=1", "")
+	if !bytes.Equal(saved.Body.Bytes(), report) || !strings.HasSuffix(saved.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
+		t.Fatal("download must be the exact original with frame-ancestors 'none'")
+	}
+}

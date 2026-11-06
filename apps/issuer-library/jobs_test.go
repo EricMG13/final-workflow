@@ -743,3 +743,143 @@ func TestUnsavableStartStatusReleasesTheStartClaim(t *testing.T) {
 	}
 	waitIdle(t, app)
 }
+
+// Review (S18 medium, A04/C05): after a crash, more stale "running"/"starting" jobs than the
+// cap. Expected: every active job is listed (40 rows, above the cap of 30), newest first,
+// and no finished job takes a place because no room is left.
+func TestReviewRunListManyStaleActiveJobsExceedTheCap(t *testing.T) {
+	app, root := testApp(t)
+	now := time.Now()
+	for i := 0; i < 35; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x200+i), "running", now.Add(-time.Duration(100+i)*time.Hour))
+	}
+	for i := 0; i < 5; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x300+i), "starting", now.Add(-time.Duration(200+i)*time.Hour))
+	}
+	for i := 0; i < 10; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x400+i), "complete", now.Add(-time.Duration(i)*time.Minute))
+	}
+	ids := listedJobs(t, app)
+	if len(ids) != 40 {
+		t.Fatalf("%d rows, want all 40 active jobs: %v", len(ids), ids)
+	}
+	for i, id := range ids {
+		var want string
+		if i < 35 {
+			want = fmt.Sprintf("web-%032x", 0x200+i)
+		} else {
+			want = fmt.Sprintf("web-%032x", 0x300+i-35)
+		}
+		if id != want {
+			t.Fatalf("row %d is %s, want %s (newest first)", i, id, want)
+		}
+	}
+}
+
+// Review (S18 medium, A04/C05): equal write times and unreadable status files. Expected:
+// exactly 30 rows; with equal times the order falls back to the id, descending, and is the
+// same on every request; a status.json that is a folder, invalid JSON or empty, a plain file
+// named like a job, and a folder that is not a job id are all left out without failing.
+func TestReviewRunListEqualTimesAndUnreadableStatus(t *testing.T) {
+	app, root := testApp(t)
+	when := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 33; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x500+i), "complete", when)
+	}
+	bad := map[string]string{"web-" + strings.Repeat("e", 32): "{not json", "web-" + strings.Repeat("d", 32): ""}
+	for id, raw := range bad {
+		put(t, root, "intake/"+id+"/status.json", []byte(raw))
+	}
+	put(t, root, "intake/web-"+strings.Repeat("c", 32)+"/status.json/inner", []byte(`{"state":"running"}`))
+	put(t, root, "intake/web-"+strings.Repeat("b", 32), []byte(`{"state":"running"}`))
+	put(t, root, "intake/notes/status.json", []byte(`{"state":"running"}`))
+	first, second := listedJobs(t, app), listedJobs(t, app)
+	if len(first) != 30 || !slices.Equal(first, second) {
+		t.Fatalf("%d rows, stable=%v: %v", len(first), slices.Equal(first, second), first)
+	}
+	for i, id := range first {
+		if want := fmt.Sprintf("web-%032x", 0x500+32-i); id != want {
+			t.Fatalf("row %d is %s, want %s", i, id, want)
+		}
+	}
+}
+
+// Review (S18 medium, A08/C02): concurrent Starts around a failed spawn. Expected: while the
+// runtime is missing every request fails with 503 (each claims, fails and releases; none is
+// accepted and no claim is left); after repair, of 8 concurrent Starts exactly one is accepted,
+// the others get 409, and the worker runs exactly once.
+func TestReviewConcurrentStartsAroundAFailedSpawn(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	good := app.engine
+	app.engine = Engine{Python: filepath.Join(t.TempDir(), "no-such-python"), Script: good.Script}
+	codes := func() map[int]int {
+		var group sync.WaitGroup
+		var lock sync.Mutex
+		seen := map[int]int{}
+		for range 8 {
+			group.Go(func() {
+				code := call(app, "POST", "/api/runs/start", payload).Code
+				lock.Lock()
+				seen[code]++
+				lock.Unlock()
+			})
+		}
+		group.Wait()
+		return seen
+	}
+	if seen := codes(); seen[503] != 8 {
+		t.Fatalf("missing runtime: %v", seen)
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim left behind: %v", err)
+	}
+	app.mu.Lock()
+	app.engine = good
+	app.mu.Unlock()
+	if seen := codes(); seen[202] != 1 || seen[409] != 7 {
+		t.Fatalf("after repair: %v", seen)
+	}
+	waitIdle(t, app)
+	if raw, _ := os.ReadFile(filepath.Join(folder, "synthetic-starts.txt")); string(raw) != "one\n" {
+		t.Fatalf("worker ran %q", raw)
+	}
+}
+
+// Review (S18 medium, A08/C02): a worker process that was created but exits at once with an
+// error. Expected: Start is accepted (202) and the claim is kept, so a later Start is refused
+// with 409 "already been started": once a process existed the one-shot guard holds.
+func TestReviewWorkerThatStartedAndFailedKeepsTheClaim(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	crash := filepath.Join(t.TempDir(), "crash.py")
+	if err := os.WriteFile(crash, []byte("import sys\nsys.exit(3)\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app.engine = Engine{Python: app.engine.Python, Script: crash}
+	if first := call(app, "POST", "/api/runs/start", payload); first.Code != 202 {
+		t.Fatalf("first: %d %q", first.Code, first.Body.String())
+	}
+	waitIdle(t, app)
+	if _, err := os.Stat(filepath.Join(root, "intake", id, "start.claim")); err != nil {
+		t.Fatalf("claim released after a worker existed: %v", err)
+	}
+	again := call(app, "POST", "/api/runs/start", payload)
+	if again.Code != 409 || !strings.Contains(again.Body.String(), "already been started") {
+		t.Fatalf("second: %d %q", again.Code, again.Body.String())
+	}
+	if status := call(app, "GET", "/api/runs/status?id="+id, ""); !strings.Contains(status.Body.String(), `"state":"interrupted"`) {
+		t.Fatalf("status: %s", status.Body.String())
+	}
+}

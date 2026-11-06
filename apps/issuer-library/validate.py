@@ -25,6 +25,8 @@ NODE_TESTS = (
     "web/report-renderer.test.cjs",
     "web/screens.test.cjs",
     "web/screen-css.test.cjs",
+    "web/escape-sinks.test.cjs",
+    "web/run-spend.test.cjs",
 )
 PYTHON_TESTS = (
     "tests/test_issuer_library_store.py",

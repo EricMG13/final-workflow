@@ -498,3 +498,34 @@ def test_built_from_is_the_verified_manifest_and_one_odd_entry_loses_nothing(tmp
         ("CP-1", expected, "CP-1.md")
     ]
     assert [issue.split(":")[0] for issue in result["issues"]] == ["deliverables/third"]
+
+
+def test_unusual_handoff_names_are_labelled_one_by_one_and_hide_no_run(tmp_path):
+    """Expected labels, derived from the rule "one optional '-' after the module code; an empty
+    remainder is labelled by the file name": CP-1x -> 'X', CP-1-.md -> its own name,
+    CP-1(1) -> '(1)', and the bracketed attempts are counted literally (2 of them, not 0)."""
+    names = [
+        "CP-0.md",
+        "CP-1.md",
+        "CP-1x.md",
+        "CP-1-.md",
+        "CP-1(1).md",
+        "CP-1-a(-attempt-1.md",
+        "CP-1-[draft]-attempt-1.md",
+        "CP-1-[draft]-attempt-2.md",
+    ]
+    for name in names:
+        put(tmp_path, f"runs/odd/{name}", f"# {name}\n\n## Findings\n\n{name} text {len(name)}.\n")
+    result = store.workspace_store(tmp_path, plain_run("odd"))
+    assert result["issues"] == [] and list(result["runs"]) == ["odd"]
+    labels = {oid.split("/", 1)[1]: output["label"] for oid, output in result["outputs"].items()}
+    assert labels == {
+        "CP-0.md": "CP-0",
+        "CP-1.md": "CP-1",
+        "CP-1x.md": "X",
+        "CP-1-.md": "CP-1-.md",
+        "CP-1(1).md": "(1)",
+        "CP-1-a(-attempt-1.md": "A( · attempt 1 of 1",
+        "CP-1-[draft]-attempt-1.md": "[draft] · attempt 1 of 2",
+        "CP-1-[draft]-attempt-2.md": "[draft] · attempt 2 of 2",
+    }

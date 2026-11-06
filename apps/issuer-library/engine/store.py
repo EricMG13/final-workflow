@@ -228,9 +228,11 @@ def locate_quote(sections, locator, owner):
     raise ValueError(f"{owner}: quote locator no longer matches {locator}")
 
 
-def output_label(module, path, siblings):
+def output_label(module: str, path: Path, siblings: list[Path]) -> tuple[str, int | None]:
     """Name a saved output from its file; a label never ranks it as accepted or primary."""
-    stem = module if path.name == f"{module}.md" else path.name[len(module) + 1 : -3]
+    rest = path.name.removeprefix(module).removesuffix(".md")
+    # At most one separator follows the module code; a name with nothing else is its own label.
+    stem = rest.removeprefix("-") or path.name if rest else module
     attempt = re.fullmatch(r"(?:(.+)-)?attempt-(\d+)", stem)
     if not attempt:
         repeated = sum(s.name == path.name for s in siblings) > 1
@@ -238,9 +240,11 @@ def output_label(module, path, siblings):
         return stem[0].upper() + stem[1:] + (
             f" · delivery {path.parent.name[:8]}" if delivered else ""
         ), None
-    prefix = f"{attempt[1]}-" if attempt[1] else ""
-    total = sum(bool(re.fullmatch(rf"{module}-{prefix}attempt-\d+\.md", s.name)) for s in siblings)
-    counted = f"attempt {attempt[2]} of {total}"
+    prefix = re.escape(f"{attempt[1]}-") if attempt[1] else ""
+    pattern = rf"{re.escape(module)}-{prefix}attempt-\d+\.md"
+    counted = (
+        f"attempt {attempt[2]} of {sum(bool(re.fullmatch(pattern, s.name)) for s in siblings)}"
+    )
     return (f"{attempt[1].capitalize()} · {counted}" if attempt[1] else counted.capitalize()), int(
         attempt[2]
     )

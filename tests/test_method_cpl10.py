@@ -45,6 +45,17 @@ def _digest(text: str) -> str:
     return hashlib.sha256(text.encode()).hexdigest()
 
 
+# S13 C01: CP-1 states a quarter column's ratio over the twelve months ending the quarter, written
+# here by hand (the builder's own TRAILING table is not read): 2025-01-01 to 2025-12-31 is the
+# four 2025 quarters; the windows ending Q1-Q3 lack earlier quarters, so their start is null.
+TRAILING = {
+    "Q1 25: 2025-01-01 to 2025-03-31": "LTM Q1 25: null to 2025-03-31",
+    "Q2 25: 2025-04-01 to 2025-06-30": "LTM Q2 25: null to 2025-06-30",
+    "Q3 25: 2025-07-01 to 2025-09-30": "LTM Q3 25: null to 2025-09-30",
+    "Q4 25: 2025-10-01 to 2025-12-31": "LTM Q4 25: 2025-01-01 to 2025-12-31",
+}
+
+
 def _cp1_facts() -> list[Fact]:
     """The 28 CP-1 T4.10 operands, from the oracle's view values and observed value classes.
 
@@ -77,7 +88,7 @@ def _cp1_facts() -> list[Fact]:
                     currency="USD" if money else None,
                     scale=Decimal(1000000) if money else Decimal(1),
                     decimals=0,
-                    period=value["period"],
+                    period=value["period"] if money else TRAILING[value["period"]],
                     citations=(
                         Citation(
                             source_id="financial",

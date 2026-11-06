@@ -387,3 +387,61 @@ def test_fy_q4_snapshot_alias_is_not_double_counted_and_conflict_refuses():
     )
     with pytest.raises(ValueError):
         cp1_chart_series(module)
+
+
+def trailing(module, metrics, periods):
+    """The quarter facts of `metrics` restated on `periods` (CP-1's trailing period, S13 C01)."""
+    quarter = dict(zip(("model-basis:" + b for b in BASES), periods, strict=True))
+    return module.model_copy(
+        update={
+            "facts": tuple(
+                fact.model_copy(update={"period": quarter[fact.field]})
+                if fact.table_id == "T4.10"
+                and fact.row_id.removeprefix("T4.10.") in metrics
+                and fact.field in quarter
+                else fact
+                for fact in module.facts
+            )
+        }
+    )
+
+
+# CP-1 states the twelve months ending each quarter: Q1-Q3 lack earlier quarters (null start), Q4
+# is the 2025 year, 2025-01-01 to 2025-12-31 = 365 days (hand-counted).
+LTM = (
+    "LTM Q1 25: null to 2025-03-31",
+    "LTM Q2 25: null to 2025-06-30",
+    "LTM Q3 25: null to 2025-09-30",
+    "LTM Q4 25: 2025-01-01 to 2025-12-31",
+)
+
+
+def test_quarter_leverage_and_coverage_may_state_their_trailing_period():
+    plain = cp1_chart_series(fixture())
+    module = trailing(fixture(), METRICS[:3], LTM)
+    figures = cp1_chart_series(module)
+    assert [f.fig_id for f in figures] == ["S.1", "S.2", "S.3", "S.4", "S.5"]
+    assert [amounts(module, f) for f in figures[:2]] == [
+        amounts(fixture(), f) for f in plain[:2]
+    ]  # the same points, only the stated period differs
+
+
+@pytest.mark.parametrize(
+    "periods",
+    [
+        ("LTM Q1 25: null to 2025-03-31",) * 4,  # ends at the wrong quarter end
+        (*LTM[:3], "LTM Q4 25: 2025-06-01 to 2025-12-31"),  # a 214 day window
+        (*LTM[:3], "LTM Q4 25: 2024-01-01 to 2025-12-31"),  # a 731 day window
+        (*LTM[:3], "LTM Q4 25: 2025-01-01 to 2025-12-30"),  # ends a day early
+        (*LTM[:3], "Q4 25: 2025-01-01 to 2025-12-31"),  # a 365 day span not labelled trailing
+        (*LTM[:3], "LTM Q4 25: soon to 2025-12-31"),
+    ],
+)
+def test_trailing_period_of_another_window_fails_closed(periods):
+    with pytest.raises(ValueError, match="canonical QUARTER dates"):
+        cp1_chart_series(trailing(fixture(), METRICS[:3], periods))
+
+
+def test_money_series_do_not_take_the_trailing_period():
+    with pytest.raises(ValueError, match="canonical QUARTER dates"):
+        cp1_chart_series(trailing(fixture(), METRICS[3:], LTM))

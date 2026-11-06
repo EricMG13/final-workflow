@@ -1136,6 +1136,9 @@ def test_quarter_base_reads_its_ratios_from_the_stated_trailing_period() -> None
     # Another quarter's trailing period, or the LTM base's own ratio facts, are not this base's.
     other = _trailing(facts, Q4, "LTM Q3 25: 2024-10-01 to 2025-09-30")
     assert Q4 not in {b.period for b in cp2a.offered_bases(other)}
+    # A window that is not twelve months (2024-06-01 to 2025-12-31 is 579 days) is not accepted.
+    long = _trailing(facts, Q4, "LTM Q4 25: 2024-06-01 to 2025-12-31")
+    assert Q4 not in {b.period for b in cp2a.offered_bases(long)}
     ebitda = f"{cp2a._column(Q4)} · ebitda"
     operand = tuple(
         f.model_copy(update={"period": "LTM Q4 25: 2025-01-01 to 2025-12-31"})

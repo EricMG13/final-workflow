@@ -702,6 +702,10 @@ def test_trailing_ratio_period_on_a_quarter_is_the_ratios_own():
         ("value.revenue.q4-2025", "LTM Q4 25: 2025-01-01 to 2025-12-31"),  # not a ratio
         ("value.total_leverage_reported.q4-2025", "LTM Q3 25: 2024-10-01 to 2025-09-30"),
         ("value.total_leverage_reported.q4-2025", "Q4 25: 2025-01-01 to 2025-12-31"),  # no LTM
+        (
+            "value.total_leverage_reported.q4-2025",
+            "LTM Q4 25: 2024-06-01 to 2025-12-31",
+        ),  # 579 days
     ],
 )
 def test_trailing_period_elsewhere_still_refuses(fact_id, period):

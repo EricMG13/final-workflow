@@ -78,6 +78,7 @@ from deploy_workflow.owners.period_basis import (
     run_currency,
 )
 from deploy_workflow.owners.pins import pin_issues, pinned_line, pins_of
+from deploy_workflow.trailing_period import states_trailing_period
 
 MODULE_ID = "CP-2A"
 STEP_ID = "downside_pathway"
@@ -196,9 +197,7 @@ def _in_period(fact: Fact, period: str, metric: str) -> bool:
     if metric not in REPORTED.values() or period_kind(period) != "quarter":
         return False
     head, _, span = period.partition(": ")
-    _, _, end = span.rpartition(" to ")
-    stated = fact.period or ""
-    return stated.startswith(f"LTM {head}: ") and stated.endswith(f" to {end}")
+    return states_trailing_period(fact.period, span.rpartition(" to ")[2], head)
 
 
 @dataclass(frozen=True)

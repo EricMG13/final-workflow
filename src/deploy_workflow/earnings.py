@@ -14,6 +14,7 @@ from decimal import ROUND_HALF_EVEN, Context, Decimal, DecimalException, localco
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
+from deploy_workflow.trailing_period import states_trailing_period
 
 FactStatus = Literal["known", "missing", "conflicting", "not_applicable"]
 
@@ -227,14 +228,12 @@ def _dated(stated: str | None, period: _Period, unit: str) -> bool:
     end`, the start `null` while the window is incomplete); its end is the quarter's end."""
     if not isinstance(stated, str):
         return False
-    head, _, dates = stated.rpartition(": ")
-    if dates == f"{period.start.isoformat()} to {period.end.isoformat()}":
+    if stated.rpartition(": ")[2] == f"{period.start.isoformat()} to {period.end.isoformat()}":
         return True
     return (
         unit == "MULTIPLE"
         and period.kind == "QUARTER"
-        and head.startswith("LTM ")
-        and dates.endswith(f" to {period.end.isoformat()}")
+        and states_trailing_period(stated, period.end.isoformat())
     )
 
 

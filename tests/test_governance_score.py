@@ -66,3 +66,29 @@ def test_medium_quality_adverse_row_is_not_an_override() -> None:
     medium = _row("Extraction-Oriented", None, "Medium", "behaviour_flag")
     score = governance_sponsor_score([medium, *_supportive(4)])
     assert (score.composite, score.risk_level, score.high_risk_action) == ("1", "Low", False)
+
+
+def test_floor_holds_at_five_scored_dimensions_and_for_creditor_adverse() -> None:
+    adverse = _row("Creditor-Adverse", None, "High", "behaviour_flag")
+    assert len(DIMENSIONS) >= 5
+    score = governance_sponsor_score([adverse, *_supportive(5)])
+    assert (score.composite, score.risk_level, score.scored) == ("5", "High", 5)
+
+
+def test_a_high_quality_adverse_row_that_is_not_evidenced_is_no_override() -> None:
+    # category "Insufficient Information" makes the row not `evidenced`: no documented action.
+    row = _row("Extraction-Oriented", None, "High", "behaviour_flag").model_copy(
+        update={"category": "Insufficient Information"}
+    )
+    score = governance_sponsor_score([row, *_supportive(4)])
+    assert (score.composite, score.risk_level, score.high_risk_action) == ("1", "Low", False)
+
+
+def test_low_quality_adverse_row_is_no_override() -> None:
+    low = _row("Extraction-Oriented", None, "Low", "behaviour_flag")
+    score = governance_sponsor_score([low, *_supportive(3)])
+    assert (score.composite, score.risk_level, score.high_risk_action) == (
+        "Not Scorable",
+        "Insufficient Information",
+        False,
+    )

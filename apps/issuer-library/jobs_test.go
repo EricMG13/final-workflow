@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -573,5 +574,312 @@ print('{}')
 		raw, _ := io.ReadAll(response.Body)
 		response.Body.Close()
 		t.Fatalf("slow /api/workspace outlived WriteTimeout: %s %s", response.Status, raw)
+	}
+}
+
+func writeJob(t *testing.T, root, id, state string, when time.Time) {
+	t.Helper()
+	folder := filepath.Join(root, "intake", id)
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(folder, "status.json")
+	if err := os.WriteFile(file, []byte(`{"state":"`+state+`"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(file, when, when); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func listedJobs(t *testing.T, app *Application) []string {
+	t.Helper()
+	var rows []map[string]any
+	response := call(app, "GET", "/api/runs/list", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{}
+	for _, row := range rows {
+		ids = append(ids, row["id"].(string))
+	}
+	return ids
+}
+
+// Job ids are random, so which jobs are "recent" must follow when they were written, and
+// a running job must never be cut by the cap however old its status file is.
+func TestRunListFollowsRecencyAndAlwaysKeepsActiveJobs(t *testing.T) {
+	app, root := testApp(t)
+	now := time.Now()
+	// Ids sort opposite to age: the newest jobs have the smallest ids.
+	for i := 0; i < 40; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x100+i), "complete", now.Add(-time.Duration(i+1)*time.Hour))
+	}
+	newest := "web-" + strings.Repeat("0", 31) + "1"
+	writeJob(t, root, newest, "running", now)
+	oldRunning := "web-" + strings.Repeat("f", 32)
+	writeJob(t, root, oldRunning, "running", now.Add(-500*time.Hour))
+	writeJob(t, root, "web-"+strings.Repeat("a", 32), "reviewed", now)
+	ids := listedJobs(t, app)
+	if len(ids) != 30 {
+		t.Fatalf("%d rows, want the 30 cap: %v", len(ids), ids)
+	}
+	if ids[0] != newest {
+		t.Fatalf("the just-started job must lead the list: %v", ids)
+	}
+	has := map[string]bool{}
+	for _, id := range ids {
+		has[id] = true
+	}
+	if !has[oldRunning] {
+		t.Fatal("a running job must be listed even when its status file is old")
+	}
+	if has["web-"+strings.Repeat("a", 32)] {
+		t.Fatal("a reviewed-only draft is not a run")
+	}
+	// 28 finished jobs fill the remaining places: the 28 newest by write time.
+	for i := 0; i < 28; i++ {
+		if want := fmt.Sprintf("web-%032x", 0x100+i); !has[want] {
+			t.Fatalf("finished job %d (newer than the cut) missing: %v", i, ids)
+		}
+	}
+	if has[fmt.Sprintf("web-%032x", 0x100+28)] {
+		t.Fatal("an older finished job displaced a newer one")
+	}
+}
+
+func waitIdle(t *testing.T, app *Application) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		app.mu.RLock()
+		active := len(app.activeJobs)
+		app.mu.RUnlock()
+		if active == 0 {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal("worker did not finish")
+}
+
+// A spawn that never produced a process made no call, so the one-shot claim is released;
+// once a worker did start the claim keeps refusing a second Start.
+func TestFailedSpawnReleasesTheStartClaimButAStartedWorkerKeepsIt(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	good := app.engine
+	app.engine = Engine{Python: filepath.Join(t.TempDir(), "no-such-python"), Script: good.Script}
+	first := call(app, "POST", "/api/runs/start", payload)
+	if first.Code != 503 || !strings.Contains(first.Body.String(), "no model call was made") {
+		t.Fatalf("spawn failure: %d %q", first.Code, first.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim survived a spawn that never ran: %v", err)
+	}
+	status := call(app, "GET", "/api/runs/status?id="+id, "")
+	if !strings.Contains(status.Body.String(), `"state":"failed"`) || !strings.Contains(status.Body.String(), "can be tried again") {
+		t.Fatalf("status: %s", status.Body.String())
+	}
+	app.engine = good
+	second := call(app, "POST", "/api/runs/start", payload)
+	if second.Code != 202 {
+		t.Fatalf("retry after a failed spawn: %d %q", second.Code, second.Body.String())
+	}
+	third := call(app, "POST", "/api/runs/start", payload)
+	if third.Code != 409 {
+		t.Fatalf("a second Start while the worker runs: %d %q", third.Code, third.Body.String())
+	}
+	waitIdle(t, app)
+	if raw, _ := os.ReadFile(filepath.Join(folder, "synthetic-starts.txt")); string(raw) != "one\n" {
+		t.Fatalf("worker ran %q", raw)
+	}
+	if again := call(app, "POST", "/api/runs/start", payload); again.Code != 409 || !strings.Contains(again.Body.String(), "already been started") {
+		t.Fatalf("a finished worker must keep the claim: %d %q", again.Code, again.Body.String())
+	}
+}
+
+// If the running status cannot be saved the worker is never spawned, so the claim is released too.
+func TestUnsavableStartStatusReleasesTheStartClaim(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	status := filepath.Join(folder, "status.json")
+	if err := os.Remove(status); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(status, "blocker"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	first := call(app, "POST", "/api/runs/start", payload)
+	if first.Code != 500 {
+		t.Fatalf("expected the status write to fail: %d %q", first.Code, first.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(folder, "synthetic-starts.txt")); err == nil {
+		t.Fatal("a worker ran")
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim survived: %v", err)
+	}
+	if err := os.RemoveAll(status); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(status, []byte(`{"state":"reviewed"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if second := call(app, "POST", "/api/runs/start", payload); second.Code != 202 {
+		t.Fatalf("retry: %d %q", second.Code, second.Body.String())
+	}
+	waitIdle(t, app)
+}
+
+// Review (S18 medium, A04/C05): after a crash, more stale "running"/"starting" jobs than the
+// cap. Expected: every active job is listed (40 rows, above the cap of 30), newest first,
+// and no finished job takes a place because no room is left.
+func TestReviewRunListManyStaleActiveJobsExceedTheCap(t *testing.T) {
+	app, root := testApp(t)
+	now := time.Now()
+	for i := 0; i < 35; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x200+i), "running", now.Add(-time.Duration(100+i)*time.Hour))
+	}
+	for i := 0; i < 5; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x300+i), "starting", now.Add(-time.Duration(200+i)*time.Hour))
+	}
+	for i := 0; i < 10; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x400+i), "complete", now.Add(-time.Duration(i)*time.Minute))
+	}
+	ids := listedJobs(t, app)
+	if len(ids) != 40 {
+		t.Fatalf("%d rows, want all 40 active jobs: %v", len(ids), ids)
+	}
+	for i, id := range ids {
+		var want string
+		if i < 35 {
+			want = fmt.Sprintf("web-%032x", 0x200+i)
+		} else {
+			want = fmt.Sprintf("web-%032x", 0x300+i-35)
+		}
+		if id != want {
+			t.Fatalf("row %d is %s, want %s (newest first)", i, id, want)
+		}
+	}
+}
+
+// Review (S18 medium, A04/C05): equal write times and unreadable status files. Expected:
+// exactly 30 rows; with equal times the order falls back to the id, descending, and is the
+// same on every request; a status.json that is a folder, invalid JSON or empty, a plain file
+// named like a job, and a folder that is not a job id are all left out without failing.
+func TestReviewRunListEqualTimesAndUnreadableStatus(t *testing.T) {
+	app, root := testApp(t)
+	when := time.Date(2026, 11, 6, 12, 0, 0, 0, time.UTC)
+	for i := 0; i < 33; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x500+i), "complete", when)
+	}
+	bad := map[string]string{"web-" + strings.Repeat("e", 32): "{not json", "web-" + strings.Repeat("d", 32): ""}
+	for id, raw := range bad {
+		put(t, root, "intake/"+id+"/status.json", []byte(raw))
+	}
+	put(t, root, "intake/web-"+strings.Repeat("c", 32)+"/status.json/inner", []byte(`{"state":"running"}`))
+	put(t, root, "intake/web-"+strings.Repeat("b", 32), []byte(`{"state":"running"}`))
+	put(t, root, "intake/notes/status.json", []byte(`{"state":"running"}`))
+	first, second := listedJobs(t, app), listedJobs(t, app)
+	if len(first) != 30 || !slices.Equal(first, second) {
+		t.Fatalf("%d rows, stable=%v: %v", len(first), slices.Equal(first, second), first)
+	}
+	for i, id := range first {
+		if want := fmt.Sprintf("web-%032x", 0x500+32-i); id != want {
+			t.Fatalf("row %d is %s, want %s", i, id, want)
+		}
+	}
+}
+
+// Review (S18 medium, A08/C02): concurrent Starts around a failed spawn. Expected: while the
+// runtime is missing every request fails with 503 (each claims, fails and releases; none is
+// accepted and no claim is left); after repair, of 8 concurrent Starts exactly one is accepted,
+// the others get 409, and the worker runs exactly once.
+func TestReviewConcurrentStartsAroundAFailedSpawn(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	good := app.engine
+	app.engine = Engine{Python: filepath.Join(t.TempDir(), "no-such-python"), Script: good.Script}
+	codes := func() map[int]int {
+		var group sync.WaitGroup
+		var lock sync.Mutex
+		seen := map[int]int{}
+		for range 8 {
+			group.Go(func() {
+				code := call(app, "POST", "/api/runs/start", payload).Code
+				lock.Lock()
+				seen[code]++
+				lock.Unlock()
+			})
+		}
+		group.Wait()
+		return seen
+	}
+	if seen := codes(); seen[503] != 8 {
+		t.Fatalf("missing runtime: %v", seen)
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); !os.IsNotExist(err) {
+		t.Fatalf("claim left behind: %v", err)
+	}
+	app.mu.Lock()
+	app.engine = good
+	app.mu.Unlock()
+	if seen := codes(); seen[202] != 1 || seen[409] != 7 {
+		t.Fatalf("after repair: %v", seen)
+	}
+	waitIdle(t, app)
+	if raw, _ := os.ReadFile(filepath.Join(folder, "synthetic-starts.txt")); string(raw) != "one\n" {
+		t.Fatalf("worker ran %q", raw)
+	}
+}
+
+// Review (S18 medium, A08/C02): a worker process that was created but exits at once with an
+// error. Expected: Start is accepted (202) and the claim is kept, so a later Start is refused
+// with 409 "already been started": once a process existed the one-shot guard holds.
+func TestReviewWorkerThatStartedAndFailedKeepsTheClaim(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	crash := filepath.Join(t.TempDir(), "crash.py")
+	if err := os.WriteFile(crash, []byte("import sys\nsys.exit(3)\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app.engine = Engine{Python: app.engine.Python, Script: crash}
+	if first := call(app, "POST", "/api/runs/start", payload); first.Code != 202 {
+		t.Fatalf("first: %d %q", first.Code, first.Body.String())
+	}
+	waitIdle(t, app)
+	if _, err := os.Stat(filepath.Join(root, "intake", id, "start.claim")); err != nil {
+		t.Fatalf("claim released after a worker existed: %v", err)
+	}
+	again := call(app, "POST", "/api/runs/start", payload)
+	if again.Code != 409 || !strings.Contains(again.Body.String(), "already been started") {
+		t.Fatalf("second: %d %q", again.Code, again.Body.String())
+	}
+	if status := call(app, "GET", "/api/runs/status?id="+id, ""); !strings.Contains(status.Body.String(), `"state":"interrupted"`) {
+		t.Fatalf("status: %s", status.Body.String())
 	}
 }

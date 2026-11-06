@@ -310,3 +310,165 @@ func TestDeliveryCheckpointRequiresAvailableDirectBundle(t *testing.T) {
 		}
 	}
 }
+
+// moveDelivery places a verified delivery folder inside a run, as the launcher or a copy would.
+func moveDelivery(t *testing.T, root, folder, run string) string {
+	t.Helper()
+	target := filepath.Join(root, "runs", run, "deliveries")
+	if err := os.MkdirAll(target, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(root, "deliverables", folder), filepath.Join(target, folder)); err != nil {
+		t.Fatal(err)
+	}
+	return "runs/" + run + "/deliveries/" + folder
+}
+
+func attached(cat Catalogue, runID, folder string) (Artifact, bool) {
+	for _, run := range cat.Real {
+		if run.ID == runID {
+			for _, artifact := range run.Artifacts {
+				if artifact.Folder == folder && artifact.Available {
+					return artifact, true
+				}
+			}
+		}
+	}
+	return Artifact{}, false
+}
+
+// A delivery under runs/<id>/deliveries is that run's only when its view.json says so.
+func TestRunInternalDeliveryMustMatchItsRunAndIssuer(t *testing.T) {
+	root, _ := fixture(t)
+	addDelivery(t, root, "own", "case-a", "EX")
+	addDelivery(t, root, "foreign-run", "other-run", "EX")
+	addDelivery(t, root, "foreign-issuer", "case-a", "ZZZ")
+	addDelivery(t, root, "foreign-both", "other-run", "ZZZ")
+	own := moveDelivery(t, root, "own", "case-a")
+	rejected := []string{moveDelivery(t, root, "foreign-run", "case-a"), moveDelivery(t, root, "foreign-issuer", "case-a"), moveDelivery(t, root, "foreign-both", "case-a")}
+	cat := discover(root, Catalogue{})
+	if _, ok := attached(cat, "case-a", own); !ok {
+		t.Fatalf("the run's own delivery was refused: %+v", cat.Issues)
+	}
+	for _, folder := range rejected {
+		if _, ok := attached(cat, "case-a", folder); ok {
+			t.Errorf("%s was attached to case-a", folder)
+		}
+		if hash := cat.Allowed[folder+"/report.html"]; hash != "" {
+			t.Errorf("%s is pinned as a verified report although it was refused", folder)
+		}
+		found := false
+		for _, issue := range cat.Issues {
+			found = found || strings.HasPrefix(issue, folder+": Delivery ")
+		}
+		if !found {
+			t.Errorf("%s refusal not recorded: %v", folder, cat.Issues)
+		}
+	}
+}
+
+// The launcher's deliveries carry the run id recorded in workflow.json, not the web-<hex> folder.
+func TestRunInternalDeliveryAcceptsTheLauncherRecordedIdentityOnly(t *testing.T) {
+	root, _ := fixture(t)
+	put(t, root, "runs/web-1/CP-0.md", []byte("x"))
+	put(t, root, "runs/web-1/workflow.json", []byte(`{"run":{"run_id":"ex-2024-12-31-full-a","issuer_id":"EX"}}`))
+	addDelivery(t, root, "mine", "ex-2024-12-31-full-a", "EX")
+	addDelivery(t, root, "wrong-issuer", "ex-2024-12-31-full-a", "ZZZ")
+	addDelivery(t, root, "other-launch", "zzz-2024-12-31-full-a", "EX")
+	mine := moveDelivery(t, root, "mine", "web-1")
+	wrongIssuer := moveDelivery(t, root, "wrong-issuer", "web-1")
+	otherLaunch := moveDelivery(t, root, "other-launch", "web-1")
+	cat := discover(root, Catalogue{})
+	if _, ok := attached(cat, "web-1", mine); !ok {
+		t.Fatalf("launcher delivery refused: %v", cat.Issues)
+	}
+	for _, folder := range []string{wrongIssuer, otherLaunch} {
+		if _, ok := attached(cat, "web-1", folder); ok {
+			t.Errorf("%s was attached", folder)
+		}
+	}
+}
+
+// A copied delivery must not satisfy the manifest's delivery checkpoint.
+func TestForeignRunDeliveryDoesNotSatisfyTheDeliveryCheckpoint(t *testing.T) {
+	root, m := fixture(t)
+	raw := `{"scope":"Annual review","requirements":[{"id":"s","stage":"sources","done":true,"evidence":["check"]},{"id":"a","stage":"analysis","done":true,"evidence":["check"]},{"id":"v","stage":"verification","done":true,"evidence":["check"]},{"id":"c","stage":"downstream","done":true,"evidence":["check"]},{"id":"d","stage":"delivery","done":true,"evidence":["check"]}]}`
+	if err := json.Unmarshal([]byte(raw), &m.Checklist); err != nil {
+		t.Fatal(err)
+	}
+	putJSON(t, root, "runs/case-a/library.json", m)
+	addDelivery(t, root, "foreign", "other-run", "ZZZ")
+	moveDelivery(t, root, "foreign", "case-a")
+	for _, run := range discover(root, Catalogue{}).Real {
+		if run.ID == "case-a" && run.Completion != nil {
+			t.Fatalf("a foreign delivery restored completeness: %+v", run.Completion)
+		}
+	}
+	addDelivery(t, root, "mine", "case-a", "EX")
+	moveDelivery(t, root, "mine", "case-a")
+	for _, run := range discover(root, Catalogue{}).Real {
+		if run.ID == "case-a" && (run.Completion == nil || *run.Completion != 100) {
+			t.Fatal("the run's own delivery must still satisfy the checkpoint")
+		}
+	}
+}
+
+// Review (S18 medium, A06/C04): adversarial identities for deliveries kept inside a run.
+func TestReviewRunDeliveryIdentityAdversarial(t *testing.T) {
+	root, _ := fixture(t)
+	// web-2 has no manifest (issuer Unclassified) and a workflow.json whose issuer_id has the
+	// wrong type. Expected: the file counts as unreadable, so only the folder id is accepted;
+	// the recorded run id must not be honoured without its issuer (before review: attached).
+	put(t, root, "runs/web-2/CP-0.md", []byte("x"))
+	put(t, root, "runs/web-2/workflow.json", []byte(`{"run":{"run_id":"ex-run","issuer_id":7}}`))
+	addDelivery(t, root, "typed", "ex-run", "ZZZ")
+	addDelivery(t, root, "folder-id", "web-2", "EX")
+	typed := moveDelivery(t, root, "typed", "web-2")
+	folderID := moveDelivery(t, root, "folder-id", "web-2")
+	// web-3: no workflow.json at all. Expected: only view run_id == "web-3" is accepted.
+	put(t, root, "runs/web-3/CP-0.md", []byte("x"))
+	addDelivery(t, root, "none-own", "web-3", "EX")
+	addDelivery(t, root, "none-other", "ex-run", "EX")
+	noneOwn := moveDelivery(t, root, "none-own", "web-3")
+	noneOther := moveDelivery(t, root, "none-other", "web-3")
+	// web-4: a CP-8 comparison plan recorded as workflow.json (ComparisonPlan also has "run").
+	// Expected: its comparison delivery is accepted; an issuer differing only in case is not.
+	put(t, root, "runs/web-4/CP-0.md", []byte("x"))
+	put(t, root, "runs/web-4/workflow.json", []byte(`{"run":{"run_id":"tdg-cp8-comparison","issuer_id":"TDG"},"prior":{"path":"p","sha256":"x"}}`))
+	addDelivery(t, root, "cp8", "tdg-cp8-comparison", "TDG")
+	addDelivery(t, root, "cp8-case", "tdg-cp8-comparison", "tdg")
+	cp8 := moveDelivery(t, root, "cp8", "web-4")
+	cp8Case := moveDelivery(t, root, "cp8-case", "web-4")
+	// case-a has an admitted manifest (issuer EX). A delivery naming case-a as its run but
+	// another issuer, and one naming the other run web-3 with issuer EX. Expected: both refused.
+	addDelivery(t, root, "case-other-issuer", "case-a", "ex")
+	addDelivery(t, root, "case-other-run", "web-3", "EX")
+	caseIssuer := moveDelivery(t, root, "case-other-issuer", "case-a")
+	caseRun := moveDelivery(t, root, "case-other-run", "case-a")
+
+	cat := discover(root, Catalogue{})
+	for _, want := range []struct {
+		run, folder string
+		ok          bool
+	}{
+		{"web-2", typed, false}, {"web-2", folderID, true},
+		{"web-3", noneOwn, true}, {"web-3", noneOther, false},
+		{"web-4", cp8, true}, {"web-4", cp8Case, false},
+		{"case-a", caseIssuer, false}, {"case-a", caseRun, false},
+	} {
+		if _, ok := attached(cat, want.run, want.folder); ok != want.ok {
+			t.Errorf("%s attached=%v, want %v (issues %v)", want.folder, ok, want.ok, cat.Issues)
+		}
+		if pinned := cat.Allowed[want.folder+"/report.html"] != ""; pinned != want.ok {
+			t.Errorf("%s pinned=%v, want %v", want.folder, pinned, want.ok)
+		}
+	}
+	// A refused run delivery never appears as an available artifact under any run.
+	for _, run := range cat.Real {
+		for _, artifact := range run.Artifacts {
+			if artifact.Available && (artifact.Folder == typed || artifact.Folder == caseIssuer || artifact.Folder == caseRun) {
+				t.Errorf("%s available under %s", artifact.Folder, run.ID)
+			}
+		}
+	}
+}

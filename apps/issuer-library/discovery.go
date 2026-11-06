@@ -303,6 +303,35 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 	return artifact, view, files
 }
 
+// runDeliveryIdentityIssue checks a delivery kept inside runs/<id>/deliveries against
+// that run. The launcher names the folder web-<hex> but stamps its deliveries with the
+// run identity recorded in the run's own workflow.json, so either the folder id or the
+// recorded run id is accepted; an issuer recorded by the launcher or admitted from the
+// run manifest must match exactly. It returns "" when the delivery belongs to the run.
+func runDeliveryIdentityIssue(root *os.Root, folder, id string, run Run, view deliveryView) string {
+	var recorded struct {
+		Run struct {
+			RunID    string `json:"run_id"`
+			IssuerID string `json:"issuer_id"`
+		} `json:"run"`
+	}
+	if readJSON(root, folder+"/workflow.json", &recorded) != nil {
+		// Unreadable or malformed: fall back to the folder id alone. A type error leaves a
+		// partial decode (run_id kept, issuer_id dropped), so none of it may be used.
+		recorded.Run.RunID, recorded.Run.IssuerID = "", ""
+	}
+	if view.Run.RunID != id && (recorded.Run.RunID == "" || view.Run.RunID != recorded.Run.RunID) {
+		return "Delivery run identity does not match this run"
+	}
+	if recorded.Run.IssuerID != "" && view.Run.IssuerID != recorded.Run.IssuerID {
+		return "Delivery issuer does not match run"
+	}
+	if run.Issuer != "" && run.Issuer != "Unclassified" && view.Run.IssuerID != run.Issuer {
+		return "Delivery issuer does not match run"
+	}
+	return ""
+}
+
 func discover(workspace string, seeds Catalogue) Catalogue {
 	cat := Catalogue{Real: []Run{}, Illustrative: []Run{}, Sources: map[string]Source{}, Issues: []string{}, Allowed: map[string]string{}, Workspace: workspace, Live: true, BuiltAt: time.Now().UTC().Format("02 Jan 2006, 15:04:05 UTC")}
 	root, err := os.OpenRoot(workspace)
@@ -374,9 +403,22 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 		// A launcher run keeps its verified deliveries inside the run; run files stay unverified.
 		runDeliveries, _ := folders(root, folder+"/deliveries")
 		for _, delivered := range runDeliveries {
-			artifact, _, files := verifyDelivery(root, delivered)
+			artifact, view, files := verifyDelivery(root, delivered)
+			if artifact.Available {
+				// A delivery copied in from another run or issuer must not pass for this one.
+				if issue := runDeliveryIdentityIssue(root, folder, id, run, view); issue != "" {
+					artifact.Available = false
+					artifact.Href = ""
+					artifact.Issue = issue
+				}
+			}
 			if !artifact.Available {
 				cat.Issues = append(cat.Issues, delivered+": "+artifact.Issue)
+				for i := range run.Artifacts {
+					if run.Artifacts[i].Folder == delivered {
+						run.Artifacts[i].Issue = artifact.Issue
+					}
+				}
 				continue
 			}
 			for name, hash := range files {

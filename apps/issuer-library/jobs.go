@@ -8,12 +8,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -145,26 +147,68 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	return status, true
 }
 
+// recentJobs lists every running or starting job plus the most recently written
+// others, newest first, up to limit rows in all. Job ids are random, so recency is the
+// modification time of status.json, never the folder name. Reviewed-only drafts are
+// not runs and are left out.
+func recentJobs(workspace string, limit int) []map[string]any {
+	entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
+	type candidate struct {
+		id     string
+		when   time.Time
+		active bool
+	}
+	var candidates []candidate
+	active := 0
+	for _, entry := range entries {
+		id := entry.Name()
+		if !jobID.MatchString(id) {
+			continue
+		}
+		file := filepath.Join(workspace, "intake", id, "status.json")
+		info, err := os.Stat(file)
+		raw, readErr := os.ReadFile(file)
+		var status struct {
+			State string `json:"state"`
+		}
+		if err != nil || readErr != nil || json.Unmarshal(raw, &status) != nil || status.State == "reviewed" {
+			continue
+		}
+		running := status.State == "running" || status.State == "starting"
+		if running {
+			active++
+		}
+		candidates = append(candidates, candidate{id, info.ModTime(), running})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if !candidates[i].when.Equal(candidates[j].when) {
+			return candidates[i].when.After(candidates[j].when)
+		}
+		return candidates[i].id > candidates[j].id
+	})
+	recent := []map[string]any{}
+	room := limit - active // places left for finished jobs once every active job is kept
+	for _, c := range candidates {
+		if !c.active {
+			if room <= 0 {
+				continue
+			}
+			room--
+		}
+		if status, ok := jobView(workspace, c.id); ok {
+			recent = append(recent, status)
+		}
+	}
+	return recent
+}
+
 func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		app.mu.RLock()
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
-			entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
-			recent := []map[string]any{}
-			for i := len(entries) - 1; i >= 0 && len(recent) < 30; i-- {
-				id := entries[i].Name()
-				if !jobID.MatchString(id) {
-					continue
-				}
-				status, ok := jobView(workspace, id)
-				if !ok || status["state"] == "reviewed" {
-					continue
-				}
-				recent = append(recent, status)
-			}
-			jsonResponse(w, recent)
+			jsonResponse(w, recentJobs(workspace, 30))
 			return
 		}
 		id := r.URL.Query().Get("id")
@@ -403,16 +447,25 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	claim.Close()
+	// The claim guards a worker that started. Until the process exists nothing was run or
+	// paid for, so a failure before that releases it and the reviewed run can be started again.
+	release := func() {
+		if err := os.Remove(filepath.Join(folder, "start.claim")); err != nil && !os.IsNotExist(err) {
+			log.Printf("Release start claim for %s: %v", request.ID, err)
+		}
+	}
 	command := app.engine.command(context.Background(), "start", folder)
 	// Discard command output; structured, redacted status is the only browser contract.
 	command.Stdout = io.Discard
 	if err = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "running", Message: "CP-OS is validating the reviewed inputs and starting the selected workflow.", ID: request.ID}); err != nil {
-		http.Error(w, "Could not retain start state", 500)
+		release()
+		http.Error(w, "Could not retain start state; no run was started and no model call was made. Start can be tried again.", 500)
 		return
 	}
 	if err = command.Start(); err != nil {
-		_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "failed", Message: "CP-OS runtime could not start."})
-		http.Error(w, "CP-OS runtime could not start", 503)
+		release()
+		_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "failed", Message: "CP-OS runtime could not start; no run was started and no model call was made. Start can be tried again.", ID: request.ID})
+		http.Error(w, "CP-OS runtime could not start; no run was started and no model call was made. Start can be tried again.", 503)
 		return
 	}
 	if app.activeJobs == nil {

@@ -230,14 +230,38 @@ func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(raw))
 }
 
+// lastBodyClose returns the offset in html of its final "</body>", matched with an
+// ASCII-only fold so the offset always indexes the original bytes (Unicode lower-casing
+// changes lengths); len(html) when there is none.
+func lastBodyClose(html []byte) int {
+	const tag = "</body>"
+	for i := len(html) - len(tag); i >= 0; i-- {
+		if html[i] != '<' {
+			continue
+		}
+		match := true
+		for j := 1; j < len(tag); j++ {
+			c := html[i+j]
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != tag[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return len(html)
+}
+
 func reportPresentation(original []byte) []byte {
 	style, _ := resources.ReadFile("web/report-adapter.css")
 	brand, _ := resources.ReadFile("web/brand.css")
 	script, _ := resources.ReadFile("web/report-adapter.js")
-	position := bytes.LastIndex(bytes.ToLower(original), []byte("</body>"))
-	if position < 0 {
-		position = len(original)
-	}
+	position := lastBodyClose(original)
 	return bytes.Join([][]byte{original[:position], []byte("<style data-library-presentation>"), style, brand,
 		[]byte("</style><script data-library-presentation>"), script, []byte("</script>"), original[position:]}, nil)
 }

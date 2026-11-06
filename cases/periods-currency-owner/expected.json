@@ -718,12 +718,12 @@
         },
         "CP-1B": {
           "outcome": "refused",
-          "layer": "build_earnings_delta",
-          "error": "incompatible_periods",
-          "issue_contains": "incompatible_periods",
+          "layer": "supported",
+          "error": "unsupported_pair",
+          "issue_contains": "unsupported_pair",
           "figures_produced": false,
           "is_period_refused": false,
-          "ruling": "controller: freeze today's refusal; earnings.py:316-318 compares period lengths in raw days (prior q2-2026 = 91, current q3-2026 = 92); a pre-existing defect reported to the owner; if the owner fixes it this case is re-cut"
+          "ruling": "re-cut after S11-earnings-financial-A04: earnings.py compares the pair's day-count windows, not raw days (prior q2-2026 = 91, current q3-2026 = 92, both in the quarter window 84-98), so build_earnings_delta accepts the pair; CP-1B accepts only q3-{y+1} -> q4-{y+1} and fy-{y} -> fy-{y+1} (cp1b.supported, ruling B19) with y = 2025 read from the current q3-2026 row, and q2-2026 -> q3-2026 is neither, so the pair is refused unsupported_pair, no figures; assumes the register carries the prior's T4.10 KPI column (without it the core refuses incomplete_register first)"
         },
         "CP-L10": {
           "outcome": "refused",

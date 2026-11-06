@@ -4,6 +4,7 @@ The handwritten coordinates follow the adopted CP1 register shape. Numeric
 fixtures are literal source/oracle values, never financial-engine output.
 """
 
+import hashlib
 import importlib
 import importlib.util
 import inspect
@@ -445,10 +446,82 @@ def test_incompatible_periods(prior, current):
 
 @pytest.mark.parametrize(
     "field,value",
-    [("start_date", "2025-10-02"), ("start_date", "2025-09-30"), ("end_date", "2025-07-01")],
+    # 2025-11-01 to 2025-12-31 is 61 days: no quarter length window (84 to 98 days) holds it
+    [("start_date", "2025-11-01"), ("start_date", "2025-09-30"), ("end_date", "2025-07-01")],
 )
 def test_duration_overlap_and_reversed_date_ranges_refuse(field, value):
     refusal(change(fixture(), f"period.q4-2025.{field}", text=value), "incompatible_periods")
+
+
+def _basis_of(pid, kind):
+    # the literal length-prefixed historical identity of BASES above: "Q:<id>" or "FY:<id>"
+    column = f"{'Q' if kind == 'QUARTER' else 'FY'}:{pid}"
+    payload = "".join(f"{len(part)}:{part}" for part in ("historical", column))
+    return "model-basis:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+# S11-A04: calendar and 52/53-week periods of one type differ in exact days. Inclusive day counts
+# by hand: Q1 2024 91 (leap), Q1 2025 90, Q2 2025 91, FY2024 366, FY2025 365; 53-week FY2020
+# 2019-12-29 to 2021-01-02 is 371, 52-week FY2021 2021-01-03 to 2022-01-01 is 364; 14-week
+# Q4 2020 2020-09-27 to 2021-01-02 is 98, 13-week Q1 2021 2021-01-03 to 2021-04-03 is 91.
+# Revenue (the first measure) is set per period, so each delta is current minus prior by hand.
+LENGTH_DATES = {
+    "fy-2024": ("FY", None, "2024-01-01", "2024-12-31", "FY24", "110"),
+    "fy-2025": ("FY", None, "2025-01-01", "2025-12-31", "FY25", "120"),
+    "q1-2024": ("QUARTER", "1", "2024-01-01", "2024-03-31", "Q1 24", "25"),
+    "q1-2025": ("QUARTER", "1", "2025-01-01", "2025-03-31", "Q1 25", "28"),
+    "q2-2025": ("QUARTER", "2", "2025-04-01", "2025-06-30", "Q2 25", "30"),
+    "fy-2020": ("FY", None, "2019-12-29", "2021-01-02", "FY20", "100"),
+    "fy-2021": ("FY", None, "2021-01-03", "2022-01-01", "FY21", "104"),
+    "q4-2020": ("QUARTER", "4", "2020-09-27", "2021-01-02", "Q4 20", "27"),
+    "q1-2021": ("QUARTER", "1", "2021-01-03", "2021-04-03", "Q1 21", "26"),
+    # a QUARTER-typed six months (181 days) is not in a quarter's length window
+    "q2-2021": ("QUARTER", "2", "2021-01-03", "2021-07-02", "Q2 21", "50"),
+}
+
+
+@pytest.fixture
+def length_fixture(monkeypatch):
+    template = VALUES["q4-2025"]
+    monkeypatch.setattr(__import__(__name__), "DATES", {k: v[:5] for k, v in LENGTH_DATES.items()})
+    monkeypatch.setattr(
+        __import__(__name__), "BASES", {k: _basis_of(k, v[0]) for k, v in LENGTH_DATES.items()}
+    )
+    monkeypatch.setattr(
+        __import__(__name__),
+        "VALUES",
+        {k: (v[5], *template[1:]) for k, v in LENGTH_DATES.items()},
+    )
+    return fixture()
+
+
+@pytest.mark.parametrize(
+    "prior,current,delta",
+    [
+        ("fy-2024", "fy-2025", "10"),
+        ("q1-2025", "q2-2025", "2"),
+        ("q1-2024", "q1-2025", "3"),
+        ("fy-2020", "fy-2021", "4"),
+        ("q4-2020", "q1-2021", "-1"),
+    ],
+)
+def test_pairs_of_one_length_window_compare_across_day_counts(
+    length_fixture, prior, current, delta
+):
+    assert point(build(length_fixture, prior, current), "revenue").delta == Decimal(delta)
+
+
+@pytest.mark.parametrize(
+    "prior,current",
+    [
+        ("q2-2021", "q1-2021"),
+        ("q1-2021", "q2-2021"),
+        ("q2-2025", "q1-2025"),
+        ("q1-2025", "fy-2025"),
+    ],
+)
+def test_pairs_outside_one_length_window_or_out_of_order_refuse(length_fixture, prior, current):
+    refusal(length_fixture, "incompatible_periods", prior, current)
 
 
 @pytest.mark.parametrize(

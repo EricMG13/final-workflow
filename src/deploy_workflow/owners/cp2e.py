@@ -624,14 +624,17 @@ _ROW_LABELS = {
 }
 _SENTENCE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,4})?")  # operand bound: at most 999.9999
 _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spaces
-# A page's unit statement: "amounts in millions", "in thousands", "USD millions", "millions of
-# dollars". A share-count clause ("shares in thousands") and a negated one ("not in millions")
-# state no monetary unit. Every MILLIONS operand is stamped at scale 1e6 of the reporting
-# currency, so its page must state exactly that unit (as the CP-1 adapters refuse other scales).
+# A page's unit statement: "amounts in millions", "in thousands", "USD millions", "$ millions",
+# "millions of dollars". A share-count clause ("shares in thousands") and a negated one ("not in
+# millions") state no monetary unit, and neither does prose such as "thousands of customers". Every
+# MILLIONS operand is stamped at scale 1e6 of the reporting currency, so its page must state
+# exactly that unit (as the CP-1 adapters refuse other scales). A page that spells its unit
+# otherwise ("USDm", "$m") states none, and its rows are refused.
 _UNIT_WORDS = re.compile(
     r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
-    r"|\b[A-Z]{3}\s+(thousands|millions|billions)\b"
-    r"|\b(thousands|millions|billions)\s+of\b",
+    r"|(?:(?-i:\b[A-Z]{3}\s+)|[$€£]\s*)(thousands|millions|billions)\b"
+    r"|\b(thousands|millions|billions)\s+of\s+"
+    r"(?:(?:U\.S\.|US)\s+)?(?:dollars|euros?|pounds|(?-i:[A-Z]{3}\b))",
     re.IGNORECASE,
 )
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
@@ -797,9 +800,9 @@ class _Check:
 
     def unit_issue(self, locator: str) -> str | None:
         """Why the page at ``locator`` (one of ``self.pages``) is not in millions, or None."""
-        matches = _UNIT_WORDS.finditer(self.pages[locator])
-        words = (next(g for g in m.groups() if g) for m in matches)
-        found = {word.lower() for word in words}
+        found = {
+            w.lower() for groups in _UNIT_WORDS.findall(self.pages[locator]) for w in groups if w
+        }
         if not found:
             return f"{locator} does not state the unit of its amounts"
         if found != {"millions"}:

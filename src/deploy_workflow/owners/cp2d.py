@@ -2718,7 +2718,7 @@ def cp2d_module(*, report: LiquidityBridgeReport, inputs: Sequence[Input], attem
 VIEW_NOTE = (
     "Reference a fact only by its ref in basis_refs. A fact whose status is not known has no "
     "value: it is a gap, never a zero. The maturity_wall assessment must cite a T4.18 "
-    "maturity_date ref."
+    "maturity_date ref when the view offers one."
 )
 
 

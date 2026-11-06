@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for DAVITA INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/ee98afeaa1cb6d35dc5e1bdc53f75a39af5bfb6e1768a6d6a3525676e67db3a2/1.response.md",
+    "CP-1": "requests/CP-1/32902eb6425782f359437c603d40d46d7f7fe5c36cb9017f5aa5635021b6712d/1.response.md",
+    "CP-1A": "requests/CP-1A/ed89150ef2049e1880a0ac7b5a5b406efd39aa67d3e86cbc32e74211165ecd56/1.response.md",
+    "CP-2": "requests/CP-2/3286c7b524c85d16f135e8b54d82ec78ef855fa07f275402932b6184744601b0/1.response.md",
+    "CP-5": "requests/CP-5/581c04925d3108dedd609233fe1188d4a40db0c02d86f83ca921f8cf3693d792/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "251e5ba0e09f46db8759ae70448db98626cc478b0eea3feb1c3d777f0a0d8781",
+  "report_sha256": "a558e697d6ddf9f02cc46628f2ab91f525413e9ebf74dee6a987734ba7bfaabd"
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for ENCORE CAPITAL GROUP INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/93be956f997624b1308de4a39d6259c3384875b84b0341eb35f6622ce88cd998/1.response.md",
+    "CP-1": "requests/CP-1/b3ce20857b261d0390c77c468fccceeb57e6d59c3b4f04cc807cad54e119476c/1.response.md",
+    "CP-1A": "requests/CP-1A/cb7a09bdee5fe15496024986b689ea36c37e09892f54085143d1063bd9f341c2/1.response.md",
+    "CP-2": "requests/CP-2/d1382caadf1214d814e819b3915f6087b6ba51546dd013acf26ed646def2f2e8/1.response.md",
+    "CP-5": "requests/CP-5/6e78ae120b5105ac224367133105d501c464e399255483f1365ea7d2b59e1476/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "5d1c8e6559a6c28233dcd1c7b27f5cc140083ca0b75eb5faf6b6cbea3355b9c7",
+  "report_sha256": "2645d66141a92f8c27281f32036d491babcd50bbe397bc619860cdd43b1b4e0e"
+}

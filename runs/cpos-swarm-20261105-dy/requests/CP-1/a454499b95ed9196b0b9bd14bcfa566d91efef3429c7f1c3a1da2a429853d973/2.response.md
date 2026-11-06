@@ -1,0 +1,340 @@
+## Request
+
+Issuer: DYCOM INDUSTRIES INC (ticker DY; registrant Dycom Industries, Inc., SEC file number 001-10613). As-of date: 2026-11-05. Cutoff: 2026-11-05. Pathway: credit_snapshot. Reporting currency per the context: USD. Perimeter: Dycom Industries, Inc. and its wholly owned subsidiaries, consolidated, as in every filing in the pack. The context names no separate borrower, parent, sponsor or guarantor list; the filings name the debt obligor as the Company and the guarantors as "substantially all of our domestic subsidiaries" (10-K page:77, page:114).
+
+Task: build the financial base for the credit snapshot: periods and perimeter, reported statements, debt and facility register, liquidity, covenants, definitions and add-backs, segments and KPIs, non-debt claims, subsequent events, and the leverage, interest-cover, liquidity and debt-maturity chart data. Current period per the context is q2-2027 (quarter ended August 1, 2026); prior period is fy-2026 (53 weeks ended January 31, 2026). Fiscal labels follow Dycom's usage: FY2025 is the 52 weeks ended January 25, 2025, FY2026 the 53 weeks ended January 31, 2026, and Q2 2027 the 13 weeks ended August 1, 2026. LTM Q2 2027 is a constructed last-twelve-months period: FY2026 less the six months ended July 26, 2025 plus the six months ended August 1, 2026, which spans 53 weeks because the extra week of FY2026 falls in its fourth quarter (10-K page:8; 10-Q Q2 FY27 page:36).
+
+Units: primary statements are in USD thousands; chart data and metrics are in US$ millions unless stated. Ratios are in x. Nothing after the cutoff is used. Amounts are copied from the cited source and are never rounded before use; derived figures are shown with their inputs under Calculations.
+
+## Sources
+
+### Issuer sources relied on
+
+| Source file (exact name) | sha256 | Use in this handoff |
+| --- | --- | --- |
+| 10-K_2026-01-31_dy-20260131.htm.jsonl | d3cce30e8b33b40ee726fca361a4ac5af2d47cfff9b57a3f36d911b5b73b8e31 | Audited FY2025 and FY2026 statements, debt note, contractual obligations, market risk, segments, backlog |
+| 10-Q_2025-10-25_dy-20251025.htm.jsonl | 629b328324cc0ef5393e62b61d8db6e3a1e48e205e2a0f26575592aea3390dd7 | Q3 2026 cash, revolver availability, Adjusted EBITDA for the quarter |
+| 10-Q_2026-05-02_dy-20260502.htm.jsonl | 237d7d80121afc72a5bb1b73d79141b69d6396b9608af9b8f3dec2db64be0f4f | Q1 2027 cash, revolver availability, Adjusted EBITDA for the quarter |
+| 10-Q_2026-08-01_dy-20260801.htm.jsonl | 666dcd463f60ce7cc9d18464ad1e3020b3cf1f9ca79b66ed79bb20b35e9cbf79 | Q2 2027 and six-month statements, debt note, covenants, segments, leases, supplier finance, subsequent events |
+| EX-99.2_2026-03-04_q42026presentationmateri.htm.jsonl | 6988c6bbc189fb06cb090ad132fb7c67f67f6d428cb3b75cae839c0b2d040376 | Management debt and liquidity summary and Adjusted EBITDA reconciliation, Q4 2026 (attributed management claims) |
+| EX-99.2_2026-05-27_q12027presentationmateri.htm.jsonl | fb3e1da73422f05d34562fe3208f0c4af7eb6fffd05db64f60aea98effba2a9e | Management debt and liquidity summary, Q1 2027 (attributed) |
+| EX-99.2_2026-08-26_q22027presentationmateri.htm.jsonl | db5426dcb5222e08c260f53364ad7255c795bb75eba46ab3566a5906d530e4b2 | Management debt and liquidity summary, cash flow summary, Adjusted EBITDA reconciliation, outlook, Q2 2027 (attributed) |
+
+### Run context (not issuer evidence)
+
+| Item | sha256 |
+| --- | --- |
+| context (67215-dycom-industries-inc-dy.json) | c91849e9583c2227ff5d8a95aa89da364bfff0f885232cdd128e95fb51281f42 |
+
+### Handoffs relied on
+
+| Module | sha256 | Use |
+| --- | --- | --- |
+| CP-0 | 718647fe146a481414f4709c9a5b01ad4b5d904e03712717acf9f85199936a95 | Source readiness: perimeter, source authority, the deck-versus-filing conflicts, the missing executed legal documents and the READY_WITH_LIMITATIONS view for this module |
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| Gross debt is 2.96x and net debt 2.61x last-twelve-month Adjusted EBITDA at August 1, 2026, with 1,086.5 million of liquidity. These are constructed figures, not covenant ratios. | Medium | Covenant EBITDA is not disclosed, and the last-twelve-month base includes the acquired Building Systems businesses only from their acquisition dates, so ratios are not pro forma. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| Total debt rose from 950.0 million at FY2025 to 2,840.0 million at FY2026 and 2,842.7 million at August 1, 2026, mostly floating-rate term loans. | A 50 basis point move in Term SOFR changes annual interest by about 11.7 million per the 10-K, with no interest-rate hedge disclosed. | High |
+| Cash paid for interest in the last twelve months was 86.4 million, below run-rate interest of about 148.9 million built from August 1, 2026 rates and balances. | Interest cover of 11.10x on cash interest overstates serviceability; about 6.45x on run-rate interest is the more cautious view. | Medium |
+| Free cash flow was 485.3 million over the last twelve months, but negative 54.2 million for the six months ended August 1, 2026, after a 520.8 million receivables build. | Growth absorbs working capital, and the receivables sit with a few telecom customers, so cash conversion is seasonal and customer dependent. | Medium |
+| Supplier finance of 367.4 million, operating leases of 228.7 million and performance bonds of 1,215.8 million sit outside the debt figure. | Supplier finance exceeds cash of 340.1 million; withdrawal of that program could pressure working capital and liquidity. | Medium |
+
+### Financial base view
+
+The financial base is usable for the credit snapshot with stated restrictions. All headline figures come from filed statements or from management reconciliations that agree with the filed statements where both exist (the deck-versus-filing items logged by CP-0 do not touch the figures used here). Debt grew from 950.0 million at FY2025 to 2,840.0 million at FY2026 because the Power Solutions acquisition (agreed November 18, 2025, closed December 23, 2025) was financed with a larger Term Loan A and a new Term Loan B (10-K page:112; 10-Q Q2 FY27 page:27, page:48). The Adjusted EBITDA base rose from 576.3 million in FY2025 to 737.7 million in FY2026 and, by construction, to 959.8 million for the last twelve months to August 1, 2026, so reported leverage fell from 3.85x gross at FY2026, the highest of the three periods shown, to 2.96x gross and from 2.89x to 2.61x net. The fall is real in the reported figures, but two effects pull in opposite directions: Building Systems EBITDA enters the base only from December 23, 2025 (and National Technology Integrators from July 2, 2026) while all acquisition debt is already in the numerator, which overstates leverage relative to a pro forma base; and the 53-week FY2026 and LTM spans each include one extra week, which slightly raises the earnings base. Because pre-acquisition EBITDA of the acquired businesses is not supplied, no pro forma ratio can be computed, and the constructed ratios are not covenant ratios.
+
+Interest cover needs the most care. Cash paid for interest was low in FY2026 and in the last twelve months relative to the debt now outstanding, because the Term Loan A increase closed on December 23, 2025 and Term Loan B closed on January 27, 2026, so the added debt carried interest for only part of those periods. A run-rate view built from the Aug 1, 2026 weighted rate of 5.40% on 2,340.0 million of floating-rate term loans plus 22.5 million of fixed note interest gives about 148.9 million a year before fees, and the Q2 2027 interest expense, net annualized gives about 151.9 million; EBITDA cover on those is about 6.45x and 6.32x against 11.10x on reported cash interest. Liquidity at August 1, 2026 is 340.1 million of cash plus 746.4 million of printed revolver availability, with no revolver draw and 53.6 million of standby letters of credit; cash fell from 709.2 million at FY2026 as 238.3 million went to acquisitions and working capital absorbed cash, with accounts receivable, net rising by 520.8 million (520.783 million in the cash flow statement) in the six months to August 1, 2026 that management attributes to growth including acquired balances (10-Q Q2 FY27 page:4, page:49). Free cash flow for those six months was negative 54.2 million against 485.3 million for the last twelve months. Debt maturities are back-ended: nothing falls due before April 2029 apart from small term loan amortization and finance leases, but the composition of the 28.4 million current portion of debt at August 1, 2026 is not printed.
+
+The strongest contrary evidence for a benign reading is that the covenant EBITDA definition and the actual covenant ratios are not disclosed (10-Q Q2 FY27 page:21), that around 82% of debt was floating-rate at FY2026 with no interest-rate hedge disclosed in the sources searched (10-K page:82), that non-debt claims such as supplier finance are large relative to cash, and that cash conversion is seasonal. These restrictions carry forward to the business-context and synthesis modules.
+
+### Chart data: leverage
+
+| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2025 | 1.65 | 1.49 | x | Notional debt 950.0 (Term Loan A 450.0 plus 2029 Notes 500.0, 10-K page:112, page:115) over Non-GAAP Adjusted EBITDA 576.3 (10-K page:70); cash 92.670 (10-K page:83). 52 weeks. Adjusted EBITDA is a management measure, not covenant EBITDA. |
+| FY2026 | 3.85 | 2.89 | x | Notional debt 2,840.0 (10-K page:112-115) over Adjusted EBITDA 737.7 (10-K page:70); cash 709.165 (10-K page:83). 53 weeks. Year-end debt includes full acquisition financing but the base includes Building Systems only from December 23, 2025, so not pro forma. |
+| LTM Q2 2027 | 2.96 | 2.61 | x | Notional debt 2,842.7 including finance leases 2.7 (Q2 deck page:4; 10-Q Q2 FY27 page:18) over constructed LTM Adjusted EBITDA 959.8; cash 340.080 (10-Q Q2 FY27 page:2). 53 weeks. Not pro forma for Power Solutions before December 23, 2025 or National Technology Integrators before July 2, 2026. Not a covenant ratio. |
+
+### Chart data: interest cover
+
+| Period | EBITDA / cash interest | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2025 | 9.95 | x | Adjusted EBITDA 576.3 over cash paid for interest 57.924 (10-K page:85). Management measure over cash paid, not the covenant ratio. |
+| FY2026 | 11.84 | x | Adjusted EBITDA 737.7 over cash paid for interest 62.302 (10-K page:85). Overstates serviceability: the large term loans were drawn only from December 23, 2025 and January 27, 2026. |
+| LTM Q2 2027 | 11.10 | x | Constructed LTM Adjusted EBITDA 959.8 over constructed LTM cash paid for interest 86.434 (62.302 less 27.910 plus 52.042; 10-K page:85, 10-Q Q2 FY27 page:5). Run-rate interest of about 148.9 (rate times balances, before fees) gives about 6.45x; interest expense, net for the LTM of 110.409 gives 8.69x. |
+
+### Chart data: liquidity
+
+| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2025 (January 25, 2025) | 92.7 | 602.5 | US$m | Cash 92.670 (10-K page:83). Revolver availability 602.5 as determined by the most restrictive covenant (10-K page:114); commitment then 650.0 less 47.5 of letters of credit, no draw. |
+| Q3 2026 (October 25, 2025) | 110.1 | 596.4 | US$m | Cash 110.109 (10-Q Q3 FY26 page:2). Availability 596.4 (10-Q Q3 FY26 page:18). |
+| FY2026 (January 31, 2026) | 709.2 | 746.4 | US$m | Cash 709.165 (10-K page:83), boosted by the January 27, 2026 Term Loan B proceeds. Availability 746.4 (10-K page:114) on an 800.0 commitment less 53.6 of letters of credit. |
+| Q1 2027 (May 2, 2026) | 538.8 | 746.4 | US$m | Cash 538.826 (10-Q Q1 FY27 page:2). Availability 746.4 (10-Q Q1 FY27 page:18). |
+| Q2 2027 (August 1, 2026) | 340.1 | 746.4 | US$m | Cash 340.080 (10-Q Q2 FY27 page:2). Availability 746.4 (10-Q Q2 FY27 page:21); the deck liquidity of 1,086.5 (Q2 deck page:4) equals the two amounts. The availability computation nets cash against funded debt and is not printed. |
+
+### Chart data: debt maturities
+
+| Period | Debt maturing | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2027 (year ending January 30, 2027) | 4.0 | US$m | Scheduled Term Loan B payment in the 10-K contractual obligations table as of January 31, 2026 (10-K page:78). The Q2 2027 balance sheet shows a current portion of debt of 28.397 that the 10-Q does not break down (10-Q Q2 FY27 page:18), so this row is on the January 31, 2026 basis and may be understated. |
+| FY2028 | Not supplied: the scheduled Term Loan B amortization by year after FY2027 is not printed; only a single amount "Due Thereafter" of 796.0 is given (10-K page:78). Finance lease payments of 1.183 fall in this year but include interest (10-Q Q2 FY27 page:18). | US$m | No annual schedule exists in the pack for this year. |
+| FY2029 | Not supplied: same reason as FY2028. Finance lease payments of 0.703 include interest (10-Q Q2 FY27 page:18). | US$m | No annual schedule exists in the pack for this year. |
+| FY2030 (includes April 2029) | 500.0 | US$m | 4.50% senior notes due April 2029, principal 500.0 (10-Q Q2 FY27 page:21). The fiscal year containing April 2029 is derived from the fiscal calendar (last Saturday in January). |
+| FY2031 (includes December 23, 2030) | 1,540.0 | US$m | Term Loan A principal at maturity December 23, 2030 and the revolving facility, undrawn (10-Q Q2 FY27 page:19). Quarterly amortization of Term Loan A, if any, is not printed; the principal shown is unchanged from January 31, 2026. |
+| FY2032 | Not supplied: no maturity date falls in this year and scheduled Term Loan B amortization by year is not printed. | US$m | No annual schedule exists in the pack for this year. |
+| FY2033 (includes January 27, 2033) | 800.0 | US$m | Term Loan B principal outstanding at August 1, 2026 (10-Q Q2 FY27 page:19), due January 27, 2033; gross of the interim amortization shown in the FY2027 row, which is counted twice if the rows are summed. |
+
+### Financials and credit metrics
+
+| Metric (US$ millions unless stated) | FY2025 (52 weeks to Jan 25, 2025) | FY2026 (53 weeks to Jan 31, 2026) | LTM Q2 2027 (53 weeks to Aug 1, 2026) | Basis, source and limitation |
+| --- | --- | --- | --- | --- |
+| Contract revenues | 4,702.0 | 5,545.9 | 6,880.1 | Statements of operations (10-K page:83; 10-Q Q2 FY27 page:2-3); LTM is FY2026 less 2,636.6 plus 3,970.7 |
+| Net income | 233.4 | 281.2 | 329.6 | Same sources; LTM is 281.2 less 158.5 plus 206.9 |
+| Reported EBITDA (net income plus interest, tax, D&A) | 567.4 | 704.0 | 906.9 | Management reconciliation (10-K page:70; 10-Q Q2 FY27 page:44); LTM is 704.0 less 358.6 plus 561.5 |
+| Non-GAAP Adjusted EBITDA | 576.3 | 737.7 | 959.8 | 10-K page:70; quarters Q3 2026 219.4 (10-Q Q3 FY26 page:41), Q4 2026 162.4 (Q4 deck page:8), Q1 2027 262.5 (10-Q Q1 FY27 page:39), Q2 2027 315.5 (10-Q Q2 FY27 page:44) |
+| Adjusted EBITDA margin (%) | 12.3 | 13.3 | 14.0 | Adjusted EBITDA over revenue; LTM margin constructed |
+| Depreciation and amortization | 198.6 | 269.6 | 377.6 | Statements of operations; includes acquired intangible amortization of 118.8 in the six months to Aug 1, 2026 (10-Q Q2 FY27 page:16) |
+| Interest expense, net | 61.0 | 66.5 | 110.4 | Statements of operations; LTM is 66.5 less 29.6 plus 73.5 |
+| Cash paid for interest | 57.9 | 62.3 | 86.4 | 10-K page:85; 10-Q Q2 FY27 page:5; discrete quarters not printed |
+| Cash paid for taxes, net | 61.5 | 84.1 | 36.8 | 10-K page:85; 10-Q Q2 FY27 page:5; LTM is 84.1 less 79.3 plus 32.0, low in part because of bonus depreciation legislation (10-Q Q3 FY26 page:40) |
+| Net cash provided by operating activities | 349.1 | 642.5 | 718.1 | Cash flow statements; LTM is 642.5 less 3.5 plus 79.1 |
+| Net capital expenditures (capex less asset sale proceeds) | 211.3 | 207.2 | 232.8 | 10-K page:85; 10-Q Q2 FY27 page:4 |
+| Free cash flow (operating cash flow less net capital expenditures) | 137.8 | 435.3 | 485.3 | Management definition (Q2 deck page:6) applied to filed lines; six months to Aug 1, 2026 is negative 54.2 |
+| Cash and equivalents (period end) | 92.7 | 709.2 | 340.1 | Balance sheets |
+| Notional total debt (period end) | 950.0 | 2,840.0 | 2,842.7 | Principal amounts, not carrying values (carrying 943.2, 2,814.5 and 2,819.7) |
+| Notional net debt (period end) | 857.3 | 2,130.8 | 2,502.6 | Notional debt less cash; matches the decks (Q4 deck page:4; Q2 deck page:4) |
+| Total debt / Adjusted EBITDA (x) | 1.65 | 3.85 | 2.96 | Constructed; not covenant leverage |
+| Net debt / Adjusted EBITDA (x) | 1.49 | 2.89 | 2.61 | Constructed; covenant net leverage nets only cash above 25.0 and uses covenant EBITDA |
+| Adjusted EBITDA / cash interest (x) | 9.95 | 11.84 | 11.10 | Constructed; see interest-cover basis |
+| Liquidity (cash plus printed revolver availability) | 695.2 | 1,455.6 | 1,086.5 | Cash plus availability; the Q4 deck prints 1,455.5 (Q4 deck page:4), the Q2 deck prints 1,086.5 (Q2 deck page:4) |
+| Goodwill plus intangible assets, net | 550.1 | 2,369.4 | 2,534.3 | Balance sheets; at Aug 1, 2026 this exceeds total stockholders' equity of 2,063.9, so tangible net worth is negative |
+
+### Source context and perimeter
+
+All seven issuer sources cover one entity and one currency. The 10-K carries audited statements; the three 10-Qs carry unaudited condensed statements; the three decks carry unaudited management measures and are used only for the debt, liquidity and Adjusted EBITDA summaries that the filings also give (CP-0 compared them and found agreement apart from the items it logged). Version relationships are as in CP-0: the 10-K and each 10-Q are separate active sources, and no filing supersedes another. A restatement or recast is not present: comparative figures in the Q2 2027 10-Q for the quarter ended July 26, 2025 are used as printed there. Dycom's segment disclosure changed in the fourth quarter of FY2026 from one segment to two (Communications and Building Systems), so segment history exists only from FY2026 (10-K page:71; 10-Q Q2 FY27 page:45).
+
+### Reported statements (USD thousands as printed)
+
+Income statement lines, with the expense block reconciled to income before income taxes:
+
+| Line | FY2025 | FY2026 | Q2 2027 | Q2 2026 | Six months 2027 | Six months 2026 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Contract revenues | 4,702,014 | 5,545,912 | 2,005,907 | 1,377,944 | 3,970,689 | 2,636,551 |
+| Costs of earned revenues, excluding depreciation and amortization | 3,769,877 | 4,405,795 | 1,565,355 | 1,070,450 | 3,143,410 | 2,081,562 |
+| General and administrative | 393,030 | 445,484 | 132,931 | 106,794 | 264,259 | 210,519 |
+| Depreciation and amortization | 198,571 | 269,566 | 115,626 | 60,854 | 227,271 | 119,243 |
+| Total costs | 4,361,478 | 5,120,845 | 1,813,912 | 1,238,098 | 3,634,940 | 2,411,324 |
+| Interest expense, net (outflow) | (60,994) | (66,512) | (37,965) | (15,558) | (73,500) | (29,603) |
+| Loss on debt extinguishment | (965) | (7,268) | not presented | not presented | not presented | not presented |
+| Other income (expense), net | 29,213 | 16,588 | (54) | 6,830 | (1,564) | 14,093 |
+| Income before income taxes | 307,790 | 367,875 | 153,976 | 131,118 | 260,685 | 209,717 |
+| Provision for income taxes | 74,377 | 86,686 | 38,339 | 33,635 | 53,759 | 51,187 |
+| Net income | 233,413 | 281,189 | 115,637 | 97,483 | 206,926 | 158,530 |
+| Diluted earnings per share (USD) | 7.92 | 9.56 | 3.81 | 3.33 | 6.81 | 5.42 |
+
+Sources: 10-K page:83; 10-Q Q2 FY27 page:2-3. The three cost lines sum to total costs in every column, and revenues less total costs, interest, extinguishment loss and other income equal income before income taxes in every column (see Calculations). The 53rd week of FY2026 is inside the FY2026 column.
+
+Balance sheet lines:
+
+| Line | January 25, 2025 | January 31, 2026 | August 1, 2026 |
+| --- | --- | --- | --- |
+| Cash and equivalents | 92,670 | 709,165 | 340,080 |
+| Accounts receivable, net | 1,373,738 | 1,696,973 | 2,277,804 |
+| Contract assets | 63,375 | 162,327 | 221,211 |
+| Inventories | 127,255 | 128,349 | 145,885 |
+| Total current assets | 1,694,630 | 2,756,895 | 3,052,242 |
+| Property and equipment, net | 541,921 | 575,376 | 613,593 |
+| Goodwill | 330,330 | 1,443,435 | 1,598,946 |
+| Intangible assets, net | 219,746 | 925,948 | 935,389 |
+| Total assets | 2,945,367 | 5,979,182 | 6,540,044 |
+| Accounts payable | 223,490 | 497,263 | 610,046 |
+| Current portion of debt | 10,000 | 4,000 | 28,397 |
+| Contract liabilities | 73,548 | 158,503 | 241,223 |
+| Total current liabilities | 587,153 | 1,006,900 | 1,299,885 |
+| Long-term debt | 933,212 | 2,810,497 | 2,791,336 |
+| Operating lease liabilities, current plus non-current | 112,751 | 177,509 | 228,725 |
+| Total liabilities | 1,706,270 | 4,120,046 | 4,476,138 |
+| Total stockholders' equity | 1,239,097 | 1,859,136 | 2,063,906 |
+
+Sources: 10-K page:83; 10-Q Q2 FY27 page:2. Total liabilities plus equity equal total assets at each date. Operating lease totals are the sum of the current and non-current lines (10-Q Q2 FY27 page:17 prints 228.7 and 177.5 million).
+
+Cash flow lines:
+
+| Line | FY2025 | FY2026 | Six months 2026 | Six months 2027 |
+| --- | --- | --- | --- | --- |
+| Net cash provided by operating activities | 349,096 | 642,503 | 3,478 | 79,082 |
+| Capital expenditures (outflow) | (250,457) | (240,791) | (131,188) | (139,833) |
+| Proceeds from sale of assets | 39,135 | 33,633 | 23,495 | 6,532 |
+| Cash paid for acquisitions, net of cash acquired (outflow) | (183,876) | (1,628,581) | not presented | (238,293) |
+| Proceeds from credit agreement borrowings | 987,375 | 2,969,000 | 629,000 | not presented |
+| Principal payments on credit agreement (outflow) | (852,375) | (1,079,000) | (544,000) | not presented |
+| Repurchase of common stock (outflow) | (65,640) | (30,185) | (30,185) | (35,963) |
+| Cash paid for interest | 57,924 | 62,302 | 27,910 | 52,042 |
+| Cash paid for taxes, net | 61,542 | 84,117 | 79,324 | 31,995 |
+
+Sources: 10-K page:85; 10-Q Q2 FY27 page:4-5. FY2026 also shows a 600,000 senior secured bridge loan drawn and repaid within the year (10-K page:85). The six months 2026 column is the comparative printed in the Q2 2027 10-Q.
+
+### Debt and facility register (August 1, 2026)
+
+| Instrument | Principal (USD thousands) | Net carrying (USD thousands) | Maturity | Rate | Security and guarantee |
+| --- | --- | --- | --- | --- | --- |
+| Revolving Credit Facility, commitment 800,000 | 0 drawn | not presented | December 23, 2030 | Term SOFR plus 1.375% to 2.00%; unused fee 0.20% to 0.40% (weighted 0.35%) | Secured; $225.0 million letter of credit and $50.0 million swingline sublimits; 53,600 of standby letters of credit issued |
+| Term Loan A Facility | 1,540,000 | 1,526,966 | December 23, 2030 | Term SOFR plus 1.375% to 2.00%; weighted rate 5.40% | Secured by substantially all assets of the Borrowers and Guarantors; guaranteed by substantially all domestic subsidiaries |
+| Term Loan B Facility | 800,000 | 792,573 (net of issuance costs 5,577 and original issue discount 1,850) | January 27, 2033 | Term SOFR plus 1.75%; weighted rate 5.40% | Same security and guarantees as Term Loan A |
+| 4.50% senior notes due 2029 | 500,000 | 497,494 | April 2029 | 4.50% fixed | Senior unsecured; guaranteed jointly and severally by domestic subsidiaries that guarantee the Credit Agreement; fair value at 97.07 per 100 is 485,350 |
+| Finance lease obligations | 2,700 | 2,700 | Remaining term 2.6 years | Discount rate 5.6% | From the National Technology Integrators acquisition |
+
+Sources: 10-Q Q2 FY27 page:18-22. Carrying values total 2,819,733 and the current portion is 28,397 (10-Q Q2 FY27 page:18). The Credit Agreement is the Third Amended and Restated Credit Agreement of December 23, 2025 as amended by the First Amendment of January 27, 2026 (Bank of America, N.A. as administrative and collateral agent). Incremental capacity is the sum of 927.0 million and an amount keeping senior secured net leverage at or below 3.50 to 1.00 (10-Q Q2 FY27 page:20). The notes indenture limits additional debt, restricted payments, liens, asset sales and mergers, subject to exceptions (10-Q Q2 FY27 page:21). At January 31, 2026 the same instruments existed except finance leases (10-K page:111). At January 25, 2025 the debt was Term Loan A 450,000 principal and the notes 500,000 (10-K page:112, page:115).
+
+### Covenants
+
+| Test | Level | Reported figure | Headroom | Definition issue |
+| --- | --- | --- | --- | --- |
+| Maximum consolidated net leverage ratio | 4.50 to 1.00 until the last day of the first fiscal quarter ending after the second anniversary of December 23, 2025, then 4.00 to 1.00; increases are allowed in connection with permitted acquisitions | Not supplied: only "in compliance" is stated at August 1, 2026 and January 31, 2026 | Not calculable: covenant EBITDA and the permitted-acquisition adjustments are not printed | Credit Agreement net debt nets cash above 25.0 million against consolidated indebtedness, and EBITDA is defined by the agreement, so it differs from the constructed 2.61x |
+| Minimum consolidated interest coverage ratio | 2.50 to 1.00, trailing four quarters EBITDA over consolidated interest expense, tested quarterly | Not supplied: only "in compliance" | Not calculable for the same reason | Agreement definitions of EBITDA and interest expense are not printed, so the constructed 8.69x on interest expense, net is not the covenant figure |
+| Senior secured net leverage ratio for incremental facilities | 3.50 to 1.00 pro forma | Not supplied | Not calculable | Applies only to incremental debt capacity, not a maintenance test |
+
+Sources: 10-Q Q2 FY27 page:20-21, page:51-52; 10-K page:114. The covenant-based borrowing availability of 746.4 million is stated at both January 31, 2026 and August 1, 2026 (10-K page:114; 10-Q Q2 FY27 page:21).
+
+### Definitions and add-backs
+
+Adjusted EBITDA is defined by management as EBITDA adjusted for gain on sale of fixed assets, stock-based compensation expense and certain non-recurring items (10-Q Q2 FY27 page:44). Items in the reconciliations:
+
+| Item | FY2025 | FY2026 | Q2 2027 | Six months 2027 | Source |
+| --- | --- | --- | --- | --- | --- |
+| EBITDA (reported basis) | 567.4 | 704.0 | 307.6 | 561.5 | 10-K page:70; 10-Q Q2 FY27 page:44 |
+| Gain on sale of fixed assets (deducted) | (36.5) | (26.7) | (2.3) | (4.3) | Same |
+| Stock-based compensation (added) | 40.3 | 34.5 | 10.3 | 20.9 | Same |
+| Acquisition and integration costs (added) | 4.2 | 18.8 | none presented | none presented | 10-K page:70 |
+| Loss on debt extinguishment (added) | 1.0 | 7.3 | none presented | none presented | 10-K page:70 |
+| Non-GAAP Adjusted EBITDA | 576.3 | 737.7 | 315.5 | 578.0 | Same |
+
+Definition risks: Adjusted EBITDA excludes stock-based compensation and gains on asset sales and is a management measure, not covenant EBITDA; the Credit Agreement's EBITDA is "as defined" there and not supplied. The decks exclude intangible amortization from Adjusted Net Income beginning with the fourth quarter of FY2026 (Q2 deck page:9), which does not affect Adjusted EBITDA. Free cash flow is operating cash flow less capital expenditures net of asset sale proceeds (Q2 deck page:6). Notional net debt is face amount of debt less cash (Q2 deck page:6).
+
+### Segments and KPIs
+
+| Item | FY2026 | Q2 2027 | Six months 2027 | Source |
+| --- | --- | --- | --- | --- |
+| Communications revenue | 5,450.1 | 1,608.4 | 3,177.8 | 10-K page:71; 10-Q Q2 FY27 page:45 |
+| Building Systems revenue | 95.8 | 397.5 | 792.9 | Same |
+| Communications income before taxes | 470.0 | 143.8 | 262.6 | Same |
+| Building Systems income (loss) before taxes | (9.6) | 48.2 | 72.0 | Same |
+| Corporate and non-allocated costs | (92.5) | (38.0) | (73.9) | Same |
+| Communications Adjusted EBITDA | 726.6 | 218.3 | 410.7 | Same |
+| Building Systems Adjusted EBITDA | 11.1 | 97.2 | 167.3 | Same |
+
+Backlog at August 1, 2026 was 12,242 million total (Communications 10,983, Building Systems 1,259), of which 6,472 million is expected in the next twelve months, against 9,542 million total and 6,358 million at January 31, 2026 (10-Q Q2 FY27 page:54-55). Backlog is an estimate, not GAAP, and customers are generally not committed to specific volumes (10-Q Q2 FY27 page:55). Days sales outstanding were 101 at August 1, 2026 against 108 a year earlier (10-Q Q2 FY27 page:49). Customer concentration: AT&T 20.1% and Verizon 10.4% of Q2 2027 revenues, Lumen 5.3%; share of receivables plus contract assets: Lumen 13.4%, AT&T 11.0%, Verizon 10.7%, Charter 9.1% (10-Q Q2 FY27 page:13, page:25). Multi-year master service agreements and other long-term contracts were 94.0% of Q2 2027 revenue (10-Q Q2 FY27 page:34).
+
+### Non-debt claims and funding items
+
+| Item | Amount | Inside the debt figure? | Source |
+| --- | --- | --- | --- |
+| Supplier finance program obligations outstanding | 367.4 million at August 1, 2026 (226.4 million at January 31, 2026) | No; included in accounts payable of 610.0 million | 10-Q Q2 FY27 page:29; 10-K page:126 |
+| Operating lease liabilities | 228.7 million at August 1, 2026 | No | 10-Q Q2 FY27 page:17-18 |
+| Finance lease obligations | 2.7 million | Yes (in the 2,842.7 notional debt) | 10-Q Q2 FY27 page:18 |
+| Performance and other surety contract bonds | 1,215.8 million; estimated cost to complete bonded projects about 716.1 million | No | 10-Q Q2 FY27 page:29, page:54 |
+| Insurance surety bonds and standby letters of credit | 43.8 million and 53.6 million | Letters of credit reduce revolver availability; surety bonds are outside debt | 10-Q Q2 FY27 page:29 |
+| Accrued insurance claims | 120.9 million (51.1 current, 69.8 non-current) | No | 10-Q Q2 FY27 page:17 |
+| Purchase and other commitments; employment agreements | 135.3 million and 43.4 million as of January 31, 2026 | No | 10-K page:78-79 |
+| Multiemployer defined benefit pension plans (Power Solutions and others) | Contributions of 4.725 million in FY2026; withdrawal liability not quantified in the sources | No | 10-K page:118-119 |
+| Non-recourse receivable sale programs | Not supplied: volumes are not disclosed; the bank discount fee is in miscellaneous expense | No | 10-Q Q2 FY27 page:22 |
+
+No single-employer pension or retiree medical obligation, litigation reserve or consent-decree funding was found in the sources searched; the 10-K describes a defined contribution plan with company contributions of 13.9 million in FY2026 (10-K page:118). Management states legal matters are not expected to be material (10-Q Q2 FY27 page:28). Analyst interpretation (not a source statement): supplier finance exceeding the cash balance means that a withdrawal of the third-party program by the administering bank would pull the obligation back into normal payment terms and would test liquidity.
+
+### Latest quarter and subsequent events
+
+Quarter ended August 1, 2026: National Technology Integrators was acquired on July 2, 2026 for total consideration of 271.4 million (cash 226.4, of which 225.4 net of cash acquired; shares valued at 45.0; assumed debt 12.3) on a 275.0 million cash-free, debt-free price, preliminary allocation, in Building Systems (10-Q Q2 FY27 page:10, page:35). Cash fell from 538.8 million at May 2, 2026 to 340.1 million. No share repurchases occurred in the quarter; 100,000 shares were repurchased for 36.0 million in Q1 2027 (10-Q Q2 FY27 page:22). Subsequent event: on August 26, 2026 the Board authorized a new 150.0 million repurchase program through February 2028, replacing the remaining 83.9 million, with the full 150.0 million available on August 27, 2026 (10-Q Q2 FY27 page:30). Management's Q3 2027 outlook (quarter ending October 31, 2026): revenue 1.90 to 1.98 billion, Adjusted EBITDA 281 to 302 million (Q2 deck page:5); these are management forecasts, not actuals. Results for that quarter are not in the pack.
+
+### Corrections and additions to the CP-0 handoff
+
+No correction to CP-0 is needed. CP-0 flagged that the revolver availability method and the extra-week revenue amounts are unresolved; both remain unresolved here and are carried as limitations. This handoff adds a gap CP-0 did not list: the composition of the current portion of debt of 28.397 million at August 1, 2026, which is not printed and is larger than the 4.0 million scheduled for FY2027 in the 10-K.
+
+### Readiness for downstream consumers
+
+| Consumer | Requirement | Readiness | Limitation carried |
+| --- | --- | --- | --- |
+| CP-1A business and transaction context | Reported facts, segments, debt and customers as above | READY_WITH_LIMITATIONS | Segment history only from FY2026; acquisition allocations preliminary |
+| CP-2 fundamental credit synthesis | Leverage, cover, liquidity, maturities, non-debt claims | READY_WITH_LIMITATIONS | Ratios are constructed, not pro forma, not covenant; maturity schedule incomplete |
+| CP-5 evidence trace validation | Located figures with locators | READY_WITH_LIMITATIONS | Management measures and decks are attributed claims; derived figures are listed under Calculations |
+
+## Calculations
+
+All inputs below are source figures with locators already given above. USD millions unless stated.
+
+### LTM Adjusted EBITDA and cross-check
+
+- Method A: FY2026 737.7 (10-K page:70) less six months to July 26, 2025 355.9 (10-Q Q2 FY27 page:44) plus six months to August 1, 2026 578.0 (10-Q Q2 FY27 page:44) = 959.8.
+- Method B, four discrete quarters: Q3 2026 219.4 (10-Q Q3 FY26 page:41) plus Q4 2026 162.4 (Q4 deck page:8) plus Q1 2027 262.5 (10-Q Q1 FY27 page:39) plus Q2 2027 315.5 (10-Q Q2 FY27 page:44) = 959.8. Both methods agree. Cross-check of FY2026: nine months 575.3 (10-Q Q3 FY26 page:41) plus Q4 162.4 = 737.7.
+
+### Other LTM aggregates
+
+- Revenue: 5,545.912 less 2,636.551 plus 3,970.689 = 6,880.050.
+- Net income: 281.189 less 158.530 plus 206.926 = 329.585.
+- Reported EBITDA: 704.0 less 358.6 plus 561.5 = 906.9.
+- Depreciation and amortization: 269.566 less 119.243 plus 227.271 = 377.594.
+- Interest expense, net: 66.512 less 29.603 plus 73.500 = 110.409.
+- Cash paid for interest: 62.302 less 27.910 plus 52.042 = 86.434.
+- Cash paid for taxes: 84.117 less 79.324 plus 31.995 = 36.788.
+- Operating cash flow: 642.503 less 3.478 plus 79.082 = 718.107.
+- Net capital expenditures: FY2026 (240.791 less 33.633) = 207.158; six months 2026 (131.188 less 23.495) = 107.693; six months 2027 (139.833 less 6.532) = 133.301; LTM = 207.158 less 107.693 plus 133.301 = 232.766.
+- Free cash flow: LTM 718.107 less 232.766 = 485.341; FY2026 642.503 less 207.158 = 435.345 (deck 435.3, Q4 deck page:4); FY2025 349.096 less (250.457 less 39.135 = 211.322) = 137.774 (deck 137.8); six months 2027 79.082 less 133.301 = negative 54.219 (deck negative 54.2, Q2 deck page:8).
+- LTM Adjusted EBITDA margin: 959.8 over 6,880.050 = 13.95%, shown as 14.0%.
+
+### Debt and ratios
+
+- Notional debt: FY2025 450.0 plus 500.0 = 950.0; FY2026 500.0 plus 1,540.0 plus 800.0 = 2,840.0; Aug 1, 2026 2,840.0 plus 2.7 = 2,842.7 (Q2 deck page:4).
+- Notional net debt: 950.0 less 92.670 = 857.330; 2,840.0 less 709.165 = 2,130.835; 2,842.7 less 340.080 = 2,502.620.
+- Gross leverage: 950.0 over 576.3 = 1.648; 2,840.0 over 737.7 = 3.850; 2,842.7 over 959.8 = 2.962.
+- Net leverage: 857.330 over 576.3 = 1.488; 2,130.835 over 737.7 = 2.888; 2,502.620 over 959.8 = 2.607.
+- Cash interest cover: 576.3 over 57.924 = 9.949; 737.7 over 62.302 = 11.841; 959.8 over 86.434 = 11.104.
+- Cover on interest expense, net, LTM: 959.8 over 110.409 = 8.693.
+- Run-rate interest at August 1, 2026: floating-rate term loans 1,540.0 plus 800.0 = 2,340.0, times 5.40% weighted rate (10-Q Q2 FY27 page:20) = 126.36; fixed notes 500.0 times 4.50% = 22.5 (10-K page:78); total 148.86, before unused-revolver and letter-of-credit fees and issuance-cost amortization. Cover: 959.8 over 148.86 = 6.448.
+- Annualized Q2 2027 interest expense, net: 37.965 times 4 = 151.860; cover 959.8 over 151.860 = 6.320.
+- Interest sensitivity: 2,340.0 times 0.50% = 11.7, which agrees with the 10-K statement of about 11.7 million per 50 basis points (10-K page:82).
+- Liquidity: FY2025 92.670 plus 602.5 = 695.170; FY2026 709.165 plus 746.4 = 1,455.565; Q2 2027 340.080 plus 746.4 = 1,086.480. The deck prints 1,455.5 for FY2026 (a 0.1 million difference, rounding-level) and 1,086.5 for Q2 2027.
+- Constructed ratios on reported EBITDA of 906.9, for definition sensitivity: gross 2,842.7 over 906.9 = 3.135; net 2,502.620 over 906.9 = 2.760.
+
+### Statement integrity checks
+
+- Total costs equal the sum of costs of earned revenues, general and administrative and depreciation and amortization in all six columns (for example FY2026: 4,405,795 plus 445,484 plus 269,566 = 5,120,845).
+- Revenues less total costs, plus interest expense, net, plus loss on debt extinguishment, plus other income (expense), net equal income before income taxes in all six columns (for example FY2026: 5,545,912 less 5,120,845 = 425,067; less 66,512 = 358,555; less 7,268 = 351,287; plus 16,588 = 367,875). Q2 2027: 191,995 less 37,965 less 54 = 153,976.
+- Balance sheet: Aug 1, 2026 liabilities 4,476,138 plus equity 2,063,906 = 6,540,044; January 31, 2026 4,120,046 plus 1,859,136 = 5,979,182; January 25, 2025 1,706,270 plus 1,239,097 = 2,945,367.
+- Carrying amounts of debt at August 1, 2026: 1,526,966 plus 792,573 plus 497,494 plus 2,700 = 2,819,733 (10-Q Q2 FY27 page:18).
+- Goodwill plus intangibles: 1,598.946 plus 935.389 = 2,534.335 against equity 2,063.906, a shortfall of 470.429 (tangible net worth negative); FY2026 1,443.435 plus 925.948 = 2,369.383; FY2025 330.330 plus 219.746 = 550.076.
+- Operating lease liabilities: 43.638 plus 185.087 = 228.725.
+
+Not calculable: pro forma LTM EBITDA (pre-acquisition EBITDA of Power Solutions and National Technology Integrators is not supplied; pro forma revenue and net income appear for fiscal 2026 periods only, 10-Q Q2 FY27 page:12); covenant ratios and headroom (covenant EBITDA and agreement definitions are not supplied); annual debt maturities for FY2028, FY2029 and FY2032.
+
+## Gaps
+
+| Gap | Severity | Effect | Remediation |
+| --- | --- | --- | --- |
+| Covenant EBITDA, actual net leverage and interest coverage ratios, and headroom are not supplied. The filings give only compliance statements and levels. | High | Covenant headroom cannot be stated; constructed ratios must be labeled as such | Obtain the Credit Agreement, First Amendment and compliance certificates |
+| No pro forma EBITDA for Power Solutions (acquired December 23, 2025) or National Technology Integrators (acquired July 2, 2026). | High | Leverage is overstated and cover is distorted relative to a run-rate view | Obtain pre-acquisition EBITDA from acquisition materials or later filings |
+| Scheduled amortization of Term Loan A and Term Loan B after FY2027 is not printed; the composition of the current portion of debt of 28.397 million at August 1, 2026 is not given. | Medium | Maturity wall for FY2028, FY2029 and FY2032 is incomplete | Obtain the Credit Agreement amortization schedule or a later 10-K contractual obligations table |
+| Revolver availability method is not printed; the same 746.4 million appears at three dates with different cash balances. | Medium | Liquidity depends on a non-printed computation | Obtain the compliance computation |
+| Non-recourse receivable sale program volumes are not disclosed. | Medium | Working capital and leverage may be flattered by receivable sales | Obtain program disclosure or management data |
+| Supplier finance program: agreement terms and the administering bank's rights to withdraw are not in the sources. | Medium | Liquidity sensitivity cannot be tested | Obtain program terms |
+| Fiscal 2026 had 53 weeks and the LTM span is 53 weeks; no 52-week adjustment is supplied other than the unreconciled deck amounts. | Low | Annual and LTM comparisons are slightly inflated | Use 52-week bridges only when management gives a reconciled amount |
+| Cash paid for interest and taxes is printed only for years and six-month periods, not discrete quarters. | Low | Discrete-quarter cash interest cover cannot be built | None needed for this snapshot |
+| Segment history before FY2026 does not exist (single segment), and Building Systems has only two quarters of full operation. | Medium | Segment trend analysis is limited | Use the quarter and six-month figures only |
+| Extraction fidelity of the text files against the original filings was not reviewed. | Low | Residual transcription risk | Spot-check key figures against the filings |
+
+## Next module
+
+Proceed to CP-1A, which consumes this handoff for business and transaction context, then CP-2 and CP-5. Instructions carried forward:
+
+- Quote debt, liquidity and leverage figures from this handoff with their labels: constructed, not pro forma, not covenant.
+- Describe the Power Solutions and National Technology Integrators acquisitions as the cause of the debt step-up and of Building Systems entering the earnings base, and keep the preliminary allocation status.
+- Treat interest cover on reported cash interest as overstated and cite the run-rate view beside it.
+- Carry the supplier finance, performance bond and operating lease claims as claims outside the debt figure.
+- Do not state covenant headroom as a fact; the next evidence action is to obtain the executed Credit Agreement, its amendment and the compliance computation.

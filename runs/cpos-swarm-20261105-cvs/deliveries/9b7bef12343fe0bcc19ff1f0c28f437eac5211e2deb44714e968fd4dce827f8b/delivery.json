@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CVS HEALTH Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "00323e88451863ab6a85ac8d522cfd8eebec6841dd73889d6adb8761166481da",
+    "CP-1.md": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+    "CP-1A.md": "6b56c7d0ef71dec1d88ce4dacb320988e80e1bad2403ddeaff63b72ded0138e6",
+    "CP-2.md": "1ee67e9b90149f0b626e7933a05b4120a5f3f096dedfc504bf80c3caaedd457a",
+    "CP-5.md": "6342ac6bfb20803aa5d756e124c35493201ebfb96622ae035c6d2e4c541f3539",
+    "view.json": "bf1ad1c0d14eb4613a884cf4f25eb578dedd4901e84b5a39e8a4ad9fce8151f8",
+    "report-view.json": "9df5b3d88c006c1410d19627792f95305cfcb5e8a18cb2b40a12dde951da57a1",
+    "report.html": "d22d30e0c612e2cec63b6783cece1d5f6e8b529767d6aeebad15011b014f9a10"
+  }
+}

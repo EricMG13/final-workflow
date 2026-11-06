@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "cohr-2026-11-05-credit_snapshot-host",
+    "issuer_id": "cohr",
+    "issuer_name": "COHERENT CORP.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2026-06-30_iivi-20260630.htm.jsonl": {
+      "path": "source-text/10-K_2026-06-30_iivi-20260630.htm.jsonl",
+      "sha256": "e427b31d3ddbac8e2682229c0851cd57a35f7942a911c46bc2f7e184a8d2417f"
+    },
+    "10-Q_2025-12-31_iivi-20251231.htm.jsonl": {
+      "path": "source-text/10-Q_2025-12-31_iivi-20251231.htm.jsonl",
+      "sha256": "f7c4c25b26330da07c84899cb176e2f656eac9af26c4128e5f71e23f3921c2c5"
+    },
+    "10-Q_2026-03-31_iivi-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_iivi-20260331.htm.jsonl",
+      "sha256": "f448bb1aae6e87add6b50bc7c2c3335a7137b8a9e4f7f09915b24d3212838bb2"
+    },
+    "10-Q_2026-09-30_iivi-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_iivi-20260930.htm.jsonl",
+      "sha256": "2522ad33326b2e35e6501525fb87f419508656f6b0de5277f8f2cf521928150e"
+    },
+    "EX-99.1_2026-05-06_d57080dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-06_d57080dex991.htm.jsonl",
+      "sha256": "dd0ab92d28fa855aab2f4b2d6a0ad55f65e0e80e6b5fe9f8c4fcf3b5db2b5776"
+    },
+    "EX-99.1_2026-08-12_d128030dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-12_d128030dex991.htm.jsonl",
+      "sha256": "2026b9917624616c285039908d8b9c9ea20eabeae7f1857e479c3c647a5b1bab"
+    },
+    "EX-99.1_2026-11-04_d176836dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-04_d176836dex991.htm.jsonl",
+      "sha256": "c65396b97d274ca2df0db447a0ca9d97bbff5b1393199d2c9b3e69ebf1b4d0a2"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/820318-coherent-corp-cohr.json",
+      "sha256": "51ad9088927a94e7d9ee78792ddf70230393bd5579849af5550b3403180d1e22"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "a9e1692e8f18a284be4e3439cb1df9001ef32bcfb9202bdb9e044e8189d686c5"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "955e84b04a8937514da7f6a2c07fe0ed3eb80a716da95d5d196a97b44c24c5e4"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "0f8b7aae3b2ef7d54c45188c8c6152c51932da65e191b830e0e46e368249babc"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "2f6a22ee20d8999a34abcb5f10f72093856193f0b63fd322cb9200555e194eb3"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "87038d4930e9bc8d388c06ff19bcef961f53bd055f435dc142989425517b4600"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for COHERENT CORP. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "COHERENT CORP. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

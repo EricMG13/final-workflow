@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for ELDORADO GOLD CORP /FI as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/b70c61dff8638d8d83088030ab5cb06ae37bb85aebfce99502cc0c833b426056/1.response.md",
+    "CP-1": "requests/CP-1/12c103c1020ed0564f4d52b2b28d4bfeedd23e7d4260f8aec8f68b91f7066cbb/1.response.md",
+    "CP-1A": "requests/CP-1A/63d8c8dfac3fc6e332023194b2b6638b14cec8286c3036254381899ee2ba4967/1.response.md",
+    "CP-2": "requests/CP-2/26c35b5b9a894c2259be66a2ea17493cd071491140b53fe1cd39e4b4ad3a02fb/1.response.md",
+    "CP-5": "requests/CP-5/3d5390f87432b334f92c0089676c65ccff107f798ac70a167df777ab8eac093d/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "507149d48cb3440c6a9010b34e7446d274e068a41f3438c8fedaf61b4e2eb838",
+  "report_sha256": "f6fa16773a3592212f5cd8305bab0167f9fff66fd1ae18315fe00056285d3b41"
+}

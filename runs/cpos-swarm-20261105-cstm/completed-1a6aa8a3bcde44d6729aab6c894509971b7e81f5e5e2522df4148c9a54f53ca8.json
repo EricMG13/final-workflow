@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CONSTELLIUM SE as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/ef6c4943a39a1157098e487a17d36a9f2c314d9742c533e607540348086985d5/2.response.md",
+    "CP-1": "requests/CP-1/3847a07a41cff4fb55e23db2c66cb683576293123d9430a2569f55a2d8312008/1.response.md",
+    "CP-1A": "requests/CP-1A/4f1f8bdc10d1b604f08872bdbdd9c12214619788132edb810d7fe1a28b808b83/1.response.md",
+    "CP-2": "requests/CP-2/fb73bd85d87e50c43ad3a1ad4c32239860fbbddd3a8e210b5e99f609b29a865c/1.response.md",
+    "CP-5": "requests/CP-5/8083729f5db87bd9ecaf3b51a8b624b6be775b2386708a31255efbb084f3c126/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "08a63c8114ea65b9e55ca4bf30872cf03c0d424fc76e7035ab2d8608e93fb117",
+  "report_sha256": "3af0852987ba8796242aac751a077c1cad151e1327c239eab3d3aa64f60588f2"
+}

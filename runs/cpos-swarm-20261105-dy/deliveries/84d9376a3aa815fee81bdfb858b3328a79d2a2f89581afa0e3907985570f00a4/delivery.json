@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for DYCOM INDUSTRIES INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "718647fe146a481414f4709c9a5b01ad4b5d904e03712717acf9f85199936a95",
+    "CP-1.md": "2e646964e839fbbfdb014df8aa772f6b2ce96e116e3987210169134e31b290b6",
+    "CP-1A.md": "be83b92d1a68b62a9b3878af2bcf4cf3b073b0ae5fd3dff96f237efe3b9223c8",
+    "CP-2.md": "da6b86e2764359d7d4adc71daecab8f17d002c22415f22007b038ddc9e5e5aed",
+    "CP-5.md": "3ae087f3c065daa6d24f96e53deca44ce041e8aaa7549424fd991c049169e5fa",
+    "view.json": "eb7b1f9d8c7021d7e0c6c7319ca36d1a63d760a5de641ba3480fc40a88887789",
+    "report-view.json": "bb1707174a6027ff56a4aa5bde2da10c8a8f327cf32ba8ce764fc5575c15cabd",
+    "report.html": "d95b618dbc837e5bc4855ee33b22fb48b87401bc1db70d8b819ceb816081f6ac"
+  }
+}

@@ -874,8 +874,10 @@ def _total_row(counts: Mapping[str, int], pair_period: str, cp1: Mapping[str, Fa
 def _scope_rows(
     upstream: Upstream, rows: tuple[TopicResult, ...], pair_period: str
 ) -> list[tuple[str, _Cells]]:
-    """TL10.1: one row per upstream head; source_ref and scope_status are run-bound (F3)."""
+    """TL10.1: one row per upstream head; source_ref and scope_status are run-bound (F3). With no
+    topic complete, CP-1 supports none: stated as such, never as empty text (S10-A02)."""
     supported = ", ".join(r.topic.label for r in rows if r.screen.evidence == "Complete")
+    supported = supported or "None: no topic has values at both ends"
     out = []
     for rid, module, sha, word, period, topics in (
         (

@@ -1,0 +1,179 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "cc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "cc",
+    "issuer_name": "The Chemours Company",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_cc-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_cc-20251231.htm.jsonl",
+      "sha256": "adf80f4588f501b9f797e1b55a5853888465c5d9b30aef8ff07b3cd4340b3957"
+    },
+    "10-Q_2026-03-31_cc-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_cc-20260331.htm.jsonl",
+      "sha256": "544e858f14516405499b0793277b117ab856893d213de4bfdfd312ae33ddb9fd"
+    },
+    "10-Q_2026-06-30_cc-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_cc-20260630.htm.jsonl",
+      "sha256": "5934bf743b44e940824956ac90d2979f28da0477a0f669044693e5e59c78b62f"
+    },
+    "10-Q_2026-09-30_cc-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_cc-20260930.htm.jsonl",
+      "sha256": "f23013a765ad5943b395240230ccfbe7a0cca417e186c8a1a82b34a215485de7"
+    },
+    "EX-99.1_2026-05-05_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-05_cc-ex99_1.htm.jsonl",
+      "sha256": "cf37012a81481ef001a376d207312af6444e1ec5683c9d45ff930f84bd36dd4e"
+    },
+    "EX-99.1_2026-08-04_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-04_cc-ex99_1.htm.jsonl",
+      "sha256": "5e0a77f0453e40d6a00670f0f971f2e2c0487e12a68a0222858c84133578166e"
+    },
+    "EX-99.1_2026-11-02_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-02_cc-ex99_1.htm.jsonl",
+      "sha256": "d716a94a423338ae97b02c515014fccad1457c8952131fe6a67cf2f82a22b1e0"
+    },
+    "context": {
+      "path": "../../../../../tmp/claude-0/-workspace/864e4cc3-ce42-59e5-a886-5e38c81a299d/scratchpad/pilot/cc.json",
+      "sha256": "016f2454bb1a5018293508b6e2a82129a813baf9ca2bdc7dfff95d2a92314261"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "06c92a9ee62d4df91eadcf1d814bd572f6295e2c7077628bb1d6af259a353696"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "e476a77a74038589c5e44b2d0f9183f8f77acd9bb9808a296c5e204b9b5f78e6"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "5b34b094fc438899dc7168013ffd0668bf5601ca7165f9336320d7133ac04fc9"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "0dbc49e1200f00b110bd943fc3056fb130df75c5db700e1a63f892befd81845f"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "433c136bfd3fe0b1a01edfa70fb8612fabf1d723a5ce5395234605d6c6f52919"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for The Chemours Company as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "The Chemours Company — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

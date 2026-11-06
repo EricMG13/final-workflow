@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for The Chemours Company as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/4564362ee951d620f00abd7ec834310893305f03c9e54f21efeb1bfa1c955fb2/1.response.md",
+    "CP-1": "requests/CP-1/ea8a758d6dd4cf5b4c30fc31bb868850a3aeaaeb4f1599c63c001a31cf422e87/1.response.md",
+    "CP-1A": "requests/CP-1A/6f8476f4f29e21987e4bea9e41ee4040225e6ae70b6938d0dc42d147134a5e4b/1.response.md",
+    "CP-2": "requests/CP-2/02b02a1e58204843fa272993d0f32d45caf4f21e72ae31936bdd8d0794753a28/1.response.md",
+    "CP-5": "requests/CP-5/635de0b6a2d4d5ce439e74eb7f27c7b57d6435fb1e479d7adba6245103abd4dd/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "665894addd13a8850d7a286571f1c8183c15c640dade56da4d9a3ccc5401bb85",
+  "report_sha256": "4d8ed36330b260fcceff79ab785173c24182da58bf7411ea9bf119a6c13cca1a"
+}

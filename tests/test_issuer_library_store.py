@@ -577,3 +577,20 @@ def test_a_curated_report_label_needs_the_curated_issuer_in_view_json(tmp_path):
         "Peer comparison · exact fiscal dates added",
         6,
     )
+
+
+def test_request_files_are_inputs_not_saved_outputs_and_the_output_stays_the_default(tmp_path):
+    """Expected: CP-3C has one saved output (the consumer handoff), which is its default; the
+    request sent to the module and a repair request are kept as inputs, never as outputs."""
+    put(tmp_path, "runs/asked/CP-3C-consumer.md", "# CP-3C\n\n## Findings\n\nConsumed.\n")
+    put(tmp_path, "runs/asked/CP-3C-request.md", "# CP-3C — consume the handoff\n")
+    put(tmp_path, "runs/asked/CP-2D-attempt-1.md", "# CP-2D\n\n## Findings\n\nFirst.\n")
+    put(tmp_path, "runs/asked/CP-2D-repair-request.md", "# CP-2D — repair\n")
+    result = store.workspace_store(tmp_path, plain_run("asked"))
+    modules = result["runs"]["asked"]["modules"]
+    assert modules["CP-3C"]["outputs"] == ["asked/CP-3C-consumer.md"]
+    assert modules["CP-3C"]["default"] == "asked/CP-3C-consumer.md"
+    assert modules["CP-3C"]["inputs"] == ["asked/CP-3C-request.md"]
+    assert modules["CP-2D"]["outputs"] == ["asked/CP-2D-attempt-1.md"]
+    assert sorted(result["inputs"]) == ["asked/CP-2D-repair-request.md", "asked/CP-3C-request.md"]
+    assert sorted(result["outputs"]) == ["asked/CP-2D-attempt-1.md", "asked/CP-3C-consumer.md"]

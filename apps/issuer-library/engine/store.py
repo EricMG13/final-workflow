@@ -16,7 +16,7 @@ from urllib.parse import quote
 HERE = Path(__file__).resolve().parent
 REPO = HERE if (HERE / "src").is_dir() else HERE.parents[2]
 OUTPUT_SKIP = re.compile(r"instructions|prompt|calculations|verification")
-INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery")
+INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery|-request\.md")
 HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
 AEROSPACE = "Aerospace & defense"
 # Reading labels written by hand. Route key: (folder under runs/, issuer, title, run label, sector, period).

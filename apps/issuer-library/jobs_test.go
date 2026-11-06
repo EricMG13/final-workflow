@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -573,5 +574,76 @@ print('{}')
 		raw, _ := io.ReadAll(response.Body)
 		response.Body.Close()
 		t.Fatalf("slow /api/workspace outlived WriteTimeout: %s %s", response.Status, raw)
+	}
+}
+
+func writeJob(t *testing.T, root, id, state string, when time.Time) {
+	t.Helper()
+	folder := filepath.Join(root, "intake", id)
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(folder, "status.json")
+	if err := os.WriteFile(file, []byte(`{"state":"`+state+`"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(file, when, when); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func listedJobs(t *testing.T, app *Application) []string {
+	t.Helper()
+	var rows []map[string]any
+	response := call(app, "GET", "/api/runs/list", "")
+	if err := json.Unmarshal(response.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	ids := []string{}
+	for _, row := range rows {
+		ids = append(ids, row["id"].(string))
+	}
+	return ids
+}
+
+// Job ids are random, so which jobs are "recent" must follow when they were written, and
+// a running job must never be cut by the cap however old its status file is.
+func TestRunListFollowsRecencyAndAlwaysKeepsActiveJobs(t *testing.T) {
+	app, root := testApp(t)
+	now := time.Now()
+	// Ids sort opposite to age: the newest jobs have the smallest ids.
+	for i := 0; i < 40; i++ {
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x100+i), "complete", now.Add(-time.Duration(i+1)*time.Hour))
+	}
+	newest := "web-" + strings.Repeat("0", 31) + "1"
+	writeJob(t, root, newest, "running", now)
+	oldRunning := "web-" + strings.Repeat("f", 32)
+	writeJob(t, root, oldRunning, "running", now.Add(-500*time.Hour))
+	writeJob(t, root, "web-"+strings.Repeat("a", 32), "reviewed", now)
+	ids := listedJobs(t, app)
+	if len(ids) != 30 {
+		t.Fatalf("%d rows, want the 30 cap: %v", len(ids), ids)
+	}
+	if ids[0] != newest {
+		t.Fatalf("the just-started job must lead the list: %v", ids)
+	}
+	has := map[string]bool{}
+	for _, id := range ids {
+		has[id] = true
+	}
+	if !has[oldRunning] {
+		t.Fatal("a running job must be listed even when its status file is old")
+	}
+	if has["web-"+strings.Repeat("a", 32)] {
+		t.Fatal("a reviewed-only draft is not a run")
+	}
+	// 28 finished jobs fill the remaining places: the 28 newest by write time.
+	for i := 0; i < 28; i++ {
+		if want := fmt.Sprintf("web-%032x", 0x100+i); !has[want] {
+			t.Fatalf("finished job %d (newer than the cut) missing: %v", i, ids)
+		}
+	}
+	if has[fmt.Sprintf("web-%032x", 0x100+28)] {
+		t.Fatal("an older finished job displaced a newer one")
 	}
 }

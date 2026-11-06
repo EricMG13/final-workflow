@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -145,26 +146,68 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	return status, true
 }
 
+// recentJobs lists every running or starting job plus the most recently written
+// others, newest first, up to limit rows in all. Job ids are random, so recency is the
+// modification time of status.json, never the folder name. Reviewed-only drafts are
+// not runs and are left out.
+func recentJobs(workspace string, limit int) []map[string]any {
+	entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
+	type candidate struct {
+		id     string
+		when   time.Time
+		active bool
+	}
+	var candidates []candidate
+	active := 0
+	for _, entry := range entries {
+		id := entry.Name()
+		if !jobID.MatchString(id) {
+			continue
+		}
+		file := filepath.Join(workspace, "intake", id, "status.json")
+		info, err := os.Stat(file)
+		raw, readErr := os.ReadFile(file)
+		var status struct {
+			State string `json:"state"`
+		}
+		if err != nil || readErr != nil || json.Unmarshal(raw, &status) != nil || status.State == "reviewed" {
+			continue
+		}
+		running := status.State == "running" || status.State == "starting"
+		if running {
+			active++
+		}
+		candidates = append(candidates, candidate{id, info.ModTime(), running})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if !candidates[i].when.Equal(candidates[j].when) {
+			return candidates[i].when.After(candidates[j].when)
+		}
+		return candidates[i].id > candidates[j].id
+	})
+	recent := []map[string]any{}
+	room := limit - active // places left for finished jobs once every active job is kept
+	for _, c := range candidates {
+		if !c.active {
+			if room <= 0 {
+				continue
+			}
+			room--
+		}
+		if status, ok := jobView(workspace, c.id); ok {
+			recent = append(recent, status)
+		}
+	}
+	return recent
+}
+
 func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		app.mu.RLock()
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
-			entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
-			recent := []map[string]any{}
-			for i := len(entries) - 1; i >= 0 && len(recent) < 30; i-- {
-				id := entries[i].Name()
-				if !jobID.MatchString(id) {
-					continue
-				}
-				status, ok := jobView(workspace, id)
-				if !ok || status["state"] == "reviewed" {
-					continue
-				}
-				recent = append(recent, status)
-			}
-			jsonResponse(w, recent)
+			jsonResponse(w, recentJobs(workspace, 30))
 			return
 		}
 		id := r.URL.Query().Get("id")

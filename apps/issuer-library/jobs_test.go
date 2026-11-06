@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -316,5 +318,124 @@ func TestSaveJSONWaitsForAFileHeldOpen(t *testing.T) {
 	raw, err := os.ReadFile(name)
 	if err != nil || !strings.Contains(string(raw), "interrupted") {
 		t.Fatalf("%s %v", raw, err)
+	}
+}
+
+// slowReviewEngine returns an Engine whose review sleeps for the given seconds.
+func slowReviewEngine(t *testing.T, seconds string) Engine {
+	t.Helper()
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("Python needed for the synthetic process-boundary test")
+	}
+	script := filepath.Join(t.TempDir(), "worker.py")
+	raw := `import json,sys,pathlib,time
+folder=pathlib.Path(sys.argv[2])
+job=json.loads((folder/'job.json').read_text())
+if sys.argv[1]=='review':
+ time.sleep(` + seconds + `)
+ print(json.dumps({'ok':True,'review_id':'rid','id':job['id'],'provider_ready':True}))
+`
+	if err = os.WriteFile(script, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return Engine{Python: python, Script: script}
+}
+
+// slowServer serves the app with the production timeouts scaled down so that a review outlasts
+// WriteTimeout and ReadTimeout but not the review bound.
+func slowServer(t *testing.T, app *Application) *httptest.Server {
+	t.Helper()
+	server := httptest.NewUnstartedServer(app)
+	server.Config.ReadTimeout = time.Second
+	server.Config.WriteTimeout = time.Second
+	server.Start()
+	t.Cleanup(server.Close)
+	app.host = strings.TrimPrefix(server.URL, "http://")
+	return server
+}
+
+func postReview(t *testing.T, server *httptest.Server) (*http.Response, error) {
+	t.Helper()
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for key, value := range map[string]string{"context": "{}", "config": "c", "cap_usd": "1", "source_paths": `["a.txt"]`, "modules": "CP-4"} {
+		_ = form.WriteField(key, value)
+	}
+	file, _ := form.CreateFormFile("sources", "a.txt")
+	_, _ = file.Write([]byte("x"))
+	form.Close()
+	request, _ := http.NewRequest("POST", server.URL+"/api/runs/review", &body)
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	request.Header.Set("X-Issuer-Library", "1")
+	request.Header.Set("Origin", server.URL)
+	return http.DefaultClient.Do(request)
+}
+
+// A review that outlasts the server's write timeout must still deliver its review_id; two
+// reviews at once each keep their own deadline.
+func TestSlowReviewResponseOutlivesTheServerWriteTimeout(t *testing.T) {
+	app, _ := testApp(t)
+	app.engine = slowReviewEngine(t, "2.5")
+	server := slowServer(t, app)
+	type outcome struct {
+		body string
+		err  error
+	}
+	results := make(chan outcome, 2)
+	for range 2 {
+		go func() {
+			response, err := postReview(t, server)
+			if err != nil {
+				results <- outcome{err: err}
+				return
+			}
+			raw, _ := io.ReadAll(response.Body)
+			response.Body.Close()
+			results <- outcome{body: response.Status + " " + string(raw)}
+		}()
+	}
+	ids := map[string]bool{}
+	for range 2 {
+		result := <-results
+		if result.err != nil {
+			t.Fatalf("response lost: %v", result.err)
+		}
+		var review struct {
+			ID       string `json:"id"`
+			ReviewID string `json:"review_id"`
+		}
+		_ = json.Unmarshal([]byte(strings.TrimPrefix(result.body, "200 OK ")), &review)
+		if !strings.HasPrefix(result.body, "200 OK") || review.ID == "" || review.ReviewID != "rid" {
+			t.Fatalf("unexpected response: %s", result.body)
+		}
+		ids[review.ID] = true
+	}
+	if len(ids) != 2 {
+		t.Fatalf("reviews shared an id: %v", ids)
+	}
+}
+
+// The review bound still applies: a review past it fails with an error the client receives, and
+// leaves no intake folder behind.
+func TestReviewPastTheBoundIsReportedNotDropped(t *testing.T) {
+	saved := reviewTimeout
+	reviewTimeout = time.Second
+	defer func() { reviewTimeout = saved }()
+	app, root := testApp(t)
+	app.engine = slowReviewEngine(t, "30")
+	server := slowServer(t, app)
+	started := time.Now()
+	response, err := postReview(t, server)
+	if err != nil {
+		t.Fatalf("error response lost: %v", err)
+	}
+	response.Body.Close()
+	if response.StatusCode != 503 || time.Since(started) > 10*time.Second {
+		t.Fatalf("status %d after %v", response.StatusCode, time.Since(started))
+	}
+	entries, _ := os.ReadDir(filepath.Join(root, "intake"))
+	if len(entries) != 0 {
+		t.Fatalf("intake folder left behind: %v", entries)
 	}
 }

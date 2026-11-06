@@ -152,7 +152,10 @@ CP-OS then runs the modules in order and publishes `deliveries/<id>/report.html`
   against the cap until it settles (USD 5.73 for `gpt-6.1-sol`), and a cap too small
   for one call of the largest module is refused before anything is sent.
 - **Modules:** the pathway's preset by default. `--modules` narrows it, keeping
-  dependencies, and must fill at least one report section.
+  dependencies, and must fill at least one report section. `--modules minimum` selects
+  CP-1, CP-1A, CP-2 and CP-5 (CP-0 joins as the dependency): the set that needs only an
+  issuer's own public filings. Add modules after it when their sources exist, for example
+  `--modules minimum CP-4` with the executed debt documents.
 - **Run folder:** `--out`, or `runs/<run id>`. A changed request, including a new file
   in the issuer folder or a new cap, needs a new folder. Relaunching the same request
   rechecks finished modules without resending them.
@@ -181,6 +184,52 @@ during CP-0 after USD 0.29; its reads of whole filings led to the read limit abo
 
 ```bash
 CPOS_LIVE_RULING=docs/rulings/<file>.md PYTHONPATH=src:. .venv/bin/python -m pytest tests/test_cpos_launch.py -m live -q
+```
+
+### Host mode: an agent answers each module, no provider call
+
+Use `--config host` in place of a model, with no `--cap`, `--live` or `--ruling`. The run id
+ends in `-host`. CP-OS keeps ordering, checks, resume and delivery as for a live run.
+
+```bash
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
+  --context path/to/context.json --sources path/to/issuer-folder \
+  --config host --out runs/<run-folder>
+```
+
+1. The command runs CP-OS until a module has no answer. It prints `Answer needed`, the
+   `Method` and `Request` files, the `Answer` path, each pinned source and each upstream
+   handoff with its sha256 and file, and any `Feedback`. Then it exits with status 3.
+2. The agent writes the module's Markdown answer at the `Answer` path and runs the same
+   command again. CP-OS rechecks every earlier answer, checks the new one and continues.
+3. A rejected answer gets a new request with the feedback, up to three attempts. Status 0
+   prints the published report. Status 1 is a stop: a changed accepted answer, a third
+   rejection, or a second process on the same run folder.
+
+An accepted answer cannot be replaced. To repair one, start a new run folder and keep the old
+one as the earlier attempt. The automated check covers structure and anchors only: a second
+reviewer must compare each handoff with the sources before the run is used. The pilot in
+[`runs/cpos-launch-host-002`](runs/cpos-launch-host-002/verification.json) shows why: its first
+attempt, [`runs/cpos-launch-host-001`](runs/cpos-launch-host-001), passed every automated check but
+omitted covenant terms that the paid run found. The paid run in turn missed findings that the
+host found.
+
+The [Caesars pilot](runs/cpos-launch-host-czr-001/verification.json) runs `--modules minimum`
+in host mode on the retained Caesars filings: 6 of 6 selected sections populated, 23 of 24 answer
+keys found, one rejected answer repaired through the feedback loop.
+
+### Issuer corpus and filing packs
+
+The issuer corpus is a separate project: [EricMG13/SECData](https://github.com/EricMG13/SECData).
+It builds the list of issuers from high-yield and loan ETF holdings filed on SEC Form N-PORT,
+keeps those that file 10-K reports, and stores each issuer's minimum pack from EDGAR: the latest
+10-K, the three latest 10-Qs and three quarterly presentations, or the earnings release for a
+quarter whose deck is not on EDGAR. A pack folder is a ready `--sources` folder for this launcher:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
+  --context path/to/context.json --sources ../SECData/data/<date>/packs/<cik>-<name> \
+  --config host --modules minimum --out runs/<run-folder>
 ```
 
 ## Development loop

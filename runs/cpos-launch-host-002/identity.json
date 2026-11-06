@@ -1,0 +1,1 @@
+{"execution": "host-session", "max_attempts": 3, "provider_cap_usd": "0", "run": {"as_of": "2024-09-30", "case_kind": "public", "issuer_id": "tdg", "issuer_name": "TransDigm Group Incorporated", "method_version": "deploy-v-r14", "pathway": "credit_snapshot", "requested_modules": ["CP-1", "CP-1A"], "run_id": "tdg-2024-09-30-credit_snapshot-host", "schema_version": "run/2"}}

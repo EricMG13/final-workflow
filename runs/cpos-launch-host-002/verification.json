@@ -1,0 +1,60 @@
+{
+  "scope": "Host-session pilot of `cpos_launch --config host`: historical TDG FY2024 credit snapshot as of 2024-09-30, CP-0 -> CP-1 -> CP-1A, same context, issuer folder and modules as the paid sol-medium run runs/cpos-launch-live-002. The answering host was the Claude Code session that built the launcher option, working from the pinned files. Not independent review, not provider proof, not current underwriting.",
+  "execution": {
+    "mode": "host-session",
+    "provider_calls": 0,
+    "provider_cap_usd": "0",
+    "host_usage": "Not measured; the host session's own model usage is outside the CP-OS budget.",
+    "protocol": "Each launch ran CP-OS until a module request had no answer (exit 3), printed the request, answer path, pinned sources and upstream handoffs; the host wrote the answer and relaunched the same command."
+  },
+  "attempt_1": {
+    "run": "runs/cpos-launch-host-001",
+    "result": "All three modules accepted on the first CP-OS attempt; report published with 4 of 4 selected sections populated.",
+    "report": "runs/cpos-launch-host-001/deliveries/3041c591714ca1cbc7448e8e6ed48b440aed6d4c0f7999ab57a49e4e9d94d47c/report.html",
+    "defects_found_after_acceptance": [
+      "CP-1 omitted the covenant terms the 10-K describes: no maintenance covenants except a springing revolver test of 7.50x net debt to EBITDA As Defined above 40% usage (page 62), incremental tests of 7.25x net and 5.00x secured net (pages 61-62), and management's statement that covenant EBITDA is defined as EBITDA As Defined (page 70).",
+      "CP-0 did not flag that the 10-K was signed on November 7, 2024, after the as-of date, while the context cutoff is blank.",
+      "CP-0 called the PDF a reproduction of the whole 10-K; only the audit opinion, statements and contents page were checked."
+    ],
+    "how_found": "Comparison with the retained live-002 answers, then checked against the 10-K pages. The automated CP-OS checker cannot find omissions of this kind."
+  },
+  "attempt_2": {
+    "run": "runs/cpos-launch-host-002",
+    "result": "Targeted repair of the three defects in a new run folder; attempt 1 is retained unchanged. All three modules accepted on the first CP-OS attempt; report published with 4 of 4 selected sections populated.",
+    "report": "runs/cpos-launch-host-002/deliveries/9f3d6e72dc2ea8f656510b0b6a54b4909fd64b27b4228947f4da058f9c0e80ed/report.html",
+    "report_sha256": "4affdd0ff656c3735b5fab692c74650a55fe65143630cd1469fa364b5ed0566c",
+    "handoffs": {
+      "CP-0": "4b4d18ad4bb2204a1bdf41fa56460873b3516ea4f1c42147be065e8075c5727e",
+      "CP-1": "612bf90a19cd2cd5ecf07de8354ef64554bb163241a808664772f0f4e957ab7c",
+      "CP-1A": "999b317a3739ee329831e3cdcf3199d70cbcee003f13d143a04159a1f9854e72"
+    },
+    "repair_size_lines": {"CP-0": "+13 -4", "CP-1": "+23 -8", "CP-1A": "+7 -7, upstream hashes and capacity wording"},
+    "repair_also_logged": "The 10-K describes the revolver test two ways: net debt to EBITDA As Defined (page 62) and secured indebtedness to Consolidated EBITDA (page 70). Logged as a conflict, not reconciled."
+  },
+  "checks": {
+    "command": "PYTHONPATH=src .venv/bin/python runs/cpos-launch-host-002/verify.py",
+    "per_run": [
+      "verify_delivery passes; completion records host-session for every module, zero cap, no live/ folder",
+      "consumption anchors: CP-0 hash in CP-1 and CP-1A, CP-1 hash in CP-1A",
+      "79 reported CP-1 rows, 220 cells, each found after its printed label on the cited 10-K page (pages 71, 120-123, 144-145)",
+      "18 calculated metric cells recomputed with Fraction from those source rows and the page 52 total-debt row; pro forma figures from the page 56 footnote",
+      "relaunch publishes the same report path, sends nothing and writes no file"
+    ],
+    "adversarial": "The checker refused a changed figure (7,941), swapped balance-sheet years and a 5.97x ratio.",
+    "launcher_tests": "tests/test_cpos_launch.py: 72 passed, 1 paid test skipped"
+  },
+  "comparison_with_live_002": {
+    "same": "Every reported statement figure checked, e.g. net sales 7,940, cash 6,261, carrying total debt 24,880, EBITDA As Defined 4,173, coverage 3.24x.",
+    "basis_difference": "Live leverage uses gross principal 25,068 (6.01x; net 4.51x); host uses the 10-K's carrying total debt 24,880 (5.96x; net 4.46x). Live also shows the carrying net debt of 18,619. Both bases are labelled; neither is covenant leverage.",
+    "only_live_on_first_pass": ["springing revolver covenant and compliance statement (page 62)", "publication-date boundary of the 10-K"],
+    "only_host": ["incremental-debt tests of 7.25x and 5.00x (pages 61-62)", "conflicting revolver-test descriptions (pages 62 and 70)", "dividend-equivalent conflict: 132 in the 10-K (page 170) against 131 in the FY2025 first-quarter 10-Q (page 44)"],
+    "size": "Live answers 22-45 KB per module from 29 calls at USD 0.93; host answers 17-27 KB."
+  },
+  "limits": [
+    "One issuer, one date, three modules; not the full credit_snapshot preset.",
+    "The host also wrote the checks and the comparison, so this is not an independent review.",
+    "The report is the launcher's report only; no HTML Model, charts or calculation JSON.",
+    "Narrative and governance judgments were compared with the live answer, not with an answer key."
+  ],
+  "next": "For an agent swarm: one agent per run folder answers through this protocol, and a second agent or model reviews each accepted handoff against the sources before the run is used; a confirmed defect is repaired in a new run folder."
+}

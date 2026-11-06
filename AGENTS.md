@@ -56,5 +56,10 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - Run confidence-review after code changes: enumerate doubts, trace their causes,
   test adversarial cases and repair confirmed defects before completion.
 - Run rewrite-tournament in post-edit mode for nontrivial changed functions,
-  retaining the simplest correct design.- Keep one concise verification record. No review/brief/lease proliferation.
+  retaining the simplest correct design.
+- Run the quality gate on changed code before completion: `uv run python
+  tools/quality_gate.py` (docs/QUALITY-GATE.md). Changed lines and the functions they
+  fall in must pass ruff, the complexity limits, `ruff format` and strict mypy;
+  the existing code outside that scope is not in the gate.
+- Keep one concise verification record. No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.

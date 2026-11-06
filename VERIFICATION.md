@@ -8,6 +8,31 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-06 — Quality gate for changed code
+
+Scope: `tools/quality_gate.py`, `tools/ruff-gate.toml`, `tests/test_quality_gate.py`,
+`.github/workflows/quality-gate.yml`, `docs/QUALITY-GATE.md`, one AGENTS.md bullet. No
+analytical code changed. Standard library only; the checkers are the pinned dev
+dependencies (ruff 0.17.1, mypy 2.4.0), so no new dependency.
+Decision: gate changed code (changed lines plus the functions they fall in, new files
+whole), not the whole tree, because the baseline at `a313b50` fails every candidate
+threshold (180 functions above C901 10, 46 files `ruff format` would change, 33 strict
+mypy errors in `src`). Thresholds from comparable projects (docs/QUALITY-GATE.md): C901 at
+15 (pydantic-ai), pylint design limits at ruff defaults, E501 at the repo's 100 columns,
+strict mypy on non-test files, `ruff format`.
+Checks: `uv run pytest tests/test_quality_gate.py` 7 passed (temp git repos: hunk parsing
+on both sides with deletion anchors, decorator and nested spans, owned-line expansion,
+changed-file and changed-line detection, an end-to-end run that reports the E501, the
+mypy assignment error and the format change inside the touched code and drops the legacy
+E501 two functions up, the clean case, and both exit codes). Self-check:
+`uv run python tools/quality_gate.py --base origin/main` on this branch exits 0 with 2
+changed files and 340 lines in scope, after it caught one over-long test line and one
+formatting change in its own first draft. Dry run on the last merged PR (`--base
+a313b50^1`): 23 findings in 31 changed files, 5,005 lines in scope (E501 x5, PLR0913 x3,
+PLR0915 x1 in `owners/cpos.py` and two test files), none in the surrounding legacy code.
+The rewrite-tournament skill is not available in this environment; the changed functions were compared inline against a per-file variant (one subprocess per file for ruff too) and the batched form was kept as the simpler one. Not verified: the GitHub Actions workflow has not run (no pull request yet); `uv` is
+pinned there at 0.12.5 through `astral-sh/setup-uv@v5`.
+
 ## 2026-11-06 — GitHub Copilot SDK adapter
 
 Dependency decision: the standard library cannot speak the runtime's JSON-RPC in a few lines and

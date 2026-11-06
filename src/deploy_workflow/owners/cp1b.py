@@ -40,7 +40,7 @@ from deploy_workflow.context import ContextRefused, context_facts
 from deploy_workflow.context_periods import resolve
 from deploy_workflow.earnings import EarningsDeltaReport, _periods, build_earnings_delta_in
 from deploy_workflow.earnings_workflow import OwnerError, _operands, _own_limits, compose_delta
-from deploy_workflow.owners.cp1a import probe_one_step
+from deploy_workflow.owners.cp1a import OneStep, probe_one_step, submit_one_step
 from deploy_workflow.owners.period_basis import DEFAULT_CURRENCY, PeriodRefused, currency_basis
 from deploy_workflow.workflow import WorkflowError
 
@@ -479,22 +479,8 @@ def submit(
     def validate(pack: PreparedPack, current: Attempt) -> StepValidation:
         return _validate_step(store, pack, current)
 
-    attempt = store.submit_step(ticket_id, MODULE_ID, STEP_IDS, step_id, normal, validate)
-    if (
-        attempt.status == "pending"
-        and len(attempt.steps) == 1
-        and attempt.steps[0].status == "valid"
-    ):
-        outcome = _validate_step(store, store.pack(), attempt)
-        if outcome.issues or not outcome.retained_as(attempt.steps[0]):
-            raise ValueError("Retained CP-1B output differs from trusted validation")
-        candidate = _candidate(outcome.output or "", attempt)
-        attempt = store.finish(
-            ticket_id,
-            candidate.model_dump_json(),
-            lambda supplied: () if supplied == candidate else ("CP-1B candidate differs",),
-            qualification=QUALIFICATION,
-        )
+    one_step = OneStep(MODULE_ID, STEP_ID, _validate_step, _candidate, QUALIFICATION)
+    attempt = submit_one_step(store, ticket_id, one_step, normal, validate)
     return Submitted(attempt, normal, resolved, (), (), None)
 
 

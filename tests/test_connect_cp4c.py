@@ -627,8 +627,9 @@ def _submission(case: str = "positive") -> cp4c.RestructuringSubmission:
 
 
 def _cp4_read(head: cp4c.Cp4Head) -> cp4c.Cp4Head:
-    """The lease's `cp4_reader` selection (T4C.11, T4.10.r02, T4.13) of a Stage 1 CP-4 head."""
-    keep = ("T4C.11.", "T4.10.r02.", "T4.13.")
+    """The lease's `cp4_reader` selection (T4C.11, T4.10, T4.13) of a Stage 1 CP-4 head: every
+    T4.10 row, since CP-4C selects the consent row by content (S09-C02)."""
+    keep = ("T4C.11.", "T4.10.", "T4.13.")
     return replace(head, facts=tuple(f for f in head.facts if f.fact_id.startswith(keep)))
 
 
@@ -646,7 +647,16 @@ def test_adapter_returns_the_stage_1_input_object(case: str, tmp_path: Path) -> 
     want = stage1._inputs(case)
     narrowed = replace(want.context, cp4=_cp4_read(want.context.cp4))
     assert got == replace(want, context=narrowed)
-    assert {f.fact_id for f in got.context.cp4.facts} >= set(cp4c.CP4_FACTS)
+    # The five facts CP-4C reads in the frozen head: T4C.11 r01, the consent row r02, T4.13.
+    read = {
+        "T4C.11.r01.facility_id",
+        "T4C.11.r01.facility",
+        "T4.10.r02.permits",
+        "T4.10.r02.conditions",
+        "T4.13.rating.rating",
+    }
+    terms = got.context.cp4.terms(cp4c.FACILITY_ID)
+    assert {f.fact_id for f in terms.facts} == read <= {f.fact_id for f in got.context.cp4.facts}
     assert cp4c.compute(got) == stage1._result(case)
 
 
@@ -943,6 +953,32 @@ def test_v08_also_journals_the_out_of_scope_page_it_could_not_read(tmp_path: Pat
     assert not [
         r for rid, r in stage1.EXPECTED_REFUSALS.items() if rid != "v08" and "unread_issues" in r
     ]
+
+
+ADEQUATE = (
+    "CP-4C: the CP-4 lender protection rating is 'Adequate'; the own limitation states "
+    "Insufficient Information, so another rating fails closed (round 8 A-2 #4)"
+)
+
+
+def test_s09_a04_an_unread_cp4_head_settles_the_attempt_rejected(tmp_path: Path) -> None:
+    """S09-A04: a CP-4 head rating lender protection Adequate (an ordinary CP-4 output). The
+    view offers nothing but the reason, and the retained response is a journaled invalid step
+    with that one issue: the attempt finishes rejected instead of raising in the validator and
+    staying pending."""
+    cp4 = tuple(
+        f.model_copy(update={"text": "Adequate"}) if f.fact_id == "T4.13.rating.rating" else f
+        for f in stage1._cp4("positive").facts
+    )
+    store, _, attempt = seed(tmp_path, cp4=cp4)
+    block = json.loads(cp4c.view(store, attempt)[1])
+    assert block["context_issue"] == ADEQUATE and "cp4" not in block
+    _submit(store, attempt, json.dumps(_payload("positive")))
+    finished = _finished(store, attempt)
+    assert finished.status == "finished" and list(finished.issues) == [ADEQUATE]
+    assert finished.steps[0].status == "invalid"
+    assert store.result(finished.result_sha256 or "").status == "rejected"
+    assert not [h for h in store.read().heads if h.module_id == MODULE]
 
 
 def test_two_refusals_block_the_module(tmp_path: Path) -> None:

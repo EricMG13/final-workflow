@@ -433,12 +433,10 @@ CP1_METRICS = ("total_debt", "ebitda")
 CASE_ROW: Mapping[EbitdaCase, str] = {"base": "b", "down": "d"}
 CASE_WORD: Mapping[EbitdaCase, str] = {"base": "base", "down": "downside"}
 SECURED, SENIOR = "SECURED", "SENIOR"
-CP4_FACILITY_ID = "T4C.11.r01.facility_id"
-CP4_FACILITY = "T4C.11.r01.facility"
-CP4_PERMITS = "T4.10.r02.permits"
-CP4_CONDITIONS = "T4.10.r02.conditions"
+# S09-A04/C02: the CP-4 facts CP-4C reads are selected by content (`Cp4Head.terms`), not by
+# row number: the T4C.11 row mapping a covenant to the CP-1 secured facility, the T4.10 capacity
+# row stating the every-lender consent the new-money limitation states, and the T4.13 rating.
 CP4_RATING = "T4.13.rating.rating"
-CP4_FACTS = (CP4_FACILITY_ID, CP4_FACILITY, CP4_PERMITS, CP4_CONDITIONS, CP4_RATING)
 
 
 def select_cp1(facts: Iterable[Fact], basis: PeriodBasis = DEFAULT_BASIS) -> dict[str, Fact]:
@@ -529,6 +527,21 @@ class Cp2aHead:
 
 
 @dataclass(frozen=True)
+class Cp4Terms:
+    """The five CP-4 facts CP-4C reads, as `Cp4Head.terms` selects them."""
+
+    facility_id: Fact
+    facility: Fact
+    permits: Fact
+    conditions: Fact
+    rating: Fact
+
+    @property
+    def facts(self) -> tuple[Fact, ...]:
+        return (self.facility_id, self.facility, self.permits, self.conditions, self.rating)
+
+
+@dataclass(frozen=True)
 class Cp4Head:
     status: InputStatus
     facts: tuple[Fact, ...]  # the CP-4 head's facts; T4C.11, T4.10 and T4.13 ones are read
@@ -538,6 +551,77 @@ class Cp4Head:
         if len(found) != 1:
             raise ValueError(f"CP-4C needs exactly one CP-4 fact {fact_id}")
         return found[0]
+
+    def _rows(self, table_id: str) -> list[dict[str, Fact]]:
+        """The table's rows in head order, each as field -> fact."""
+        rows: dict[str, dict[str, Fact]] = {}
+        for f in self.facts:
+            if f.table_id == table_id:
+                rows.setdefault(f.row_id, {})[f.field] = f
+        return list(rows.values())
+
+    def terms(self, facility_id: str) -> Cp4Terms:
+        """The CP-4 terms by content (S09-A04/C02): the first T4C.11 row whose known
+        facility_id is the CP-1 secured facility (every such row naming the same facility), the
+        one T4.10 row whose known conditions are the every-lender consent the new-money
+        limitation states, and the T4.13 rating, which must be the pinned one. Anything else
+        raises with the reason: the own limitations state only that head (round 8 A-2 #4)."""
+        mapped = [
+            row
+            for row in self._rows("T4C.11")
+            if _known_fact_text(row.get("facility_id")) == facility_id and "facility" in row
+        ]
+        if not mapped:
+            raise ValueError(
+                f"CP-4C: the CP-4 head maps no covenant to the secured facility {facility_id} "
+                "(T4C.11), so CP-4C fails closed"
+            )
+        if len({(r["facility"].status, r["facility"].text) for r in mapped}) > 1:
+            raise ValueError(
+                f"CP-4C: the CP-4 T4C.11 rows of {facility_id} name different facilities, so "
+                "CP-4C fails closed"
+            )
+        consent = [
+            row
+            for row in self._rows("T4.10")
+            if _known_fact_text(row.get("conditions")) == _PINNED_CONDITIONS and "permits" in row
+        ]
+        if len(consent) != 1:
+            raise ValueError(
+                f"CP-4C: {len(consent)} CP-4 capacity rows (T4.10) state the every-lender "
+                "consent the new-money limitation states, not one, so CP-4C fails closed "
+                "(round 8 A-2 #4)"
+            )
+        ratings = [f for f in self.facts if f.fact_id == CP4_RATING]
+        rating = _known_fact_text(ratings[0]) if len(ratings) == 1 else None
+        if rating != _PINNED_RATING:
+            raise ValueError(
+                f"CP-4C: the CP-4 lender protection rating is {rating!r}; the own limitation "
+                f"states {_PINNED_RATING}, so another rating fails closed (round 8 A-2 #4)"
+            )
+        (basket,) = consent
+        return Cp4Terms(
+            facility_id=mapped[0]["facility_id"],
+            facility=mapped[0]["facility"],
+            permits=basket["permits"],
+            conditions=basket["conditions"],
+            rating=ratings[0],
+        )
+
+
+def _known_fact_text(fact: Fact | None) -> str | None:
+    """The text of a known fact, else None."""
+    return fact.text if fact is not None and fact.status == "known" else None
+
+
+def cp4_issue(head: Cp4Head, facility_id: str) -> str | None:
+    """`Cp4Head.terms`'s reason when the CP-4 head is not one CP-4C reads, else None: the one
+    issue line of the validator and the view's `context_issue` (never a raise)."""
+    try:
+        head.terms(facility_id)
+    except ValueError as error:
+        return str(error)
+    return None
 
 
 @dataclass(frozen=True)
@@ -1031,7 +1115,8 @@ def _year_issue(i: int, basis: PeriodBasis) -> str:
     return f"valuation.{i}.ebitda_year: Input should be {', '.join(head)} or {last}"
 
 
-def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:
+# The complexity (19 before S09-A04 added the CP-4 head guard) predates the quality gate.
+def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:  # noqa: C901, PLR0912, PLR0915
     """Content issues of a parsed submission, in the pinned order: claims, valuation case ids,
     fulcrum and plan case ids, fulcrum and plan against the waterfall (only when claims and
     valuation are structurally valid), assessment, then per text field prose and guard issues."""
@@ -1040,6 +1125,9 @@ def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:
     # Literal of the default years), so it is returned alone, before any content check.
     if years := _year_issues(sub, ctx.basis):
         return years
+    # S09-A04/C02: a CP-4 head CP-4C cannot read is the one issue, never a raise further on.
+    if unread := cp4_issue(ctx.cp4, ctx.cp1.facility_id):
+        return (unread,)
     pages = _pages(ctx.pack)
     issues: list[str] = []
     ids: list[str] = []
@@ -1586,30 +1674,13 @@ def _upstream_map(ctx: Cp4cContext, cp1: Mapping[str, Fact]) -> dict[str, Fact]:
     return out
 
 
-def _check_cp4_head(ctx: Cp4cContext) -> None:
-    """The own limitations state the frozen CP-4 head: rating Insufficient Information and the
-    every-lender consent. Any other head stays fail-closed until Stage 2 words it (round 8 A-2
-    #4)."""
-    rating, conditions = ctx.cp4.fact(CP4_RATING), ctx.cp4.fact(CP4_CONDITIONS)
-    if rating.text != _PINNED_RATING:
-        raise ValueError(
-            f"CP-4C: the CP-4 lender protection rating is {rating.text!r}; the own limitation "
-            f"states {_PINNED_RATING}, so another rating fails closed (round 8 A-2 #4)"
-        )
-    if conditions.text != _PINNED_CONDITIONS:
-        raise ValueError(
-            "CP-4C: the CP-4 additional-debt conditions differ from the every-lender consent the "
-            "new-money limitation states, so they fail closed (round 8 A-2 #4)"
-        )
-
-
 def _resolve(inputs: Cp4cInputs) -> _Run:
     sub, ctx = inputs.submission, inputs.context
     found = content_issues(inputs)
     if found:
         raise ValueError("CP-4C submission has issues: " + "; ".join(bounded_issues(found)))
     cp1 = select_cp1(ctx.cp1.t410, ctx.basis)
-    _check_cp4_head(ctx)
+    ctx.cp4.terms(ctx.cp1.facility_id)  # the frozen CP-4 head only (round 8 A-2 #4)
     classes = claim_classes(sub, ctx)
     values = {v.case_id: _valuation(v, ctx.cp2g, ctx.basis) for v in sub.valuation}
     falls = {k: waterfall(classes=classes, enterprise_value=v.ev) for k, v in values.items()}
@@ -1706,11 +1777,23 @@ SECURITY_TEXT = {
     "administrative_priority": "PRIORITY",
 }
 NOT_A_FACILITY = "The class is not a facility governed by the legal source"
-_LEGAL = (
-    ("facility", "Facility", CP4_FACILITY),
-    ("lender_protection", "Lender protection", CP4_RATING),
-    ("additional_debt", "Additional debt", CP4_CONDITIONS),
+_LEGAL: tuple[tuple[str, str, Callable[[Cp4Terms], Fact]], ...] = (
+    ("facility", "Facility", lambda t: t.facility),
+    ("lender_protection", "Lender protection", lambda t: t.rating),
+    ("additional_debt", "Additional debt", lambda t: t.conditions),
 )
+
+
+def _legal_texts(b: _Book, run: _Run, r: str, *, secured: bool) -> None:
+    """The class's three CP-4 cells: the selected CP-4 terms copied for the secured class (each
+    derived from its own CP-4 fact id), not applicable for any other class."""
+    terms = run.ctx.cp4.terms(run.ctx.cp1.facility_id) if secured else None
+    for name, label, pick in _LEGAL:
+        if terms is None:
+            b.unsettled_text(("T4E.2", r, name), label, NOT_A_FACILITY, "not_applicable")
+        else:
+            fact = pick(terms)
+            b.copy_text(("T4E.2", r, name), label, fact, f"cp4:{fact.fact_id}")
 
 
 def _t4e2(b: _Book, run: _Run) -> None:
@@ -1773,11 +1856,7 @@ def _t4e2(b: _Book, run: _Run) -> None:
         else:
             basis = "No supplied source states this claim"
         b.text(("T4E.2", r, "basis"), "Basis", basis)
-        for name, label, fid in _LEGAL:
-            if c.kind == "secured_debt":
-                b.copy_text(("T4E.2", r, name), label, run.ctx.cp4.fact(fid), f"cp4:{fid}")
-            else:
-                b.unsettled_text(("T4E.2", r, name), label, NOT_A_FACILITY, "not_applicable")
+        _legal_texts(b, run, r, secured=c.kind == "secured_debt")
         b.row("T4E.2", r, c.name, _FIELDS_T4E2)
     b.text(("T4E.2", "eq", "name"), "Class", "Equity")
     b.text(("T4E.2", "eq", "kind"), "Kind", "equity")
@@ -2414,7 +2493,7 @@ def _references(
     cp2g_facts = [*used.values(), ctx.cp2g.base_first, ctx.cp2g.down_first]
     row = _scenario_row(ctx.cp2g)
     cp2a_facts = [ctx.cp2a.fact(f"T2B.1.{row}.{name}") for name in ("name", *_SHOCKS)]
-    cp4_facts = [ctx.cp4.fact(fid) for fid in CP4_FACTS]
+    cp4_facts = ctx.cp4.terms(ctx.cp1.facility_id).facts
 
     def refs(facts: Sequence[Fact]) -> tuple[Reference, ...]:
         return tuple(Reference(f"ref{n:02d}", f.label, f) for n, f in enumerate(facts, 1))
@@ -2683,8 +2762,9 @@ FACILITY_ID = "term-loan"
 _T418_TERMS = ("secured_status", "seniority")
 # manifest fact_selection_rule.cp2g: the T2H.7 row of the first free cash flow break.
 CP2G_BREAK_ROW = "b01"
-# lease Public API `cp4_reader` (T4C.11, T4.10.r02, T4.13), as (table id, row id or None).
-_CP4_READ = (("T4C.11", None), ("T4.10", "r02"), ("T4.13", None))
+# lease Public API `cp4_reader` (T4C.11, T4.10, T4.13), as (table id, row id or None). Every
+# T4.10 row is read: `Cp4Head.terms` selects the consent row by content (S09-C02).
+_CP4_READ = (("T4C.11", None), ("T4.10", None), ("T4.13", None))
 
 
 def _settled_module(store: Execution, head: Head, module_id: str) -> tuple[Module, InputStatus]:
@@ -2796,7 +2876,7 @@ def cp2a_of(module: Module, status: InputStatus) -> Cp2aHead:
 
 
 def cp4_of(module: Module, status: InputStatus) -> Cp4Head:
-    """A settled CP-4 module: its T4C.11, T4.10 row r02 and T4.13 facts in head order."""
+    """A settled CP-4 module: its T4C.11, T4.10 and T4.13 facts in head order."""
     if module.module_id != CP4:
         raise ValueError(f"CP-4C: not a CP-4 head: {module.module_id}")
     facts = tuple(
@@ -2856,7 +2936,7 @@ def cp2a_reader(store: Execution, head: Head) -> Cp2aHead:
 
 
 def cp4_reader(store: Execution, head: Head) -> Cp4Head:
-    """D3: the T4C.11, T4.10.r02 and T4.13 facts of a settled CP-4 head (`cp4_of`)."""
+    """D3: the T4C.11, T4.10 and T4.13 facts of a settled CP-4 head (`cp4_of`)."""
     return cp4_of(*_required_module(store, head, CP4))
 
 
@@ -3188,7 +3268,11 @@ def _view_basis(pack: PreparedPack, upstream: Upstream) -> tuple[PeriodBasis | N
     `context_issue` is the validator's text). A refused context keeps the default basis when that
     selection succeeds (the frozen rendering) and offers nothing when it fails (ruling P8T4-R2);
     a refused period or currency offers nothing; a failed selection under the run's basis is
-    `select_cp1`'s own text (ruling P8T6-R2, as CP-1C P8T2-I11) and offers nothing."""
+    `select_cp1`'s own text (ruling P8T6-R2, as CP-1C P8T2-I11) and offers nothing. A CP-4 head
+    whose terms CP-4C cannot select (`cp4_issue`, S09-A04) is refused first and offers nothing."""
+    unread = cp4_issue(upstream.cp4, upstream.cp1.facility_id)
+    if unread is not None:  # S09-A04: a CP-4 head CP-4C cannot read offers nothing
+        return None, unread
     try:
         context_facts(pack)
     except ContextRefused as error:
@@ -3233,7 +3317,8 @@ def _offered_block(pack: PreparedPack, upstream: Upstream, basis: PeriodBasis) -
     """The view's offered facts on `basis` (see `context_block`)."""
     cp1 = select_cp1(upstream.cp1.t410, basis)
     debt = cp1["total_debt"]
-    cp2g_head, cp2a_head, cp4_head = upstream.cp2g, upstream.cp2a, upstream.cp4
+    cp2g_head, cp2a_head = upstream.cp2g, upstream.cp2a
+    terms = upstream.cp4.terms(upstream.cp1.facility_id)  # `_view_basis` checked it
     row = _scenario_row(cp2g_head)
     allowed = frozenset(f.fact_id for f in referencable(cp1.values()))
     ebitda = tuple(e.fact for e in cp2g_head.ebitda)
@@ -3249,7 +3334,7 @@ def _offered_block(pack: PreparedPack, upstream: Upstream, basis: PeriodBasis) -
                 "secured_status": _text_if_known(upstream.cp1.secured_status),
                 "seniority": _text_if_known(upstream.cp1.seniority),
                 "facility_id": upstream.cp1.facility_id,
-                "facility": _text_if_known(cp4_head.fact(CP4_FACILITY)),
+                "facility": _text_if_known(terms.facility),
             },
             "statement_rows": _statement_rows(pack),
         },
@@ -3270,9 +3355,9 @@ def _offered_block(pack: PreparedPack, upstream: Upstream, basis: PeriodBasis) -
             **{name: _shown(cp2a_head.fact(f"T2B.1.{row}.{name}")) for name in _SHOCKS},
         },
         "cp4": {
-            "facility": _text_if_known(cp4_head.fact(CP4_FACILITY)),
-            "lender_protection": _text_if_known(cp4_head.fact(CP4_RATING)),
-            "additional_debt_conditions": _text_if_known(cp4_head.fact(CP4_CONDITIONS)),
+            "facility": _text_if_known(terms.facility),
+            "lender_protection": _text_if_known(terms.rating),
+            "additional_debt_conditions": _text_if_known(terms.conditions),
         },
         "bounds": {
             "multiple": dict(MULTIPLE_BOUNDS),

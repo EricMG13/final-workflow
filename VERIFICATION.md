@@ -8,26 +8,56 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
-## 2026-11-06 — Feasibility: populating the Issuer Library from SECData
+## 2026-11-06 — Populating the Issuer Library from SECData
 
-Scope: an offline assessment; no provider call, no code change. SECData holds no deliverables, only
-filing packs, run contexts and a manifest. The deliverables are the 127 SECData run folders of draft PR
-#13 (`claude/swarm-run-20261105`, stacked on #5 and #11). They were loaded into a copy of `main`
-`a313b50`; the real server was started on it and opened in headless Chromium.
+Scope: the 127 host-session run folders of draft PRs #5, #11 and #13 landed on one branch, given
+`library.json` manifests and read by the real server. No provider call. No retained run file was
+edited: the manifests are new files beside the runs. SECData holds no deliverables, only filing packs,
+run contexts and a manifest; its restored packs (`claude/restore-filing-packs`, `5120db9`) matched all
+827 converted source files of the 119 swarm runs by SHA-256 of file bytes in the earlier feasibility
+check.
 
-- **Loads without code change:** `TestCurrentRetainedWorkspace` passes; 626 of 626 handoffs parse;
-  123 reports link and hash-check; the home screen shows 143 issuers, 171 runs, 145 reports in about
-  6.4 s; a Caesars run renders its reader summary and charts. `/api/workspace` goes from 2.7 MB and
-  0.45 s to 26 MB and 3.7 s.
-- **Source provenance:** all 827 converted source files of the 119 swarm runs carry the SHA-256 of
-  their original filing; each matches a file in SECData's restored packs (`claude/restore-filing-packs`,
-  `5120db9`), hashed from file bytes rather than the manifest. 0 mismatches.
-- **Gaps:** none of the runs has `library.json`, so all show "Sector not recorded" and no metrics;
-  51 runs carry all-caps EDGAR names, so issuer grouping splits some (for example American Airlines);
-  no independent review (the five-issuer pilot's reviewers found major defects in four of five);
-  17 of 118 CP-5 self-reviews are Low confidence; 47 of 118 CP-2 handoffs state "Not calculable" for
-  some figure. Merging #13 conflicts with `main` in `cpos_launch.py`, `tests/test_cpos_launch.py` and
-  `VERIFICATION.md`. The run folders total 1.25 GB.
+- **Landed:** `claude/host-session-pilot`, `claude/sonnet-swarm-pilot` and `claude/swarm-run-20261105`
+  merged in that order onto `main` `a313b50`. Three conflicts: the launcher keeps main's Copilot checks
+  under `--live`, where the host config (no provider) never looks up a key; the launcher test file and
+  this record keep both sides. `tests/test_cpos_launch.py`, `test_cpos_app.py`, `test_cpos_handoffs.py`:
+  177 passed, 1 deselected (paid). `go vet` and `go test ./...` with Go 1.26.0: pass. The run folders
+  total 2.0 GB on disk, 1.25 GB of it from #13; whether they stay in git is an open owner decision.
+- **Backfill:** `deploy_workflow.cpos_library` wrote 127 manifests (119 swarm, 3 host pilots, 5 Sonnet
+  pilots). Identity, sector and dates are pinned to the SECData context kept byte for byte under each
+  run's `inputs/` (the pilots' `context.json`), so every source lies inside the run folder and a
+  workspace holding only `runs/` admits them. Of the 119 swarm runs: 118 carry a sector, 109 leverage,
+  103 cover, 111 cash, 66 revenue, 31 EBITDA, 56 operating cash flow. Every null is a `Not supplied`
+  cell (CAD or thousands reporters, banks and REITs without EBITDA), a bracketed negative, a
+  quarter-only ratio or a table without an explicit unit. `TestCurrentRetainedWorkspace` admits all
+  127 (only the three known model-only issues). `--check` regenerates all 127 byte-identical with
+  `--secdata`; without it 8 names fall back from the funds' spelling to recasing.
+- **Names:** 51 runs carry all-capital EDGAR names. 12 take the funds' spelling from `corpus.json`
+  where it is the same name word for word (`American Airlines, Inc.`, `Columbus McKinnon Corporation`,
+  `JetBlue Airways Corporation`; `Gray Television, Inc.` was refused for `GRAY MEDIA, INC`), 39 are
+  recased word by word (`DXP Enterprises Inc`, `Genesis Energy LP`; imperfect: `Transalta`, `Davita`,
+  `Biomarin`). The registrant spelling stays in the pinned context line and in the summary. The engine
+  store now groups by an admitted manifest's name ahead of `workflow.json`, so American Airlines is one
+  issuer with two runs; the library shows 142 issuers, 171 runs, 145 reports (143 issuers before).
+- **Server, this Linux host, headless Chromium 1440×1000:** home screen in 4.6 s; `/api/workspace`
+  26 MB in 6.8 s (store parse on every page load, unchanged); search `Advance Auto` gives 1 issuer,
+  1 run, 1 report; sector `Real Estate Investment Trusts` gives 5 issuers, 6 runs, 5 reports with its
+  chip; the aap Overview shows the CP-2 credit view and the leverage, cover and liquidity series; its
+  report renders in the sandbox (`ADVANCE AUTO PARTS INC — Credit Snapshot`, five handoffs byte-identical).
+  No console errors. Tests: `tests/test_cpos_library.py` 28 passed; `tests/test_issuer_library_store.py`
+  24 passed, 1 failed (the `chmod 0` test that fails as root, also on `main`).
+- **Review before relying on it:** unchanged from the pilots. Each CP-5 is a self-review; the five-issuer
+  pilot's reviewers found major defects in four of five; 17 of 118 CP-5 self-reviews are Low confidence;
+  47 of 118 CP-2 handoffs state `Not calculable` for some figure. Every manifest's first gap says so.
+- **Confidence review of the backfill:** doubts traced and tested: the library's line numbering (split on
+  newline after CRLF normalisation, matched), its numeric-token match (a value is taken only from the
+  quoted line, bracketed negatives are null), period ranking (ISO dates, month names, quarters, halves,
+  nine-month and FY labels; `Q2 FY2027` ranks as that quarter; guidance, pro forma and annualised rows are
+  excluded; a quarter-labelled ratio needs LTM in its label or basis), the long table format, a run
+  stopped before delivery, and a context that names another issuer than `identity.json` (refused).
+  Rewrite rounds kept the simplest form of `period_rank` and `table_metric` that passed these.
+- Not verified: Windows, the Node DOM suites (no jsdom on this host), `validate.py` as a whole, the
+  Playwright browser gate, independent review of any run's content, the 1.25 GB in git question.
 
 ## 2026-11-06 — GitHub Copilot SDK adapter
 

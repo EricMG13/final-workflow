@@ -522,7 +522,7 @@ def catalogue_reports(root, catalogue, sources):
                 issues.append(f"{folder}: could not be read ({error!r})")
                 continue
             curated = name in CURATED_REPORTS
-            issuer = "TransDigm Group" if curated else issuer_name
+            issuer = "TransDigm Group" if curated else admitted_name(run) or issuer_name
             default = (
                 artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
             )
@@ -568,11 +568,17 @@ def recorded_run(run_dir):
         return {}
 
 
+def admitted_name(run):
+    """The issuer name of a run's admitted library.json; empty when the run has none."""
+    return run.get("name", "") if run.get("identity_source") else ""
+
+
 def run_row(root, run):
-    """Labels for a run with no curated ones: the launcher's own manifest, else the catalogue."""
+    """Labels for a run with no curated ones: its admitted library.json, then the launcher's own
+    manifest, then the catalogue. The admitted name groups an issuer across runs in one spelling."""
     folder = run["id"]
     identity = recorded_run(root / "runs" / folder)
-    issuer = identity.get("issuer_name") or run["name"]
+    issuer = admitted_name(run) or identity.get("issuer_name") or run["name"]
     period = (
         f"As of {identity['as_of']}"
         if identity.get("as_of")

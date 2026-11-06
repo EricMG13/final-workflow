@@ -227,6 +227,9 @@ def test_long_format_table_prefers_whole_periods(tmp_path):
         ("WHIRLPOOL CORP /DE/", [], "Whirlpool Corp", "recased"),
         ("CLEVELAND-CLIFFS INC.", [], "Cleveland-Cliffs Inc.", "recased"),
         ("GENMAB A/S", [], "Genmab A/S", "recased"),
+        ("MURPHY OIL CORP", [], "Murphy Oil Corp", "recased"),
+        ("PRA GROUP INC", [], "PRA Group Inc", "recased"),
+        ("VSE CORP", [], "VSE Corp", "recased"),
     ],
 )
 def test_display_names(registrant, funds, expected, how):

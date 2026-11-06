@@ -3,7 +3,7 @@
   "run": {
     "id": "cpos-swarm-20261105-mur",
     "issuer": "mur",
-    "name": "Murphy OIL Corp",
+    "name": "Murphy Oil Corp",
     "identity_source": "context",
     "sector": "Crude Petroleum & Natural Gas",
     "sector_source": "sector",

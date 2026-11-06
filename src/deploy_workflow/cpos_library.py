@@ -16,7 +16,8 @@ all-capital EDGAR registrant name, the funds' spelling from SECData's ``corpus.j
 names the ``data/<date>`` folder holding ``corpus.json`` and ``contexts/``; a run's context is matched to
 its CIK by hash) is used when it is the same name word for word apart from the corporate suffix;
 otherwise the registrant name is
-recased word by word (three-letter words stay as written, since they are usually acronyms). The
+recased word by word (a leading or vowelless word of up to three letters stays as written, since it
+is usually an acronym). The
 registrant name is kept in the pinned context line and repeated in the summary.
 
 Existing manifests are never overwritten. ``--check`` rebuilds every manifest, compares it with the
@@ -367,7 +368,8 @@ def recased(name: str) -> str:
             out.append(raw)
             continue
         pre, word, post = found.groups()
-        if word in KEEP_UPPER or (len(word) <= 3 and word.isalpha() and word not in RECASE):
+        acronym = len(word) <= 3 and word.isalpha() and (i == 0 or not re.search("[AEIOU]", word))
+        if word in KEEP_UPPER or (acronym and word not in RECASE):
             text = word
         elif word in RECASE:
             text = RECASE[word] if i else RECASE[word].capitalize()

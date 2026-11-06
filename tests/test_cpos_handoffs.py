@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -894,8 +895,6 @@ def test_failed_response_write_leaves_no_torn_answer_and_never_redispatches(
     retained answer, skipped the executor and delivered them. Expected, by hand: CP-1's final
     response is absent, no `.pending-*` temp remains, resume refuses with `cpos_interrupted`
     without a single executor call, and no completion record exists."""
-    from typing import Any
-
     path = job(tmp_path)
     directory = tmp_path / "state"
     real_open = Path.open
@@ -959,3 +958,72 @@ def test_put_publishes_whole_bytes_once_beside_a_stale_temp_file(tmp_path: Path)
         _put(target, b"complete answer\nplus more\n")
     assert target.read_bytes() == b"complete answer\n"
     assert sorted(p.name for p in tmp_path.iterdir()) == [stale.name, target.name]
+
+
+def test_fixed_checker_accepts_a_falsely_rejected_retained_answer_without_execution(
+    tmp_path: Path,
+) -> None:
+    """S01-C05: one attempt (as in live mode); a buggy checker falsely rejects CP-1's correct
+    answer. Before the fix, rerunning the same directory with the fixed checker died with
+    `identity_mismatch` (the new verdict could not be written over `1.review.json`). Expected, by
+    hand: the rerun completes with no executor call for CP-0 or CP-1 (both retained), the false
+    verdict stays in `1.review.json` and the new one, {"issues": [], "response_sha256":
+    sha256(CP-1 answer)}, is kept beside it as `1.review-<its sha256>.json`."""
+    path = job(tmp_path)
+    data = json.loads(path.read_text())
+    data["max_attempts"] = 1
+    path.write_text(json.dumps(data))
+    directory = tmp_path / "state"
+
+    def buggy(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+        return ("false rejection",) if task.module_id == "CP-1" else checked(task, response)
+
+    with pytest.raises(ValueError, match="cpos_module_failed: CP-1: false rejection"):
+        run_handoffs(path, directory, execute=replay, check=buggy)
+    seen: list[str] = []
+
+    def execute(task: HandoffTask) -> bytes:
+        seen.append(task.module_id)
+        return replay(task)
+
+    assert run_handoffs(path, directory, execute=execute, check=checked).exists()
+    assert seen == ["CP-1A", "CP-2"]
+    folder = next(directory.glob("requests/CP-1/*"))
+    first = json.loads((folder / "1.review.json").read_bytes())
+    assert first["issues"] == ["false rejection"]
+    expected = {"issues": [], "response_sha256": hashlib.sha256(RESPONSES["CP-1"]).hexdigest()}
+    raw = json.dumps(expected, sort_keys=True, indent=2).encode()
+    assert (folder / f"1.review-{hashlib.sha256(raw).hexdigest()}.json").read_bytes() == raw
+    # A second rerun with the same checker adds nothing.
+    assert run_handoffs(path, directory, execute=execute, check=checked).exists()
+    assert seen == ["CP-1A", "CP-2"]
+    assert len(list(folder.glob("1.review*.json"))) == 2
+
+
+def test_a_changed_recheck_verdict_cannot_reuse_the_next_attempts_answer(tmp_path: Path) -> None:
+    """Two attempts: CP-1's first answer was rejected with issue A and attempt 2 answered A. A
+    checker that now rejects attempt 1 with issue B would send attempt 2 other feedback, so the
+    retained attempt-2 answer cannot stand for it. Expected, by hand: `cpos_feedback_changed:
+    CP-1`, no executor call, no completion record."""
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+
+    def first_attempt_rejected(issue: str) -> Any:
+        def check(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+            if task.module_id == "CP-1" and task.attempt == 1:
+                return (issue,)
+            return checked(task, response)
+
+        return check
+
+    run_handoffs(path, directory, execute=replay, check=first_attempt_rejected("issue A"))
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="cpos_feedback_changed: CP-1"):
+        run_handoffs(
+            path,
+            directory,
+            execute=lambda t: calls.append(t.module_id) or b"",
+            check=first_attempt_rejected("issue B"),
+        )
+    assert calls == []
+    assert len(list(directory.glob("completed-*.json"))) == 1  # the first run's only

@@ -15,6 +15,7 @@ import dataclasses
 import hashlib
 import json
 import re
+from datetime import date
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -575,3 +576,79 @@ def test_withheld_ranking_requires_explicit_insufficiency_and_limitation(
     assert issue in result.issues
     assert result.report is None
     assert result.issues
+
+
+# --- review fixes S08-cp3: a model-cited quote's `as_of` is a stated date, dated before the run ---
+
+
+def _as_of_issues(as_of: str) -> tuple[str, ...]:
+    literal = copy.deepcopy(SUBMISSIONS["positive"]["relative_value"])
+    literal["market_evidence"][0]["as_of"] = as_of
+    return compute(make_inputs("positive", literal)).issues
+
+
+@pytest.mark.parametrize(
+    "as_of",
+    ("January 9, 2031", "the close", "March 1, 2019", "2026-01-09"),
+)
+def test_s08_a06_an_as_of_the_quote_and_page_do_not_state_is_refused(as_of: str) -> None:
+    """S08-cp3-A06/C02: market page:1 states January 9 and January 10, 2026 (and December 31,
+    2029) only, so a later, earlier, reworded or non-date as_of is refused."""
+    assert _as_of_issues(as_of) == (
+        f"market_evidence[0].as_of {as_of!r} is not a date stated in its quote or on its page",
+    )
+
+
+def test_s08_a06_the_page_date_is_accepted_for_a_row() -> None:
+    """`January 10, 2026` is the page's own Published date; the positive talk row uses its
+    page's Published date the same way."""
+    assert _as_of_issues("January 10, 2026") == ()
+
+
+def _shifted_inputs(monkeypatch: pytest.MonkeyPatch, as_of: str, literal: Any) -> CP3Inputs:
+    """The positive inputs with the run as-of moved to `as_of` (every module follows the pack)."""
+    original = make_pack
+
+    def shifted(case: str) -> PreparedPack:
+        pack = original(case)
+        run = pack.run.model_copy(update={"as_of": date.fromisoformat(as_of)})
+        return pack.model_copy(update={"run": run})
+
+    monkeypatch.setitem(globals(), "make_pack", shifted)
+    return make_inputs("positive", literal)
+
+
+def test_s08_a06_a_quote_dated_after_the_run_as_of_is_refused(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run as-of 2026-01-09: the talk row's January 10, 2026 is one day after it."""
+    literal = SUBMISSIONS["positive"]["relative_value"]
+    issues = compute(_shifted_inputs(monkeypatch, "2026-01-09", literal)).issues
+    assert "market_evidence[1].as_of January 10, 2026 is after the run as-of 2026-01-09" in issues
+
+
+def test_s08_a06_a_stale_quote_gets_the_line_and_caps_the_preference(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Run as-of 2026-03-01: January 9 -> March 1 is 22 + 28 + 1 = 51 days and January 10 is 50,
+    both more than STALE_DAYS (30). Each row gets the stale line; High is capped."""
+    literal = copy.deepcopy(SUBMISSIONS["positive"]["relative_value"])
+    result = compute(_shifted_inputs(monkeypatch, "2026-03-01", literal))
+    assert result.issues == ()
+    assert result.report is not None
+    stale = [x for x in result.report.limitations if x.startswith("Stale quote")]
+    assert stale == [
+        (
+            "Stale quote: market page:1 quote dated January 9, 2026 is 51 days before the run "
+            "as-of 2026-03-01 (limit 30)"
+        ),
+        (
+            "Stale quote: market page:2 quote dated January 10, 2026 is 50 days before the run "
+            "as-of 2026-03-01 (limit 30)"
+        ),
+    ]
+    literal["preference"]["confidence"] = "High"
+    issues = compute(_shifted_inputs(monkeypatch, "2026-03-01", literal)).issues
+    capped = [x for x in issues if x.startswith("preference.confidence: capped below High")]
+    assert len(capped) == 1
+    assert capped[0].endswith("a market_evidence quote is more than 30 days old")

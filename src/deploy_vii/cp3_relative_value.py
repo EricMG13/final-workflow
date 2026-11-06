@@ -43,7 +43,7 @@ import re
 from collections import Counter
 from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import (
@@ -96,6 +96,7 @@ from deploy_vii.execution import (
     text_sha256,
 )
 from deploy_vii.preparation import PreparedPack
+from deploy_vii.quotes import normalise
 from deploy_vii.readiness import citation_issues, shape_issues
 from deploy_vii.report_view import figure_unit
 
@@ -447,6 +448,7 @@ UNREADABLE = "context source unreadable: "
 USER_SUPPLIED = "Market evidence rows from the context file are user-supplied figures"
 NOT_STATED = "Not stated"
 CONTEXT_CAP = f"a context quote is more than {STALE_DAYS} days old"
+PACK_CAP = f"a market_evidence quote is more than {STALE_DAYS} days old"
 BY_ROW_ID = "cite it by row id in a basis"
 CONTEXT_ONLY_NOTE = (
     "Market evidence is the rows in context_market_evidence; cite one only by its row id in "
@@ -1007,6 +1009,8 @@ class _Evidence:
     citations: Mapping[QuoteKey, Citation]
     issues: tuple[str, ...]
     context: ContextEvidence = NO_CONTEXT
+    # One stale line per model-cited quote dated more than STALE_DAYS before the run as-of.
+    stale: tuple[str, ...] = ()
 
     def strength(self) -> frozenset[str]:
         return (frozenset(self.kinds.values()) | {row.kind for row in self.context.rows}) - {NONE}
@@ -1034,6 +1038,7 @@ def _bind_evidence(
     citations: dict[QuoteKey, Citation] = {}
     first: dict[QuoteKey, int] = {}
     issues: list[str] = list(context.issues)
+    stale: list[str] = []
     for index, row in enumerate(submission.market_evidence):
         path = f"market_evidence[{index}]"
         if row.source_id == CONTEXT_SOURCE:  # a model never writes a context row
@@ -1047,11 +1052,49 @@ def _bind_evidence(
                 f"({row.quote.source_id} {row.quote.locator})"
             )
         found, citation = _market_row(path, row, market, digests, pack)
+        if citation is not None and not found:
+            found, late = _as_of_issues(path, row.as_of, citation, pack)
+            stale += [late] if late else []
         issues += found
         if citation is not None and row.quote is not None:
             kinds[_key(row.quote)] = row.kind
             citations[_key(row.quote)] = citation
-    return _Evidence(kinds, citations, tuple(dict.fromkeys(issues)), context)
+    return _Evidence(
+        kinds, citations, tuple(dict.fromkeys(issues)), context, tuple(dict.fromkeys(stale))
+    )
+
+
+def _stated_date(text: str) -> date | None:
+    """`Month D, YYYY` or an ISO date as written; None for anything else."""
+    if re.fullmatch(r"[A-Z][a-z]+ [1-9][0-9]?, [0-9]{4}", text):
+        try:
+            return datetime.strptime(text, "%B %d, %Y").date()
+        except ValueError:
+            return None
+    return _valid_date(text)
+
+
+def _as_of_issues(
+    path: str, as_of: str, citation: Citation, pack: PreparedPack
+) -> tuple[list[str], str | None]:
+    """A model market-evidence row's `as_of` (S08-cp3-A06): a date printed in its quote or on the
+    cited span, not after the run as-of; and the stale line when it is more than STALE_DAYS
+    days before it."""
+    when = _stated_date(as_of)
+    source = next(s for s in pack.sources if s.source_id == citation.source_id)
+    span = next(x.text for x in source.spans if x.locator == citation.locator)
+    if when is None or not any(normalise(as_of) in normalise(t) for t in (citation.quote, span)):
+        return [f"{path}.as_of {as_of!r} is not a date stated in its quote or on its page"], None
+    run_as_of = pack.run.as_of
+    if when > run_as_of:
+        return [f"{path}.as_of {as_of} is after the run as-of {run_as_of.isoformat()}"], None
+    days = (run_as_of - when).days
+    if days <= STALE_DAYS:
+        return [], None
+    return [], (
+        f"Stale quote: {citation.source_id} {citation.locator} quote dated {as_of} is {days} days "
+        f"before the run as-of {run_as_of.isoformat()} (limit {STALE_DAYS})"
+    )
 
 
 def _market_row(
@@ -1173,6 +1216,8 @@ def _cap_reasons(upstream: Upstream, evidence: _Evidence) -> list[str]:
         reasons.append("the market evidence is indicative talk only")
     if evidence.context_stale:
         reasons.append(CONTEXT_CAP)
+    if evidence.stale:
+        reasons.append(PACK_CAP)
     return reasons
 
 
@@ -1683,6 +1728,7 @@ def relative_value(
     out.limitations.extend(f"Gap ({g.severity}): {out.text(g.gap)}" for g in submission.gaps)
     out.limitations.extend(_evidence_limitations(evidence))
     out.limitations.extend(_context_limitations(evidence))
+    out.limitations.extend(evidence.stale)
     out.limitations.extend(upstream.limits)
     lines = _instruments(submission, offered, out)
     _market(submission, out)

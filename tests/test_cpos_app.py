@@ -443,3 +443,47 @@ def test_a_release_note_on_a_multi_argument_stop_reaches_the_failed_status(
         bridge.main()
     assert "adapter release also failed: stop failed: OSError" in status_of(folder)["message"]
     assert "adapter release also failed" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("error", "state"),
+    [
+        (RuntimeError("provider refused"), "stopped"),
+        (OSError(32, "sharing violation"), "failed"),
+        (KeyError("handoff"), "failed"),
+    ],
+)
+def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
+    tmp_path, provider, monkeypatch, error, state
+):
+    """Hand-derived: one call settled USD 7.42 before the failure, so status.json must say
+    "7.42" whatever the exception type; progress.json still holds the stale "0" from the
+    module start and must not be what the UI reads."""
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    folder, run_dir = started(tmp_path, provider)
+    settled = {"usd": Decimal(0)}
+
+    class Ledger:
+        def __init__(self, cap, path):
+            pass
+
+        @property
+        def spent(self):
+            return settled["usd"]
+
+    def pays_then_fails(*args, on_start, **kwargs):
+        on_start(SimpleNamespace(module_id="CP-1"))
+        settled["usd"] = Decimal("7.42")
+        raise error
+
+    monkeypatch.setattr(bridge, "Budget", Ledger)
+    monkeypatch.setattr(bridge, "run_live_handoffs", pays_then_fails)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    try:
+        bridge.main()
+    except SystemExit:
+        pass  # a failure other than a stop exits non-zero after recording its status
+    status = status_of(folder)
+    assert (status["state"], status["spent_usd"]) == (state, "7.42")
+    assert "no automatic paid retry was made" in status["message"]
+    assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "0"

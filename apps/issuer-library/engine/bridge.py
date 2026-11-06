@@ -11,6 +11,7 @@ import warnings
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 COMPLETE_MESSAGE = (
     "Report written. Automated checks only: review the handoffs against the "
@@ -168,6 +169,25 @@ def review(directory: Path) -> dict:
     }
 
 
+def redact(text: str) -> str:
+    """Never return provider response bodies or environment key values."""
+    text = Redactor.from_environ(os.environ).text(text)
+    for key in KEY_VARIABLES.values():
+        secret = os.environ.get(key)
+        if secret:
+            text = text.replace(secret, "[redacted]")
+    return text
+
+
+def reported_spend(directory: Path) -> bool:
+    """True when start already wrote its own failed status, which carries the recorded spend."""
+    try:
+        status = json.loads((directory / "status.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(status, dict) and status.get("state") == "failed" and "spent_usd" in status
+
+
 def start(directory: Path) -> None:
     approved = json.loads((directory / "review.json").read_text())
     current = review(directory)
@@ -189,13 +209,13 @@ def start(directory: Path) -> None:
     def spent() -> str:
         return str(Budget(prepared.plan.provider_cap_usd, run_dir / "live").spent)
 
-    def started(task) -> None:
+    def started(task: Any) -> None:
         write_json(
             run_dir / "progress.json",
             {"module": task.module_id, "step": "started", "spent_usd": spent()},
         )
 
-    def progress(task, raw) -> None:
+    def progress(task: Any, raw: bytes) -> None:
         # Accepted handoffs are retained here so a stopped run still shows what it paid for.
         write_file(run_dir / f"{task.module_id}.md", raw)
         write_json(
@@ -220,16 +240,22 @@ def start(directory: Path) -> None:
                 on_start=started,
                 config=job["config"],
             )
-    except (ValueError, RuntimeError) as error:
-        message = f"{with_notes(error)} Retained work is in the run folder; no automatic paid retry was made."
+    except Exception as error:  # Any failure after launch may follow paid calls.
+        stopped = isinstance(error, (ValueError, RuntimeError))
+        message = (
+            f"{with_notes(error)} Retained work is in the run folder; "
+            "no automatic paid retry was made."
+        )
         write_json(
             directory / "status.json",
             {
-                "state": "stopped",
-                "message": Redactor.from_environ(os.environ).text(message),
+                "state": "stopped" if stopped else "failed",
+                "message": redact(message),
                 "spent_usd": spent(),
             },
         )
+        if not stopped:
+            raise  # main prints the redacted problems; it keeps this status, which holds the spend
         return
     write_json(
         directory / "status.json",
@@ -249,7 +275,6 @@ def start(directory: Path) -> None:
 
 def main() -> None:
     directory = Path(sys.argv[2]).resolve()
-    redactor = Redactor.from_environ(os.environ)
     try:
         if sys.argv[1] == "review":
             print(json.dumps(review(directory)))
@@ -259,13 +284,8 @@ def main() -> None:
             raise ValueError("unknown CP-OS operation")
     except Exception as error:  # noqa: BLE001 -- isolate/redact the worker process boundary
         problems = list(getattr(error, "problems", (with_notes(error),)))
-        # Never return arbitrary provider response bodies or environment values.
-        cleaned = [redactor.text(str(problem)) for problem in problems]
-        for key in KEY_VARIABLES.values():
-            secret = os.environ.get(key)
-            if secret:
-                cleaned = [text.replace(secret, "[redacted]") for text in cleaned]
-        if sys.argv[1] == "start":
+        cleaned = [redact(str(problem)) for problem in problems]
+        if sys.argv[1] == "start" and not reported_spend(directory):
             write_json(
                 directory / "status.json", {"state": "failed", "message": "; ".join(cleaned)}
             )

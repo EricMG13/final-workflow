@@ -481,6 +481,9 @@ class MacroFxInputs:
     pinned: bool = False
     hedge_pinned: bool = False
     periods: Periods = DEFAULT_PERIODS
+    # `inputs_from_submission` sets this when the page prints cash interest paid as a negative
+    # (parenthesised) outflow and `interest` holds the amount paid; an own limitation says so.
+    interest_sign_normalised: bool = False
 
     def __post_init__(self) -> None:
         pairs = (
@@ -541,11 +544,18 @@ def inputs_from_submission(
         )
     share = fx.get("foreign_ebitda_share")
     hedge = sub.get("hedge_ratio")
+    # The method reads cash interest outflow-positive (EBITDA / interest; interest + added
+    # interest). A page that prints the "Cash interest paid" outflow in accounting parentheses
+    # states the same payment, so the operand is its amount paid and the sign is recorded.
+    interest = row(ex["interest"])
+    normalised = interest.value < 0  # a parenthesised zero reads as 0.00: nothing to reverse
+    if normalised:
+        interest = Sourced(value=-interest.value, cite=interest.cite)
     return MacroFxInputs(
         reporting_currency=code(sub["reporting_currency"]),
         total_debt=row(ex["total_debt"]),
         ebitda=row(ex["ebitda"]),
-        interest=row(ex["interest"]),
+        interest=interest,
         fcf=row(ex["fcf"]),
         fx_cash_effect=row(fx["fx_cash_effect"]),
         facility=facility,
@@ -573,6 +583,7 @@ def inputs_from_submission(
         ),
         summary=sub["summary"]["text"],
         source_names=dict(source_names),
+        interest_sign_normalised=normalised,
     )
 
 
@@ -1531,6 +1542,10 @@ _LIM_DEBT_CCY = (
     "The currency of the debt is read from the header of the facility schedule, which states the "
     "currency of its amounts; no denomination clause is cited"
 )
+LIM_INTEREST_SIGN = (
+    "The cash flow statement prints cash interest paid in parentheses, as an outflow, so the "
+    "cash interest operand is the amount paid, shown as a positive figure"
+)
 _LIM_MACRO = (
     "Macro drivers other than the reference rate and currency, such as demand, input costs and "
     "inflation, are not sourced and not assessed; the figures are unaudited {fy} statements"
@@ -1573,6 +1588,8 @@ def own_limitations(i: MacroFxInputs) -> tuple[str, ...]:
         out.append(_LIM_NO_SPLIT)
     if i.debt_currency is not None:
         out.append(_LIM_DEBT_CCY)
+    if i.interest_sign_normalised:
+        out.append(LIM_INTEREST_SIGN)
     out.append(_LIM_MACRO.format(fy=i.periods.label))
     if i.pinned:
         out.append(pinned_line(MODULE_ID, hedge_pinned=i.hedge_pinned))

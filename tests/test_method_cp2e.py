@@ -647,6 +647,72 @@ def test_a02_row_must_fill_every_header_column(
     assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (want,)
 
 
+def _interest_printed(line: str) -> tuple[dict[str, Any], dict[str, str]]:
+    """The positive submission and pages with page 3's cash interest row printed as ``line``."""
+    old = "Cash interest paid  1.25  1.25  1.25  1.25  5.00"
+    pages = dict(_pages("positive"))
+    assert old in pages["page:3"]
+    pages["page:3"] = pages["page:3"].replace(old, line)
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["earnings"]["interest"].update(quote=line, value_text=line.split()[-1])
+    return sub, pages
+
+
+def test_a03_parenthesised_interest_outflow_is_the_amount_paid() -> None:
+    """S06-cp2-ade-A03/C01: the page prints the cash interest outflow in accounting parentheses.
+
+    Hand-derived from the pages: EBITDA 30.0, cash interest paid 5.00, floating balance 50, floor
+    0, shocks 100 and 200 bp. Coverage 30 / 5 = 6; added interest 50 x 1% = 0.5 and 50 x 2% = 1;
+    interest after 5.5 and 6; coverage after 30 / 5.5 and 30 / 6 = 5. Before the fix the operand
+    was -5.00: coverage n.m. "cash interest is negative" and interest after -4.5 and -4."""
+    sub, pages = _interest_printed("Cash interest paid  (1.25)  (1.25)  (1.25)  (1.25)  (5.00)")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == ()
+    inputs = cp2e.inputs_from_submission(sub, source_names=_names("positive"))
+    assert inputs.interest.value == Decimal("5.00")
+    assert inputs.interest.cite.quote.endswith("(5.00)")  # the cite keeps the printed row
+    result = cp2e.compute(inputs)
+    s = result.sensitivity
+    assert (s.cov_base.state, s.cov_base.amount) == ("known", Decimal(6))
+    assert [r.interest_after.amount for r in s.rate] == [Decimal("5.5"), Decimal(6)]
+    # 30 / 5.5 = 5.454545... at the composer's 38 digits, half-even: the 38th digit rounds up.
+    assert str(s.rate[0].cov_after.amount) == "5.4545454545454545454545454545454545455"
+    assert s.rate[1].cov_after.amount == Decimal(5)
+    cells = {c.fact_id: c for c in _cells(result)}
+    assert cells["T2F.1.r08.value"].amount == Decimal("5.00")
+    # Every figure outside the limitations table T2F.9 is the one the positive case gets from
+    # the unparenthesised row (the printed sign changes no amount, only the recorded limitation).
+    plain = {
+        c.fact_id: (c.status, c.amount)
+        for c in _cells(cp2e.compute(_inputs("positive")))
+        if not c.fact_id.startswith("T2F.9.")
+    }
+    figures = {k: (c.status, c.amount) for k, c in cells.items() if not k.startswith("T2F.9.")}
+    assert figures == plain
+    # The limitations are the positive case's plus the recorded sign, before the macro line.
+    want = list(EXPECTED["cases"]["positive"]["own_limitations"])
+    want.insert(len(want) - 1, cp2e.LIM_INTEREST_SIGN)
+    assert list(result.limitations) == want
+    _assert_prose_clean(result)
+
+
+def test_a03_parenthesised_zero_interest_is_zero_paid() -> None:
+    """(0.00) is a zero payment: the operand is 0.00, never -0.00, no sign is recorded (a zero
+    has none to reverse) and coverage is n.m. "cash interest is zero", as for a plain 0.00."""
+    sub, pages = _interest_printed("Cash interest paid  (0.00)  (0.00)  (0.00)  (0.00)  (0.00)")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == ()
+    inputs = cp2e.inputs_from_submission(sub, source_names=_names("positive"))
+    assert str(inputs.interest.value) == "0.00"
+    assert not inputs.interest_sign_normalised
+    s = cp2e.compute(inputs).sensitivity
+    assert (s.cov_base.state, s.cov_base.reason) == ("not_applicable", "cash interest is zero")
+
+
+def test_a03_unparenthesised_interest_records_no_sign() -> None:
+    inputs = _inputs("positive")
+    assert inputs.interest.value == Decimal("5.00") and not inputs.interest_sign_normalised
+    assert cp2e.LIM_INTEREST_SIGN not in cp2e.compute(inputs).limitations
+
+
 def test_source_names_are_required() -> None:
     """No empty default: T2F.8 cannot be composed without the pack's source names."""
     (names,) = [f for f in dataclasses.fields(cp2e.MacroFxInputs) if f.name == "source_names"]

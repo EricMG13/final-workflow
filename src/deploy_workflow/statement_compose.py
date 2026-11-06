@@ -213,23 +213,43 @@ def resolve_typed_row(
 
 def _header_scale(context: str, shares: bool) -> str | None:
     """Resolve an explicit header's family-specific scale, refusing conflicting cues."""
-    share_clause = re.search(
-        r"\bshares?\s+(not\s+)?in\s+(thousands?|millions?|units?)\b", context
-    )
+    share_clause = re.search(r"\bshares?\s+(not\s+)?in\s+(thousands?|millions?|units?)\b", context)
     if shares and share_clause:
         return "UNITS" if share_clause[1] else share_clause[2].upper().rstrip("S") + "S"
-    if shares and re.search(r"\bexcept\s+(?:for\s+)?shares?\b", context):
-        return "UNITS"
+    if shares and (excepted := _shares_excepted(context)) is not None:
+        # an except clause that also scales them is ambiguous: refuse rather than guess
+        return "UNITS" if excepted else None
     # A per-share exception alone does not except share counts from the monetary scale.
-    text = context if share_clause is None else context[:share_clause.start()] + context[share_clause.end():]
+    text = (
+        context
+        if share_clause is None
+        else context[: share_clause.start()] + context[share_clause.end() :]
+    )
     scales = {
-        name for name, pattern in (
+        name
+        for name, pattern in (
             ("UNITS", r"\bunits?\b"),
             ("THOUSANDS", r"\bthousands?\b|\b000s\b"),
             ("MILLIONS", r"\bmillions?\b"),
-        ) if re.search(pattern, text)
+        )
+        if re.search(pattern, text)
     }
     return next(iter(scales)) if len(scales) == 1 else None
+
+
+_EXCEPT_CLAUSE = re.compile(r"\bexcept\s+(?:for\s+)?([^;()|]{0,80}?)(?=[;()|]|\s{2,}|$)")
+_PER_SHARE = re.compile(r"\bper[\s-]+(?:(?:common|ordinary)\s+)?shares?\b")
+
+
+def _shares_excepted(context: str) -> bool | None:
+    """True when an "except ..." clause names share counts as one of its items ("except share
+    data", "except per share and share data", "... and number of shares", "... and share
+    counts"); False when that clause also names a scale ("... and shares in 000s"); else None,
+    and share counts take the monetary scale. A per-share item alone names no share count."""
+    for clause in _EXCEPT_CLAUSE.findall(context):
+        if re.search(r"\bshares?\b", _PER_SHARE.sub(" ", clause)):
+            return re.search(r"thousand|million|billion|\b000s\b", clause) is None
+    return None
 
 
 def _currency_matches(book_currency: str, text: str) -> bool:

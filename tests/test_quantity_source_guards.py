@@ -87,6 +87,51 @@ def test_share_scale_uses_complete_header(header, correct, wrong):
     assert not compose(table, table.lines[0], "shares", wrong, "thousands").lines
 
 
+# S11-A02: the except clause names share counts as any of its items, not only first. Expected
+# scales read by hand from each header: the share item is excepted from the monetary scale, so
+# the counts are in units; the monetary scale (THOUSANDS or MILLIONS) is wrong for them.
+@pytest.mark.parametrize(
+    "header,wrong",
+    [
+        ("(in thousands, except per share and share data)", "THOUSANDS"),
+        ("(in millions, except per share amounts and number of shares)", "MILLIONS"),
+        ("(in thousands, except per share amounts and share counts)", "THOUSANDS"),
+    ],
+)
+def test_share_item_anywhere_in_the_except_clause_keeps_counts_in_units(header, wrong):
+    table = extract_statement_lines(
+        f"STATEMENT OF OPERATIONS\n{header}\n  2024  2023\n"
+        "Weighted average shares  41,234,567  40,987,654",
+        "page:7",
+        SOURCE,
+    )
+    assert compose(table, table.lines[0], "shares", "UNITS", header).lines
+    assert not compose(table, table.lines[0], "shares", wrong, header).lines
+
+
+def test_a_per_share_item_alone_leaves_counts_in_the_monetary_scale():
+    header = "(in millions, except per share amounts)"
+    table = extract_statement_lines(
+        f"STATEMENT OF OPERATIONS\n{header}\n  2024  2023\nWeighted average shares  100  99",
+        "page:7",
+        SOURCE,
+    )
+    assert compose(table, table.lines[0], "shares", "MILLIONS", header).lines
+    assert not compose(table, table.lines[0], "shares", "UNITS", header).lines
+
+
+def test_an_except_clause_that_also_scales_share_counts_is_refused():
+    # "share counts in thousands" is not the "shares in thousands" form: refuse every scale
+    header = "(in millions, except per share amounts and share counts in thousands)"
+    table = extract_statement_lines(
+        f"STATEMENT OF OPERATIONS\n{header}\n  2024  2023\nWeighted average shares  100  99",
+        "page:7",
+        SOURCE,
+    )
+    for scale in ("UNITS", "THOUSANDS", "MILLIONS"):
+        assert not compose(table, table.lines[0], "shares", scale, header).lines
+
+
 def test_explicit_euros_cannot_enter_a_usd_book():
     table = extract_statement_lines(
         "STATEMENT OF OPERATIONS\n(in millions of euros)\n  2024  2023\nNet sales  € 100  € 90",

@@ -97,14 +97,27 @@ UNIT_SCALE: Mapping[str, Decimal] = {
     "MILLIONS": Decimal(1000000),
     **dict.fromkeys(("PERCENT", "MULTIPLE", "decimal_fraction"), Decimal(1)),
 }
-# Tables of verbatim copies of CP-1 facts at coordinates Python assigns by rule: every
-# module's `cp1_references` (CP-1A, CP-2, CP-3 and CP-6 compose one; the table id is the
-# composer's, never a model's). Task 8.4b, coordinator ruling 1 (superseding fix round 2's
-# CP-1A-only key): a copy's placement is not compared under its fact id; its exact value
-# (amount times scale), unit, currency and period are, with the source and every other copy.
-# Ruling 2: a copy is never pooled by coordinate, since each producer numbers its copies
+# Tables of verbatim copies of upstream facts, under the upstream fact id, at coordinates
+# Python assigns by rule (the table id is the composer's, never a model's): every module's
+# `cp1_references` (CP-1A, CP-1D, CP-2, CP-2A, CP-2G, CP-2H, CP-3, CP-4C and CP-6 compose
+# one), CP-4's `T4F.2` (`cp4_legal._referenced_table`), CP-2G's `cp2a_references` and
+# `cp1d_references`, CP-2H's `cp2g_references` and CP-4C's `cp2a_references`,
+# `cp2g_references` and `cp4_references` (`_placed_references`). An explicit list: the binding
+# maps carry no "copied" flag, only labels. Task 8.4b, coordinator ruling 1 (superseding fix
+# round 2's CP-1A-only key): a copy's placement is not compared under its fact id; its exact
+# value (amount times scale), unit, currency and period are, with the source and every other
+# copy. Ruling 2: a copy is never pooled by coordinate, since each producer numbers its copies
 # from `ref01` (T5.6).
-REFERENCE_TABLES = frozenset({CP1_REFERENCES})
+REFERENCE_TABLES = frozenset(
+    {
+        CP1_REFERENCES,
+        "T4F.2",
+        "cp1d_references",
+        "cp2a_references",
+        "cp2g_references",
+        "cp4_references",
+    }
+)
 
 # --- the model-facing contract ---------------------------------------------------------------
 # Plain `str` fields, as in `BusinessContextSubmission`: the validator holds references and

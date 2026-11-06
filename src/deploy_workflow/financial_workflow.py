@@ -1299,7 +1299,9 @@ def _header_columns(
             periods = [_HeaderPeriod.model_validate(p) for p in periods]
         except ValidationError:
             return None
-    return _mapped_columns(headers, periods, statement) if headers else None
+    # A page unit located only by its heading has no located kind: read it as `_statement` does.
+    flow = statement or _statement(None, page_text)
+    return _mapped_columns(headers, periods, flow) if headers else None
 
 
 def _ocr_pages(pack: Any, financial_ids: Collection[str]) -> frozenset[tuple[str, str]]:

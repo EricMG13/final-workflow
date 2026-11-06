@@ -529,6 +529,17 @@ def test_a_dated_header_maps_no_flow_column_of_an_income_or_cash_flow_unit() -> 
     spanned = ("Years Ended December 28,", "2024")
     assert fw._mapped_columns(spanned, periods[:2], "IS") == (frozenset({"fy-2024"}),)
 
+    # a PDF page located only by its heading has no located kind: the page's own heading gives it
+    table = SimpleNamespace(headers=headers, source_id="fin", locator="page:3")
+    book = {"periods": [vars(p) for p in periods]}
+    income = "CONSOLIDATED STATEMENTS OF OPERATIONS\nFiscal Year Ended\nNet sales 1,234 1,100"
+    assert fw._header_columns(table, book, page_text=income) is None
+    balance = "CONSOLIDATED BALANCE SHEETS\nFiscal Year Ended\nCash 1,234 1,100"
+    assert fw._header_columns(table, book, page_text=balance) == (
+        frozenset({"fy-2024", "q4-2024"}),
+        frozenset({"fy-2023"}),
+    )
+
 
 # ---- 7. null columns (CP1H-R23.16, R23.19) ----------------------------------------------------
 

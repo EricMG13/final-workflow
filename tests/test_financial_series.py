@@ -401,6 +401,41 @@ def test_ytd_and_ltm_register_periods_are_left_out_of_the_charts(pid, kind, star
     assert not any(pid in p.fact_id for f in figures for p in f.points)
 
 
+def test_a_facility_row_at_a_ytd_period_and_an_ltm_without_dates_are_left_out():
+    # By hand: the q4-2025 snapshot is unchanged (principal 50, one point); the facility row dated
+    # at the YTD period is validated for its own period and then ignored, and the LTM period
+    # needs no end date to be left out of the charts.
+    module = _with_period(fixture(), "ytd-h1-2025", "YTD", "2025-01-01", "2025-06-30")
+    module = _with_period(module, "ltm-x", "LTM", "2024-07-01", "2025-06-30")
+    module = module.model_copy(
+        update={
+            "facts": tuple(
+                f.model_copy(update={"text": None, "status": "not_applicable", "limitation": "LTM"})
+                if f.row_id == "T4.14.ltm-x" and f.field == "end_date"
+                else f
+                for f in module.facts
+            )
+        }
+    )
+    twin = [
+        f.model_copy(
+            update={
+                "fact_id": f.fact_id.replace("q4-2025", "ytd-h1-2025"),
+                "row_id": "T4.18.ytd-h1-2025",
+                "period": "ytd-h1-2025",
+                **({"text": "ytd-h1-2025"} if f.field == "period_id" else {}),
+            }
+        )
+        for f in module.facts
+        if f.row_id == "T4.18.q4-2025"
+    ]
+    module = module.model_copy(update={"facts": (*module.facts, *twin)})
+    figures = cp1_chart_series(module)
+    assert [f.reason for f in figures] == [None] * 5
+    assert amounts(module, figures[3]) == [Decimal(50)]
+    assert not any("ytd-h1" in p.fact_id or "ltm-x" in p.fact_id for f in figures for p in f.points)
+
+
 def test_a_period_type_outside_the_contract_still_fails_closed():
     with pytest.raises(ValueError, match="Unsupported historical chart period type"):
         cp1_chart_series(_with_period(fixture(), "wk-2025", "WEEK", "2025-01-01", "2025-01-07"))

@@ -9,7 +9,7 @@ from deploy_vii.contracts import Citation, Span
 from deploy_vii.financial_contracts import Observation, StatementLine, StatementQuantity
 from deploy_vii.statement_extract import extract_statement_lines
 from deploy_workflow.financial_workflow import _column_failure
-from deploy_workflow.statement_compose import RowJudgment, compose_unit
+from deploy_workflow.statement_compose import RowJudgment, _header_scale, compose_unit
 from deploy_workflow.statement_lines import line_table
 
 SOURCE, SHA = "filing", "a" * 64
@@ -107,6 +107,24 @@ def test_share_item_anywhere_in_the_except_clause_keeps_counts_in_units(header, 
     )
     assert compose(table, table.lines[0], "shares", "UNITS", header).lines
     assert not compose(table, table.lines[0], "shares", wrong, header).lines
+
+
+# A share word that is not an item of the except clause (a column heading joined after it, a new
+# sentence) names no share count: the counts keep the monetary scale. Read by hand from each text.
+@pytest.mark.parametrize(
+    "context,scale",
+    [
+        ("in thousands, except per share data shares outstanding   2024   2023", "THOUSANDS"),
+        ("in thousands, except per share data weighted average shares 2024 2023", "THOUSANDS"),
+        ("in millions except per share data. share price information", "MILLIONS"),
+        ("in thousands, except per share data, and shares outstanding", "UNITS"),
+        ("in thousands, except per share data and the number of shares of common stock", "UNITS"),
+        ("amounts in millions, except share amounts fiscal 2024 2023", "UNITS"),
+        ("in thousands, except per share data and share counts in millions", None),
+    ],
+)
+def test_only_a_share_item_of_the_except_clause_excepts_the_counts(context, scale):
+    assert _header_scale(context, True) == scale
 
 
 def test_a_per_share_item_alone_leaves_counts_in_the_monetary_scale():

@@ -157,6 +157,29 @@ def plain(text: str) -> str:
     return re.sub(r"\*\*([^*]+)\*\*|`([^`]+)`", lambda m: m[1] or m[2], text).strip()
 
 
+HEADING_LINE = re.compile(r"(#{1,6})(?:[ \t]+(.*?))?[ \t]*")
+
+
+def heading_of(line: str) -> tuple[int, str] | None:
+    """Level and text of an ATX heading; `#1 risk` and seven or more hashes are prose."""
+    found = HEADING_LINE.fullmatch(line)
+    return None if found is None else (len(found[1]), found[2] or "")
+
+
+def names_issuer(text: str, names: tuple[str, ...]) -> bool:
+    """Whether any non-blank name occurs in `text` as whole words, ignoring case and spacing.
+
+    `Ford` is not in `Stanford` and the alias `AB` is not in `lab`: a name must not touch a
+    letter or digit on either side.
+    """
+    haystack = " ".join(text.split()).casefold()
+    return any(
+        re.search(rf"(?<![^\W_]){re.escape(wanted)}(?![^\W_])", haystack) is not None
+        for name in names
+        if (wanted := " ".join(name.split()).casefold())
+    )
+
+
 def section(lines: list[str], title: str) -> list[tuple[int, str]]:
     headings = (f"## {title}", f"### {title}")
     matches = [i for i, line in enumerate(lines) if line in headings]
@@ -391,12 +414,11 @@ def prepare(manifest: Path) -> tuple[View, ReportView, dict[str, bytes]]:
     module_views = []
     sources = []
     copies = {}
-    issuer_name = " ".join(request.run.issuer_name.casefold().split())
     for module_id, spec in request.handoffs.items():
         raw = (manifest.parent / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
-        if not issuer_name or issuer_name not in " ".join(raw.decode().casefold().split()):
+        if not names_issuer(raw.decode(), (request.run.issuer_name,)):
             raise ValueError(f"Issuer name is not established in {module_id}")
         module, source = mapped_module(module_id, raw)
         module_views.append(module)
@@ -410,7 +432,10 @@ def prepare(manifest: Path) -> tuple[View, ReportView, dict[str, bytes]]:
                 aliases=(),
                 status="blocked",
                 limitations=(
-                    "CP-MODEL HTML/chart/calculation-JSON publication has not run. This narrative snapshot does not replace it.",
+                    (
+                        "CP-MODEL HTML/chart/calculation-JSON publication has not run. "
+                        "This narrative snapshot does not replace it."
+                    ),
                 ),
             )
         )

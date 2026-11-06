@@ -40,7 +40,14 @@ from deploy_vii.report_view import (
     build,
     pathways,
 )
-from deploy_workflow.handoff_delivery import HEADINGS, HandoffInput, ModelDelivery, plain, table
+from deploy_workflow.handoff_delivery import (
+    HEADINGS,
+    HandoffInput,
+    ModelDelivery,
+    names_issuer,
+    plain,
+    table,
+)
 
 SCOPE = (
     "Model publication from checked Markdown handoffs. Selected annual observations, exact "
@@ -364,7 +371,7 @@ def _literal_tables(
     return source, facts, tables, bindings
 
 
-def build_model(
+def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 statements at base)
     run: Run,
     inputs: Mapping[str, HandoffInput],
     raw_inputs: Mapping[str, bytes],
@@ -399,16 +406,13 @@ def build_model(
                 )
             continue
         text = raw.decode("utf-8")
-        name = " ".join(run.issuer_name.casefold().split())
-        title = " ".join(text.splitlines()[0].casefold().split())
-        identified = name in " ".join(text.casefold().split())
-        if key in {"quarter", "forecast"}:
-            identified = name in title or bool(
-                re.search(
-                    r"(?<![a-z0-9])" + re.escape(run.issuer_id.casefold()) + r"(?![a-z0-9])", title
-                )
-            )
-        if not name or not identified:
+        # A quarter/forecast handoff declares its issuer in the title; the others may name it
+        # anywhere. A name counts only as whole words.
+        declared = key in {"quarter", "forecast"}
+        if not names_issuer(
+            text.splitlines()[0] if declared else text,
+            (run.issuer_name, run.issuer_id) if declared else (run.issuer_name,),
+        ):
             raise ValueError(f"model_issuer: {key}")
         source, raw_facts, raw_tables, raw_bindings = _literal_tables(key, raw, spec.sha256)
         sources.append(source)
@@ -613,7 +617,10 @@ def build_model(
                     for p in cells
                 ),
                 placement="above",
-                summary="Selected annual history; distinct definitions and missing observations retained.",
+                summary=(
+                    "Selected annual history; distinct definitions and missing observations "
+                    "retained."
+                ),
             )
         )
     blocks = tuple(

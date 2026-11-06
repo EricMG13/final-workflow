@@ -10,9 +10,10 @@ from pathlib import Path
 
 import pytest
 
+from deploy_vii.contracts import Run
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
-from deploy_workflow.markdown_delivery import markdown_files
+from deploy_workflow.markdown_delivery import markdown_files, require_issuer
 
 TAIL = "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
 
@@ -262,3 +263,49 @@ def test_one_label_on_two_different_tables_still_refuses(tmp_path):
     ]
     with pytest.raises(ValueError, match="Tab labels are distinct"):
         deliver(tmp_path, handoff("Alpha r.\n\nBeta r.\n", findings), routes)
+
+
+ISSUER_RUN = Run.model_validate_json(
+    json.dumps(
+        {
+            "run_id": "r1",
+            "issuer_id": "FRD",
+            "issuer_name": "Ford",
+            "as_of": "2024-12-28",
+            "case_kind": "public",
+            "pathway": "earnings_update",
+            "requested_modules": ["CP-1B"],
+        }
+    )
+)
+
+
+@pytest.mark.parametrize(
+    ("issuer", "aliases", "title", "body"),
+    [
+        # "Ford" is the last four letters of "Stanford" and "AB" the middle of "lab": a name
+        # touching a letter on either side is another word, not this issuer.
+        ("Ford", (), "# CP-1B Stanford Health Care", "Analyse Stanford bonds."),
+        ("Ford", (), "# CP-1B Fordham Capital", "Analyse Fordham bonds."),
+        ("Absolute Lab Inc", ("AB",), "# CP-1B Acme Corp", "Analyse Acme lab capacity."),
+    ],
+)
+def test_issuer_name_or_alias_inside_another_word_is_refused(issuer, aliases, title, body):
+    run = ISSUER_RUN.model_copy(update={"issuer_name": issuer})
+    lines = [title, "## Request", body]
+    with pytest.raises(ValueError, match="markdown_issuer"):
+        require_issuer(run, aliases, "CP-1B", lines)
+
+
+@pytest.mark.parametrize(
+    ("aliases", "title", "body"),
+    [
+        ((), "# CP-1B Ford Motor", "x"),
+        ((), "# CP-1B Analysis", "Credit view of FORD,\nthe automaker."),
+        (("AB",), "# CP-1B Analysis", "AB (the issuer) reported."),
+    ],
+)
+def test_issuer_name_or_alias_as_whole_words_is_accepted(aliases, title, body):
+    lines = [title, "## Request", *body.splitlines()]
+    run = ISSUER_RUN if aliases == () else ISSUER_RUN.model_copy(update={"issuer_name": "Other"})
+    require_issuer(run, aliases, "CP-1B", lines)

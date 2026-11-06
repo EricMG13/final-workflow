@@ -50,7 +50,13 @@ from deploy_vii.report_view import (
     build_index,
     pathways,
 )
-from deploy_workflow.handoff_delivery import DeliveryRequest, MarkdownRoute, plain, section
+from deploy_workflow.handoff_delivery import (
+    DeliveryRequest,
+    MarkdownRoute,
+    names_issuer,
+    plain,
+    section,
+)
 
 CHART_UNITS: dict[str, UnitClass] = {"x": "multiple", "US$m": "amount", "%": "percent"}
 
@@ -445,20 +451,11 @@ def _numeric_observations(
 
 def require_issuer(run: Run, aliases: tuple[str, ...], module_id: str, lines: list[str]) -> None:
     """The handoff's title or Request section must name the run's issuer."""
-    declaration = (
-        " ".join(lines[0].split())
-        + "\n"
-        + " ".join(" ".join(line for _, line in section(lines, "Request")).split())
-    ).casefold()
-    if not any(
-        bool(name.strip()) and " ".join(name.split()).casefold() in declaration
-        for name in (run.issuer_name, *aliases)
-    ) and not re.search(
-        r"(?<![a-z0-9])" + re.escape(run.issuer_id.casefold()) + r"(?![a-z0-9])",
-        declaration,
-    ):
+    declaration = lines[0] + "\n" + "\n".join(line for _, line in section(lines, "Request"))
+    if not names_issuer(declaration, (run.issuer_name, *aliases, run.issuer_id)):
         raise ValueError(
-            f"markdown_issuer: handoff title or Request must identify the selected issuer: {module_id}"
+            "markdown_issuer: handoff title or Request must identify the selected issuer: "
+            + module_id
         )
 
 

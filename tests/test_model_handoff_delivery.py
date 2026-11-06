@@ -280,6 +280,13 @@ def test_changed_forecast_base_and_foreign_extra_issuer_refuse() -> None:
         build_model(request.run, specs, raw, request.model)
 
 
+def test_issuer_name_inside_another_word_does_not_establish_the_model_issuer() -> None:
+    # "Digm" is the middle of "TransDigm": a name embedded in a longer word is not a match.
+    run, specs, raw, layout = annual_only()
+    with pytest.raises(ValueError, match="model_issuer: annual"):
+        build_model(run.model_copy(update={"issuer_name": "Digm"}), specs, raw, layout)
+
+
 @pytest.mark.parametrize("fault", ["bad_consumed_type", "nonfinite"])
 def test_malformed_retained_forecast_is_not_published(fault: str) -> None:
     request, specs, raw = source_inputs()

@@ -589,20 +589,37 @@ def _as_of_issues(as_of: str) -> tuple[str, ...]:
 
 @pytest.mark.parametrize(
     "as_of",
-    ("January 9, 2031", "the close", "March 1, 2019", "2026-01-09"),
+    ("January 9, 2031", "the close", "March 1, 2019", "2026-01-09", "January 10, 2026"),
 )
-def test_s08_a06_an_as_of_the_quote_and_page_do_not_state_is_refused(as_of: str) -> None:
-    """S08-cp3-A06/C02: market page:1 states January 9 and January 10, 2026 (and December 31,
-    2029) only, so a later, earlier, reworded or non-date as_of is refused."""
+def test_s08_a06_an_as_of_the_quote_does_not_state_is_refused(as_of: str) -> None:
+    """S08-cp3-A06/C02: the observed row's quote states January 9, 2026 only, so a later, earlier,
+    reworded, ISO or non-date as_of is refused, and so is the page's own Published date
+    (January 10, 2026): a quote that prints a date is dated by it."""
     assert _as_of_issues(as_of) == (
-        f"market_evidence[0].as_of {as_of!r} is not a date stated in its quote or on its page",
+        f"market_evidence[0].as_of {as_of!r} is not a date its quote states (January 9, 2026)",
     )
 
 
-def test_s08_a06_the_page_date_is_accepted_for_a_row() -> None:
-    """`January 10, 2026` is the page's own Published date; the positive talk row uses its
-    page's Published date the same way."""
-    assert _as_of_issues("January 10, 2026") == ()
+def _talk_as_of_issues(as_of: str) -> tuple[str, ...]:
+    literal = copy.deepcopy(SUBMISSIONS["positive"]["relative_value"])
+    literal["market_evidence"][1]["as_of"] = as_of
+    return compute(make_inputs("positive", literal)).issues
+
+
+@pytest.mark.parametrize(
+    "as_of", ("January 9, 2031", "the close", "2026-01-10", "January 11, 2026")
+)
+def test_s08_a06_an_undated_quote_is_dated_by_a_date_its_page_states(as_of: str) -> None:
+    """The talk row's quote prints no date: its page states January 9 and 10, 2026 and December 31,
+    2029 only, so any other as_of is refused."""
+    assert _talk_as_of_issues(as_of) == (
+        f"market_evidence[1].as_of {as_of!r} is not a date stated on its page",
+    )
+
+
+def test_s08_a06_the_page_date_is_accepted_for_an_undated_quote() -> None:
+    """The positive talk row uses its page's Published date, which is not after the run as-of."""
+    assert _talk_as_of_issues("January 10, 2026") == ()
 
 
 def _shifted_inputs(monkeypatch: pytest.MonkeyPatch, as_of: str, literal: Any) -> CP3Inputs:
@@ -652,3 +669,50 @@ def test_s08_a06_a_stale_quote_gets_the_line_and_caps_the_preference(
     capped = [x for x in issues if x.startswith("preference.confidence: capped below High")]
     assert len(capped) == 1
     assert capped[0].endswith("a market_evidence quote is more than 30 days old")
+
+
+def test_review_s08_a06_a_newer_page_date_does_not_stand_for_an_older_quotes() -> None:
+    """The sheet is published January 10, 2026 but the quotation is dated March 1, 2025: the row
+    is dated by its quote, never by the Published date. March 1, 2025 to March 1, 2026 is 365 days
+    and March 1 is 50 days after the run as-of (January 10), so the quote is 315 days old."""
+    old = "Dealer quotation on January 9, 2026: bid 98.50 and offer 99.25"
+    new = "Dealer quotation on March 1, 2025: bid 98.50 and offer 99.25"
+    original = make_pack
+
+    def older(case: str) -> PreparedPack:
+        pack = original(case)
+        sources = tuple(
+            s.model_copy(
+                update={
+                    "spans": tuple(
+                        Span(locator=x.locator, text=x.text.replace(old, new)) for x in s.spans
+                    )
+                }
+            )
+            if s.source_id == "market"
+            else s
+            for s in pack.sources
+        )
+        return pack.model_copy(update={"sources": sources})
+
+    literal = json.loads(json.dumps(SUBMISSIONS["positive"]["relative_value"]).replace(old, new))
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setitem(globals(), "make_pack", older)
+        literal["market_evidence"][0]["as_of"] = "January 10, 2026"
+        issues = compute(make_inputs("positive", literal)).issues
+        assert issues == (
+            (
+                "market_evidence[0].as_of 'January 10, 2026' is not a date its quote states "
+                "(March 1, 2025)"
+            ),
+        )
+        literal["market_evidence"][0]["as_of"] = "March 1, 2025"
+        result = compute(make_inputs("positive", literal))
+    assert result.issues == ()
+    assert result.report is not None
+    assert [x for x in result.report.limitations if x.startswith("Stale quote")] == [
+        (
+            "Stale quote: market page:1 quote dated March 1, 2025 is 315 days before the run "
+            "as-of 2026-01-10 (limit 30)"
+        )
+    ]

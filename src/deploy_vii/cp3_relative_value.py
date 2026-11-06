@@ -1068,6 +1068,9 @@ def _bind_evidence(
     )
 
 
+_DATE_TEXT = re.compile(r"[A-Z][a-z]+ [1-9][0-9]?, [0-9]{4}|[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
 def _stated_date(text: str) -> date | None:
     """`Month D, YYYY` or an ISO date as written; None for anything else."""
     if re.fullmatch(r"[A-Z][a-z]+ [1-9][0-9]?, [0-9]{4}", text):
@@ -1078,17 +1081,26 @@ def _stated_date(text: str) -> date | None:
     return _valid_date(text)
 
 
+def _dates_in(text: str) -> list[str]:
+    """The dates `text` prints in the form `_stated_date` reads, as written."""
+    return [d for d in _DATE_TEXT.findall(normalise(text)) if _stated_date(d)]
+
+
 def _as_of_issues(
     path: str, as_of: str, citation: Citation, pack: PreparedPack
 ) -> tuple[list[str], str | None]:
-    """A model market-evidence row's `as_of` (S08-cp3-A06): a date printed in its quote or on the
-    cited span, not after the run as-of; and the stale line when it is more than STALE_DAYS
-    days before it."""
-    when = _stated_date(as_of)
+    """A model market-evidence row's `as_of` (S08-cp3-A06): a date its quote prints or, when the
+    quote prints none, one its cited span prints (a newer page date never stands for an older
+    quote's); not after the run as-of; and the stale line when it is more than STALE_DAYS days
+    before it."""
     source = next(s for s in pack.sources if s.source_id == citation.source_id)
     span = next(x.text for x in source.spans if x.locator == citation.locator)
-    if when is None or not any(normalise(as_of) in normalise(t) for t in (citation.quote, span)):
-        return [f"{path}.as_of {as_of!r} is not a date stated in its quote or on its page"], None
+    own = _dates_in(citation.quote)
+    allowed = own or _dates_in(span)
+    when = _stated_date(as_of)
+    if when is None or normalise(as_of) not in allowed:
+        where = f"its quote states ({', '.join(own)})" if own else "stated on its page"
+        return [f"{path}.as_of {as_of!r} is not a date {where}"], None
     run_as_of = pack.run.as_of
     if when > run_as_of:
         return [f"{path}.as_of {as_of} is after the run as-of {run_as_of.isoformat()}"], None

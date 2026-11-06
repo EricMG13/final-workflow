@@ -807,11 +807,15 @@ class _Issues:
         return _token_once(value_text, quote) and _whole_on_page(value_text, quote, page)
 
 
+def _label(kind: str, level_text: str) -> re.Pattern[str]:
+    """`<kind> <level>` as the text prints it: the level a whole numeral, not a longer one."""
+    return re.compile(rf"\b{kind}\s+{re.escape(level_text)}(?![0-9])", re.IGNORECASE)
+
+
 def _labelled(kind: str, level_text: str, quote: str) -> bool:
-    words = normalise(quote)  # the text `quoted` matched
     return (
-        re.search(rf"\b{kind}\s+{re.escape(level_text)}(?![0-9])", words, re.IGNORECASE) is not None
-    )
+        _label(kind, level_text).search(normalise(quote)) is not None
+    )  # the text `quoted` matched
 
 
 # Wording that marks a quoted level as talk or as conditional, not an executable bid or offer:
@@ -821,7 +825,18 @@ _FIRM = tuple(
     (p, re.compile(rf"(?<![A-Za-z]){re.escape(p)}(?![A-Za-z])", re.IGNORECASE))
     for p in FIRM_MARKERS
 )
-_SENTENCE_BREAK = re.compile(r"[.!?](?= )")  # a full stop, `!` or `?` before a space
+# A full stop, `!` or `?` before a space and a capital that does not follow an initial or an
+# abbreviation: `Dec. 31`, `approx. January 9` and `U.S. Dollar` end no sentence, so a marker or an
+# instrument name past such a full stop stays in the sentence.
+_ABBREVIATIONS = (
+    *("approx", "est", "ca", "no", "nos", "inc", "corp", "co", "ltd", "vs", "st", "mr", "mrs"),
+    *("ms", "dr", "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov"),
+    "dec",
+)
+_NOT_AFTER = ("[a-z]", *_ABBREVIATIONS)  # an initial (`J.`, `e.g.`) or an abbreviation
+_SENTENCE_BREAK = re.compile(
+    "".join(rf"(?<!(?i:\b{word}))" for word in _NOT_AFTER) + r"[.!?](?= [A-Z])"
+)
 
 
 def _sentences(quote: str, page: str) -> list[str]:
@@ -831,7 +846,7 @@ def _sentences(quote: str, page: str) -> list[str]:
     for needle in _readings(quote):
         for text in _readings(page):
             for at in _occurrences(needle, text):
-                breaks = [m.end() for m in _SENTENCE_BREAK.finditer(text, 0, at)]
+                breaks = [m.end() for m in _SENTENCE_BREAK.finditer(text) if m.end() <= at]
                 after = _SENTENCE_BREAK.search(text, max(at, at + len(needle) - 1))
                 found.append(text[breaks[-1] if breaks else 0 : after.end() if after else None])
     return found
@@ -851,7 +866,7 @@ def _firm_ok(o: Observation, path: str, out: _Issues) -> bool:
 # A unit or wording right after a labelled level that makes it a yield or spread, not a price in
 # points of par (`bid 6.25%`, `bid 175 bps`, `bid 6.25 yield`); `98.50% of par` is a price.
 _NOT_PRICE = re.compile(
-    r" ?(%|per ?cent\b|percent\b|bps?\b|basis points?\b|yield\b|spread\b|discount margin\b"
+    r" ?(%|per ?cent\b|bps?\b|basis[ -]points?\b|yield\b|spread\b|discount margin\b"
     r"|DM\b)(?! of (?:the )?par\b)",
     re.IGNORECASE,
 )
@@ -862,15 +877,14 @@ def _priced_ok(o: Observation, path: str, out: _Issues) -> bool:
     no labelled `<kind> <level>` is followed by a percent, basis-point, yield or spread unit
     (`_NOT_PRICE`); else the issue."""
     page = out.context.pages[o.source_id][o.locator]
-    label = re.compile(rf"\b{o.kind}\s+{re.escape(o.level_text)}(?![0-9])", re.IGNORECASE)
+    priced = re.compile(_label(o.kind, o.level_text).pattern + _NOT_PRICE.pattern, re.IGNORECASE)
     for text in (normalise(o.quote), *_sentences(o.quote, page)):
-        for m in label.finditer(text):
-            if unit := _NOT_PRICE.match(text, m.end()):
-                out.add(
-                    f"{path}: {o.kind} level_text {o.level_text} is quoted in "
-                    f'"{unit.group(1)}", not as a price in points of par'
-                )
-                return False
+        if unit := priced.search(text):
+            out.add(
+                f"{path}: {o.kind} level_text {o.level_text} is quoted in "
+                f'"{unit.group(1)}", not as a price in points of par'
+            )
+            return False
     return True
 
 
@@ -1033,13 +1047,14 @@ def _one_quotation(sentence: str) -> bool:
 def _bound(o: Observation, instrument: Instrument, page: str) -> bool:
     """Whether a sheet bid or offer is the instrument's, judged on the sentence that labels the
     level (`<kind> <level>`), not on the whole quote: that sentence of the quote, or the page
-    sentence holding it, names the instrument; or the observation sits on the page of
-    `instrument.quote`, whose only sentence labelling a bid or offer level is one instrument's
-    quotation (`_one_quotation`: a single-instrument sheet)."""
-    label = re.compile(rf"\b{o.kind}\s+{re.escape(o.level_text)}(?![0-9])", re.IGNORECASE)
+    sentence holding it, names the instrument and is one instrument's quotation (`_one_quotation`:
+    a sheet that rows several instruments' levels in one sentence names them all); or the
+    observation sits on the page of `instrument.quote`, whose only sentence labelling a bid or
+    offer level is one instrument's quotation (a single-instrument sheet)."""
+    label = _label(o.kind, o.level_text)
     own = [x for x in _SENTENCE_BREAK.split(normalise(o.quote)) if label.search(x)]
     held = [*own, *(text for x in own for text in _sentences(x, page))]
-    if any(_name_occurs(instrument.name, text) for text in held):
+    if any(_name_occurs(instrument.name, text) and _one_quotation(text) for text in held):
         return True
     if (o.source_id, o.locator) != (instrument.quote.source_id, instrument.quote.locator):
         return False
@@ -1105,7 +1120,7 @@ def _check_quoted_numeral(
 # The first rate unit printed after a figure, before the next digit or the end of its sentence.
 _RATE_UNIT = re.compile(
     r"^[^0-9]*?(?:(?P<percent>%|(?<![A-Za-z])per ?cent\b)"
-    r"|(?P<bp>(?<![A-Za-z])(?:bps?|basis points?)\b))",
+    r"|(?P<bp>(?<![A-Za-z])(?:bps?|basis[ -]points?)\b))",
     re.IGNORECASE,
 )
 _BASIS_POINTS = ("basis points", "bp")

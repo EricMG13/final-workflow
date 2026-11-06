@@ -683,6 +683,13 @@ def _gone(fact: cp3c.Cp2dFact, reason: str) -> cp3c.Cp2dFact:
     return replace(fact, status="missing", amount=None, text=None, period=None, reason=reason)
 
 
+def _in(terms: cp3c.FacilityTerms, currency: str) -> cp3c.FacilityTerms:
+    """The terms of a facility in `currency`: CP-1 writes its annual_amortisation in the row's own
+    currency (CP-2D `_facility_of`), so the fact is stamped with it too (S08-cp3-C01)."""
+    amort = replace(terms.annual_amortisation, currency=currency)
+    return replace(terms, currency=currency, annual_amortisation=amort)
+
+
 def _no_amortisation() -> cp3c.FacilityTerms:
     missing = _missing_cp1("term-loan.annual_amortisation")
     return replace(_positive_terms(), annual_amortisation=missing)
@@ -927,7 +934,7 @@ def test_c6_a_facility_in_another_currency_uses_the_2d5_wording() -> None:
     fx = "Not calculable: facility term-loan is in EUR, not USD; no FX conversion is applied"
     row = _positive_row()
     wall = (replace(row, principal=_gone(row.principal, fx)),)
-    result = cp3c.compute(_positive_with(replace(_positive_terms(), currency="EUR"), wall=wall))
+    result = cp3c.compute(_positive_with(_in(_positive_terms(), "EUR"), wall=wall))
     assert _own_gaps(result) == _all(
         [*_PAYABLE, *_RESOURCES, *_REPRICED, "T3D.4.r01.c4", *_CLAIMS], "missing", fx
     )
@@ -1470,7 +1477,7 @@ def test_a39_a_usd_principal_gap_keeps_its_own_cause_beside_a_eur_facility() -> 
     result = cp3c.compute(
         _positive_with(
             replace(_positive_terms(), facility_id="a-usd"),
-            replace(_positive_terms(), facility_id="b-eur", currency="EUR"),
+            _in(replace(_positive_terms(), facility_id="b-eur"), "EUR"),
             wall=(usd, replace(row, facility_id="b-eur")),
         )
     )
@@ -1859,6 +1866,60 @@ def test_r13_every_millions_facility_and_cp2d_fact_read_has_the_same_currency() 
     ):
         with pytest.raises(ValueError, match=rf"^CP-3C {what}: currency .* is not 'USD'$"):
             cp3c.compute(replace(inputs, cp2d=cp2d))
+
+
+def test_s08_c01_a_eur_facilitys_eur_amortisation_reaches_the_fx_gap() -> None:
+    """S08-cp3-C01: CP-2D requires a facility's annual_amortisation in the facility's own
+    currency, so a EUR term loan carries a EUR amortisation. CP-3C must not raise on it against
+    the USD reporting currency; the facility takes the FX gaps of ruling C-6 instead (the same
+    21 own gaps as test_c6_a_facility_in_another_currency_uses_the_2d5_wording)."""
+    fx = "Not calculable: facility term-loan is in EUR, not USD; no FX conversion is applied"
+    row = _positive_row()
+    wall = (replace(row, principal=_gone(row.principal, fx)),)
+    eur = _in(_positive_terms(), "EUR")
+    assert eur.annual_amortisation.currency == "EUR"
+    result = cp3c.compute(_positive_with(eur, wall=wall))
+    assert _own_gaps(result) == _all(
+        [*_PAYABLE, *_RESOURCES, *_REPRICED, "T3D.4.r01.c4", *_CLAIMS], "missing", fx
+    )
+    # The amortisation is held to the facility's own currency: a USD-stamped one on a EUR
+    # facility is the shape CP-2D refuses, and raises here with the facility's currency.
+    usd_amort = replace(eur, annual_amortisation=_positive_terms().annual_amortisation)
+    with pytest.raises(
+        ValueError, match=r"^CP-3C term-loan.annual_amortisation: currency 'USD' is not 'EUR'$"
+    ):
+        cp3c.compute(_positive_with(usd_amort, wall=wall))
+
+
+def test_s08_c01_a_facilitys_own_currency_amortisation_does_not_source_the_reporting_currency() -> (
+    None
+):
+    """cash_closing not known and the EUR facility's amortisation the only known money fact: it
+    states the facility's currency, not the run's, so the reporting currency stays unsourced."""
+    inputs = _positive_with(_in(_positive_terms(), "EUR"))
+    gone = {"status": "missing", "amount": None, "text": None, "reason": "Not stated"}
+    cp1 = inputs.cp1
+    cp1 = replace(
+        cp1,
+        cash_closing=replace(cp1.cash_closing, **gone),
+        undrawn_rcf=replace(cp1.undrawn_rcf, **gone),
+        adjusted_ebitda=replace(cp1.adjusted_ebitda, **gone),
+        cash_interest=replace(cp1.cash_interest, **gone),
+    )
+    cp2d = inputs.cp2d
+    cp2d = replace(
+        cp2d,
+        run_rate=replace(cp2d.run_rate, **gone),
+        minimum_cash=replace(cp2d.minimum_cash, **gone),
+        funding_gap=replace(cp2d.funding_gap, **gone),
+        wall=tuple(replace(r, principal=replace(r.principal, **gone)) for r in cp2d.wall),
+    )
+    unsourced = (
+        "CP-3C: the reporting currency is not sourced: cash_closing is not known and no known "
+        "US$ m fact states a currency"
+    )
+    with pytest.raises(ValueError, match=f"^{re.escape(unsourced)}$"):
+        cp3c.reporting_currency(cp1=cp1, cp2d=cp2d)
 
 
 def test_r13_a_missing_cash_closing_needs_no_currency() -> None:

@@ -98,3 +98,134 @@ def test_a_parenthesised_negative_quoted_whole_is_the_missing_cell(case: Case) -
     assert _texts(case, body, _with_line(case, "line:11", line)) == []
     fact = {f.fact_id: f for f in case.composed(body).facts}["TDR.6.p01.revenue.amount"]
     assert (fact.status, fact.amount, fact.limitation) == ("missing", None, p.UNREADABLE)
+
+
+# --- S16 A02/C02: unit, currency, period end and length are the span's (or its Basis: line's) ---
+#
+# ev-1 line:5 reads "Basis: twelve months to the period end shown; USD; amounts in millions; ...";
+# line:11 states only the length and the date, so USD and millions come from the Basis line. ev-2
+# has no Basis line: line:6 reads "... for the twelve months to 2025-12-31 in EUR millions: 180.0"
+# (figure 25 of the key, p06 revenue) and line:8 "... total debt ... in EUR millions: 90.0"
+# (figure 27, p06 debt). Each expected issue list is read by hand off the edited line.
+
+
+def _figure(case: Case, index: int, **fields: str) -> dict[str, Any]:
+    body: dict[str, Any] = copy.deepcopy(case.body)
+    body["peers"]["figures"][index].update(fields)
+    return body
+
+
+def _edited(case: Case, source_id: str, locator: str, text: str) -> tuple[Source, ...]:
+    out = []
+    for source in case.sources:
+        if source.source_id == source_id:
+            spans = tuple(
+                s.model_copy(update={"text": text}) if s.locator == locator else s
+                for s in source.spans
+            )
+            source = source.model_copy(update={"spans": spans})
+        out.append(source)
+    return tuple(out)
+
+
+REVENUE = "p01.revenue: "
+
+
+def test_a_quarter_in_eur_thousands_declared_usd_millions_is_refused(case: Case) -> None:
+    """The A02 repro: three refusals, none of which the Basis line (USD, millions, twelve months)
+    may answer, because the cited line states its own currency, scale and length."""
+    line = "Alder Ridge Holdings revenue for the three months to 2025-12-31, EUR thousands: 200.0"
+    got = _texts(case, case.body, _edited(case, "ev-1", "line:11", line))
+    assert got == [
+        REVENUE + p.UNSTATED_CURRENCY,
+        REVENUE + p.UNSTATED_SCALE,
+        REVENUE + p.UNSTATED_LENGTH,
+    ]
+    # Declared as the line states it, only the length (a quarter) is still refused.
+    body = _figure(case, 0, unit="thousands", currency="EUR")
+    assert _texts(case, body, _edited(case, "ev-1", "line:11", line)) == [
+        REVENUE + p.UNSTATED_LENGTH
+    ]
+
+
+def test_a_declared_basis_the_span_and_basis_line_do_not_state_is_refused(case: Case) -> None:
+    """The C02 reverse case: thousands and EUR over a USD-millions basis; then a period end the
+    line does not state (it states 2025-12-31)."""
+    assert [str(i) for i in case.issues(_figure(case, 0, unit="thousands", currency="EUR"))] == [
+        REVENUE + p.UNSTATED_CURRENCY,
+        REVENUE + p.UNSTATED_SCALE,
+    ]
+    assert [str(i) for i in case.issues(_figure(case, 0, period_end="2025-09-30"))] == [
+        REVENUE + p.UNSTATED_END
+    ]
+
+
+@pytest.mark.parametrize("currency", ["usd", "US", "USDX", "XYZ"])
+def test_a_currency_that_is_not_an_iso_code_is_refused(case: Case, currency: str) -> None:
+    got = [str(i) for i in case.issues(_figure(case, 0, currency=currency))]
+    assert got == [REVENUE + p.NOT_A_CODE, REVENUE + p.UNSTATED_CURRENCY]
+
+
+@pytest.mark.parametrize(
+    ("line", "wrong"),
+    [
+        # A symbol on the line overrides the Basis line: EUR, and an ambiguous bare dollar sign.
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in €: 200.0",
+            "currency",
+        ),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: $200.0", "currency"),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in GBP: 200.0",
+            "currency",
+        ),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31, USD bn: 200.0",
+            "scale",
+        ),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 (thousands): 200.0",
+            "scale",
+        ),
+        ("Alder Ridge Holdings Q4 revenue to 2025-12-31: 200.0", "length"),
+        ("Alder Ridge Holdings revenue for the nine months to 2025-12-31: 200.0", "length"),
+        ("Alder Ridge Holdings half-year revenue to 2025-12-31: 200.0", "length"),
+        ("Alder Ridge Holdings twelve months to 2025-12-31 (2024-12-31: 180.0): 200.0", "end"),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-30: 200.0", "end"),
+    ],
+)
+def test_the_cited_line_states_another_basis(case: Case, line: str, wrong: str) -> None:
+    issue = {
+        "currency": p.UNSTATED_CURRENCY,
+        "scale": p.UNSTATED_SCALE,
+        "length": p.UNSTATED_LENGTH,
+        "end": p.UNSTATED_END,
+    }[wrong]
+    assert _texts(case, case.body, _edited(case, "ev-1", "line:11", line)) == [REVENUE + issue]
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Alder Ridge Holdings LTM revenue to December 31, 2025: 200.0",
+        "Alder Ridge Holdings revenue, 12-month period to 31 Dec 2025, US$ m: 200.0",
+        "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in USD millions: 200.0",
+    ],
+)
+def test_the_cited_line_states_the_declared_basis_in_other_words(case: Case, line: str) -> None:
+    assert _texts(case, case.body, _edited(case, "ev-1", "line:11", line)) == []
+
+
+def test_without_a_basis_line_a_flow_needs_twelve_months_and_a_balance_does_not(
+    case: Case,
+) -> None:
+    """ev-2 has no Basis line. Revenue to a date with no length is refused; debt is a balance at
+    its period end, so the same wording holds for it."""
+    revenue = "Garrowby Holdings SE revenue to 31 December 2025 in EUR millions: 180.0"
+    got = _texts(case, case.body, _edited(case, "ev-2", "line:6", revenue))
+    assert got == ["p06.revenue: " + p.UNSTATED_LENGTH]
+    debt = "Garrowby Holdings SE total debt at 31 December 2025 in EUR millions: 90.0"
+    assert _texts(case, case.body, _edited(case, "ev-2", "line:8", debt)) == []
+    unstated = "Garrowby Holdings SE total debt at 31 December 2025: 90.0"
+    got = _texts(case, case.body, _edited(case, "ev-2", "line:8", unstated))
+    assert got == ["p06.debt: " + p.UNSTATED_CURRENCY, "p06.debt: " + p.UNSTATED_SCALE]

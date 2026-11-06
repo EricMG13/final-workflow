@@ -5,7 +5,10 @@ The model submits ``peers`` beside its answers when the locked brief asks for th
 (``ResearchBrief.peer_pack``). A figure carries ``peer_id``, ``operand``, ``unit``, ``currency``,
 ``period_end`` and a citation whose quote is the figure token; it never carries an amount (a typed
 ``amount`` is a shape refusal, as is any field CP-1C owns: inclusion, comparability, statistics).
-Python reads the amount from the quote with CP-1C's table rule and writes the facts.
+Python reads the amount from the quote with CP-1C's table rule and writes the facts. The review
+holds the quote to a whole figure of its span and the unit, currency, period end and (but for
+debt, a balance) twelve-month length to what the span, or its item's ``Basis:`` line, states
+(``peer_basis``).
 
 ``review`` imports this module for ``PeerPack`` and ``tables`` imports ``review``, so the
 functions that need ``review``, ``tables`` or ``owners.cp1c`` import them when called.
@@ -21,6 +24,7 @@ from typing import TYPE_CHECKING, Final, Literal, get_args
 from deploy_vii.contracts import Citation, Contract, Fact, Identifier, Module, Source, Text
 from deploy_vii.quotes import normalise
 from deploy_vii.readiness import citation_issues
+from deploy_workflow.research import peer_basis
 from deploy_workflow.research.contracts import RESERVED_PREFIX, EvidenceItem, ResearchBrief
 
 if TYPE_CHECKING:
@@ -61,6 +65,14 @@ CUT_FIGURE: Final = (
     "quote is part of a larger number, date or signed figure in the cited span; quote the whole "
     "figure as the span prints it, with its minus sign"
 )
+NOT_A_CODE: Final = "currency is not a three-letter ISO 4217 code"
+_OR_BASIS: Final = "the cited span states (or, when it states none, a Basis: line of the same item)"
+UNSTATED_CURRENCY: Final = f"currency is not the one currency {_OR_BASIS}"
+UNSTATED_SCALE: Final = f"unit is not the one scale (thousands, millions or units) {_OR_BASIS}"
+UNSTATED_LENGTH: Final = f"the figure is not for twelve months, the only period length {_OR_BASIS}"
+UNSTATED_END: Final = f"period_end is not the one date {_OR_BASIS}"
+# A balance is stated at its period end, whatever period length the span reports beside it.
+BALANCE_OPERANDS: Final = frozenset({"debt"})
 # A peer id sits in every fact id of its rows: `TDR.4.<id>.<field>`, `TDR.5.<id>.<dimension>.<field>`
 # and `TDR.6.<id>.<operand>.<field>`. The longest tail decides (TDR.5 with `definition` and
 # `observation`); one id past this makes `Fact` raise after the binding write.
@@ -154,11 +166,17 @@ def _citation_issues(
     return [_issue(where, text) for text in citation_issues((citation,), sources)]
 
 
-def _span_text(citation: Citation, sources: Sequence[Source]) -> str | None:
-    """The text of the span the citation names, else None (``citation_issues`` reports it)."""
+def _cited(citation: Citation, sources: Sequence[Source]) -> tuple[str, list[str]] | None:
+    """The cited span's text and the texts of its item's ``Basis:`` spans (CP-1C's
+    ``BASIS_PREFIX``), else None (``citation_issues`` reports a span that is not held)."""
+    from deploy_workflow.owners.cp1c import BASIS_PREFIX
+
     for source in sources:
-        if source.source_id == citation.source_id:
-            return next((s.text for s in source.spans if s.locator == citation.locator), None)
+        if source.source_id != citation.source_id:
+            continue
+        text = next((s.text for s in source.spans if s.locator == citation.locator), None)
+        basis = [s.text for s in source.spans if normalise(s.text).startswith(BASIS_PREFIX)]
+        return None if text is None else (text, basis)
     return None
 
 
@@ -189,15 +207,48 @@ def whole_figure(quote: str, text: str) -> bool:
     return False
 
 
-def _cut_figure_issues(
-    where: str, citation: Citation, sources: Sequence[Source]
-) -> list["ReviewIssue"]:
+def _cut_figure_issues(where: str, quote: str, text: str) -> list["ReviewIssue"]:
     """A quote the table rule reads as an amount must be a whole figure of its span, not a
-    fragment of a larger number, a date or a signed figure (run once the citation holds)."""
-    text = _span_text(citation, sources)
-    if text is None or amount_from_quote(citation.quote) is None:
+    fragment of a larger number, a date or a signed figure."""
+    if amount_from_quote(quote) is None or whole_figure(quote, text):
         return []
-    return [] if whole_figure(citation.quote, text) else [_issue(where, CUT_FIGURE)]
+    return [_issue(where, CUT_FIGURE)]
+
+
+def _basis_issues(
+    where: str, fig: "LocatedFigure", text: str, basis: Sequence[str]
+) -> list["ReviewIssue"]:
+    """The declared currency, scale and period end are the ones the span (else its item's
+    ``Basis:`` lines) states, and a flow figure is stated for twelve months and no other length."""
+    said = partial(peer_basis.stated, span=text, basis=basis)
+    wrong = [
+        (said(peer_basis.currencies) != {fig.currency}, UNSTATED_CURRENCY),
+        (said(peer_basis.scales) != {fig.unit}, UNSTATED_SCALE),
+        (
+            fig.operand not in BALANCE_OPERANDS
+            and said(peer_basis.period_lengths) != {peer_basis.TWELVE_MONTHS},
+            UNSTATED_LENGTH,
+        ),
+        (
+            (end := period_end_date(fig.period_end)) is not None
+            and said(peer_basis.period_ends) != {end},
+            UNSTATED_END,
+        ),
+    ]
+    return [_issue(where, why) for failed, why in wrong if failed]
+
+
+def _located_issues(
+    where: str, fig: "LocatedFigure", sources: Sequence[Source]
+) -> list["ReviewIssue"]:
+    """The checks of a figure against its held span, run once its citation holds."""
+    cited = _cited(fig.citation, sources)
+    if cited is None:
+        return []
+    text, basis = cited
+    return _cut_figure_issues(where, fig.citation.quote, text) + _basis_issues(
+        where, fig, text, basis
+    )
 
 
 def _candidate_issues(
@@ -255,8 +306,10 @@ def _figure_issues(
         seen.add(where)
         if period_end_date(fig.period_end) is None:
             issues.append(_issue(where, NOT_A_DATE))
+        if fig.currency not in peer_basis.ISO_4217:
+            issues.append(_issue(where, NOT_A_CODE))
         cited = _citation_issues(where, fig.citation, items, sources)
-        issues += cited or _cut_figure_issues(where, fig.citation, sources)
+        issues += cited or _located_issues(where, fig, sources)
     return issues
 
 

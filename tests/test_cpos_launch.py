@@ -8,11 +8,19 @@ from pathlib import Path
 
 import pytest
 
-from deploy_workflow.handoff_delivery import HEADINGS, verify_delivery
+from deploy_vii.report_view import ReportView
+from deploy_workflow.handoff_delivery import (
+    HEADINGS,
+    DeliveryRequest,
+    HandoffInput,
+    verify_delivery,
+)
+from deploy_workflow.markdown_delivery import markdown_files
 from deploy_workflow.model.adapter import AdapterReply, LiveAdapter
 from deploy_workflow.model.handoff import _pages
 from deploy_workflow.model.providers import build
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
+from deploy_workflow.owners import cpos_launch
 from deploy_workflow.owners.cpos import HandoffTask, _checked_handoff
 from deploy_workflow.owners.cpos_launch import METHODS, checker, main, prepare
 
@@ -34,6 +42,7 @@ COVENANT_ROUTES = {
     ("lme-creditor-exposure", "CP-3C", "LME capacity and creditor exposure", "table"),
     ("ebitda-definition", "CP-4", "EBITDA definition", "table"),
     ("documents-structure", "CP-4", "Documents and structure", "table"),
+    ("maturity-wall", "CP-1", "Chart data: debt maturities", "chart"),
 }
 PATHWAY_MODULES = {
     "credit_snapshot": ("CP-0", "CP-1", "CP-1A", "CP-2", "CP-4", "CP-3", "CP-5", "CP-6"),
@@ -69,9 +78,61 @@ def issuer_folder(tmp_path: Path) -> Path:
     return folder
 
 
-# Deploy V CANON_SHARED.md "Credit-research reading order": the H3 a reader meets first. A copy,
+READER_BOTTOM_LINE = "The synthetic issuer shows one observed item."
+# Hand-written and synthetic: they prove the chart path, not any analysis.
+CHART_TABLES = {
+    "Chart data: leverage": """| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2023 | 4.20 | 3.85 | x | Synthetic. |
+| FY2024 | 3.60 | 3.25 | x | Synthetic. |""",
+    "Chart data: interest cover": """| Period | EBITDA / cash interest | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2023 | 3.10 | x | Synthetic. |
+| FY2024 | 3.40 | x | Synthetic. |""",
+    "Chart data: liquidity": """| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2023 | 300 | 450 | US$m | Synthetic. |
+| FY2024 | 275 | 400 | US$m | Synthetic. |""",
+    "Chart data: debt maturities": """| Period | Debt maturing | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2026 | 500 | US$m | Synthetic. |
+| FY2027 | Not supplied: the schedule stops here | US$m | Synthetic. |
+| FY2028 | 1,250 | US$m | Synthetic. |""",
+}
+NON_USD_TABLES = {
+    "Chart data: liquidity": """| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2024 | Not supplied: reported in EUR m | Not supplied: reported in EUR m | EUR m | Synthetic. |""",
+    "Chart data: debt maturities": """| Period | Debt maturing | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2026 | Not supplied: reported in EUR m | EUR m | Synthetic. |""",
+}
+
+
+# The H3 a reader meets first in every module (owner ruling 2026-11-05; Deploy V M365 runs). A copy,
 # not an import: the answer key stays independent of cpos_launch.OPENING.
-OPENING = {"CP-2": "Credit view"}
+OPENING = {
+    "CP-0": "Readiness view",
+    "CP-1": "Financial base view",
+    "CP-1A": "Business and transaction view",
+    "CP-1B": "Earnings delta view",
+    "CP-1C": "Credit view",
+    "CP-1D": "Earnings quality view",
+    "CP-2": "Credit view",
+    "CP-2A": "Downside view",
+    "CP-2D": "Liquidity view",
+    "CP-2E": "Macro and FX view",
+    "CP-2G": "Forward model view",
+    "CP-2H": "Ratings view",
+    "CP-3": "Relative value view",
+    "CP-3C": "Funding gap view",
+    "CP-3D": "Market-implied view",
+    "CP-4": "Covenant view",
+    "CP-4C": "Restructuring view",
+    "CP-5": "Evidence trace view",
+    "CP-6": "Challenge view",
+    "CP-DR": "Research view",
+}
 
 
 def answer(context: dict, plan_routes: list) -> str:
@@ -79,15 +140,21 @@ def answer(context: dict, plan_routes: list) -> str:
     lines += ["## Sources", ""]
     lines += [f"- {n} {h}" for n, h in context["sources"].items()]
     lines += [f"- {n} {h['sha256']}" for n, h in context["handoffs"].items()]
-    lines += ["", "## Findings", ""]
+    lines += ["", "## Findings", "", "### Reader summary", ""]
+    lines += ["| Bottom line | Confidence | Main limitation |"]
+    lines += ["| --- | --- | --- |", f"| {READER_BOTTOM_LINE} | Low | Synthetic data only. |", ""]
+    lines += ["| Finding | Creditor impact | Confidence |", "| --- | --- | --- |"]
+    lines += ["| One item was observed. | None for this synthetic case. | Low |", ""]
     own = [r for r in plan_routes if r.module_id == context["module_id"]]
     opening = OPENING.get(context["module_id"])
-    if opening:  # The opening view comes first, whether or not a report section selects it.
+    if opening:  # The view follows the reader summary, whether or not a report section selects it.
         lines += [f"### {opening}", "", "The issuer's credit view, stated first.", ""]
         own = [r for r in own if r.heading != opening]
     for route in own:
         lines += [f"### {route.heading}", ""]
-        if route.kind == "table":
+        if route.kind == "chart":
+            lines += [CHART_TABLES[route.heading], ""]
+        elif route.kind == "table":
             lines += ["| Item | Value |", "| --- | --- |", "| Observed | 1 |", ""]
         else:
             lines += ["A located finding.", ""]
@@ -284,7 +351,7 @@ def test_context_sets_run_identity_modules_and_report_routes(tmp_path):
     assert {
         (r.block_id, r.module_id, r.heading, r.kind) for r in prepared.plan.layout.routes
     } == COVENANT_ROUTES
-    assert "maturity-wall" in prepared.omitted
+    assert "maturity-wall" not in prepared.omitted
 
 
 def test_selected_method_and_report_selectors_reach_the_instructions(tmp_path):
@@ -302,6 +369,27 @@ def test_selected_method_and_report_selectors_reach_the_instructions(tmp_path):
     assert "### Covenant tests and headroom" in text
     assert "search_source" in text  # runs/cpos-launch-live-001 read whole filings unprompted.
     assert ISSUER in text and AS_OF in text
+
+
+def test_instructions_ask_for_a_reader_section_and_keep_the_method_verbatim(tmp_path):
+    prepared = prepare(
+        context_file(tmp_path),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    text = (tmp_path / "out" / prepared.plan.instructions["CP-4"].path).read_text()
+    assert "### Reader summary" in text
+    assert "| Bottom line | Confidence | Main limitation |" in text
+    assert "| Finding | Creditor impact | Confidence |" in text
+    assert "first under `## Findings`" in text
+    assert "add no new fact, figure or conclusion" in text
+    assert "no module codes, table IDs or hashes" in text
+    method = ROOT / "docs/reuse/selected-methods/skills/cp-4-legal-covenant-interpreter/SKILL.md"
+    assert method.read_text() in text
+    assert hashlib.sha256(method.read_bytes()).hexdigest() in text
+    assert text.index("### Reader summary") < text.index(method.read_text())
 
 
 def test_explicit_modules_narrow_the_run_and_keep_dependencies(tmp_path):
@@ -621,13 +709,56 @@ def test_cp2_instructions_carry_the_reader_standard_and_its_opening(tmp_path):
         return (tmp_path / "out" / prepared.plan.instructions[module].path).read_text()
 
     cp2 = read("CP-2")
-    assert "open `## Findings` with `### Credit view`" in cp2
+    assert "place `### Credit view` directly after `### Reader summary`" in cp2
     assert "CANON_SHARED.md" in cp2
     assert "State each limitation once" in cp2 and "currency and unit" in cp2
     # The user's Microsoft 365 Copilot custom instruction, which Deploy V's M365 runs carried.
     assert "senior credit research analyst" in cp2 and "senior credit committees" in cp2
     assert "external sources" in cp2
-    assert "CANON_SHARED.md" not in read("CP-1A")  # One analytical module at a time.
+    # The custom instruction is global; the CANON_SHARED reader rules and opening are CP-2's.
+    for module in prepared.plan.instructions:
+        text = read(module)
+        for phrase in (
+            "senior credit research analyst",
+            "senior credit committees",
+            "external sources",
+        ):
+            assert phrase in text, (module, phrase)
+    cp1a = read("CP-1A")
+    for phrase in ("CANON_SHARED.md", "State each limitation once"):
+        assert phrase not in cp1a, phrase
+    assert "open `## Findings` with `### Credit view`" not in cp1a
+
+
+def test_every_module_has_an_opening_and_its_instructions_require_it(tmp_path):
+    assert set(OPENING) == set(METHODS) == set(cpos_launch.OPENING)
+    assert cpos_launch.OPENING == OPENING
+    prepared = prepare(
+        context_file(tmp_path, "credit_snapshot"),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    for module, ref in prepared.plan.instructions.items():
+        text = (tmp_path / "out" / ref.path).read_text()
+        assert f"place `### {OPENING[module]}` directly after `### Reader summary`" in text, module
+        assert ("State each limitation once" in text) == (module == "CP-2"), module
+
+
+def test_cp2_instructions_place_the_credit_view_after_the_reader_summary(tmp_path):
+    prepared = prepare(
+        context_file(tmp_path),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    read = lambda m: (tmp_path / "out" / prepared.plan.instructions[m].path).read_text()
+    assert "place `### Credit view` directly after `### Reader summary`" in read("CP-2")
+    assert "first under `## Findings`" in read("CP-2") and "first under `## Findings`" in read(
+        "CP-4"
+    )
 
 
 @pytest.mark.parametrize("pathway", ["credit_snapshot", "relative_value"])
@@ -646,7 +777,7 @@ VIEW = "### Credit view\n\nThe issuer's credit view, stated first.\n\n"
     ("old", "new"),
     [
         (VIEW, ""),
-        ("## Findings\n\n", "## Findings\n\nPreamble before the view.\n\n"),
+        ("### Reader summary\n\n", "Preamble before the summary.\n\n### Reader summary\n\n"),
         (VIEW, "### Overview\n\nText.\n\n" + VIEW),
         ("The issuer's credit view, stated first.", "| A | B |\n| --- | --- |\n| x | y |"),
         ("The issuer's credit view, stated first.", "- a bullet, not a paragraph"),
@@ -668,11 +799,163 @@ def test_checker_rejects_cp2_that_does_not_open_with_its_view(tmp_path, pathway,
     raw = answer(context, list(prepared.plan.layout.routes))
     assert old in raw
     issues = _checked_handoff(task, raw.replace(old, new).encode(), checker(prepared.layout))
-    assert any("Open ## Findings with ### Credit view" in issue for issue in issues), issues
+    assert any(
+        "Place ### Credit view directly after ### Reader summary" in issue for issue in issues
+    ), issues
+
+
+@pytest.mark.parametrize(
+    ("module", "pathway"), [("CP-1A", "credit_snapshot"), ("CP-0", "credit_snapshot")]
+)
+def test_checker_enforces_the_opening_on_every_module(tmp_path, module, pathway):
+    prepared, task, context = good_task(tmp_path, module, pathway)
+    raw = answer(context, list(prepared.plan.layout.routes))
+    view = f"### {OPENING[module]}\n\nThe issuer's credit view, stated first.\n\n"
+    assert view in raw
+    assert _checked_handoff(task, raw.encode(), checker(prepared.layout)) == ()
+    issues = _checked_handoff(task, raw.replace(view, "").encode(), checker(prepared.layout))
+    assert any(
+        f"Place ### {OPENING[module]} directly after ### Reader summary" in i for i in issues
+    ), issues
 
 
 def test_every_selected_method_file_exists():
     assert all((ROOT / path).is_file() for files in METHODS.values() for path in files)
+
+
+def test_checker_rejects_a_handoff_without_a_reader_section(tmp_path):
+    prepared, task, context = good_task(tmp_path, "CP-4")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    start = raw.index("### Reader summary")
+    missing = raw[:start] + raw[raw.index("### ", start + 4) :]
+    issues = _checked_handoff(task, missing.encode(), checker(prepared.layout))
+    assert any("Reader summary" in issue for issue in issues)
+
+
+def test_checker_rejects_a_reader_number_the_handoff_does_not_hold(tmp_path):
+    prepared, task, context = good_task(tmp_path, "CP-4")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    wrong = raw.replace(READER_BOTTOM_LINE, "Cover was 9.87x.")
+    issues = _checked_handoff(task, wrong.encode(), checker(prepared.layout))
+    assert any("9.87" in issue for issue in issues)
+
+
+def test_the_reader_section_reaches_the_report_unchanged(tmp_path, provider):
+    argv = launch(tmp_path, "--live", "--ruling", str(RULING))
+    routes = list(
+        prepare(
+            tmp_path / "context.json",
+            tmp_path / "issuer",
+            tmp_path / "preview",
+            config="sol-medium",
+            cap="50",
+        ).plan.layout.routes
+    )
+    provider.answer = lambda context: answer(context, routes)
+    assert main(argv) == 0
+    report = next((tmp_path / "out" / "deliveries").glob("*/report.html"))
+    assert READER_BOTTOM_LINE in (report.parent / "report-view.json").read_text()
+
+
+def strip_of(prepared, raw: str, tmp_path: Path, block: str):
+    routes = tuple(r for r in prepared.layout.routes if r.module_id == "CP-1")
+    own = prepared.layout.model_copy(
+        update={"blocks": tuple(dict.fromkeys(r.block_id for r in routes)), "routes": routes}
+    )
+    (tmp_path / "cp-1.md").write_text(raw)
+    handoff = HandoffInput(path="cp-1.md", sha256=hashlib.sha256(raw.encode()).hexdigest())
+    request = DeliveryRequest(run=prepared.plan.run, handoffs={"CP-1": handoff}, layout=own)
+    report = ReportView.model_validate_json(markdown_files(request, tmp_path)["report-view.json"])
+    return next(b for b in report.blocks if b.block_id == block)
+
+
+def test_cp1_chart_tables_become_the_report_chart_strip(tmp_path):
+    prepared, task, context = good_task(tmp_path, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert _checked_handoff(task, raw.encode(), checker(prepared.layout)) == ()
+    figures = strip_of(prepared, raw, tmp_path, "model-chart-strip").figures
+    assert [f.fig_id for f in figures] == ["S.1", "S.2", "S.3", "S.4"]
+    assert [m.value for m in figures[0].chart.marks] == [
+        Decimal("4.20"),
+        Decimal("3.85"),
+        Decimal("3.60"),
+        Decimal("3.25"),
+    ]
+    assert [m.value for m in figures[3].chart.marks] == [Decimal(500), None, Decimal(1250)]
+    assert figures[3].chart.marks[1].ref_id.startswith("G")
+
+
+def test_an_all_gaps_non_usd_issuer_passes_with_no_chart_values(tmp_path, monkeypatch):
+    prepared, task, context = good_task(tmp_path, "CP-1", "credit_snapshot")
+    monkeypatch.setitem(
+        CHART_TABLES, "Chart data: liquidity", NON_USD_TABLES["Chart data: liquidity"]
+    )
+    monkeypatch.setitem(
+        CHART_TABLES, "Chart data: debt maturities", NON_USD_TABLES["Chart data: debt maturities"]
+    )
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert _checked_handoff(task, raw.encode(), checker(prepared.layout)) == ()
+    figures = strip_of(prepared, raw, tmp_path, "model-chart-strip").figures
+    assert all(m.value is None for f in figures[2:] for m in f.chart.marks)
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "complaint"),
+    [
+        ("| 3.85 |", "| 3.85x |", "3.85x"),
+        ("| 300 | 450 | US$m |", "| 300 | 450 | EUR m |", "EUR m"),
+        ("| FY2023 | 3.10 | x | Synthetic. |", "| FY2023 | 3.10 | x |  |", "Basis and limitation"),
+        ("### Chart data: liquidity", "### Liquidity data", "Chart data: liquidity"),
+        ("| Period | Debt maturing |", "| Year | Debt maturing |", "Period"),
+        ("| FY2026 | 500 |", "| FY2026 | Not supplied: |", "Not supplied: |"),
+    ],
+)
+def test_checker_refuses_each_broken_chart_table(tmp_path, old, new, complaint):
+    prepared, task, context = good_task(tmp_path, "CP-1", "credit_snapshot")
+    raw = answer(context, list(prepared.plan.layout.routes))
+    assert old in raw
+    issues = _checked_handoff(task, raw.replace(old, new).encode(), checker(prepared.layout))
+    assert any(complaint in issue for issue in issues), issues
+
+
+def test_the_instructions_give_the_exact_chart_table_header(tmp_path):
+    prepared, *_ = good_task(tmp_path, "CP-1", "credit_snapshot")
+    text = (tmp_path / "out" / prepared.plan.instructions["CP-1"].path).read_text()
+    assert (
+        "`| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |`"
+        in text
+    )
+    assert "Not supplied: reported in <unit>" in text
+
+
+def test_a_run_without_cp1_still_omits_the_chart_block(tmp_path):
+    prepared = prepare(
+        context_file(tmp_path, "credit_snapshot"),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+        modules=("CP-1A",),
+    )
+    assert "CP-1" not in prepared.ordered
+    assert "model-chart-strip" in prepared.omitted
+
+
+def test_yield_against_maturity_stays_omitted(tmp_path):
+    prepared = prepare(
+        context_file(tmp_path, "relative_value"),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    assert "yield-against-maturity" in prepared.omitted
+
+
+def test_the_report_scope_no_longer_says_charts_are_unpublished(tmp_path):
+    prepared, *_ = good_task(tmp_path, "CP-1", "credit_snapshot")
+    assert "The HTML Model and calculation JSON are not published" in prepared.layout.scope
+    assert "charts" not in prepared.layout.scope.lower()
 
 
 def test_six_handoff_headings_are_still_enforced(tmp_path):
@@ -715,6 +998,7 @@ def assert_live_evidence(out: Path, cap: Decimal) -> None:
     view = json.loads((report.parent / "report-view.json").read_text())
     assert {b["block_id"]: b["state"] for b in view["blocks"]} == {
         "company-operating-model": "populated",
+        "model-chart-strip": "populated",
         "financials-credit-metrics": "populated",
         "company-profile": "populated",
         "transaction-summary": "populated",
@@ -731,19 +1015,20 @@ def test_live_launch_from_a_context_file_and_issuer_folder():
     ruling = os.environ.get("CPOS_LIVE_RULING")
     if not ruling or not os.environ.get("OPENAI_API_KEY"):
         pytest.skip("paid: set CPOS_LIVE_RULING and OPENAI_API_KEY to run")
-    # Retained answers for these modules cost USD 2.72, and each call holds 5.73. With the USD 0.29
-    # the first attempt charged, this keeps the user's approved USD 12 total.
-    cap = Decimal("11.71")
+    # Its own folder: the launcher now asks for more, so answers retained in LIVE_CASE cannot be
+    # reused, and that retained run must not change. The USD 12 is the owner-approved maximum.
+    out = ROOT / "runs/cpos-reader-live-001"
+    cap = Decimal(12)
     code = main(
         [
             *("--context", str(LIVE_CASE / "context.json")),
             *("--sources", str(ROOT / "data/public-corpus/v1/TDG")),
             *("--config", "sol-medium", "--cap", str(cap), "--modules", "CP-1", "CP-1A"),
-            *("--out", str(LIVE_CASE), "--live", "--ruling", ruling),
+            *("--out", str(out), "--live", "--ruling", ruling),
         ]
     )
     assert code == 0
-    assert_live_evidence(LIVE_CASE, cap)
+    assert_live_evidence(out, cap)
 
 
 def test_live_evidence_check_can_pass_and_refuses_each_kind_of_fake(tmp_path, provider):
@@ -904,21 +1189,39 @@ def test_provider_model_still_needs_a_cap(tmp_path, capsys):
     assert not (tmp_path / "out").exists()
 
 
-def test_host_mode_leaves_the_retained_live_request_unchanged(tmp_path):
-    """The paid rerun of runs/cpos-launch-live-002 must still find the same request."""
-    prepared = prepare(
+def test_host_mode_changes_only_the_reading_paragraph_of_each_module(tmp_path):
+    """Host and live instructions differ only where the host has no source tools. (Main's
+    reader-layer changes mean live requests no longer match runs/cpos-launch-live-002.)"""
+    folder = ROOT / "data/public-corpus/v1/TDG"
+    modules = ("CP-1", "CP-1A", "CP-2")
+    live = prepare(
         LIVE_CASE / "context.json",
-        ROOT / "data/public-corpus/v1/TDG",
-        tmp_path / "out",
+        folder,
+        tmp_path / "live",
         config="sol-medium",
         cap="11.71",
-        modules=("CP-1", "CP-1A"),
+        modules=modules,
     )
-    kept = json.loads((LIVE_CASE / "workflow.json").read_text())
-    assert {m: i.sha256 for m, i in prepared.plan.instructions.items()} == {
-        m: i["sha256"] for m, i in kept["instructions"].items()
-    }
-    assert prepared.plan.layout.model_dump(mode="json") == kept["layout"]
+    host = prepare(
+        LIVE_CASE / "context.json",
+        folder,
+        tmp_path / "host",
+        config="host",
+        cap=0,
+        modules=modules,
+    )
+
+    def text_of(prepared, module):
+        return (prepared.manifest.parent / prepared.plan.instructions[module].path).read_text()
+
+    def outside_reading(text):
+        head, rest = text.split("Do not treat a value it leaves blank as zero.\n\n", 1)
+        return head + rest[rest.index("A handoff is rejected unless") :]
+
+    for module in live.ordered:
+        live_text, host_text = text_of(live, module), text_of(host, module)
+        assert outside_reading(host_text) == outside_reading(live_text)
+        assert "search_source" in live_text and "search_source" not in host_text
 
 
 def test_second_host_on_the_same_run_folder_is_refused_and_the_wait_survives(tmp_path, capsys):

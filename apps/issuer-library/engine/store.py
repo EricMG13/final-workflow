@@ -656,6 +656,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         found += part[5]
     reports, unread = catalogue_reports(root, catalogue, sources)
     found += unread
+    # A compared deliverable is a curated build, not a folder that merely has its name.
     for module, config in catalog.items():
         compare = config.get("compare")
         if (
@@ -664,7 +665,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
             and not (
                 compare["recheck"] in outputs
                 and {compare["prior"], compare["current"], compare["repaired"]}
-                <= {r["id"] for r in reports}
+                <= {r["id"] for r in reports if r["build"]}
             )
         ):
             del pins[module]

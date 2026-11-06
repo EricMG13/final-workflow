@@ -4,6 +4,7 @@ import fnmatch
 import hashlib
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -594,3 +595,29 @@ def test_request_files_are_inputs_not_saved_outputs_and_the_output_stays_the_def
     assert modules["CP-2D"]["outputs"] == ["asked/CP-2D-attempt-1.md"]
     assert sorted(result["inputs"]) == ["asked/CP-2D-repair-request.md", "asked/CP-3C-request.md"]
     assert sorted(result["outputs"]) == ["asked/CP-2D-attempt-1.md", "asked/CP-3C-consumer.md"]
+
+
+def compared_workspace(root: Path, repaired_issuer: str) -> dict:
+    shutil.copytree(ROOT / "runs/tdg-run-comparison-001", root / "runs/tdg-run-comparison-001")
+    folders = {
+        "tdg-fy2024-snapshot-2": "TransDigm Group Incorporated",
+        "tdg-fy2024-snapshot-6": "TransDigm Group Incorporated",
+        "tdg-fy2024-snapshot-7": repaired_issuer,
+    }
+    for name, issuer in folders.items():
+        delivery(root, f"deliverables/{name}", issuer, {"CP-1.md": CP1})
+    catalogue = report_catalogue(*(f"deliverables/{name}" for name in folders))
+    catalogue["real"].append({"id": "tdg-run-comparison-001", "name": "Comparison"})
+    return catalogue
+
+
+def test_the_cp8_comparison_pin_needs_the_curated_builds_not_same_named_folders(tmp_path):
+    """Expected: with builds 2, 6 and 7 recorded as TransDigm the CP-8 pin is kept; when the
+    folder named build 7 records Ford Otosan the comparison is not offered and Settings says so."""
+    kept = store.workspace_store(
+        tmp_path / "a", compared_workspace(tmp_path / "a", "TransDigm Group")
+    )
+    assert "CP-8" in kept["pins"] and not any("pin dropped" in i for i in kept["issues"])
+    wrong = store.workspace_store(tmp_path / "b", compared_workspace(tmp_path / "b", "Ford Otosan"))
+    assert "CP-8" not in wrong["pins"]
+    assert any(i.startswith("CP-8: curated pin dropped") for i in wrong["issues"])

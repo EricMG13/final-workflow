@@ -24,7 +24,7 @@ from deploy_vii.financial_contracts import (
     StatementLine,
     StatementQuantity,
 )
-from deploy_vii.financial_periods import _id
+from deploy_vii.financial_periods import PeriodValue, _id
 from deploy_vii.financial_validation import records, validate_financial_review
 from deploy_vii.model_interface import SCHEMAS, _Cell, _Tables
 from deploy_vii.preparation import PreparedPack
@@ -838,3 +838,71 @@ def test_canonical_audit_source_positions_retain_statement_dimensions_and_unit_c
         Decimal(1_000_000),
         "million shares",
     )
+
+
+def _cfs_cash_history_book(amounts: dict[tuple[str, str], int]) -> FinancialBook:
+    periods = _quarter_history_book().periods  # Q1 (Jan-Mar 2024) and H1 (Jan-Jun 2024)
+    lines = tuple(
+        quantity_fixtures.line(f"{item}-{period_id}", period_id, item, priority=index).model_copy(
+            update={
+                "value": Observation(
+                    observation_id=f"obs:{item}:{period_id}",
+                    status="known",
+                    amount=Decimal(amount),
+                    citations=(quantity_fixtures.cite(f"{item} {period_id} {amount}"),),
+                )
+            }
+        )
+        for index, ((item, period_id), amount) in enumerate(amounts.items(), start=1)
+    )
+    return quantity_fixtures.book(lines).model_copy(update={"periods": periods})
+
+
+def _history_by_label(book: FinancialBook) -> dict[tuple[str, str], PeriodValue]:
+    pack, review = _bound_pack_review(book)
+    history = statement_history(pack, review, book.book_id)
+    assert validate_statement_history(pack, review, history) == ()
+    labels = {item.construction_id: item.label for item in history.constructions}
+    return {(labels[item.construction_id], item.item_id): item.value for item in history.values}
+
+
+def test_cfs_opening_and_closing_cash_are_balances_not_flows() -> None:
+    # A 10-Q CFS printed YTD only: Q1 cash 480 -> 500, H1 cash 480 -> 520.
+    values = _history_by_label(
+        _cfs_cash_history_book(
+            {
+                ("opening_cash", "Q1"): 480,
+                ("opening_cash", "H1"): 480,
+                ("closing_cash", "Q1"): 500,
+                ("closing_cash", "H1"): 520,
+                ("net_cash_change", "Q1"): 20,
+                ("net_cash_change", "H1"): 40,
+            }
+        )
+    )
+    # Hand-derived: Q2 24 closing cash is the cash at 2024-06-30, H1's printed 520
+    # (never 520 - 500 = 20); LTM Q2 24 ends the same day, so it is 520 too.
+    for label in ("Q2 24", "LTM Q2 24"):
+        closing = values[(label, "closing_cash")]
+        assert closing.amount == Decimal(520)
+        assert closing.observation_ids == ("obs:closing_cash:H1",)
+    # Q2 24 opening cash is the cash at 2024-03-31: no opening-cash line starts on
+    # 2024-04-01, so it is Q1's printed closing cash 500 (never 480 - 480 = 0).
+    opening = values[("Q2 24", "opening_cash")]
+    assert opening.amount == Decimal(500)
+    assert opening.observation_ids == ("obs:closing_cash:Q1",)
+    assert "CFS closing cash at 2024-03-31" in (opening.note or "")
+    # No balance is stated at 2023-06-30, the day before LTM Q2 24 starts.
+    assert values[("LTM Q2 24", "opening_cash")].amount is None
+    # Net cash change is still a flow: 40 - 20 = 20.
+    assert values[("Q2 24", "net_cash_change")].amount == Decimal(20)
+
+
+def test_cfs_opening_cash_without_a_balance_at_its_date_stays_missing() -> None:
+    # Only YTD opening cash (at 2023-12-31) is printed; nothing states 2024-03-31.
+    values = _history_by_label(
+        _cfs_cash_history_book({("opening_cash", "Q1"): 480, ("opening_cash", "H1"): 480})
+    )
+    opening = values[("Q2 24", "opening_cash")]
+    assert opening.amount is None  # never 480 - 480 = 0
+    assert opening.calculation_status != "Calculated"

@@ -447,3 +447,18 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
     output = result["outputs"]["web-1/CP-1.md"]
     assert output["summary"] is None
     assert any(s["heading"] == "Chart data: leverage" for s in output["sections"])
+
+
+def test_a_linked_delivery_folder_leads_out_of_the_run_and_is_not_read(tmp_path):
+    """Expected: the outside folder's CP-9.md (and its file link CP-8.md) are never listed;
+    the run keeps exactly CP-0 at its root and the real delivery's CP-1; nothing leaks."""
+    put(tmp_path, "private/CP-9.md", "# CP-9\n\n## Findings\n\nSECRET-OUTSIDE.\n")
+    put(tmp_path, "runs/linked/CP-0.md", BETA)
+    put(tmp_path, "runs/linked/deliveries/real/CP-1.md", CP1)
+    (tmp_path / "runs/linked/deliveries/link").symlink_to(tmp_path / "private")
+    # A link to a folder inside the same run is refused as well: it is a link, not a delivery.
+    (tmp_path / "runs/linked/deliveries/twin").symlink_to(tmp_path / "runs/linked/deliveries/real")
+    result = store.workspace_store(tmp_path, plain_run("linked"))
+    assert sorted(result["outputs"]) == ["linked/CP-0.md", "linked/deliveries/real/CP-1.md"]
+    assert "SECRET-OUTSIDE" not in json.dumps(result)
+    assert result["issues"] == []

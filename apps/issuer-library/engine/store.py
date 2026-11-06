@@ -205,7 +205,7 @@ def parse_source(text):
     return sections
 
 
-def sha256(path):
+def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -368,11 +368,19 @@ def structured(raw, strict):
         )
 
 
-def handoff_files(run_dir):
-    """Handoffs at the run root, then those the launcher delivered; a repeated delivery is one file."""
-    paths, seen = [], set()
+def linked(folder: Path) -> bool:
+    """A symbolic link or Windows junction: either can lead a folder out of its run."""
+    return folder.is_symlink() or folder.is_junction()
+
+
+def handoff_files(run_dir: Path) -> list[Path]:
+    """Handoffs at the run root, then those the launcher delivered; each distinct file once."""
+    paths: list[Path] = []
+    seen: set[str] = set()
+    base = run_dir.resolve()
     for path in [*sorted(run_dir.glob("CP-*.md")), *sorted(run_dir.glob("deliveries/*/CP-*.md"))]:
-        # The server serves regular files only, so a link out of the run is not a handoff either.
+        # The server serves regular files only, so a link out of the run is not a handoff either:
+        # not a linked file, not a linked or junctioned delivery folder, nothing resolving outside.
         if (
             # Windows matches these patterns regardless of case; the names here do not.
             HANDOFF_NAME.match(path.name)
@@ -380,6 +388,8 @@ def handoff_files(run_dir):
             and not OUTPUT_SKIP.search(path.name)
             and path.is_file()
             and not path.is_symlink()
+            and (path.parent == run_dir or not linked(path.parent))
+            and path.resolve().is_relative_to(base)
             and sha256(path) not in seen
         ):
             seen.add(sha256(path))

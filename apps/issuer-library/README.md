@@ -152,7 +152,9 @@ table only where the unit and a whole period are explicit, and null otherwise. I
 overwrites a manifest; `--check` reports one whose run folder has changed. `--gate` decides
 which host runs belong in the library: instructions and layout byte-identical to the current
 launcher's, a published and hash-checked report, every layout section populated, every chart
-series with a plotted value, and every field the library shows. An admitted
+series with a plotted value, and every field the library shows. `--package` writes the runs
+that pass into ZIP parts of at most 40 MB, so they ship beside the repository rather than in it
+(see the top-level README). An admitted
 manifest's issuer name is the name the library groups by, ahead of the launcher's own
 `workflow.json` spelling, so an issuer's runs sit under one spelling.
 

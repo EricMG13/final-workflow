@@ -234,6 +234,23 @@ PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
   --config host --modules minimum --out runs/<run-folder>
 ```
 
+### SECData issuer runs in the library
+
+The 101 SECData credit snapshots that pass the library gate are not stored in git, so a download
+of this repository stays its usual size. They are five ZIP parts of at most 40 MB on the draft
+release `issuer-runs-20261105`, with `SHA256SUMS.txt` beside them. Extract every part into the
+library's workspace folder, the one holding `runs/` and `deliverables/`: together they add the
+`runs/cpos-swarm-20261105-*` folders, each with its `library.json`. The library checks each run's
+manifest and report hashes when it loads them. Each run passed the gate described in
+`apps/issuer-library/README.md`; none has had an independent review, so treat each as a candidate.
+
+The parts are rebuilt byte for byte from the run folders at commit `a7812217`:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m deploy_workflow.cpos_library --package <out-folder> \
+  --secdata ../SECData/data/2026-11-05 runs/cpos-swarm-20261105-*
+```
+
 ## Development loop
 
 Develop one bounded module result and its next handoff at a time:

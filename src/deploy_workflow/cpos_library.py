@@ -1,6 +1,13 @@
 """Backfill ``runs/<id>/library.json`` for CP-OS host-session runs (schema ``issuer-library-run/1``).
 
     PYTHONPATH=src python -m deploy_workflow.cpos_library [--secdata DIR] [--check | --gate] RUN...
+    PYTHONPATH=src python -m deploy_workflow.cpos_library --package OUT [--part-mb 40] RUN...
+
+``--package`` keeps run folders out of the repository download: it writes the runs that pass the
+gate, with their manifests, into ZIP parts of at most ``--part-mb`` compressed megabytes, plus
+``SHA256SUMS.txt``. Each part holds whole run folders under ``runs/`` and is extracted into the
+library's workspace folder. The same runs always give byte-identical parts. A failing run is
+refused, and so is a run without its manifest.
 
 ``--gate`` decides which runs belong in the library and writes nothing. A run passes when its
 instructions and report layout are byte-identical to what the current launcher writes for the same
@@ -36,11 +43,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
 import sys
 import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -717,6 +726,66 @@ def gate(run_dir: Path, fund_names: dict[str, list[str]]) -> list[str]:
     return problems
 
 
+ZIP_TIME = (1980, 1, 1, 0, 0, 0)
+
+
+def _run_entries(run_dir: Path) -> list[tuple[str, Path]]:
+    """Every file of a run folder, as ``runs/<id>/...`` archive names, in a fixed order."""
+    files = sorted(p for p in run_dir.rglob("*") if p.is_file() and not p.is_symlink())
+    return [(f"runs/{run_dir.name}/{p.relative_to(run_dir).as_posix()}", p) for p in files]
+
+
+def _zip_run(archive: zipfile.ZipFile, run_dir: Path) -> None:
+    for name, path in _run_entries(run_dir):
+        info = zipfile.ZipInfo(name, ZIP_TIME)
+        info.compress_type = zipfile.ZIP_DEFLATED
+        info.external_attr = 0o644 << 16
+        archive.writestr(info, path.read_bytes(), compresslevel=9)
+
+
+def _compressed_size(run_dir: Path) -> int:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        _zip_run(archive, run_dir)
+    return buffer.tell()
+
+
+def package(
+    runs: list[Path], out: Path, part_bytes: int, fund_names: dict[str, list[str]]
+) -> list[Path]:
+    """Write the runs into ZIP parts of at most ``part_bytes``, in run-id order, and SHA256SUMS."""
+    runs = sorted(runs, key=lambda r: r.name)
+    for run_dir in runs:
+        if problems := gate(run_dir, fund_names):
+            raise ManifestError(f"{run_dir.name} does not pass the gate: {'; '.join(problems)}")
+        if not (run_dir / "library.json").is_file():
+            raise ManifestError(f"{run_dir.name} has no library.json")
+        if (run_dir / "library.json").read_bytes() != encode(build_manifest(run_dir, fund_names)):
+            raise ManifestError(f"{run_dir.name}: library.json differs from a fresh build")
+    groups: list[list[Path]] = []
+    size = 0
+    for run_dir in runs:
+        weight = _compressed_size(run_dir)
+        if weight > part_bytes:
+            raise ManifestError(f"{run_dir.name} alone is larger than one part")
+        if not groups or size + weight > part_bytes:
+            groups.append([])
+            size = 0
+        groups[-1].append(run_dir)
+        size += weight
+    out.mkdir(parents=True, exist_ok=False)
+    parts, sums = [], []
+    for number, group in enumerate(groups, 1):
+        path = out / f"issuer-runs-part-{number}-of-{len(groups)}.zip"
+        with zipfile.ZipFile(path, "w") as archive:
+            for run_dir in group:
+                _zip_run(archive, run_dir)
+        parts.append(path)
+        sums.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}\n")
+    (out / "SHA256SUMS.txt").write_text("".join(sums), encoding="utf-8")
+    return parts
+
+
 def encode(manifest: JSON) -> bytes:
     return (json.dumps(manifest, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
 
@@ -741,9 +810,22 @@ def main(argv: list[str] | None = None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="compare with the existing manifests")
     mode.add_argument("--gate", action="store_true", help="say which runs belong in the library")
+    mode.add_argument(
+        "--package", type=Path, help="write passing runs into ZIP parts in this folder"
+    )
+    parser.add_argument("--part-mb", type=int, default=40, help="largest part, compressed MB")
     args = parser.parse_args(argv)
     fund_names = load_fund_names(args.secdata)
     failures = 0
+    if args.package:
+        try:
+            parts = package(list(args.runs), args.package, args.part_mb * 1_000_000, fund_names)
+        except (ManifestError, OSError) as error:
+            print(f"FAIL {error}", flush=True)
+            return 1
+        for path in parts:
+            print(f"wrote {path.name} {path.stat().st_size / 1e6:.1f} MB", flush=True)
+        return 0
     if args.gate:
         for run_dir in args.runs:
             try:

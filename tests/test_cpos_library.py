@@ -418,3 +418,46 @@ def test_changed_instructions_are_not_the_current_method(tmp_path):
     manifest["instructions"]["CP-2"]["sha256"] = "0" * 64
     (run / "workflow.json").write_text(json.dumps(manifest))
     assert lib._current_method(run) == ["CP-2 instructions are not the current launcher's"]
+
+
+def packaged_runs(tmp_path, monkeypatch, count=3):
+    monkeypatch.setattr(lib, "gate", lambda run_dir, fund_names: [])
+    runs = [make_run(tmp_path, f"cpos-swarm-test-{i}") for i in range(count)]
+    assert lib.main([str(r) for r in runs]) == 0
+    return runs
+
+
+def test_package_round_trips_whole_runs_in_capped_identical_parts(tmp_path, monkeypatch):
+    import zipfile
+
+    runs = packaged_runs(tmp_path, monkeypatch)
+    one = lib._compressed_size(runs[0])
+    parts = lib.package(runs, tmp_path / "a", one + 10, {})
+    assert len(parts) == 3 and all(p.stat().st_size <= one + 10 for p in parts)
+    again = lib.package(list(reversed(runs)), tmp_path / "b", one + 10, {})
+    assert [p.read_bytes() for p in parts] == [p.read_bytes() for p in again]
+    sums = (tmp_path / "a" / "SHA256SUMS.txt").read_text().splitlines()
+    assert [line.split()[1] for line in sums] == [p.name for p in parts]
+    out = tmp_path / "workspace"
+    for part in parts:
+        zipfile.ZipFile(part).extractall(out)
+    for run in runs:
+        for path in run.rglob("*"):
+            if path.is_file():
+                copy = out / "runs" / run.name / path.relative_to(run)
+                assert copy.read_bytes() == path.read_bytes()
+    assert lib.package(runs, tmp_path / "c", 10 * one, {})[0].name == "issuer-runs-part-1-of-1.zip"
+
+
+def test_package_refuses_a_failing_missing_or_stale_manifest(tmp_path, monkeypatch):
+    runs = packaged_runs(tmp_path, monkeypatch, count=1)
+    (runs[0] / "library.json").write_text("{}")
+    with pytest.raises(lib.ManifestError, match="differs from a fresh build"):
+        lib.package(runs, tmp_path / "a", 10**9, {})
+    (runs[0] / "library.json").unlink()
+    with pytest.raises(lib.ManifestError, match="has no library.json"):
+        lib.package(runs, tmp_path / "b", 10**9, {})
+    monkeypatch.setattr(lib, "gate", lambda run_dir, fund_names: ["chart S.1 is not drawn"])
+    with pytest.raises(lib.ManifestError, match="does not pass the gate"):
+        lib.package(runs, tmp_path / "c", 10**9, {})
+    assert not (tmp_path / "c").exists()

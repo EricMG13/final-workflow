@@ -90,8 +90,10 @@ def _input(cell: StatementCell) -> Cell:
 
 
 def _select(available: list[StatementCell]) -> Cell:
-    """The first figure among same-date observations; a conflict blocks selection."""
-    if any(cell.status == "conflicting" for cell in available):
+    """The first figure among same-date observations; a conflict or disagreeing figures
+    block selection."""
+    amounts = {cell.normalized_amount for cell in available if cell.normalized_amount is not None}
+    if len(amounts) > 1 or any(cell.status == "conflicting" for cell in available):
         return Cell(
             None,
             "COMPONENT_MISSING",

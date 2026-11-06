@@ -105,3 +105,24 @@ def test_debt_check_still_blocks_a_facility_issued_by_the_date_without_a_row() -
         ("tl-b", None, "Not supplied"),
     ]
     assert (check.calculated_value, check.status) == (None, "BLOCK")
+
+
+def test_a_row_at_the_date_wins_over_the_issuance_zero_in_both_readers() -> None:
+    # TL-B is issued 2025-10-01 but a row states 70 at 2025-06-30: the stated row is
+    # the observation in the debt check and in the kernel adapter alike, never zero.
+    b = _debt_book(date(2025, 10, 1))
+    row = _facility("tl-b", "bs-2025-06-30", 70, date(2025, 10, 1))
+    b = b.model_copy(update={"facilities": (*b.facilities, row)})
+    period = next(p for p in b.periods if p.period_id == "bs-2025-06-30")
+    check = _debt(b, period, {})
+    # Hand-derived: TL-A 100 + TL-B 70 = 170 against reported total debt 100: not PASS.
+    assert [(t.label, t.amount) for t in check.components] == [
+        ("tl-a", Decimal(100)),
+        ("tl-b", Decimal(70)),
+    ]
+    assert check.calculated_value == Decimal(170)
+    assert check.status != "PASS"
+    adapter = {
+        r.facility_id: r.carrying_value for r in _facilities(b) if r.period_id == period.period_id
+    }
+    assert adapter == {"tl-a": Decimal(100), "tl-b": Decimal(70)}

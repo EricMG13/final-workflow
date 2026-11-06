@@ -2002,6 +2002,52 @@ def test_property_break_decline_round_trip(
 
 
 # --- S07-cp2-gh-A01/A02 -------------------------------------------------------------------------
+def _q4_context() -> cp2g.ForwardContext:
+    """The positive context with CP-2A stressing the fourth quarter, not the twelve-month base,
+    so the CP-2A required decline cannot be reproduced and only its formula names the metric."""
+    ctx = _context("positive")
+    cp2a = dataclasses.replace(ctx.cp2a, base_period="Q4 2025: 2025-10-01 to 2025-12-31")
+    return dataclasses.replace(ctx, cp2a=cp2a)
+
+
+def test_a01_swapped_break_metric_is_refused_when_the_period_differs() -> None:
+    """A01. The CP-2A oracle states b03 as 'Total leverage watch level' (decline formula
+    '(level x EBITDA - total debt) / ...') and b05 as 'Interest coverage watch level' (formula
+    '(EBITDA - level x cash interest) / EBITDA'). With CP-2A on another base period the
+    required decline is not reproduced, but the formula still names the tested metric: naming
+    interest_coverage for b03 and total_leverage for b05 is refused; b04 (net_leverage) is not."""
+    payload = _bind_all(_payload("positive"))
+    payload["break_metrics"] = [
+        {"break_id": "b03", "metric": "interest_coverage"},
+        {"break_id": "b04", "metric": "net_leverage"},
+        {"break_id": "b05", "metric": "total_leverage"},
+    ]
+    base = "does not reproduce the CP-2A required decline of"
+    assert cp2g.payload_issues(json.dumps(payload), _q4_context()) == (
+        f"break_metrics[0]: metric interest_coverage {base} b03",
+        f"break_metrics[2]: metric total_leverage {base} b05",
+    )
+
+
+def test_a01_correct_metric_on_another_period_is_still_accepted_unverified() -> None:
+    """A01 twin: the metrics CP-2A tested (b03 total leverage, b04 net leverage, b05 interest
+    coverage) pass on another base period; the decline just stays unverified (limitation)."""
+    payload = _bind_all(_payload("positive"))
+    assert cp2g.payload_issues(json.dumps(payload), _q4_context()) == ()
+
+
+def test_a01_swapped_break_metric_is_refused_on_the_same_period() -> None:
+    """A01: net leverage for the total-leverage break b03 is refused on the LTM base as well."""
+    payload = _bind_all(_payload("positive"))
+    payload["break_metrics"][0]["metric"] = "net_leverage"
+    assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == (
+        (
+            "break_metrics[0]: metric net_leverage does not reproduce the CP-2A required decline"
+            " of b03"
+        ),
+    )
+
+
 _LIMITATION_FIELDS = (
     ("base_drivers", "revenue_growth"),
     ("base_drivers", "dividends"),

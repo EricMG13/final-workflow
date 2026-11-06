@@ -74,6 +74,7 @@ from deploy_vii.report_view import fact_spelling, figure_unit
 from deploy_workflow.context import ContextRefused, context_facts
 from deploy_workflow.owners.blank import is_blank, one_per_page
 from deploy_workflow.owners.cp1a import probe_one_step
+from deploy_workflow.owners.cp2a import DECLINE_FORMULA
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
     PeriodBasis,
@@ -848,6 +849,17 @@ def _is_definition(b: Cp2aBreak) -> bool:
     return b.origin == "Definition"
 
 
+_FORMULA_KIND: Mapping[str, BreakKind] = {f: k for k, f in DECLINE_FORMULA.items()}
+
+
+def _tested_kind(b: Cp2aBreak) -> BreakKind | None:
+    """The metric kind CP-2A tested for a break: the one whose decline formula its known
+    required decline carries (any base period); None when CP-2A settled no decline (the kind
+    is then unknowable)."""
+    rd = b.required_decline
+    return _FORMULA_KIND.get(rd.formula) if rd.status == "known" and rd.formula else None
+
+
 def _metric_check(
     b: Cp2aBreak, kind: BreakKind, operands: Operands, base_period: str, basis: PeriodBasis
 ) -> tuple[bool, str | None]:
@@ -899,8 +911,11 @@ def _break_issues(
             issues.append(f"{where}.break_id: duplicate break {bm.break_id}")
         else:
             seen.add(bm.break_id)
-            ok, _cause = _metric_check(
-                b, _METRIC_KIND[bm.metric], operands, cp2a.base_period, basis
+            kind = _METRIC_KIND[bm.metric]
+            tested = _tested_kind(b)  # S07-cp2-gh-A01: another metric never reproduces it
+            ok = (
+                tested in (None, kind)
+                and _metric_check(b, kind, operands, cp2a.base_period, basis)[0]
             )
             if not ok:
                 issues.append(

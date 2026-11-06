@@ -59,6 +59,10 @@ STRIP_FIGURES = {
 }
 
 
+def _paragraph_text(paragraph: list[tuple[int, str]]) -> str:
+    return plain(" ".join(line.strip() for _, line in paragraph))
+
+
 def literal_module(
     module_id: str, raw: bytes
 ) -> tuple[ModuleView, Source, dict[str, tuple[str, str]]]:
@@ -73,26 +77,38 @@ def literal_module(
     ]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
+    section_of: dict[str, int] = {}
     for i, table in enumerate(tables):
         first = fact_map[table.rows[0].fact_ids[0]].citations[0]
         number = int(first.locator.split()[-1])
-        heading = next(title for n, title in reversed(headings) if n < number)
+        section_of[table.table_id], heading = next(
+            (n, title) for n, title in reversed(headings) if n < number
+        )
         tables[i] = table.model_copy(
             update={"title": heading + " — " + (table.row_header or "Table")}
         )
         metadata[table.table_id] = (heading, "table")
     paragraphs: dict[str, list[list[tuple[int, str]]]] = {}
+    section_prose: dict[int, list[str]] = {}
     heading = "Document"
+    heading_line = 0
     pending: list[tuple[int, str]] = []
     for number, line in enumerate([*lines, ""], 1):
         boundary = not line.strip() or line.startswith(("#", "|", "<!--"))
         if boundary and pending:
             paragraphs.setdefault(heading, []).append(pending)
+            section_prose.setdefault(heading_line, []).append(_paragraph_text(pending))
             pending = []
         if line.startswith("#"):
             heading = line.lstrip("#").strip()
+            heading_line = number
         elif not boundary:
             pending.append((number, line))
+    for i, table in enumerate(tables):
+        # The unit and limitation sentences of a table's own section travel with the table, so a
+        # table route does not publish the numbers without them. The cited prose stays in Evidence.
+        if sentences := section_prose.get(section_of[table.table_id]):
+            tables[i] = table.model_copy(update={"limitation": " ".join(sentences)})
     for index, (heading, groups) in enumerate(paragraphs.items()):
         table_id = f"prose-{module_id}-{index}"
         rows = []
@@ -105,9 +121,12 @@ def literal_module(
                     table_id=table_id,
                     row_id=f"r{number}",
                     field="c0",
-                    text=plain(" ".join(line.strip() for _, line in paragraph)),
+                    text=_paragraph_text(paragraph),
                     value_class="source",
-                    basis="Literal wrapped paragraph from the model-authored handoff; no new analysis.",
+                    basis=(
+                        "Literal wrapped paragraph from the model-authored handoff; "
+                        "no new analysis."
+                    ),
                     citations=tuple(
                         Citation(
                             source_id=module_id,
@@ -147,7 +166,10 @@ def literal_module(
             facts=tuple(facts),
             tables=tuple(tables),
             limitations=(
-                "Literal checked analytical handoff, not native contract acceptance; source qualifications and gaps remain.",
+                (
+                    "Literal checked analytical handoff, not native contract acceptance; "
+                    "source qualifications and gaps remain."
+                ),
             ),
         ),
         source,
@@ -437,7 +459,16 @@ def require_issuer(run: Run, aliases: tuple[str, ...], module_id: str, lines: li
         )
 
 
-def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
+def _section_sentences(bound: tuple[Binding, ...], modules: list[ModuleView]) -> tuple[str, ...]:
+    """Unit and limitation sentences written beside the bound tables in their handoff sections."""
+    tables = {(m.module_id, t.table_id): t for m in modules for t in m.tables}
+    found = (tables.get((e.fact_coord.module_id, str(e.fact_coord.table_id))) for e in bound)
+    return tuple(dict.fromkeys(t.limitation for t in found if t is not None and t.limitation))
+
+
+def markdown_files(  # noqa: C901, PLR0912, PLR0915 - existing function, only its block note changes
+    request: DeliveryRequest, base: Path
+) -> dict[str, bytes]:
     """Select literal source sections into the existing requested pathway design."""
     layout = request.layout
     if layout is None:
@@ -526,7 +557,8 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
         ]
         if len(tables) != 1:
             raise ValueError(
-                f"markdown_selector: expected one {route.module_id}/{route.heading}/{route.table_header}"
+                f"markdown_selector: expected one "
+                f"{route.module_id}/{route.heading}/{route.table_header}"
             )
         table = tables[0]
         facts = {f.fact_id: f for f in module.facts}
@@ -652,19 +684,18 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
         if not bound and block_id not in strip_charts:
             raise ValueError(f"markdown_content: selected block has no handoff content: {block_id}")
         block_spec = _spec_of(block_id)
-        presentation_note = (
-            " · ".join(
-                dict.fromkeys(r.label for r in layout.routes if r.block_id == block_id and r.label)
-            )
-            or None
+        labels = tuple(
+            dict.fromkeys(r.label for r in layout.routes if r.block_id == block_id and r.label)
         )
+        presentation_note = " · ".join(labels) or None
         owner = " · ".join(dict.fromkeys(e.fact_coord.module_id for e in bound))
         if block_spec.kind == "chart":
             if block_id in strip_charts:
                 specs = strip_charts.get(block_id, {})
                 if set(specs) != set(STRIP_FIGURES[block_id]):
                     raise ValueError(
-                        "markdown_chart: supply every requested strip figure, preserving explicit gaps"
+                        "markdown_chart: supply every requested strip figure, "
+                        "preserving explicit gaps"
                     )
                 figures = []
                 for fig_id in STRIP_FIGURES[block_id]:
@@ -682,7 +713,10 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
                             series=series,
                             points=points,
                             placement="above",
-                            summary="Exact selected handoff/Model observations. Dates, definitions and limitations remain in the source evidence; gaps are not zero.",
+                            summary=(
+                                "Exact selected handoff/Model observations. Dates, definitions and "
+                                "limitations remain in the source evidence; gaps are not zero."
+                            ),
                         )
                     )
                 blocks.append(
@@ -715,7 +749,11 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
                 series=series,
                 points=points,
                 placement="above",
-                summary="Separate clean/dirty assumptions; categorical note maturities, not an observed or fitted curve. Raw values remain in the source table; labels use at most six decimal places.",
+                summary=(
+                    "Separate clean/dirty assumptions; categorical note maturities, not an "
+                    "observed or fitted curve. Raw values remain in the source table; labels use "
+                    "at most six decimal places."
+                ),
             )
             blocks.append(
                 Block(
@@ -767,7 +805,10 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
                     row_header=primary.row_header,
                     columns=primary.columns,
                     rows=primary.rows,
-                    note=presentation_note,
+                    note=" · ".join(
+                        dict.fromkeys([*labels, *_section_sentences(bound, module_views)])
+                    )
+                    or None,
                     tab_label=primary.label if tabs else None,
                     tabs=tabs,
                 )
@@ -811,7 +852,9 @@ def markdown_files(request: DeliveryRequest, base: Path) -> dict[str, bytes]:
                 + html.escape(layout.scope)
                 + "</section>"
                 + (
-                    '<nav aria-label="Published deliverables"><a href="model.html">HTML Model and charts</a> · <a href="calculation.json">Calculation JSON</a></nav>'
+                    '<nav aria-label="Published deliverables">'
+                    '<a href="model.html">HTML Model and charts</a> · '
+                    '<a href="calculation.json">Calculation JSON</a></nav>'
                     if request.model is not None
                     else ""
                 )

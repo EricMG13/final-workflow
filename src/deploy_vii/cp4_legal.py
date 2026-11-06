@@ -65,7 +65,7 @@ from deploy_vii.contracts import (
 )
 from deploy_vii.execution import Attempt, Execution, Qualification, StepValidation, text_sha256
 from deploy_vii.preparation import PreparedPack
-from deploy_vii.quotes import normalise, quoted
+from deploy_vii.quotes import normalise, quoted_whole
 from deploy_vii.readiness import (
     absence_issues,
     citation_issues,
@@ -525,7 +525,9 @@ def _direction_issues(path: str, row: Covenant) -> list[str]:
     if row.comparison == "none":
         return []
     wording = " ".join(
-        normalise(quote.quote) for quote in row.citations if quoted(row.threshold_text, quote.quote)
+        normalise(quote.quote)
+        for quote in row.citations
+        if quoted_whole(row.threshold_text, quote.quote)
     )
     floor, cap = bool(_FLOOR.search(wording)), bool(_CAP.search(wording))
     maximum = row.comparison in ("<=", "<")
@@ -545,7 +547,8 @@ def _threshold_issues(path: str, row: Covenant) -> list[str]:
             [] if row.comparison == "none" else [f"{path}: an unstated threshold has no comparison"]
         )
     issues: list[str] = []
-    if not any(quoted(row.threshold_text, quote.quote) for quote in row.citations):
+    # Whole token: a threshold cut out of a larger figure (2.50:1.00 from 12.50:1.00) is not quoted.
+    if not any(quoted_whole(row.threshold_text, quote.quote) for quote in row.citations):
         issues.append(f"{path}: threshold_text is not part of the row's quotes")
     if unit == "other":
         if row.threshold_value is not None:

@@ -30,8 +30,8 @@ changed files and 342 lines in scope, after it caught one over-long test line an
 formatting change in its own first draft. Dry run on the last merged PR (`--base
 a313b50^1`): 23 findings in 31 changed files, 5,005 lines in scope (E501 x5, PLR0913 x3,
 PLR0915 x1 in `owners/cpos.py` and two test files), none in the surrounding legacy code.
-The rewrite-tournament skill is not available in this environment; the changed functions were compared inline against a per-file variant (one subprocess per file for ruff too) and the batched form was kept as the simpler one. Not verified: the GitHub Actions workflow has not run (no pull request yet); `uv` is
-pinned there at 0.12.5 through `astral-sh/setup-uv@v5`.
+The rewrite-tournament skill is not available in this environment; the changed functions were compared inline against a per-file variant (one subprocess per file for ruff too) and the batched form was kept as the simpler one. The GitHub Actions workflow ran on draft PR #18 (run 42207159101) and passed with 0
+findings; `uv` is pinned there at 0.12.5 through `astral-sh/setup-uv@v5`.
 
 ## 2026-11-06 — GitHub Copilot SDK adapter
 

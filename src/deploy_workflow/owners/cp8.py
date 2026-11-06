@@ -152,6 +152,9 @@ _PLAIN_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 _MEASURE_WORD = re.compile(
     r"(?<![a-z])(?:leverage|cover|coverage|bid|offer)(?![a-z])", re.IGNORECASE
 )
+# a label that follows another measure's word and a joiner ("bid/offer 98.00/98.75"): the figures
+# are listed in the order of the words, which the first-figure rule cannot read, so it binds none
+_JOINED = re.compile(rf"{_MEASURE_WORD.pattern} *(?:/|&|,|and|or) *$", re.IGNORECASE)
 _REFERENCE = re.compile(r"[{}\[\]]")
 _SUBJECT = re.compile(r"default|restructuring")
 _PROHIBITED = re.compile(  # r14 prohibited conclusions (lease, analyst text)
@@ -483,14 +486,19 @@ def _labelled(metric: str, value: str, quote: str) -> bool:
     else:
         label, figure, shown = ("bid " if metric == "loan_bid" else "offer "), _DECIMAL, value
     found = re.finditer(rf"(?<![a-z]){re.escape(label)}", text, re.IGNORECASE)
-    bound = {_label_figure(text, at.end(), figure) for at in found} - {None}
+    bound = {
+        "" if _JOINED.search(text, 0, at.start()) else _label_figure(text, at.end(), figure)
+        for at in found
+    } - {None}
     return bound == {shown}
 
 
 def _label_figure(text: str, start: int, figure: re.Pattern[str]) -> str | None:
-    """The first ``figure`` after a label ending at ``start``, or None when another measure's
-    word (S10-A01) or a run that is not a plain number or decimal (round 13 item 7: `.75`,
-    `1.2.5`, `1,250`) comes first; plain integer runs (a date's day and year) are skipped."""
+    """The first ``figure`` after a label ending at ``start``; None when no figure follows or
+    another measure's word comes first (S10-A01: the label binds nothing); "" when a run that is
+    not a plain number or decimal comes first (round 13 item 7: `.75`, `1.2.5`, `1,250`: the
+    label binds a figure that cannot be read, which no value equals); plain integer runs (a
+    date's day and year) are skipped."""
     match = figure.search(text, start)
     if match is None or _MEASURE_WORD.search(text, start, match.start()):
         return None
@@ -498,7 +506,7 @@ def _label_figure(text: str, start: int, figure: re.Pattern[str]) -> str | None:
         if run.start() >= match.start():
             break
         if not _PLAIN_NUMBER.fullmatch(run.group(0)):
-            return None
+            return ""
     return match.group(0)
 
 

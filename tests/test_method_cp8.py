@@ -1181,6 +1181,27 @@ def test_8_15_the_first_figure_after_the_label() -> None:
     )
 
 
+Q_REALIZED_QUOTATION = (
+    "Dealer quotation on April 29, 2026: bid 98.00 and offer 98.75, "
+    "expressed as a percentage of par."
+)
+
+
+def test_s10_a01_the_offer_label_binds_its_own_figure_not_the_bid() -> None:
+    # S10-A01, hand-read: in "offer side indicative: bid 98.00 and offer 98.75" the first "offer"
+    # is followed by the bid's label before any figure, so it binds nothing; the second "offer"
+    # binds 98.75. The realized offer is 98.75; 98.00 (the bid) is refused, where the first-figure
+    # rule had accepted it and shown a T7.4 mid of 0.98 (87.5 bp) instead of 0.98375 (50 bp).
+    new = Q_REALIZED_QUOTATION.replace("2026: bid", "2026, offer side indicative: bid")
+    packed = edited_pack("market_update", Q_REALIZED_QUOTATION, new)
+    lit = requote(requote(positive(), 6, Q_REALIZED_QUOTATION, new), 7, Q_REALIZED_QUOTATION, new)
+    assert issues_over(lit, packed) == ()
+    lit["observations"][7]["value_text"] = "98.00"
+    assert issues_over(lit, packed) == (
+        "observations[7]: loan_offer value_text 98.00 is not labelled loan_offer in the quote",
+    )
+
+
 def test_8_15_a_figure_is_quoted_as_n_nn() -> None:
     new = Q_REALIZED_LEVERAGE.replace("1.80x", "1.8x")
     lit = requote(positive(), 4, Q_REALIZED_LEVERAGE, new)

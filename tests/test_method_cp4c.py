@@ -2051,3 +2051,41 @@ def test_nonblank_quote_twin_is_accepted(field: tuple[str, tuple[str | int, ...]
     for key in keys:
         cur = cur[key]
     assert cur.strip() and _payload_issues(payload) == ()
+
+
+def test_review_s09_the_facility_row_must_state_a_known_secured_facility() -> None:
+    """A T4C.11 row whose facility_id is not known (or names another facility) maps nothing."""
+    ctx = _context("positive")
+    for change in (
+        {"status": "missing", "text": None, "limitation": "not stated"},
+        {"text": "other-loan"},
+    ):
+        facts = [
+            _refact(f, **change) if f.fact_id == "T4C.11.r01.facility_id" else f
+            for f in ctx.cp4.facts
+        ]
+        issues = cp4c.content_issues(_with_cp4(facts))
+        assert (
+            len(issues) == 1 and "maps no covenant to the secured facility term-loan" in issues[0]
+        )
+
+
+def test_review_s09_two_ratings_or_two_facility_names_are_an_issue() -> None:
+    """A duplicated rating fact is not read as the pinned one; two T4C.11 rows of the secured
+    facility naming different facilities fail closed."""
+    ctx = _context("positive")
+    rating = next(f for f in ctx.cp4.facts if f.fact_id == "T4.13.rating.rating")
+    issues = cp4c.content_issues(_with_cp4([*ctx.cp4.facts, rating]))
+    assert len(issues) == 1 and "rating is None" in issues[0]
+    rows = [f for f in ctx.cp4.facts if f.table_id == "T4C.11"]
+    other = [
+        _refact(
+            f,
+            row_id="r02",
+            fact_id=f.fact_id.replace(".r01.", ".r02."),
+            **({"text": "Another facility"} if f.field == "facility" else {}),
+        )
+        for f in rows
+    ]
+    issues = cp4c.content_issues(_with_cp4([*ctx.cp4.facts, *other]))
+    assert len(issues) == 1 and "name different facilities" in issues[0]

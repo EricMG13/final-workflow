@@ -96,6 +96,7 @@
     "oracle:cp4c:v22",
     "oracle:cp4c:v23",
     "fn:deploy_workflow.owners.cp4c:_text_fields",
+    "fn:deploy_workflow.owners.cp4c:_text_issues",
     "fn:deploy_workflow.owners.cp4c:_run_text_issues",
     "fn:deploy_workflow.owners.cp4c:guard_issues"
    ]

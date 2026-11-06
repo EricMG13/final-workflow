@@ -1115,8 +1115,40 @@ def _year_issue(i: int, basis: PeriodBasis) -> str:
     return f"valuation.{i}.ebitda_year: Input should be {', '.join(head)} or {last}"
 
 
-# The complexity (19 before S09-A04 added the CP-4 head guard) predates the quality gate.
-def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:  # noqa: C901, PLR0912, PLR0915
+def _text_issues(sub: RestructuringSubmission, ctx: Cp4cContext) -> list[str]:
+    """Per text field, in field order: empty, one-line and bare-figure issues of a name, prose
+    issues of a rationale, then the guard issues of every kind."""
+    issues: list[str] = []
+    bound = prose.bind(_reference_facts(sub, ctx))
+    names = (ctx.pack.run.issuer_name,)
+    for path, text, kind in _text_fields(sub):
+        if text is None:
+            continue
+        if is_blank(text):  # round 11 blank class and round 12 B10, every kind (R3 M2)
+            issues.append(f"{path}: empty text")
+            continue
+        if kind == "name":  # a name or label is no run text and is not guarded (round 8 A-2 #9)
+            if text.splitlines() != [text]:
+                issues.append(f"{path}: one line only")
+            else:  # round 11 B3: as the claims spell it (a valuation label in lower case)
+                spelt = text.lower() if path.startswith("valuation") else text
+                issues += [
+                    clipped((path, ": Bare figure: ", t))
+                    for t in prose.bare_figures(spelt, names=names)
+                ]
+                if _RESERVED.search(text):  # round 12 B7: CP-8's pinned frame
+                    issues.append(f"{path}: reference syntax is not allowed")
+            continue
+        if kind == "run":  # a rationale becomes `Claim.text` (Stage 2 round 3 item 2)
+            found = prose.issues(text, bound, names=names)
+            issues += [clipped((path, ": ", issue)) for issue in found]
+            if not found:
+                issues += _run_text_issues(path, text)
+        issues += guard_issues(path, text)
+    return issues
+
+
+def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:
     """Content issues of a parsed submission, in the pinned order: claims, valuation case ids,
     fulcrum and plan case ids, fulcrum and plan against the waterfall (only when claims and
     valuation are structurally valid), assessment, then per text field prose and guard issues."""
@@ -1166,32 +1198,7 @@ def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:  # noqa: C901, PLR091
         issues += _plan_issues(sub, ids, falls)
     if sub.assessment.confidence == "High":
         issues.append(HIGH_ISSUE)
-    bound = prose.bind(_reference_facts(sub, ctx))
-    names = (ctx.pack.run.issuer_name,)
-    for path, text, kind in _text_fields(sub):
-        if text is None:
-            continue
-        if is_blank(text):  # round 11 blank class and round 12 B10, every kind (R3 M2)
-            issues.append(f"{path}: empty text")
-            continue
-        if kind == "name":  # a name or label is no run text and is not guarded (round 8 A-2 #9)
-            if text.splitlines() != [text]:
-                issues.append(f"{path}: one line only")
-            else:  # round 11 B3: as the claims spell it (a valuation label in lower case)
-                spelt = text.lower() if path.startswith("valuation") else text
-                issues += [
-                    clipped((path, ": Bare figure: ", t))
-                    for t in prose.bare_figures(spelt, names=names)
-                ]
-                if _RESERVED.search(text):  # round 12 B7: CP-8's pinned frame
-                    issues.append(f"{path}: reference syntax is not allowed")
-            continue
-        if kind == "run":  # a rationale becomes `Claim.text` (Stage 2 round 3 item 2)
-            found = prose.issues(text, bound, names=names)
-            issues += [clipped((path, ": ", issue)) for issue in found]
-            if not found:
-                issues += _run_text_issues(path, text)
-        issues += guard_issues(path, text)
+    issues += _text_issues(sub, ctx)
     issues += _gap_label_issues(sub)
     issues += _multiple_issues(ctx, sub)
     return tuple(issues)

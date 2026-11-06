@@ -538,9 +538,16 @@ def _threshold_quotes(row: Covenant) -> tuple[Quote, ...]:
 
 
 # A sentence ends at `.`, `!` or `?` before a space and a capital, an opening bracket or quote
-# mark, or the end of the span ("4.00x for" and "Inc. and" do not end one; "Section 4.09. The"
-# does, which only narrows the context read).
-_SENTENCE_END = re.compile(r"[.!?](?=\s+[A-Z(\"']|\s*$)")
+# mark, or the end of the span ("4.00x for" does not end one). A period after a single capital
+# ("U.S. Borrower") or a common abbreviation ("Inc. Holdings") is no end: wrongly keeping a
+# sentence open only widens the context read, wrongly ending one would hide a step of the
+# schedule that precedes it.
+_ABBREVIATIONS = ("Inc", "Corp", "Co", "Ltd", "No", "Nos", "Sec", "Art", "St", "Mr", "Ms", "Dr")
+_SENTENCE_END = re.compile(
+    r"(?<!\b[A-Z])"
+    + "".join(rf"(?<!\b{a})" for a in _ABBREVIATIONS)
+    + r"[.!?](?=\s+[A-Z(\"']|\s*$)"
+)
 
 
 def _sentence_context(quote: Quote, sources: Sequence[Source]) -> str:

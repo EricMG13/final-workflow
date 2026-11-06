@@ -920,3 +920,54 @@ def test_the_same_threshold_twice_in_the_sentence_is_one_threshold() -> None:
     row = {"threshold_text": "4.00x", "threshold_value": "4.00", "comparison": "<="}
     result = _threshold_case(sentence, row)
     assert result.issues == ()
+
+
+# --- review of S09-A03: the sentence context and the boundary-aware threshold read ------------
+
+_BORROWER = (
+    "The Borrower shall maintain the ratio of Covenant Net Debt to Covenant EBITDA at not more "
+    "than "
+)
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        # an abbreviation's period is no sentence end: the 0.75x step stays in the context
+        _BORROWER + "0.75x for each test date in 2025 and, as to the U.S. Borrower, not more "
+        "than 4.00x thereafter.",
+        _BORROWER + "0.75x until Acme Inc. Holdings is acquired and not more than 4.00x "
+        "thereafter.",
+    ],
+)
+def test_an_abbreviation_does_not_hide_the_other_step(sentence: str) -> None:
+    """Only the later step is quoted; "U.S." and "Inc." must not cut the sentence before 0.75x."""
+    row = {"threshold_text": "4.00x", "threshold_value": "4.00", "comparison": "<="}
+    result = _threshold_case(sentence, row, "not more than 4.00x thereafter")
+    assert result.report is None
+    assert STEP_REFUSAL in result.issues
+
+
+@pytest.mark.parametrize(
+    ("sentence", "text"),
+    [
+        (_BORROWER + "14.00 to 1.00, tested at every calendar quarter end.", "4.00 to 1.00"),
+        (_BORROWER + "14.00:1.00, tested at every calendar quarter end.", "4.00:1.00"),
+    ],
+)
+def test_a_ratio_inside_a_longer_ratio_is_refused(sentence: str, text: str) -> None:
+    row = {"threshold_text": text, "threshold_value": "4.00", "comparison": "<="}
+    result = _threshold_case(sentence, row)
+    assert result.report is None
+    assert any("is not a multiple threshold its governing quote states" in i for i in result.issues)
+
+
+def test_a_ratio_and_a_wrapped_multiple_compose() -> None:
+    """ "4.00 to 1.00" and "4.00" wrapped before "x" are each one threshold: accepted."""
+    for sentence, text in (
+        (_BORROWER + "4.00 to 1.00, tested at every calendar quarter end.", "4.00 to 1.00"),
+        (_BORROWER + "4.00\nx, tested at every calendar quarter end.", "4.00 x"),
+    ):
+        row = {"threshold_text": text, "threshold_value": "4.00", "comparison": "<="}
+        result = _threshold_case(sentence, row)
+        assert result.issues == () and result.report is not None

@@ -30,8 +30,9 @@ from deploy_workflow.owners.cpos import run_live_handoffs, with_notes
 from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, checker, prepare
 from deploy_workflow.platform_io import replace
 
-# Room a run needs beyond this job's folder: requests/<module>/<hash>/<n>.request.json under runs/.
-RUN_PATH_ROOM = 100
+# Room a run needs beyond this job's folder: the longest name written under it, a retained file's
+# `.pending-<32 hex>` temp (S01-A02) or a recheck's requests/<module>/<hash>/<n>.review-<hash>.json.
+RUN_PATH_ROOM = 160
 
 
 def write_file(path: Path, raw: bytes) -> None:

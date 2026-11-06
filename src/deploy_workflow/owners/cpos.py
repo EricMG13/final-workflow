@@ -172,7 +172,30 @@ def _checked_handoff(
     return issues
 
 
-def _handoff(
+def _retain_request(path: Path, raw: bytes, module_id: str) -> bool:
+    """Retain an attempt's request; whether it was already retained (dispatched earlier). A
+    retained request differs only in its feedback, which the recheck of the attempt before it now
+    gives differently, so that attempt's answer cannot stand for this one."""
+    started = path.exists()
+    if started and path.read_bytes() != raw:
+        raise ValueError(
+            f"cpos_feedback_changed: {module_id}: the retained {path.name} answered other feedback "
+            "than the recheck of the attempt before it now gives"
+        )
+    _put(path, raw)
+    return started
+
+
+def _retain_review(path: Path, raw: bytes) -> None:
+    """Retain a verdict. A recheck that differs from the retained one (a fixed or tightened
+    checker) is kept beside it under its own hash and is the one acted on; earlier verdicts stay as
+    evidence (S01-C05)."""
+    if path.exists() and path.read_bytes() != raw:
+        path = path.with_name(f"{path.name.removesuffix('.json')}-{_sha(raw)}.json")
+    _put(path, raw)
+
+
+def _handoff(  # noqa: PLR0913 - existing signature
     task: HandoffTask,
     directory: Path,
     execute: Callable[[HandoffTask], bytes],
@@ -203,8 +226,7 @@ def _handoff(
         review_path = folder / f"{attempt}.review.json"
         request = {**inputs, "attempt": attempt, "feedback": feedback}
         raw_request = json.dumps(request, sort_keys=True, indent=2).encode()
-        already_started = request_path.exists()
-        _put(request_path, raw_request)
+        already_started = _retain_request(request_path, raw_request, task.module_id)
         if response_path.exists():
             response = response_path.read_bytes()
         elif already_started:
@@ -222,7 +244,7 @@ def _handoff(
                 raise ValueError(f"cpos_response_changed: {task.module_id}")
         feedback = _checked_handoff(current, response, check)
         review = {"response_sha256": _sha(response), "issues": feedback}
-        _put(review_path, json.dumps(review, sort_keys=True, indent=2).encode())
+        _retain_review(review_path, json.dumps(review, sort_keys=True, indent=2).encode())
         if not feedback:
             return response, str(response_path.relative_to(directory))
         if retained is not None:
@@ -625,6 +647,28 @@ def _comparison_bundle(base: Path, spec: HandoffInput) -> tuple[View, dict[str, 
     return view, {**files, "delivery.json": receipt_raw}
 
 
+def _check_comparison_pair(request: ComparisonPlan, prior: View, current: View) -> None:
+    """Both deliveries are the selected issuer's, the current one has the selected date, and they
+    are a prior delivery and a later-or-same-dated current one: CP-8 compares a prior run's
+    deliverables with the current run's (AGENTS.md), never a delivery with itself."""
+    for view in (prior, current):
+        if (view.run.issuer_id, view.run.issuer_name) != (
+            request.run.issuer_id,
+            request.run.issuer_name,
+        ):
+            raise ValueError("cp8_issuer: both deliveries must identify the selected issuer")
+    if current.run.as_of != request.run.as_of:
+        raise ValueError(
+            "cp8_as_of: comparison uses the selected current delivery's financial date"
+        )
+    if request.prior.sha256 == request.current.sha256:
+        raise ValueError("cp8_same_delivery: prior and current pin the same delivery receipt")
+    if prior.run.as_of > current.run.as_of:
+        raise ValueError(
+            "cp8_order: the prior delivery's financial date is after the current delivery's"
+        )
+
+
 def run_comparison(
     manifest: Path,
     directory: Path,
@@ -657,16 +701,7 @@ def run_comparison(
         raise ValueError("cp8_scope: select CP-8 deliverable comparison on the snapshot shell")
     prior_view, prior = _comparison_bundle(manifest.parent, request.prior)
     current_view, current = _comparison_bundle(manifest.parent, request.current)
-    for view in (prior_view, current_view):
-        if (view.run.issuer_id, view.run.issuer_name) != (
-            request.run.issuer_id,
-            request.run.issuer_name,
-        ):
-            raise ValueError("cp8_issuer: both deliveries must identify the selected issuer")
-    if current_view.run.as_of != request.run.as_of:
-        raise ValueError(
-            "cp8_as_of: comparison uses the selected current delivery's financial date"
-        )
+    _check_comparison_pair(request, prior_view, current_view)
     instructions = _pinned_inputs(manifest.parent, {"CP-8": request.instructions})["CP-8"]
     instructions.decode("utf-8")
     sources = {
@@ -720,7 +755,8 @@ def run_comparison(
         completion = {
             "kind": "cpos-deliverable-comparison/1",
             "execution": request.execution,
-            "scope": "Checked CP-8 comparison of selected delivery bundles; not decision calibration or full pathway acceptance",
+            "scope": "Checked CP-8 comparison of selected delivery bundles; "
+            "not decision calibration or full pathway acceptance",
             "provider_cap_usd": str(request.provider_cap_usd) if live else 0,
             "response": response_path,
             "response_sha256": _sha(response),

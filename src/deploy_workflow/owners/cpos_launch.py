@@ -284,6 +284,7 @@ def _issuer_files(
     pinned: dict[str, HandoffInput] = {}
     converted: dict[str, bytes] = {}
     ignored: list[str] = []
+    origins: dict[str, str] = {}
     for path in sorted(folder.rglob("*")):
         name = path.relative_to(folder).as_posix()
         parts = path.relative_to(folder).parts
@@ -298,6 +299,12 @@ def _issuer_files(
         raw = path.read_bytes()
         is_html = path.suffix.lower() in HTML_SUFFIXES
         key = f"{name}.jsonl" if is_html else name
+        if key in origins:  # An HTML filing's text is pinned as `<name>.jsonl`, a real file name.
+            raise LaunchRefused(
+                f"--sources: {origins[key]} and {name} would both be source {key}; "
+                "rename or remove one"
+            )
+        origins[key] = name
         try:
             readable = _html_page_rows(name, raw) if is_html else raw
             pages = _pages(key, readable)

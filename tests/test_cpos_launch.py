@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import re
 from decimal import Decimal
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from deploy_workflow.model.providers import build
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
 from deploy_workflow.owners import cpos_launch
 from deploy_workflow.owners.cpos import HandoffTask, _checked_handoff
-from deploy_workflow.owners.cpos_launch import METHODS, checker, main, prepare
+from deploy_workflow.owners.cpos_launch import METHODS, LaunchRefused, checker, main, prepare
 
 ROOT = Path(__file__).resolve().parents[1]
 RULING = ROOT / "docs/rulings/2026-11-05-live-loop-tests.md"  # configs: sol-medium
@@ -264,6 +265,21 @@ def test_html_filings_reach_the_model_as_visible_text(tmp_path, name, raw):
     assert "<p>" not in text and "x()" not in text and "Skip" not in text
     # The filed document stays identifiable from what the model reads.
     assert name in text and hashlib.sha256(original).hexdigest() in text
+
+
+@pytest.mark.parametrize("html", ["10-K.html", "filings/8-K.HTM"])
+def test_html_filing_and_a_file_named_like_its_text_refuse_instead_of_overwriting(tmp_path, html):
+    # S01-A01/C03: an HTML filing is pinned as `<name>.jsonl`. Before the fix a real file of that
+    # name replaced the filing's entry without a word (the filing vanished from the sources and
+    # was not listed as ignored). Expected, by hand: LaunchRefused naming both files and the
+    # shared source key, and no request written.
+    folder = issuer_folder(tmp_path)
+    (folder / html).write_text("<html><body><p>FY2025 revenue 1,234</p></body></html>")
+    (folder / f"{html}.jsonl").write_text(json.dumps({"page": 1, "text": "older extract"}) + "\n")
+    expected = f"--sources: {html} and {html}.jsonl would both be source {html}.jsonl"
+    with pytest.raises(LaunchRefused, match=re.escape(expected)):
+        prepare(context_file(tmp_path), folder, tmp_path / "out", config="sol-medium", cap="50")
+    assert not (tmp_path / "out" / "workflow.json").exists()
 
 
 def test_html_filings_use_the_page_size_of_the_cp_os_loop(tmp_path):

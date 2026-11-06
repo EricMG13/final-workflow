@@ -254,6 +254,15 @@ def test_the_path_check_covers_the_longest_file_a_run_writes(tmp_path, provider)
     bridge.start(folder)
     longest = max(len(str(path)) for path in run_dir.rglob("*"))
     assert len(str(folder / ("x" * bridge.RUN_PATH_ROOM))) >= longest
+    # Also the transient temp every retained file is written through, in the deepest folders, and a
+    # recheck's verdict revision (`<n>.review-<sha256>.json`) in a request folder.
+    temp = ".pending-" + "0" * 32
+    revision = "1.review-" + "0" * 64 + ".json"
+    folders = [p for p in run_dir.rglob("*") if p.is_dir()]
+    deepest = max(len(str(p / temp)) for p in folders)
+    requests = [p for p in folders if p.parent.parent.name == "requests"]
+    deepest = max([deepest, *(len(str(p / revision)) for p in requests)])
+    assert len(str(folder / ("x" * bridge.RUN_PATH_ROOM))) >= deepest
 
 
 def test_a_staged_file_that_cannot_be_read_is_named(tmp_path):

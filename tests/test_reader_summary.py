@@ -128,3 +128,44 @@ def test_a_number_only_inside_a_hash_or_reference_does_not_match() -> None:
 
 def test_windows_line_endings_do_not_hide_the_section() -> None:
     assert reader_issues(VALID.replace("\n", "\r\n")) == ()
+
+
+def with_detail(summary: str, detail: str) -> str:
+    """VALID with `summary` as the finding sentence and `detail` as the handoff's own text."""
+    text = VALID.replace(FINDING, summary).replace(
+        "Interest cover was 3.14x and net debt was 7,940.", detail
+    )
+    return text.replace(BOTTOM_LINE, "Credit is mixed.")
+
+
+@pytest.mark.parametrize(
+    ("summary", "detail", "accepted"),
+    [
+        # Sign: the handoff writes a decline as (12.3)%; a summary of 12.3% states a rise.
+        ("Revenue grew 12.3%.", "Revenue change was (12.3)%.", False),
+        ("Revenue fell by (12.3)%.", "Revenue change was (12.3)%.", True),
+        ("Revenue fell by -12.3%.", "Revenue change was (12.3)%.", True),
+        ("Revenue fell by (12.3%).", "Revenue change was (12.3)%.", True),
+        ("Revenue fell by -12.3%.", "Revenue change was 12.3%.", False),
+        # Unit: 4.1x is a multiple, not a percentage; a bare number states no unit.
+        ("Leverage is 4.1%.", "Net leverage was 4.1x.", False),
+        ("Leverage is 4.1x.", "Net leverage was 4.1x.", True),
+        ("Leverage is 4.1.", "Net leverage was 4.1x.", True),
+        ("Leverage is 4.1x.", "Net leverage was 4.1.", True),
+        # Scale: 250 thousand is not 250 million.
+        ("Cash was US$250 million.", "Cash was 250 US$ thousands.", False),
+        ("Cash was US$250 thousand.", "Cash was 250 US$ thousands.", True),
+        ("Cash was 250 million.", "Cash was 250 millions.", True),
+        # Hyphens in ranges and compounds are not minus signs; a footnote marker is not a sign.
+        ("Margins held in 2023-2024.", "The years 2023-2024 and a 5-year plan.", True),
+        ("A 5-year plan.", "A 5-year plan, see 1) below.", True),
+    ],
+)
+def test_a_summary_figure_keeps_the_sign_unit_and_scale_the_handoff_wrote(
+    summary: str, detail: str, accepted: bool
+) -> None:
+    issues = reader_issues(with_detail(summary, detail))
+    assert (issues == ()) is accepted, issues
+    if not accepted:
+        assert len(issues) == 1 and "does not match the handoff" in issues[0]
+        assert detail.split(" was ")[-1].rstrip(".") in issues[0]

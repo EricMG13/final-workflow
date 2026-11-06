@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "bte-2026-11-05-credit_snapshot-host",
+    "issuer_id": "bte",
+    "issuer_name": "BAYTEX ENERGY CORP.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "40-F_2025-12-31_bte-20251231.htm.jsonl": {
+      "path": "source-text/40-F_2025-12-31_bte-20251231.htm.jsonl",
+      "sha256": "7928c3aee2847a067565e87aab941fb0fa693ec3a05da16abf228b0aca516096"
+    },
+    "6-K-EX-99.1_2025-09-30_a991-q32025fs.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2025-09-30_a991-q32025fs.htm.jsonl",
+      "sha256": "88b3b8e7d8e11703b95eab9a12edb425d85ec75970d2d968e209a9c3a366a490"
+    },
+    "6-K-EX-99.1_2025-12-31_a991-2025yepressrelease.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2025-12-31_a991-2025yepressrelease.htm.jsonl",
+      "sha256": "3673c1a3e44baf8845d8213620919370a57219f3e6310c71f221c475210c6b47"
+    },
+    "6-K-EX-99.1_2026-03-31_a991-q12026fs.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_a991-q12026fs.htm.jsonl",
+      "sha256": "792eab73e1363b4073690efb2135aa655fd77f770258c41719cb471c48ece251"
+    },
+    "6-K-EX-99.1_2026-03-31_tm2613640d2_ex99-1.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_tm2613640d2_ex99-1.htm.jsonl",
+      "sha256": "9b4c8c62190d6a1b8a9c4e232069f5ad6fc7f4c944563935fd4bf5121d096095"
+    },
+    "6-K-EX-99.1_2026-06-30_a991-q22026fs.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-06-30_a991-q22026fs.htm.jsonl",
+      "sha256": "16eeba2e704f92279ab76d18bdc0c26c8ff5c06bb58d42d66e8037ca77adddf4"
+    },
+    "6-K-EX-99.1_2026-08-05_tm2619297d2_ex99-1.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-08-05_tm2619297d2_ex99-1.htm.jsonl",
+      "sha256": "2da1f8d94e5a6b644192e34205faf74054d51d4cb86b7a7a5ff6f34cc5c6aa6a"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1279495-baytex-energy-corp-bte.json",
+      "sha256": "a4beb54d12cde8b01d2e19e329c06ce5b476e74c9a66d64a29ea9c069505e245"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "adda40a8b66d396c578492dd95c003d4f7d10bade18fa3c49c67f5ca5b91e16a"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "3fc9f9d98e3da527f509a15dfee6366b738f596e6cdb992f9fe9bf7f145aff1b"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "a855a6af4cc2031dbe1d8ef58e5acf97d1b1304de60ff56575d404dcb9bcceda"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "fa205a4c00ec76672e11b1009864a59984f7218e49583c35073238ce815abee4"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "56130589feb9ff14ce7c9424d24f1c7052c93ee8a464268e9f9b62a72c25772d"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for BAYTEX ENERGY CORP. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "BAYTEX ENERGY CORP. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

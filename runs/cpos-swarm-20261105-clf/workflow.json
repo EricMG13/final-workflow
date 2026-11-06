@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "clf-2026-11-05-credit_snapshot-host",
+    "issuer_id": "clf",
+    "issuer_name": "CLEVELAND-CLIFFS INC.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_clf-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_clf-20251231.htm.jsonl",
+      "sha256": "4c221bc0965bff2fddf7c4bff630fa79a69227de30709426ec9a8c89ce97e2df"
+    },
+    "10-Q_2026-03-31_clf-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_clf-20260331.htm.jsonl",
+      "sha256": "cdb78421e299c29e406bbc729a020af9f5e9e2600a8725769f4fc9cce3f48238"
+    },
+    "10-Q_2026-06-30_clf-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_clf-20260630.htm.jsonl",
+      "sha256": "e0ba1bee447b92cbe2b9ad67268169c4ba2e392089bcf206be2b86a11c01f94b"
+    },
+    "10-Q_2026-09-30_clf-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_clf-20260930.htm.jsonl",
+      "sha256": "c3188e1da0b49175580c8c9484ba8f4a1c413725f4f518851b880884f79957d1"
+    },
+    "EX-99.1_2026-04-20_clf-202603318xkex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-20_clf-202603318xkex991.htm.jsonl",
+      "sha256": "b9c8fc8d9b4361337a220b73ac602738ac2f0a283bbd73c7b1429c171ac6000c"
+    },
+    "EX-99.1_2026-07-23_clf-202606308xkex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-23_clf-202606308xkex991.htm.jsonl",
+      "sha256": "6e73622f8701012d98293b6d350054a601691c0c525be23eff4b4255d0c4ab32"
+    },
+    "EX-99.1_2026-10-19_clf-202609308xkex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-19_clf-202609308xkex991.htm.jsonl",
+      "sha256": "e6cabc90a6962f04fc1da1253ad4fc1e70365df28408b401d69ed58092c0c0e1"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/764065-cleveland-cliffs-inc-clf.json",
+      "sha256": "9824d18b9e3851ae3ee2ee1eb294b36a7465c031f02ec1e26c0d1341d4ae46e3"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "bce72a0e17535f4cc4d30d00d7aa7de46d6aa4384034972779d7bed8c65907e7"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "6b9f40a7efd8d6b41176c34a3e9a020e3102608ab3ee9a7c1cc2b671776f1154"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "9d39326abc40dfc8921d49776f00571afc7131862960f29ad9e622be48d3c357"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "d39dbfdf866197b15a2a4d5ed3382d98a401c497d547136462e4975b4fc3d317"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "a8a11d796e64e7231aff3928354005626ce97ba0d8ae7984aa673f23c3c680e4"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for CLEVELAND-CLIFFS INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "CLEVELAND-CLIFFS INC. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

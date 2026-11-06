@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Carnival Corp Ltd. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/a9098afb284e5db48d11bbf9eadc9d5e898a1dbf943276b4359f9457d0271f8c/1.response.md",
+    "CP-1": "requests/CP-1/71b9ccd67459adadb052bf3469ee26b24d6e78d50a770f654a38236554c6902d/1.response.md",
+    "CP-1A": "requests/CP-1A/491704ed6a7d6f5301a4f20ac9026ac8014578168ca33c609bb278d4f2c31fcc/1.response.md",
+    "CP-2": "requests/CP-2/e491af900479fc18edb6bc7bf161ac009dc09aebbd94adbaa1d1216b8e2a638e/1.response.md",
+    "CP-5": "requests/CP-5/8fb9662b469a23653e3eefa29aacf3673a7dd690a5ce5a6161ec789b6e7d7ce3/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "1a87db802517dc21c34aca1dcfcacb45559f270b4bd4d1ad7575ea24854abf21",
+  "report_sha256": "40a7eb38324355e1275b4533c441264b881b55f5f30967d6cbc2080003a76154"
+}

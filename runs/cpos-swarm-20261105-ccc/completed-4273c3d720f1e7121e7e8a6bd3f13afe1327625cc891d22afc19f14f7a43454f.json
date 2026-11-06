@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CCC Intelligent Solutions Holdings Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/65ca6de95162afce1f00119ccc4436b9600df831b155df119c544d5e73290d70/1.response.md",
+    "CP-1": "requests/CP-1/0ee45232724a533db04bb532e0fb8c61d8260d71e8e21620ac897bb5508721a8/1.response.md",
+    "CP-1A": "requests/CP-1A/864099e998046d5974f35ee8b633e92e20ce3b9b147ea2d384f5eb7fc40b771b/1.response.md",
+    "CP-2": "requests/CP-2/7ea89fd6c63aadb6c5fdaa6df28b44d36264612c4759037c828c281568f73b20/1.response.md",
+    "CP-5": "requests/CP-5/b1f475b0dc43542b08997e9fe47c2f1ab83c361f66f66bbf6b73ff3c9763a548/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "09806859976e91bea82db03e5940623081501c820865db7168e64a8c37748ccb",
+  "report_sha256": "02b39ee77ad9fe451a3e15fc34c331c8633d707da9826edd6a602c2415d0015a"
+}

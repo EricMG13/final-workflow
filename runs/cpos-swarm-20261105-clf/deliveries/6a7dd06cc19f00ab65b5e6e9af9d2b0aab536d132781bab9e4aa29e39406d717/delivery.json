@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CLEVELAND-CLIFFS INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "a3ac66d14ed58e324a2e51f64f8df6ffab5558cd2acad9a6736446039b68520e",
+    "CP-1.md": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+    "CP-1A.md": "310fc2953d3ffb8e3cbbb069d2eb18d26a5197d7f3356b5971f1ef80566e3459",
+    "CP-2.md": "8a93d4d79d1c6d4fb07c09d4d0d007eee7270ef0afcc24eb4bd2bcf445c83638",
+    "CP-5.md": "85e7ea08a8476de7b48ebe2bcf03bce29e2a0cc396d9e987367d39be816f0dfa",
+    "view.json": "4c47065c4e71d1cafae489b6d420f096cbfe843eb060f0aa4830ca86c02ded43",
+    "report-view.json": "a33ae08e31d72414678ef9e4ff9663f19ca6828d5ccddaf24bc5a2f2c533d069",
+    "report.html": "60327979a707c14f00d99018eee8e7745a2ce7be9729e04957f308415c4ce5eb"
+  }
+}

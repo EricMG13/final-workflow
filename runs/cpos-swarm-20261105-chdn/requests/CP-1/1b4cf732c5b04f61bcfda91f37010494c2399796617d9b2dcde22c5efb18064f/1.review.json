@@ -1,0 +1,10 @@
+{
+  "issues": [
+    "The report adapter refused this handoff: markdown_selector: expected one CP-1/Chart data: leverage/None",
+    "Add `### Chart data: leverage` inside ## Findings, with its table.",
+    "Add `### Chart data: interest cover` inside ## Findings, with its table.",
+    "Add `### Chart data: liquidity` inside ## Findings, with its table.",
+    "Add `### Chart data: debt maturities` inside ## Findings, with its table."
+  ],
+  "response_sha256": "9517cb76bcddf1b51d2fac1ff9c5803559c06653c157baf0b677d65c6362c8b8"
+}

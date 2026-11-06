@@ -38,3 +38,4 @@ tests/test_ocr_units.py::test_the_submit_entry_hands_the_ocr_pages_to_the_expans
 tests/test_note_reference_guard_wiring.py::test_the_submit_entry_hands_the_note_pages_and_note_rows_to_the_expansion  # same
 tests/test_line_locators.py::test_extract_statements_rebases_rows_to_their_own_line
 tests/test_line_locators.py::test_a_page_pack_is_byte_identical_to_base
+tests/test_connect_cp1c.py::test_spec_row_is_appended_to_the_relative_value_composition  # fails at base (S05 medium fixer)

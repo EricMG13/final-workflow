@@ -31,3 +31,10 @@ tests/prompts/test_rules.py::test_prompt_names_every_rule[relative_value]
 tests/prompts/test_rules.py::test_deleting_one_rules_text_from_the_contract_fails_the_prompt_check[financials]
 tests/prompts/test_rules.py::test_the_golden_file_pins_every_rule_id_check_and_statement
 tests/prompts/test_rules.py::test_the_golden_file_pins_the_sha256_of_each_core_and_oracle
+
+# Found failing at base during the fix waves (2026-11-07), confirmed on the base tree
+tests/test_connect_cpl10.py::test_navigator_with_cp1_settled_equals_the_oracle_state
+tests/test_ocr_units.py::test_the_submit_entry_hands_the_ocr_pages_to_the_expansion  # SimpleNamespace lacks media_type
+tests/test_note_reference_guard_wiring.py::test_the_submit_entry_hands_the_note_pages_and_note_rows_to_the_expansion  # same
+tests/test_line_locators.py::test_extract_statements_rebases_rows_to_their_own_line
+tests/test_line_locators.py::test_a_page_pack_is_byte_identical_to_base

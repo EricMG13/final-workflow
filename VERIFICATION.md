@@ -25,8 +25,8 @@ on both sides with deletion anchors, decorator and nested spans, owned-line expa
 changed-file and changed-line detection, an end-to-end run that reports the E501, the
 mypy assignment error and the format change inside the touched code and drops the legacy
 E501 two functions up, the clean case, and both exit codes). Self-check:
-`uv run python tools/quality_gate.py --base origin/main` on this branch exits 0 with 2
-changed files and 340 lines in scope, after it caught one over-long test line and one
+`uv run python tools/quality_gate.py --base origin/main` on this branch exits 0 with 3
+changed files and 342 lines in scope, after it caught one over-long test line and one
 formatting change in its own first draft. Dry run on the last merged PR (`--base
 a313b50^1`): 23 findings in 31 changed files, 5,005 lines in scope (E501 x5, PLR0913 x3,
 PLR0915 x1 in `owners/cpos.py` and two test files), none in the surrounding legacy code.

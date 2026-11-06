@@ -31,6 +31,7 @@ from deploy_workflow.owners.cpos import run_live_handoffs, with_notes
 from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, checker, prepare
 from deploy_workflow.platform_io import replace
 
+RETAINED_NOTE = "Retained work is in the run folder; no automatic paid retry was made."
 # Room a run needs beyond this job's folder: requests/<module>/<hash>/<n>.request.json under runs/.
 RUN_PATH_ROOM = 100
 
@@ -179,13 +180,17 @@ def redact(text: str) -> str:
     return text
 
 
-def reported_spend(directory: Path) -> bool:
-    """True when start already wrote its own failed status, which carries the recorded spend."""
+def reported_failure(directory: Path) -> bool:
+    """True when start already wrote its own failed status, with the retained-work note."""
     try:
         status = json.loads((directory / "status.json").read_text())
     except (OSError, ValueError):
         return False
-    return isinstance(status, dict) and status.get("state") == "failed" and "spent_usd" in status
+    return (
+        isinstance(status, dict)
+        and status.get("state") == "failed"
+        and RETAINED_NOTE in str(status.get("message"))
+    )
 
 
 def start(directory: Path) -> None:
@@ -242,17 +247,15 @@ def start(directory: Path) -> None:
             )
     except Exception as error:  # Any failure after launch may follow paid calls.
         stopped = isinstance(error, (ValueError, RuntimeError))
-        message = (
-            f"{with_notes(error)} Retained work is in the run folder; "
-            "no automatic paid retry was made."
-        )
+        message = f"{with_notes(error)} {RETAINED_NOTE}"
+        recorded = {}
+        try:
+            recorded = {"spent_usd": spent()}
+        except Exception:  # noqa: BLE001 -- any ledger fault: say unknown, never a stale zero
+            message += " Recorded spend could not be read and may be above zero."
         write_json(
             directory / "status.json",
-            {
-                "state": "stopped" if stopped else "failed",
-                "message": redact(message),
-                "spent_usd": spent(),
-            },
+            {"state": "stopped" if stopped else "failed", "message": redact(message), **recorded},
         )
         if not stopped:
             raise  # main prints the redacted problems; it keeps this status, which holds the spend
@@ -285,7 +288,7 @@ def main() -> None:
     except Exception as error:  # noqa: BLE001 -- isolate/redact the worker process boundary
         problems = list(getattr(error, "problems", (with_notes(error),)))
         cleaned = [redact(str(problem)) for problem in problems]
-        if sys.argv[1] == "start" and not reported_spend(directory):
+        if sys.argv[1] == "start" and not reported_failure(directory):
             write_json(
                 directory / "status.json", {"state": "failed", "message": "; ".join(cleaned)}
             )

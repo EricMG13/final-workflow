@@ -487,3 +487,37 @@ def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
     assert (status["state"], status["spent_usd"]) == (state, "7.42")
     assert "no automatic paid retry was made" in status["message"]
     assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "0"
+
+
+def test_an_unreadable_spend_ledger_is_never_shown_as_zero_and_hides_no_error(
+    tmp_path, provider, monkeypatch
+):
+    """Expected: the original failure text survives, status.json has no spent_usd (the UI would
+    otherwise fall back to progress.json's stale "0") and says the spend may be above zero."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-secret-0123456789")
+    folder, _ = started(tmp_path, provider)
+
+    class Locked:
+        def __init__(self, cap, path):
+            pass
+
+        @property
+        def spent(self):
+            raise OSError("ledger locked")
+
+    def fails(*args, **kwargs):
+        raise OSError(5, "write failed for sk-test-secret-0123456789")
+
+    monkeypatch.setattr(bridge, "Budget", Locked)
+    monkeypatch.setattr(bridge, "run_live_handoffs", fails)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    try:
+        bridge.main()
+    except SystemExit:
+        pass
+    status = status_of(folder)
+    assert status["state"] == "failed" and "spent_usd" not in status
+    assert "write failed for [redacted]" in status["message"]
+    assert "sk-test-secret" not in json.dumps(status)
+    assert "no automatic paid retry was made" in status["message"]
+    assert "spend could not be read and may be above zero" in status["message"]

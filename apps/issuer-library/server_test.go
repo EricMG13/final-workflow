@@ -43,7 +43,11 @@ func TestLauncherDeliveryIsVerifiedAndPresentedLikeAnyDeliverable(t *testing.T) 
 	if err := os.MkdirAll(folder, 0700); err != nil {
 		t.Fatal(err)
 	}
-	files := map[string]string{"report.html": "<html><body>Report</body></html>", "view.json": `{"run":{"run_id":"r","issuer_id":"nbg","issuer_name":"Northbridge","as_of":"2025-03-31"}}`, "CP-1.md": "# CP-1\n"}
+	// The launcher stamps deliveries with the run identity recorded in the run's workflow.json.
+	if err := os.WriteFile(filepath.Join(root, "runs", "launched", "workflow.json"), []byte(`{"run":{"run_id":"nbg-2025-03-31-full-x","issuer_id":"nbg"}}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	files := map[string]string{"report.html": "<html><body>Report</body></html>", "view.json": `{"run":{"run_id":"nbg-2025-03-31-full-x","issuer_id":"nbg","issuer_name":"Northbridge","as_of":"2025-03-31"}}`, "CP-1.md": "# CP-1\n"}
 	hashes := map[string]string{}
 	for name, text := range files {
 		if err := os.WriteFile(filepath.Join(folder, name), []byte(text), 0600); err != nil {

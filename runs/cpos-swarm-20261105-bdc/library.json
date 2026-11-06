@@ -15,8 +15,20 @@
     "summary": "Belden has strong liquidity but, after the debt-funded Ruckus purchase, much higher leverage that rests on unproven acquired earnings. The credit view is cautious and depends on Ruckus delivering. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is BELDEN INC..",
     "handoff": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "2715194",
+        "unit": "USD thousands",
+        "period": "FY2025",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "458734",
+        "unit": "USD thousands",
+        "period": "FY2025",
+        "basis": "Adjusted EBITDA (company, non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "5.57",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Cash USD 380.706 million, of which USD 232.0 million is held outside the U.S. (10-Q Q3 pages 2 and 34); availability (page 18). The shortfall to the USD 400.0 million commitment is not explained in the sources.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "354864",
+        "unit": "USD thousands",
+        "period": "FY2025",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
       "line": 69,
       "quote": "| Q3 2026 | 380.7 | 373.5 | US$m | Cash USD 380.706 million, of which USD 232.0 million is held outside the U.S. (10-Q Q3 pages 2 and 34); availability (page 18). The shortfall to the USD 400.0 million commitment is not explained in the sources. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 82,
+      "quote": "| Revenues | 2,715,194 | 2,412,486 | 1,995,074 | 965,954 | 698,221 | USD thousands; 10-K page 59; 10-Q Q3 page 2 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 87,
+      "quote": "| Adjusted EBITDA (company, non-GAAP) | 458,734 | 435,104 | 336,672 | 171,137 | 118,643 | USD thousands; 10-K page 41; 10-Q Q3 page 32 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 89,
+      "quote": "| Net cash from operating activities | 354,864 | 240,200 | 194,476 | 129,642 | 105,006 | USD thousands; 10-K page 60; 10-Q Q3 page 3; release page 6 |"
     }
   },
   "checklist": null

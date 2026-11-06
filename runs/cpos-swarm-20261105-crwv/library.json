@@ -22,7 +22,13 @@
         "basis": "Revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "4400",
+        "unit": "US$ millions",
+        "period": "LTM June 2026",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "8.08",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "df2a422a4928d9e15d084ff62a177ff909f3a1e751a2512de167ccad6229229c",
       "line": 103,
       "quote": "| Revenue | 5,131 | 2,078 | 2,575 | 4,653 | 7,590 | Reported: 10-K page:138; 10-Q 2026-03-31 page:6; 10-Q 2026-06-30 page:6. LTM calculated: FY2025 plus six months 2026 less six months 2025 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-crwv/deliveries/dd3a3e76c8ca50eef6a99fcf55fafaca316f0507a4aebf5a3a35c46587a5226b/CP-1.md",
+      "sha256": "df2a422a4928d9e15d084ff62a177ff909f3a1e751a2512de167ccad6229229c",
+      "line": 107,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 3,093 | 1,157 | 1,510 | 2,667 | 4,400 | Releases, reconciliation tables (Q4 2025 page:7, Q1 2026 page:7, Q2 2026 page:7); management measure, adds back stock compensation and acquisition costs; LTM calculated |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-crwv/deliveries/dd3a3e76c8ca50eef6a99fcf55fafaca316f0507a4aebf5a3a35c46587a5226b/CP-1.md",

@@ -23,10 +23,10 @@
         "source": "cp1-revenue"
       },
       "ebitda": {
-        "value": "833",
+        "value": "1030",
         "unit": "USD m",
         "period": "LTM Q3 2026",
-        "basis": "EBITDA before impairment, filing basis (operating income plus D&A plus impairment), as the CP-1 table prints it.",
+        "basis": "Normalized EBITDA (management), as the CP-1 table prints it.",
         "source": "cp1-ebitda"
       },
       "leverage": {
@@ -106,8 +106,8 @@
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-nwl/deliveries/f2490fcec130cf6981a2dfd927335966d861856ac335f92e8254790c53bbe7df/CP-1.md",
       "sha256": "d5a9065811e44ca39f3fa15acd9d11f35ebd1ced370fa07658e63d3b51da3b1d",
-      "line": 122,
-      "quote": "| EBITDA before impairment, filing basis (operating income plus D&A plus impairment) | 696 | n/a | n/a | n/a | n/a | n/a | 833 | Calculated from filed lines; no add-backs other than impairment |"
+      "line": 107,
+      "quote": "| Normalized EBITDA (management) | 882 | 135 | 406 | 248 | 789 | 641 | 1,030 | Management non-GAAP, release reconciliation |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-nwl/deliveries/f2490fcec130cf6981a2dfd927335966d861856ac335f92e8254790c53bbe7df/CP-1.md",

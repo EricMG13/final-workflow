@@ -50,7 +50,13 @@
         "basis": "Cash. Cash and cash equivalents (Q3 10-Q page:2). Commitment 1,200.0 after the September 30, 2026 First Amendment (Q3 10-Q page:16) less 456.0 drawn (Q3 10-Q page:17). Excludes escrow 33.740. Company-reported liquidity 863.8 equals cash 86.086 plus escrow 33.740 plus 744.0 (Q3 10-Q page:52). Letters of credit of 42.3 are issued under unspecified facilities (Q3 10-Q page:26); if all sat under the revolver, undrawn capacity would be 701.7. Mortgage repurchase and construction loan headroom is excluded (see Liquidity and covenants).",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "153.081",
+        "unit": "US$m",
+        "period": "FY2025",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -102,6 +108,12 @@
       "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
       "line": 98,
       "quote": "| EBITDA, company-defined (US$m) | 521.899 | 284.630 | 208.746 | 160.168 | 236.052 | 10-K page:91; Q3 10-Q page:65. LTM derived. Non-GAAP. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 101,
+      "quote": "| Net cash from operating activities (US$m) | 125.695 | 153.081 | (57.654) | (267.475) | (56.740) | 10-K page:108; Q3 10-Q page:3. LTM derived. |"
     }
   },
   "checklist": null

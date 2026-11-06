@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1315474",
+        "unit": "thousands of USD",
+        "period": "FY2025",
+        "basis": "Adjusted EBITDA (issuer non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.78",
         "unit": "x",
@@ -90,6 +96,12 @@
       "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
       "line": 211,
       "quote": "| Total revenues | 1,114,524 | 1,201,837 | 287,688 | 372,174 | 557,307 | 686,707 | Same |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-1.md",
+      "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+      "line": 225,
+      "quote": "| Adjusted EBITDA (issuer non-GAAP) | 1,137,552 | 1,315,474 | Not printed: last twelve months only | 1,358,913 for the last twelve months to Jun 30, 2026 | Not printed: last twelve months only | Not printed: last twelve months only | Last twelve months to Jun 30, 2025 was 1,240,092 (Q2 10-Q page:25) |"
     }
   },
   "checklist": null

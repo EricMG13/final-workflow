@@ -22,7 +22,13 @@
         "basis": "Revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "962",
+        "unit": "US$m",
+        "period": "LTM to Sep 30, 2026",
+        "basis": "Total EBITDA, as reported, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "7.93",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
       "line": 102,
       "quote": "| Revenues | 18610 | 14297 | 15760 | 20073 | LTM = 18,610 + 15,760 - 14,297. 10-K page:109; 10-Q Q3 page:4. Q3 2026 alone: 5,612 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 106,
+      "quote": "| Total EBITDA, as reported | -180 | -163 | 979 | 962 | Issuer reconciliation, 10-K page:93; 10-Q Q3 page:47. LTM = -180 + 979 - (-163) |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",

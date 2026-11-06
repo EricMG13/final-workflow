@@ -22,7 +22,13 @@
         "basis": "Revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "280586",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (issuer non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "1.27",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
       "line": 95,
       "quote": "| Revenue | 668,170 | 713,953 | 508,597 | 561,390 | 766,746 | 10K p120; Q3Q p3; LTM derived |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 101,
+      "quote": "| Adjusted EBITDA (issuer non-GAAP) | 196,850 | 232,131 | 148,362 | 196,817 | 280,586 | 10K p100; ER3 p13; LTM derived |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",

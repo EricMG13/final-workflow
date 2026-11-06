@@ -15,8 +15,20 @@
     "summary": "BioMarin is a profitable, cash-generative rare-disease company that took on USD 4,235 million of debt for Amicus. Liquidity is adequate, but leverage on filed earnings is high and the true run-rate is unproven. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is BIOMARIN PHARMACEUTICAL INC.",
     "handoff": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "3655127",
+        "unit": "Thousands of USD",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "378821",
+        "unit": "Thousands of USD",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA, derived: income from operations plus D&A, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "11.18",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Cash 736,007 thousand (Q3 10-Q page:8), no investments held (page:45). Undrawn 600.0 million of the 2026 Revolving Facility, matures April 2031 (page:25, page:48), subject to compliance with the credit agreement. Total 1,336.0 million. No letters of credit drawn on the revolver are stated; the 10-K notes standby letters of credit secured by restricted investments, amount not supplied (10-K page:202)",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "676618",
+        "unit": "Thousands of USD",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
       "line": 80,
       "quote": "| Q3 2026 | 736.0 | 600.0 | US$m | Cash 736,007 thousand (Q3 10-Q page:8), no investments held (page:45). Undrawn 600.0 million of the 2026 Revolving Facility, matures April 2031 (page:25, page:48), subject to compliance with the credit agreement. Total 1,336.0 million. No letters of credit drawn on the revolver are stated; the 10-K notes standby letters of credit secured by restricted investments, amount not supplied (10-K page:202) |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 102,
+      "quote": "| Total revenues | 3,221,253 | 2,346,688 | 2,780,562 | 3,655,127 | 776,133 | 1,024,646 | 10-K page:181; Q3 10-Q page:8; LTM derived |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 110,
+      "quote": "| EBITDA, derived: income from operations plus D&A | 489,035 | 513,207 | 402,993 | 378,821 | (28,205) | 48,384 | Analyst-derived; the company reports no EBITDA. After impairments and acquired IPR&D |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 113,
+      "quote": "| Net cash provided by operating activities | 827,994 | 728,350 | 576,974 | 676,618 | Not supplied: year-to-date statement only | Not supplied: year-to-date statement only | 10-K page:184; Q3 10-Q page:10 |"
     }
   },
   "checklist": null

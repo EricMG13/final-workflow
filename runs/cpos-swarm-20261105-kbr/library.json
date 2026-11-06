@@ -22,7 +22,13 @@
         "basis": "Revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "968",
+        "unit": "US$ millions",
+        "period": "FY2025",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.52",
         "unit": "x",
@@ -44,7 +50,13 @@
         "basis": "Cash. Cash of continuing operations; includes 67 of joint venture and Aspire Defence project cash. Revolver commitment 1,000 less 375 drawn less 18 of letters of credit on the facility, see C5. The release states 625 (no deduction for letters of credit). Bilateral and uncommitted letter of credit lines excluded.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "557",
+        "unit": "US$ millions",
+        "period": "FY2025",
+        "basis": "Operating cash flows, continuing operations, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -90,6 +102,18 @@
       "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
       "line": 100,
       "quote": "| Revenues | 2,028 | 1,931 | 5,935 | 5,901 | 7,786 | 7,710 | [10-Q_2026-10-02_kbr-20261002.htm.jsonl, page:3] [10-K_2026-01-02_kbr-20260102.htm.jsonl, page:113] |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 111,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 268 | 240 | 777 | 730 | 968 | Not supplied: no adjusted EBITDA for fiscal 2024 in the pack | [EX-99.1_2026-10-29_q326kbr-exhibit991x10022026.htm.jsonl, page:14] [EX-99.1_2026-10-29_q326kbr-exhibit991x10022026.htm.jsonl, page:2]; fiscal 2025 is the TTM figure at Jan 2, 2026 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 114,
+      "quote": "| Operating cash flows, continuing operations | 171 | 198 | 331 | 506 | 557 | 450 | [EX-99.1_2026-10-29_q326kbr-exhibit991x10022026.htm.jsonl, page:2] [10-Q_2026-10-02_kbr-20261002.htm.jsonl, page:6] [10-K_2026-01-02_kbr-20260102.htm.jsonl, page:115] |"
     }
   },
   "checklist": null

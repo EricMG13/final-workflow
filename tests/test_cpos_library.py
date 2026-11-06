@@ -240,13 +240,16 @@ def test_display_names(registrant, funds, expected, how):
     ("label", "rank"),
     [
         ("FY2026", (2026, 12, 0)),
-        ("Q2 FY2027 (September 30, 2026)", (2027, 6, 0)),
+        ("Q2 FY2027 (September 30, 2026)", (2026, 9, 0)),
+        ("Q2 FY2027", (2027, 6, 0)),
+        ("FY2026 (year to Mar 31, 2026)", (2026, 3, 0)),
+        ("TTM to Sep 30, 2026 (calculated)", (2026, 9, 1)),
         ("LTM Q3 2026", (2026, 9, 1)),
         ("Q1 2026 (March 31, 2026)", (2026, 3, 0)),
         ("LTM to 2026-09-30", (2026, 9, 1)),
         ("FY2025 (31 Dec 2025)", (2025, 12, 0)),
         ("Nine months 2026", (2026, 9, 0)),
-        ("LTM Q2 2027 (53 weeks to Aug 1, 2026)", (2027, 6, 1)),
+        ("LTM Q2 2027 (53 weeks to Aug 1, 2026)", (2026, 8, 1)),
     ],
 )
 def test_period_rank(label, rank):
@@ -289,3 +292,129 @@ def test_retained_swarm_manifest_matches_its_files():
         or manifest["run"]["name"] == "Advance Auto Parts Inc"
     )
     assert manifest["run"]["metrics"]["leverage"]["value"] == "6.67"
+
+
+def test_unit_comes_from_a_note_column_or_the_line_above_the_table(tmp_path):
+    run = make_run(tmp_path)
+    cp1 = next(run.glob("deliveries/*/CP-1.md"))
+    head = CP1.split("### Financials and credit metrics")[0]
+    noted = head + (
+        "### Financials and credit metrics\n\n"
+        "| Metric | FY2025 | 9M 2026 | Basis, unit and locator |\n| --- | --- | --- | --- |\n"
+        "| Net sales | 3,010 | 4,506 | US$m, reported; S1 page:80 |\n"
+        "| Depreciation and amortization (EBITDA basis) | 88 | 70 | US$m |\n"
+        "| Adjusted EBITDA, company-defined | 1,130 | 1,166 | US$m, non-GAAP as reported |\n"
+    )
+    cp1.write_text(noted, encoding="utf-8")
+    metrics = lib.build_manifest(run, {})["run"]["metrics"]
+    assert (metrics["revenue"]["value"], metrics["revenue"]["unit"]) == ("3010", "US$m")
+    # The depreciation row names EBITDA only in a note: the EBITDA row is the one taken.
+    assert metrics["ebitda"]["value"] == "1130"
+    preamble = head + (
+        "### Financials and credit metrics\n\nAmounts in USD thousands unless the row says x.\n\n"
+        "| Line | Period | Amount | Unit | Type |\n| --- | --- | --- | --- | --- |\n"
+        "| Revenues, net | FY2025 | 2,311,801 | USD thousands | Reported |\n"
+        "| Revenues, net | LTM Jun 2026 | 2,246,166 | USD thousands | Calculated |\n"
+        "| Revenues, net | Q2 2026 | 547,495 | USD thousands | Reported |\n"
+    )
+    cp1.write_text(preamble, encoding="utf-8")
+    revenue = lib.build_manifest(run, {})["run"]["metrics"]["revenue"]
+    assert (revenue["value"], revenue["period"]) == ("2246166", "LTM Jun 2026")
+
+
+@pytest.mark.parametrize(
+    ("label", "is_ebitda"),
+    [
+        ("Adjusted EBITDA (management, non-GAAP)", True),
+        ("EBITDA, derived: pretax income + interest expense + D&A (USD thousands)", True),
+        ("EBITDA excluding operating special items", True),
+        ("Trailing Adjusted EBITDA", True),
+        ("Depreciation and amortization (EBITDA reconciliation basis)", False),
+        ("Nitrogen Fertilizer segment EBITDA (equals its Adjusted EBITDA)", False),
+        ("EBITDA adjustments", False),
+        ("Adjusted EBITDA margin", False),
+        ("Total debt / EBITDA (x)", False),
+        ("Adjusted EBITDAR", False),
+    ],
+)
+def test_ebitda_is_the_head_noun(label, is_ebitda):
+    assert lib._is_metric(label, lib.EBITDA) is is_ebitda
+
+
+def gate_run(tmp_path, report_view_edit=None):
+    """A run with a report view whose chart and section states the gate reads."""
+    run = make_run(tmp_path)
+    routes = [
+        {"kind": "chart", "figure_id": "S.1", "value_columns": ["Total debt / EBITDA"]},
+        {"kind": "prose", "figure_id": None, "value_columns": []},
+    ]
+    (run / "workflow.json").write_text(
+        json.dumps({"layout": {"blocks": ["key-findings", "model-chart-strip"], "routes": routes}})
+    )
+    cell = {"state": "known", "text": "6.67x"}
+    figure = {
+        "fig_id": "S.1",
+        "chart": {
+            "table_twin": {"rows": [{"label": "Total debt / EBITDA · LTM", "cells": [cell]}]}
+        },
+    }
+    view = {
+        "blocks": [
+            {"block_id": "key-findings", "state": "populated", "figures": []},
+            {"block_id": "model-chart-strip", "state": "populated", "figures": [figure]},
+        ]
+    }
+    if report_view_edit:
+        report_view_edit(view)
+    (next(run.glob("deliveries/*")) / "report-view.json").write_text(json.dumps(view))
+    return run
+
+
+def test_sections_and_charts_pass_when_every_series_is_plotted(tmp_path):
+    assert lib._sections_and_charts(gate_run(tmp_path)) == []
+
+
+def test_a_chart_series_of_not_supplied_cells_fails(tmp_path):
+    def empty(view):
+        rows = view["blocks"][1]["figures"][0]["chart"]["table_twin"]["rows"]
+        rows[0]["cells"] = [{"state": "known", "text": "Not supplied: reported in CAD millions"}]
+
+    assert lib._sections_and_charts(gate_run(tmp_path, empty)) == [
+        "chart S.1 has no value for Total debt / EBITDA"
+    ]
+
+
+def test_an_unpopulated_section_or_undrawn_chart_fails(tmp_path):
+    def gaps(view):
+        view["blocks"][0]["state"] = "empty"
+        view["blocks"][1]["figures"] = []
+
+    assert lib._sections_and_charts(gate_run(tmp_path, gaps)) == [
+        "section key-findings is not populated",
+        "chart S.1 is not drawn",
+    ]
+
+
+@pytest.mark.skipif(
+    not (ROOT / "runs/cpos-swarm-20261105-aap/workflow.json").is_file(),
+    reason="retained run absent",
+)
+def test_a_retained_swarm_run_passes_the_whole_gate():
+    assert lib.gate(ROOT / "runs/cpos-swarm-20261105-aap", {}) == []
+
+
+def test_changed_instructions_are_not_the_current_method(tmp_path):
+    source = ROOT / "runs/cpos-swarm-20261105-aap"
+    if not (source / "workflow.json").is_file():
+        pytest.skip("retained run absent")
+    run = tmp_path / "runs" / source.name
+    (run / "inputs").mkdir(parents=True)
+    for name in ("workflow.json", "identity.json"):
+        (run / name).write_bytes((source / name).read_bytes())
+    context = lib._context_file(source)
+    (run / "inputs" / context.name).write_bytes(context.read_bytes())
+    assert lib._current_method(run) == []
+    manifest = json.loads((run / "workflow.json").read_text())
+    manifest["instructions"]["CP-2"]["sha256"] = "0" * 64
+    (run / "workflow.json").write_text(json.dumps(manifest))
+    assert lib._current_method(run) == ["CP-2 instructions are not the current launcher's"]

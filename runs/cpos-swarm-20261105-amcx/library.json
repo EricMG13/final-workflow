@@ -15,7 +15,13 @@
     "summary": "A refinanced but weakening credit: no debt matures before February 2029, yet earnings fell and the revolver is gone. Free cash flow and cash of USD 464.0 million support it; falling earnings and unseen indenture terms are the risks. Launched through CP-OS as of 2026-11-05 on the retained context.",
     "handoff": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-2.md",
     "metrics": {
-      "revenue": null,
+      "revenue": {
+        "value": "2246166",
+        "unit": "USD thousands",
+        "period": "LTM Jun 2026",
+        "basis": "Revenues, net, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
       "ebitda": null,
       "leverage": {
         "value": "5.54",
@@ -38,7 +44,13 @@
         "basis": "Cash. Cash from 10-Q Q2-26 page:2. The revolving credit facility was terminated on May 12, 2026 (10-Q Q2-26 page:17), so no committed facility remains in the sources. Cash includes about $136.5 million held by foreign subsidiaries (page:55). An unused receivables sale program with a $125.0 million limit (page:10) is excluded because it is not a committed facility.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "218733",
+        "unit": "USD thousands",
+        "period": "LTM Jun 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +90,18 @@
       "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
       "line": 77,
       "quote": "| 30 Jun 2026 | 463.996 | 0 | US$m | Cash from 10-Q Q2-26 page:2. The revolving credit facility was terminated on May 12, 2026 (10-Q Q2-26 page:17), so no committed facility remains in the sources. Cash includes about $136.5 million held by foreign subsidiaries (page:55). An unused receivables sale program with a $125.0 million limit (page:10) is excluded because it is not a committed facility. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-1.md",
+      "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+      "line": 102,
+      "quote": "| Revenues, net | LTM Jun 2026 | 2,246,166 | USD thousands | Calculated (C1) | FY2025 plus 6M 2026 less 6M 2025 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-1.md",
+      "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+      "line": 143,
+      "quote": "| Net cash provided by operating activities | LTM Jun 2026 | 218,733 | USD thousands | Calculated (C5) | FY2025 plus 6M 2026 less 6M 2025 |"
     }
   },
   "checklist": null

@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1462.6",
+        "unit": "USD million",
+        "period": "FY2026",
+        "basis": "Derived EBITDA, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "4.58",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
       "line": 209,
       "quote": "| Total revenues | 4,519.6 | 4,640.3 | 4,625.8 | Reported; LTM is FY2026 plus Q1 FY2027 less Q1 FY2026 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 212,
+      "quote": "| Derived EBITDA | 1,263.3 | 1,462.6 | 1,435.6 | Operating income plus the two lines above; unadjusted |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",

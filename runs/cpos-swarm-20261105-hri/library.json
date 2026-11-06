@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1497",
+        "unit": "US$m",
+        "period": "FY2025",
+        "basis": "LTM EBITDA, company definition (calc), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "4.18",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "982751b43cef12b7437607efcd2722a7ad468d9bc685241e3ca706c4d9f9ca7b",
       "line": 103,
       "quote": "| Total revenues | 4,376 | 1,139 | 1,204 | 1,364 | 3,707 | 3,167 | Statements of operations: 10-K page:78-79; Q1 10-Q page:4; Q2 10-Q page:4; Q3 10-Q page:4 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-hri/deliveries/f686dd35d71e9a50fee2f271dabd26138942319182b064949b0df78c169fdb33/CP-1.md",
+      "sha256": "982751b43cef12b7437607efcd2722a7ad468d9bc685241e3ca706c4d9f9ca7b",
+      "line": 117,
+      "quote": "| LTM EBITDA, company definition (calc) | 1,497 | 1,658 | 1,845 | 1,932 | Not applicable | Not applicable | Period-end LTM at each column date; see Calculations |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-hri/deliveries/f686dd35d71e9a50fee2f271dabd26138942319182b064949b0df78c169fdb33/CP-1.md",

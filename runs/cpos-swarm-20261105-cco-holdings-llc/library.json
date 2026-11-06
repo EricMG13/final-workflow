@@ -22,7 +22,13 @@
         "basis": "Revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "22251",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "4.22",
         "unit": "x",
@@ -44,7 +50,13 @@
         "basis": "Cash. Cash at June 30, 2026 (restricted cash 90 excluded). Availability \"approximately $3.7 billion\" (10-Q Jun 2026 page:11, page:27). Facility split and letters of credit at this date not printed. The equipment installment plan facility (capacity 2.0 billion, carrying 1,596) is not counted. A revolver tranche of about 960 matures August 31, 2027, within twelve months of the as-of date.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "16757",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "Net cash flows from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -90,6 +102,18 @@
       "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
       "line": 95,
       "quote": "| Revenues | 55,085 | 54,774 | 13,766 | 13,526 | 27,501 | 27,123 | 54,396 | Reported (10-K page:141; 10-Q Jun 2026 page:5). LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 97,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 22,476 | 22,611 | 5,668 | 5,428 | 11,406 | 11,046 | 22,251 | Reported reconciliation (10-K page:91; 10-Q Jun 2026 page:26). LTM calculated. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 104,
+      "quote": "| Net cash flows from operating activities | 15,882 | 16,865 | 4,184 | 4,016 | 8,475 | 8,367 | 16,757 | Reported (10-K page:141-142; 10-Q Jun 2026 page:6-7, page:26). LTM calculated. |"
     }
   },
   "checklist": null

@@ -10,54 +10,53 @@ entries below retain their historical case scope.
 
 ## 2026-11-06 — Populating the Issuer Library from SECData
 
-Scope: the 127 host-session run folders of draft PRs #5, #11 and #13 landed on one branch, given
+Scope: the host-session runs of draft PRs #5, #11 and #13, landed on one branch, gated, given
 `library.json` manifests and read by the real server. No provider call. No retained run file was
-edited: the manifests are new files beside the runs. SECData holds no deliverables, only filing packs,
-run contexts and a manifest; its restored packs (`claude/restore-filing-packs`, `5120db9`) matched all
-827 converted source files of the 119 swarm runs by SHA-256 of file bytes in the earlier feasibility
-check.
+edited: manifests are new files beside the runs, and runs that fail the gate are left out of this
+branch, unchanged on their own PR commits (#5 `b4692c6`, #11 `6317d47`, #13 `62d7752`). Links to
+them in the entries below resolve there. SECData's restored packs (`claude/restore-filing-packs`,
+`5120db9`) matched all 827 converted source files of the 119 swarm runs by SHA-256 of file bytes.
 
-- **Landed:** `claude/host-session-pilot`, `claude/sonnet-swarm-pilot` and `claude/swarm-run-20261105`
-  merged in that order onto `main` `a313b50`. Three conflicts: the launcher keeps main's Copilot checks
-  under `--live`, where the host config (no provider) never looks up a key; the launcher test file and
-  this record keep both sides. `tests/test_cpos_launch.py`, `test_cpos_app.py`, `test_cpos_handoffs.py`:
-  177 passed, 1 deselected (paid). `go vet` and `go test ./...` with Go 1.26.0: pass. The run folders
-  total 2.0 GB on disk, 1.25 GB of it from #13; whether they stay in git is an open owner decision.
-- **Backfill:** `deploy_workflow.cpos_library` wrote 127 manifests (119 swarm, 3 host pilots, 5 Sonnet
-  pilots). Identity, sector and dates are pinned to the SECData context kept byte for byte under each
-  run's `inputs/` (the pilots' `context.json`), so every source lies inside the run folder and a
-  workspace holding only `runs/` admits them. Of the 119 swarm runs: 118 carry a sector, 109 leverage,
-  103 cover, 111 cash, 66 revenue, 31 EBITDA, 56 operating cash flow. Every null is a `Not supplied`
-  cell (CAD or thousands reporters, banks and REITs without EBITDA), a bracketed negative, a
-  quarter-only ratio or a table without an explicit unit. `TestCurrentRetainedWorkspace` admits all
-  127 (only the three known model-only issues). `--check` regenerates all 127 byte-identical with
-  `--secdata`; without it 8 names fall back from the funds' spelling to recasing.
-- **Names:** 51 runs carry all-capital EDGAR names. 12 take the funds' spelling from `corpus.json`
-  where it is the same name word for word (`American Airlines, Inc.`, `Columbus McKinnon Corporation`,
-  `JetBlue Airways Corporation`; `Gray Television, Inc.` was refused for `GRAY MEDIA, INC`), 39 are
-  recased word by word (`DXP Enterprises Inc`, `Genesis Energy LP`; imperfect: `Transalta`, `Davita`,
-  `Biomarin`). The registrant spelling stays in the pinned context line and in the summary. The engine
-  store now groups by an admitted manifest's name ahead of `workflow.json`, so American Airlines is one
-  issuer with two runs; the library shows 142 issuers, 171 runs, 145 reports (143 issuers before).
-- **Server, this Linux host, headless Chromium 1440×1000:** home screen in 4.6 s; `/api/workspace`
-  26 MB in 6.8 s (store parse on every page load, unchanged); search `Advance Auto` gives 1 issuer,
-  1 run, 1 report; sector `Real Estate Investment Trusts` gives 5 issuers, 6 runs, 5 reports with its
-  chip; the aap Overview shows the CP-2 credit view and the leverage, cover and liquidity series; its
-  report renders in the sandbox (`ADVANCE AUTO PARTS INC — Credit Snapshot`, five handoffs byte-identical).
-  No console errors. Tests: `tests/test_cpos_library.py` 28 passed; `tests/test_issuer_library_store.py`
-  24 passed, 1 failed (the `chmod 0` test that fails as root, also on `main`).
-- **Review before relying on it:** unchanged from the pilots. Each CP-5 is a self-review; the five-issuer
-  pilot's reviewers found major defects in four of five; 17 of 118 CP-5 self-reviews are Low confidence;
-  47 of 118 CP-2 handoffs state `Not calculable` for some figure. Every manifest's first gap says so.
-- **Confidence review of the backfill:** doubts traced and tested: the library's line numbering (split on
-  newline after CRLF normalisation, matched), its numeric-token match (a value is taken only from the
-  quoted line, bracketed negatives are null), period ranking (ISO dates, month names, quarters, halves,
-  nine-month and FY labels; `Q2 FY2027` ranks as that quarter; guidance, pro forma and annualised rows are
-  excluded; a quarter-labelled ratio needs LTM in its label or basis), the long table format, a run
-  stopped before delivery, and a context that names another issuer than `identity.json` (refused).
-  Rewrite rounds kept the simplest form of `period_rank` and `table_metric` that passed these.
-- Not verified: Windows, the Node DOM suites (no jsdom on this host), `validate.py` as a whole, the
-  Playwright browser gate, independent review of any run's content, the 1.25 GB in git question.
+- **Landed:** the three branches merged in that order onto `main` `a313b50`. The launcher keeps
+  main's Copilot checks under `--live`, where the host config (no provider) never looks up a key; the
+  launcher test file and this record keep both sides.
+- **Gate (user's rule: include runs that match the latest methodology and populate all required
+  fields, charts and visualisations):** `deploy_workflow.cpos_library --gate`. A run passes when its
+  instructions and layout are byte-identical to what the current launcher writes for it, its report
+  is published and hash-checked, every layout section is populated, every chart (S.1 leverage, S.2
+  cover, S.3 liquidity, S.4 maturities) has a plotted value in every series, and its manifest has
+  every field the library shows. 101 of 127 pass. Left out:
+  - 8 pilots (`cpos-launch-host-*`, `cpos-launch-swarm-*-001`): instructions predate the current ones.
+  - `cpos-swarm-20261105-svc`: stopped before publication; its repair `-svc-002` passes.
+  - 6 issuers reporting in Canadian dollars or thousands (ats, bte, gfl, pds, tac, tu): the chart
+    routes are fixed at US$m, so the method writes `Not supplied: reported in <unit>` and S.3/S.4 draw
+    nothing. They cannot pass without a change to the chart routes.
+  - 8 without EBITDA (fsk, ritm, stwd, syf, trtx, ubs, gmab, ske): S.1 and S.2 draw nothing; fsk
+    also has no sector in its SECData context.
+  - 3 with one empty series (alks: cover and undrawn facilities; amc: undrawn facilities; q: cover).
+- **Not required of these runs:** the full Credit Snapshot has 12 sections and the HTML Model. The
+  `minimum` set fills 7; the other five and the Model need CP-4, CP-3, CP-6, CP-8 and CP-MODEL, and the
+  launcher publishes no Model. S.5 (revenue and EBITDA history) is in no launcher layout.
+- **Manifests:** identity, sector and dates pinned to the SECData context kept under each run's
+  `inputs/`. Leverage, cover and cash from the chart tables; revenue, EBITDA and operating cash flow
+  from the financials table where the row, a whole period and its unit (Unit column, label, a note
+  column that opens with it, header, or the line above the table) are explicit; else null. Of 101:
+  revenue 78, EBITDA 78, leverage 100, cover 99, cash 101, operating cash flow 78. Names: 56 as in
+  the context, 11 from the funds' spelling, 34 recased. `--check` regenerates all 101 byte-identical.
+- **Server, this Linux host, headless Chromium 1440×1000:** every included run has five modules with
+  a reader summary and four charts parsed for its Overview, no parse issue; library 123 issuers,
+  145 runs, 120 reports; home in 3.8 s; `/api/workspace` 22 MB in 2.9 s; search and the sector filter
+  work; the aap report renders in the sandbox. No console errors. Go `vet` and `test ./...` pass;
+  `TestCurrentRetainedWorkspace` admits all 101. Python: `test_cpos_library.py` 47 passed; launcher,
+  app, handoffs and store 248 passed, 1 failed (the `chmod 0` test that fails as root, also on main).
+- **Confidence review:** the first reader read a depreciation row noted "EBITDA basis" as EBITDA, ranked
+  a March fiscal year above a later trailing-twelve-month column, and dropped valid EBITDA rows on
+  "interest", "bridge" and "adjustments". Fixed: EBITDA must be the head noun, an explicit date
+  outranks a fiscal-year name, and a table unit is read from the line above only when it says
+  amounts, unless or figures are. Each has a test; a changed instruction hash fails the gate (tested).
+- **Still open:** no independent review of any run's content; every manifest's first gap says so.
+  Not verified: Windows, the Node DOM suites (no jsdom here), `validate.py` as a whole, the Playwright
+  gate. The included run folders are 976 MB in git.
 
 ## 2026-11-06 — GitHub Copilot SDK adapter
 

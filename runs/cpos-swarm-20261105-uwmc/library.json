@@ -22,7 +22,13 @@
         "basis": "Total revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "790638",
+        "unit": "US$ thousands",
+        "period": "LTM Q2 2026",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "7.64",
         "unit": "x",
@@ -90,6 +96,12 @@
       "sha256": "e7bf0105a6381159660f32f084ad2d84b72887c85873222b32d56f78e390c03a",
       "line": 97,
       "quote": "| Total revenue | 3,160,569 | 901,427 | 888,003 | 1,789,430 | 1,372,070 | 3,577,929 | Reported. LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-uwmc/deliveries/fc795f533ef35fb9d276f6f222da2b83bac9b39b16a8eeca5ad341ffcbed805b/CP-1.md",
+      "sha256": "e7bf0105a6381159660f32f084ad2d84b72887c85873222b32d56f78e390c03a",
+      "line": 107,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 697,336 | 160,909 | 185,879 | 346,787 | 253,485 | 790,638 | Reported (10-K `page:90`; Q1 release `page:5`; Q2 release `page:5`; Q2 10-Q `page:38`). LTM calculated; the sum of the last four quarters is 790,639 (rounding of 1). |"
     }
   },
   "checklist": null

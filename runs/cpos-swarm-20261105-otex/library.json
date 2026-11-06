@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1903162",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Adjusted EBITDA (issuer-defined), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.07",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
       "line": 102,
       "quote": "| Total revenues | 5,769,577 | 5,168,405 | 5,246,401 | 1,288,135 | 1,236,634 | 5,194,900 | Reported; 10-K page:234, 10-Q-Sep26 page:3; LTM calculated |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 106,
+      "quote": "| Adjusted EBITDA (issuer-defined) | 1,970,200 | 1,784,465 | 1,903,162 | 467,411 | 442,432 | 1,878,183 | Reconciliation; 10-K page:136, 139, 142, 10-Q-Sep26 page:76, 78; LTM calculated |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",

@@ -15,8 +15,20 @@
     "summary": "AdaptHealth is a sizeable home-care provider with adequate liquidity and no debt maturity before 2029 beyond amortization, but earnings and free cash flow are weakening while debt rises, so the credit view is cautious. Launched through CP-OS as of 2026-11-05 on the retained context.",
     "handoff": "runs/cpos-swarm-20261105-ahco/deliveries/9ea042c68cf2175f9591dd03d01affffe6e2463da23f0a6f54a8b952a07f678a/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "3244857",
+        "unit": "USD thousands",
+        "period": "FY2025 or 2025-12-31 (pre-recast)",
+        "basis": "Net revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "616681",
+        "unit": "USD thousands",
+        "period": "FY2025 or 2025-12-31 (pre-recast)",
+        "basis": "Adjusted EBITDA, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.84",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Cash 80,687 thousand. Undrawn: 2026 Revolver commitments of 450.0 million less 147.0 million drawn and 34.3 million of letters of credit (Q3 10-Q page:40, page:42). The delayed-draw term loan is fully drawn and adds nothing. 137.0 million was drawn at the filing date after a 10.0 million October repayment.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "601771",
+        "unit": "USD thousands",
+        "period": "FY2025 or 2025-12-31 (pre-recast)",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "eb5f0019938ce176755d2f69f670b8179c7f85ba4b8a39bd2045a031318087ae",
       "line": 74,
       "quote": "| 2026-09-30 | 80.7 | 268.7 | US$m | Cash 80,687 thousand. Undrawn: 2026 Revolver commitments of 450.0 million less 147.0 million drawn and 34.3 million of letters of credit (Q3 10-Q page:40, page:42). The delayed-draw term loan is fully drawn and adds nothing. 137.0 million was drawn at the filing date after a 10.0 million October repayment. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-ahco/deliveries/9ea042c68cf2175f9591dd03d01affffe6e2463da23f0a6f54a8b952a07f678a/CP-1.md",
+      "sha256": "eb5f0019938ce176755d2f69f670b8179c7f85ba4b8a39bd2045a031318087ae",
+      "line": 93,
+      "quote": "| Net revenue | 745,648 | 2,165,828 | 1,974,014 | 3,244,857 | FY2025 includes Diabetes Health |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-ahco/deliveries/9ea042c68cf2175f9591dd03d01affffe6e2463da23f0a6f54a8b952a07f678a/CP-1.md",
+      "sha256": "eb5f0019938ce176755d2f69f670b8179c7f85ba4b8a39bd2045a031318087ae",
+      "line": 94,
+      "quote": "| Adjusted EBITDA | 141,904 | 378,462 | 395,179 | 616,681 | Company definition; FY2025 includes Diabetes Health |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-ahco/deliveries/9ea042c68cf2175f9591dd03d01affffe6e2463da23f0a6f54a8b952a07f678a/CP-1.md",
+      "sha256": "eb5f0019938ce176755d2f69f670b8179c7f85ba4b8a39bd2045a031318087ae",
+      "line": 98,
+      "quote": "| Net cash provided by operating activities | 156,589 | 395,613 | 418,587 | 601,771 | Includes discontinued operations in the 2026 and nine-month 2025 columns |"
     }
   },
   "checklist": null

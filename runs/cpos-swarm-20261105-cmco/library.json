@@ -15,8 +15,20 @@
     "summary": "Columbus McKinnon is a heavily indebted but liquid industrial manufacturer early in digesting a transformational acquisition. Credit quality depends on realising synergies and turning earnings into cash to cut debt; investor control adds monitoring risk. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is COLUMBUS MCKINNON CORP.",
     "handoff": "runs/cpos-swarm-20261105-cmco/deliveries/69976128e334c326eb1eb7d9263de5f46441479ac36c0db85a3fb0c21c75a3df/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "1193451",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "181373",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Adjusted EBITDA (company, not pro forma), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "5.16",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Undrawn = revolver availability 421.080 (500.000 less borrowings 59.644 less letters of credit 19.276); no capacity under the AR securitization facility. Company-stated liquidity 531.980. Excludes unsecured uncommitted non-U.S. lines. Cash includes 108.440 held by foreign subsidiaries.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "45612",
+        "unit": "US$ thousands",
+        "period": "FY2025",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "3d6f25f7f5c1b392f697e8d6dcc1569738d2db8a58f6e4e178a43b50c0f7ddbc",
       "line": 80,
       "quote": "| September 30, 2026 | 110.900 | 421.080 | US$m | Undrawn = revolver availability 421.080 (500.000 less borrowings 59.644 less letters of credit 19.276); no capacity under the AR securitization facility. Company-stated liquidity 531.980. Excludes unsecured uncommitted non-U.S. lines. Cash includes 108.440 held by foreign subsidiaries. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cmco/deliveries/69976128e334c326eb1eb7d9263de5f46441479ac36c0db85a3fb0c21c75a3df/CP-1.md",
+      "sha256": "3d6f25f7f5c1b392f697e8d6dcc1569738d2db8a58f6e4e178a43b50c0f7ddbc",
+      "line": 98,
+      "quote": "| Net sales | 963,027 | 1,193,451 | 496,967 | 1,070,746 | 539,285 | 10-K p:75; 10-Q Sep26 p:5 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cmco/deliveries/69976128e334c326eb1eb7d9263de5f46441479ac36c0db85a3fb0c21c75a3df/CP-1.md",
+      "sha256": "3d6f25f7f5c1b392f697e8d6dcc1569738d2db8a58f6e4e178a43b50c0f7ddbc",
+      "line": 103,
+      "quote": "| Adjusted EBITDA (company, not pro forma) | 156,751 | 181,373 | 72,828 | 222,648 | 111,205 | EX Jun04 p:14; EX Nov03 p:13 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cmco/deliveries/69976128e334c326eb1eb7d9263de5f46441479ac36c0db85a3fb0c21c75a3df/CP-1.md",
+      "sha256": "3d6f25f7f5c1b392f697e8d6dcc1569738d2db8a58f6e4e178a43b50c0f7ddbc",
+      "line": 106,
+      "quote": "| Net cash from operating activities | 45,612 | (146,211) | 248 | 21,065 | (4,559) | 10-K p:77; 10-Q Sep26 p:7; EX Nov03 p:13 |"
     }
   },
   "checklist": null

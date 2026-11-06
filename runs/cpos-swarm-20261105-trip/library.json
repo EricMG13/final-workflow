@@ -22,7 +22,13 @@
         "basis": "Revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "207.3",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (management, non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "4.02",
         "unit": "x",
@@ -44,7 +50,13 @@
         "basis": "Cash. Continuing cash at September 30, 2026 (Q3 10-Q page:3) and printed available borrowing capacity of 497.7 (Q3 10-Q page:61). Deferred merchant payables owed to operators were 396.8; 219.4 of cash is held outside the U.S. The roughly 741.0 sale proceeds arrived November 1, 2026 and are excluded. Revolver matures June 29, 2028.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "27.4",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Operating cash flow, continuing, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -90,6 +102,18 @@
       "sha256": "52dc3cd3371b0b989b27c5d8c2038a957dbe47bc633b57645cba56bfe8b410a1",
       "line": 99,
       "quote": "| Revenue | 436.4 | 490.8 | 1,204.1 | 1,319.3 | 1,559.1 | 1,674.3 | US$m | Continuing. Q3 and 9M: Q3 10-Q page:2. FY2025 and Q4 2025 (355.0): Q3 PR page:14. LTM is Q4 2025 plus 9M 2026. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-trip/deliveries/907db681d5b96cfc4b7ff524eb6ec1a6ca440d422b29ac7dcbe7307fb93b0d6f/CP-1.md",
+      "sha256": "52dc3cd3371b0b989b27c5d8c2038a957dbe47bc633b57645cba56bfe8b410a1",
+      "line": 102,
+      "quote": "| Adjusted EBITDA (management, non-GAAP) | 71.1 | 107.8 | 163.9 | 251.3 | 207.3 | 294.7 | US$m | Continuing. Q3 10-Q page:47 and Q3 PR page:13 (quarterly series). Adds back stock-based compensation, restructuring, legal, transaction, impairment and non-recurring items. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-trip/deliveries/907db681d5b96cfc4b7ff524eb6ec1a6ca440d422b29ac7dcbe7307fb93b0d6f/CP-1.md",
+      "sha256": "52dc3cd3371b0b989b27c5d8c2038a957dbe47bc633b57645cba56bfe8b410a1",
+      "line": 113,
+      "quote": "| Operating cash flow, continuing | -122.0 | 32.9 | 130.4 | 337.5 | 27.4 | 234.7 | US$m | 9M columns Q3 10-Q page:6; Q3 and FY2025 Q3 PR page:14; Q4 2025 is -103.0. The 9M 2025 release quarters sum to 337.7, 0.2 above the 10-Q. |"
     }
   },
   "checklist": null

@@ -16,7 +16,13 @@
     "handoff": "runs/cpos-swarm-20261105-cco/deliveries/0767c901fd1abe0072ea16c360ce2928f2e105483ddb0205fd66ed7bdc0d38db/CP-2.md",
     "metrics": {
       "revenue": null,
-      "ebitda": null,
+      "ebitda": {
+        "value": "544.3",
+        "unit": "US$m",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Adjusted EBITDA, issuer non-GAAP, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "9.46",
         "unit": "x",
@@ -38,7 +44,13 @@
         "basis": "Cash. Cash of continuing operations (S4 page:2); 10.1 held in discontinued operations excluded (S4 page:10). Availability as printed in total (S4 page:33); the two facility figures of 93.0 and 112.4 sum to 205.4 and the filing attributes the difference to rounding (S4 page:34). The revolver letter of credit of 7.0 related to Spain and was cancelled on August 4, 2026 (S4 page:34)",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "160.4",
+        "unit": "US$m",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Net cash provided by operating activities, consolidated, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +90,18 @@
       "sha256": "fca9d4b8c375c5150877961d771a19c3bb05bdf148b7d27b2dc87fc69f48ca80",
       "line": 91,
       "quote": "| Jun 30, 2026 | 192.1 | 205.5 | US$m | Cash of continuing operations (S4 page:2); 10.1 held in discontinued operations excluded (S4 page:10). Availability as printed in total (S4 page:33); the two facility figures of 93.0 and 112.4 sum to 205.4 and the filing attributes the difference to rounding (S4 page:34). The revolver letter of credit of 7.0 related to Spain and was cancelled on August 4, 2026 (S4 page:34) |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cco/deliveries/0767c901fd1abe0072ea16c360ce2928f2e105483ddb0205fd66ed7bdc0d38db/CP-1.md",
+      "sha256": "fca9d4b8c375c5150877961d771a19c3bb05bdf148b7d27b2dc87fc69f48ca80",
+      "line": 110,
+      "quote": "| Adjusted EBITDA, issuer non-GAAP (US$m) | 544.3 | 504.8 | 475.8 | LTM calculated, C1; FY reported, S5 page:9; stated after site lease expense and before share-based compensation |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cco/deliveries/0767c901fd1abe0072ea16c360ce2928f2e105483ddb0205fd66ed7bdc0d38db/CP-1.md",
+      "sha256": "fca9d4b8c375c5150877961d771a19c3bb05bdf148b7d27b2dc87fc69f48ca80",
+      "line": 117,
+      "quote": "| Net cash provided by operating activities, consolidated (US$m) | 160.4 | 114.9 | 79.7 | LTM calculated, C1; FY reported, S1 page:80; includes discontinued operations |"
     }
   },
   "checklist": null

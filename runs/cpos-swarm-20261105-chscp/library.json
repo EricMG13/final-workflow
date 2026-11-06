@@ -22,7 +22,13 @@
         "basis": "Revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1969497",
+        "unit": "USD thousands",
+        "period": "FY2026",
+        "basis": "EBITDA, derived: pretax income + interest expense + D&A, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "1.27",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
       "line": 90,
       "quote": "| Revenues (USD thousands) | 39,231,217 | 35,462,608 | 39,261,229 | Reported, 10-K page:144 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 98,
+      "quote": "| EBITDA, derived: pretax income + interest expense + D&A (USD thousands) | 1,969,497 | 1,412,277 | 1,771,742 | Calculated, C1; not company-reported |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",

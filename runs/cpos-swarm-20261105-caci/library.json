@@ -22,12 +22,18 @@
         "basis": "Revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1173.914",
+        "unit": "US$m",
+        "period": "FY2026",
+        "basis": "Management EBITDA, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
-        "value": "4.20",
+        "value": "3.94",
         "unit": "x",
-        "period": "FY2026 (June 30, 2026)",
-        "basis": "Total debt / EBITDA. Principal debt 4,931.125 over management EBITDA 1,173.914; cash 191.756. EBITDA includes the acquired business only from March 9, 2026; debt includes its full financing; not pro forma.",
+        "period": "LTM September 30, 2026",
+        "basis": "Total debt / EBITDA. Principal debt 4,864.438 over LTM EBITDA 1,234.129 (FY2026 plus Q1 FY2027 less Q1 FY2026); cash 279.389. Same part-year acquisition contribution; not pro forma; not a covenant ratio.",
         "source": "cp1-leverage"
       },
       "coverage": {
@@ -76,8 +82,8 @@
     "cp1-leverage": {
       "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
       "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
-      "line": 58,
-      "quote": "| FY2026 (June 30, 2026) | 4.20 | 4.04 | x | Principal debt 4,931.125 over management EBITDA 1,173.914; cash 191.756. EBITDA includes the acquired business only from March 9, 2026; debt includes its full financing; not pro forma. |"
+      "line": 59,
+      "quote": "| LTM September 30, 2026 | 3.94 | 3.72 | x | Principal debt 4,864.438 over LTM EBITDA 1,234.129 (FY2026 plus Q1 FY2027 less Q1 FY2026); cash 279.389. Same part-year acquisition contribution; not pro forma; not a covenant ratio. |"
     },
     "cp1-coverage": {
       "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
@@ -96,6 +102,12 @@
       "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
       "line": 94,
       "quote": "| Revenues | 8,627.824 | 9,567.779 | 2,287.623 | 2,474.597 | 9,754.753 | US$m | Statements of operations: annual 10-K page:66; Q1 10-Q page:2. LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 96,
+      "quote": "| Management EBITDA | 966.796 | 1,173.914 | 268.613 | 328.828 | 1,234.129 | US$m | Releases: Q4 FY2026 page:12; Q1 FY2027 page:10. Net income plus taxes, net interest and D&A including depreciation in direct costs; not adjusted for stock compensation or deal costs. LTM calculated. |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",

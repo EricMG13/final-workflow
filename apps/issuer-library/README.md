@@ -149,7 +149,10 @@ Host-session runs (`cpos_launch --config host`) get their manifest afterwards fr
 identity, sector and dates pinned to the run's own retained context input, leverage, cover and
 cash from the CP-1 chart tables, revenue, EBITDA and operating cash flow from its financials
 table only where the unit and a whole period are explicit, and null otherwise. It never
-overwrites a manifest; `--check` reports one whose run folder has changed. An admitted
+overwrites a manifest; `--check` reports one whose run folder has changed. `--gate` decides
+which host runs belong in the library: instructions and layout byte-identical to the current
+launcher's, a published and hash-checked report, every layout section populated, every chart
+series with a plotted value, and every field the library shows. An admitted
 manifest's issuer name is the name the library groups by, ahead of the launcher's own
 `workflow.json` spelling, so an issuer's runs sit under one spelling.
 

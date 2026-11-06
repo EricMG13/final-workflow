@@ -15,8 +15,20 @@
     "summary": "ESCO is lightly levered today, with USD 85.0 million of borrowings and USD 515.536 million of liquidity at June 30, 2026, but the pending Megger acquisition will reset debt, covenants and ownership. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is ESCO TECHNOLOGIES INC.",
     "handoff": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "1290701",
+        "unit": "US$ thousands",
+        "period": "LTM June 30, 2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "305677",
+        "unit": "US$ thousands",
+        "period": "LTM June 30, 2026",
+        "basis": "EBITDA, reported basis, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "0.278",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. 500.0 less drawn 45.0 less letters of credit 12.7. Company states approximately 442. The 250.0 increase option needs lender consent and is excluded. The revolver matures August 30, 2028.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "305474",
+        "unit": "US$ thousands",
+        "period": "LTM June 30, 2026",
+        "basis": "Net cash from operations, continuing, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
       "line": 112,
       "quote": "| June 30, 2026 | 73.236 | 442.300 | US$m | 500.0 less drawn 45.0 less letters of credit 12.7. Company states approximately 442. The 250.0 increase option needs lender consent and is excluded. The revolver matures August 30, 2028. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 128,
+      "quote": "| Net sales | 919,127 | 1,095,388 | 742,714 | 938,027 | 1,290,701 | 10-K page:57; 10-Q Q3 page:2; LTM calc |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 137,
+      "quote": "| EBITDA, reported basis | 198,355 | 245,376 | 154,060 | 214,361 | 305,677 | calc; 9M ties to Release Q3 page:7 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 139,
+      "quote": "| Net cash from operations, continuing | 121,582 | 200,396 | 88,299 | 193,377 | 305,474 | 10-K page:59; 10-Q Q3 page:3; LTM calc |"
     }
   },
   "checklist": null

@@ -15,8 +15,20 @@
     "summary": "Elanco is a moderately leveraged, improving credit with adequate liquidity and no large maturity before 2028. Its weak point is leverage quality: 3.91x on total debt, add-backs of USD 236 million and claims outside the debt table. Launched through CP-OS as of 2026-11-05 on the retained context.",
     "handoff": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "5020",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "773",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "EBITDA, reported reconciliation, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.91",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Undrawn is about 750 revolver plus about 165 securitization capacity (Q2 10-Q page:36). Same borrowing base caveat. A significant part of cash is held outside the U.S. (page:36); the split is not supplied",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "617",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "Cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
       "line": 78,
       "quote": "| 2026-06-30 | 530 | 915 | US$m | Undrawn is about 750 revolver plus about 165 securitization capacity (Q2 10-Q page:36). Same borrowing base caveat. A significant part of cash is held outside the U.S. (page:36); the split is not supplied |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 97,
+      "quote": "| Revenue | 4,439 | 4,715 | 2,434 | 2,739 | 5,020 | Reported; 10-K page:92, Q2 10-Q page:6; LTM calculated |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 107,
+      "quote": "| EBITDA, reported reconciliation | 1,385 | 676 | 503 | 600 | 773 | Feb release page:18, Aug release page:14; LTM calculated |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 110,
+      "quote": "| Cash from operating activities | 541 | 560 | 233 | 290 | 617 | Reported cash flow; 10-K page:94; Q2 10-Q page:7; LTM calculated |"
     }
   },
   "checklist": null

@@ -16,7 +16,13 @@
     "handoff": "runs/cpos-swarm-20261105-dy/deliveries/84d9376a3aa815fee81bdfb858b3328a79d2a2f89581afa0e3907985570f00a4/CP-2.md",
     "metrics": {
       "revenue": null,
-      "ebitda": null,
+      "ebitda": {
+        "value": "906.9",
+        "unit": "US$ millions",
+        "period": "LTM Q2 2027 (53 weeks to Aug 1, 2026)",
+        "basis": "Reported EBITDA (net income plus interest, tax, D&A), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.96",
         "unit": "x",
@@ -84,6 +90,12 @@
       "sha256": "2e646964e839fbbfdb014df8aa772f6b2ce96e116e3987210169134e31b290b6",
       "line": 82,
       "quote": "| Q2 2027 (August 1, 2026) | 340.1 | 746.4 | US$m | Cash 340.080 (10-Q Q2 FY27 page:2). Availability 746.4 (10-Q Q2 FY27 page:21); the deck liquidity of 1,086.5 (Q2 deck page:4) equals the two amounts. The availability computation nets cash against funded debt and is not printed. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-dy/deliveries/84d9376a3aa815fee81bdfb858b3328a79d2a2f89581afa0e3907985570f00a4/CP-1.md",
+      "sha256": "2e646964e839fbbfdb014df8aa772f6b2ce96e116e3987210169134e31b290b6",
+      "line": 102,
+      "quote": "| Reported EBITDA (net income plus interest, tax, D&A) | 567.4 | 704.0 | 906.9 | Management reconciliation (10-K page:70; 10-Q Q2 FY27 page:44); LTM is 704.0 less 358.6 plus 561.5 |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-dy/deliveries/84d9376a3aa815fee81bdfb858b3328a79d2a2f89581afa0e3907985570f00a4/CP-1.md",

@@ -16,17 +16,17 @@
     "handoff": "runs/cpos-swarm-20261105-novelis-inc/deliveries/7088638a5ac68d93b4d435e4dd079ec1a7a4dc9bc3d64f71b65904a472ac16b5/CP-2.md",
     "metrics": {
       "revenue": {
-        "value": "18434",
+        "value": "20708",
         "unit": "USD millions",
-        "period": "FY2026 (year to Mar 31, 2026)",
+        "period": "TTM to Sep 30, 2026 (calculated)",
         "basis": "Net sales, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
       "ebitda": {
-        "value": "877",
+        "value": "1831",
         "unit": "USD millions",
-        "period": "FY2026 (year to Mar 31, 2026)",
-        "basis": "EBITDA before adjustments (company reconciliation), as the CP-1 table prints it.",
+        "period": "TTM to Sep 30, 2026 (calculated)",
+        "basis": "Adjusted EBITDA (management, non-GAAP), as the CP-1 table prints it.",
         "source": "cp1-ebitda"
       },
       "leverage": {
@@ -50,7 +50,13 @@
         "basis": "Cash. September 30, 2026 (Q2R page:61). Revolver availability was 606, with 128 of the revolver utilized for letters of credit and 147 of the availability usable for letters of credit (Q2R page:19). Uncommitted Citi and MUFG facilities are excluded because they are not committed.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "-1022",
+        "unit": "USD millions",
+        "period": "TTM to Sep 30, 2026 (calculated)",
+        "basis": "Net cash (used in) provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -100,8 +106,14 @@
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-novelis-inc/deliveries/7088638a5ac68d93b4d435e4dd079ec1a7a4dc9bc3d64f71b65904a472ac16b5/CP-1.md",
       "sha256": "ac0e30aff72597e230e57d534438bf73c91f6af508951774174683b88a68ca6b",
-      "line": 56,
-      "quote": "| EBITDA before adjustments (company reconciliation) | 1,669 | 877 | 795 | 976 | 1,058 | Reported: RQ4 page:9; RQ2 page:8 (TTM column as printed). |"
+      "line": 55,
+      "quote": "| Adjusted EBITDA (management, non-GAAP) | 1,802 | 1,645 | 838 | 1,024 | 1,831 | Reported: RQ4 page:9; RQ2 page:9 (TTM column as printed). |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-novelis-inc/deliveries/7088638a5ac68d93b4d435e4dd079ec1a7a4dc9bc3d64f71b65904a472ac16b5/CP-1.md",
+      "sha256": "ac0e30aff72597e230e57d534438bf73c91f6af508951774174683b88a68ca6b",
+      "line": 59,
+      "quote": "| Net cash (used in) provided by operating activities | 951 | -193 | 411 | -418 | -1022 | Reported: AR page:111; Q2R page:4. TTM calculated. |"
     }
   },
   "checklist": null

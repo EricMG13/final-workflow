@@ -30,10 +30,10 @@
         "source": "cp1-ebitda"
       },
       "leverage": {
-        "value": "2.29",
+        "value": "2.58",
         "unit": "x",
-        "period": "FY2026 (2026-06-30)",
-        "basis": "Total debt / EBITDA. Total debt is principal 3,257,482 thousand; net debt deducts cash 1,162,018 and short-term investments 825,000 thousand. Analyst EBITDA 1,419,756 thousand, which includes the 124,133 thousand gain on sale of business (excluding it, total debt to EBITDA would be 2.51x)",
+        "period": "LTM to 2026-09-30",
+        "basis": "Total debt / EBITDA. Total debt is principal 4,033,398 thousand; net debt deducts cash 1,552,929 and short-term investments 200,000 thousand. Analyst EBITDA 1,563,235 thousand for the last twelve months; restricted cash of 583 million excluded; the LTM EBITDA includes earnings of businesses sold on 2025-09-02 and 2026-01-30 until sale",
         "source": "cp1-leverage"
       },
       "coverage": {
@@ -82,8 +82,8 @@
     "cp1-leverage": {
       "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
       "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
-      "line": 191,
-      "quote": "| FY2026 (2026-06-30) | 2.29 | 0.89 | x | Total debt is principal 3,257,482 thousand; net debt deducts cash 1,162,018 and short-term investments 825,000 thousand. Analyst EBITDA 1,419,756 thousand, which includes the 124,133 thousand gain on sale of business (excluding it, total debt to EBITDA would be 2.51x) |"
+      "line": 192,
+      "quote": "| LTM to 2026-09-30 | 2.58 | 1.46 | x | Total debt is principal 4,033,398 thousand; net debt deducts cash 1,552,929 and short-term investments 200,000 thousand. Analyst EBITDA 1,563,235 thousand for the last twelve months; restricted cash of 583 million excluded; the LTM EBITDA includes earnings of businesses sold on 2025-09-02 and 2026-01-30 until sale |"
     },
     "cp1-coverage": {
       "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",

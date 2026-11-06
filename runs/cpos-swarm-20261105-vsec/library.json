@@ -15,8 +15,20 @@
     "summary": "VSE is a profitable but newly stretched aviation aftermarket credit: net debt is 3.04x trailing adjusted EBITDA after a large acquisition, liquidity is adequate, and the outcome hinges on integration and year-end cash flow. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is VSE CORP.",
     "handoff": "runs/cpos-swarm-20261105-vsec/deliveries/62a5668bb003903225cbd9acc6de85628768232cceea4992080af20ab98c9ea7/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "1112275",
+        "unit": "USD k",
+        "period": "FY2025",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "182924",
+        "unit": "USD k",
+        "period": "FY2025",
+        "basis": "Adjusted EBITDA (management), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.26",
         "unit": "x",
@@ -38,7 +50,13 @@
         "basis": "Cash. Cash (S4 page:4); unused commitments after USD 20.0 million drawn and USD 0.8 million letters of credit (S4 page:32). Revolver matures 2030-05-02.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "26990",
+        "unit": "USD k",
+        "period": "FY2025",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -78,6 +96,24 @@
       "sha256": "0ce2ba0d41587fd6984e42432ff1f87478ce6e2541bbe874409fd590811a2170",
       "line": 133,
       "quote": "| Q3 2026 | 65.786 | 479.2 | US$m | Cash (S4 page:4); unused commitments after USD 20.0 million drawn and USD 0.8 million letters of credit (S4 page:32). Revolver matures 2030-05-02. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-vsec/deliveries/62a5668bb003903225cbd9acc6de85628768232cceea4992080af20ab98c9ea7/CP-1.md",
+      "sha256": "0ce2ba0d41587fd6984e42432ff1f87478ce6e2541bbe874409fd590811a2170",
+      "line": 151,
+      "quote": "| Revenues | FY2025 | 1,112,275 | USD k | S1 page:42 | Reported. Continuing operations; audited |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-vsec/deliveries/62a5668bb003903225cbd9acc6de85628768232cceea4992080af20ab98c9ea7/CP-1.md",
+      "sha256": "0ce2ba0d41587fd6984e42432ff1f87478ce6e2541bbe874409fd590811a2170",
+      "line": 169,
+      "quote": "| Adjusted EBITDA (management) | FY2025 | 182,924 | USD k | S7 page:7 | Reported. Printed as the 2025-12-31 TTM figure; the 10-K carries no EBITDA reconciliation |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-vsec/deliveries/62a5668bb003903225cbd9acc6de85628768232cceea4992080af20ab98c9ea7/CP-1.md",
+      "sha256": "0ce2ba0d41587fd6984e42432ff1f87478ce6e2541bbe874409fd590811a2170",
+      "line": 185,
+      "quote": "| Net cash from operating activities | FY2025 | 26,990 | USD k | S1 page:43 | Reported. Includes discontinued operations |"
     }
   },
   "checklist": null

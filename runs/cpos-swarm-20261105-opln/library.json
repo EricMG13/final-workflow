@@ -15,7 +15,13 @@
     "summary": "OPENLANE has a sound corporate credit profile, with total debt at 1.43x LTM Adjusted EBITDA and liquidity of USD 650.2 million, but most funding is receivable-backed securitization and its performance decides the credit. Launched through CP-OS as of 2026-11-05 on the retained context.",
     "handoff": "runs/cpos-swarm-20261105-opln/deliveries/0e720e54d3b5fe59a0dbc01b68d215491af6d1cb63600aa9cae34fd3181ef8ab/CP-2.md",
     "metrics": {
-      "revenue": null,
+      "revenue": {
+        "value": "2138.0",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026",
+        "basis": "Total operating revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
       "ebitda": {
         "value": "451.5",
         "unit": "USD millions",
@@ -90,6 +96,12 @@
       "sha256": "27cde0aafcf9a133517adb102e5557dc8e810ad505a4dc1f22e1f42860aed45f",
       "line": 80,
       "quote": "| September 30, 2026 | 244.9 | 405.3 | US$m | Same basis; restricted cash of 34.7 excluded. Excludes the securitization committed capacity (US$2.0 billion and C$500 million), whose undrawn amount is Not calculable from the pack, and the European lines of 45.3, which the filing does not call committed. Both revolvers mature June 23, 2028. As printed. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-opln/deliveries/0e720e54d3b5fe59a0dbc01b68d215491af6d1cb63600aa9cae34fd3181ef8ab/CP-1.md",
+      "sha256": "27cde0aafcf9a133517adb102e5557dc8e810ad505a4dc1f22e1f42860aed45f",
+      "line": 98,
+      "quote": "| Total operating revenues | 1,934.5 | 498.4 | 561.2 | 1,440.2 | 1,643.7 | 2,138.0 | 10-K FY2025 page:91; 10-Q Q3 page:2; LTM calculated (FY2025 less 9M 2025 plus 9M 2026) |"
     },
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-opln/deliveries/0e720e54d3b5fe59a0dbc01b68d215491af6d1cb63600aa9cae34fd3181ef8ab/CP-1.md",

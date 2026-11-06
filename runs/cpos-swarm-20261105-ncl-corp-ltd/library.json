@@ -22,7 +22,13 @@
         "basis": "Total revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "2700.1",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "5.51",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
       "line": 93,
       "quote": "| Total revenue | 9,827.6 | 2,331.2 | 2,640.5 | 2,946.8 | 7,918.5 | 7,583.2 | 10,162.9 | Reported (10-K page:121; Q1 10-Q page:2; Q2 10-Q page:2; Q3 10-Q page:2). LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 98,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 2,731.4 | 533.3 | 666.1 | 936.7 | 2,136.0 | 2,167.3 | 2,700.1 | Reported (10-K page:83; Q1 10-Q page:30; Q2 10-Q page:33; Q3 10-Q page:36). Q3 2026 is as printed; LTM calculated. |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",

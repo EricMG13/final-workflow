@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "396153",
+        "unit": "US$ thousands",
+        "period": "LTM Q2 2026",
+        "basis": "Adjusted EBITDA (company definition), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "6.30",
         "unit": "x",
@@ -44,7 +50,13 @@
         "basis": "Cash. Cash 184,499 thousand (10-Q Q2 2026 page:5); company-stated available capacity (page:74). Excludes fiduciary cash of 426,189 thousand. Availability is net of letters of credit; any covenant limit on drawing is not supplied.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "90772",
+        "unit": "US$ thousands",
+        "period": "LTM Q2 2026",
+        "basis": "Net cash provided by (used in) operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -90,6 +102,18 @@
       "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
       "line": 101,
       "quote": "| Total revenues | 1,389,037 | 1,504,884 | 378,811 | 492,939 | 792,216 | 1,025,174 | 1,737,842 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 105,
+      "quote": "| Adjusted EBITDA (company definition) | 312,485 | 341,472 | 85,512 | 116,740 | 199,307 | 253,988 | 396,153 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 109,
+      "quote": "| Net cash provided by (used in) operating activities | 51,453 | (29,418) | (16,721) | 45,559 | (80,704) | 39,486 | 90,772 |"
     }
   },
   "checklist": null

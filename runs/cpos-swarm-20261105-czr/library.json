@@ -22,7 +22,13 @@
         "basis": "Net revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "3573",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (company non-GAAP), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.26",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "6f42bc51c5bc5a08912d413aa5d25707c1ac86c243459556cabc2f214da86103",
       "line": 91,
       "quote": "| Net revenues | 11,486 | 2,870 | 2,993 | 2,940 | 8,803 | 8,570 | 11,719 | Reported (10-K page:99; Q1 10-Q page:2; Q2 10-Q page:2; Q3 10-Q page:2). LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-czr/deliveries/7dfc5af9dd14aa16159e1a2511172d59503a10702910a38c628167216dea3d87/CP-1.md",
+      "sha256": "6f42bc51c5bc5a08912d413aa5d25707c1ac86c243459556cabc2f214da86103",
+      "line": 96,
+      "quote": "| Adjusted EBITDA (company non-GAAP) | 3,624 | 887 | 920 | 865 | 2,672 | 2,723 | 3,573 | Reported (10-K page:78; Q1 10-Q page:29; Q2 10-Q page:34; Q3 10-Q page:34). LTM calculated. |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-czr/deliveries/7dfc5af9dd14aa16159e1a2511172d59503a10702910a38c628167216dea3d87/CP-1.md",

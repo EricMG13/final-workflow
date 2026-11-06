@@ -15,8 +15,20 @@
     "summary": "Valaris has low standalone refinancing risk, with liquidity of USD 900.1 million and no debt due before 2030, but earnings fell and spending exceeds cash flow. The pending Transocean takeover could change the credit before the standalone figures are tested. Launched through CP-OS as of 2026-11-05 on the retained context.",
     "handoff": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-2.md",
     "metrics": {
-      "revenue": null,
-      "ebitda": null,
+      "revenue": {
+        "value": "2135.6",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Total operating revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "410.8",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (issuer measure), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.68",
         "unit": "x",
@@ -84,6 +96,18 @@
       "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
       "line": 79,
       "quote": "| Q3 2026 (September 30, 2026) | 525.1 | 375.0 | US$m | Cash from 10-Q Q3 page:9; revolver nothing drawn and no letters of credit under it (page:22, page:26). Excludes restricted cash of 16.5. The revolver matures April 3, 2028, so it does not expire within twelve months. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 96,
+      "quote": "| Total operating revenues | 2,369.0 | 1,598.2 | 593.6 | 2,135.6 | Same; LTM = Q4 2025 (537.4) plus nine months |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 97,
+      "quote": "| Adjusted EBITDA (issuer measure) | 642.2 | 313.8 | 150.6 | 410.8 | Releases; sum of quarters; definition in Q3 release page:11 |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",

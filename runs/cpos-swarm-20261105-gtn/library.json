@@ -22,7 +22,13 @@
         "basis": "Total revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "709",
+        "unit": "USD m",
+        "period": "LTM to Jun 30, 2026",
+        "basis": "Adjusted EBITDA, issuer-defined, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "8.67",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
       "line": 110,
       "quote": "| Total revenue (USD m) | 3,148 | 3,095 | 3,644 | LTM calculated C1; FY reported (S-10K page:73) |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 112,
+      "quote": "| Adjusted EBITDA, issuer-defined (USD m) | 709 | 670 | 1,162 | LTM calculated C1; FY from S-R-Feb page:11; release-only measure |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",

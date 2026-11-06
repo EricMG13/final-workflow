@@ -209,14 +209,16 @@ PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
 An accepted answer cannot be replaced. To repair one, start a new run folder and keep the old
 one as the earlier attempt. The automated check covers structure and anchors only: a second
 reviewer must compare each handoff with the sources before the run is used. The pilot in
-[`runs/cpos-launch-host-002`](runs/cpos-launch-host-002/verification.json) shows why: its first
-attempt, [`runs/cpos-launch-host-001`](runs/cpos-launch-host-001), passed every automated check but
+[`runs/cpos-launch-host-002`](https://github.com/EricMG13/final-workflow/blob/b4692c6307831e97106a3f075b8ef55ee1e3707d/runs/cpos-launch-host-002/verification.json) shows why: its first
+attempt, [`runs/cpos-launch-host-001`](https://github.com/EricMG13/final-workflow/tree/b4692c6307831e97106a3f075b8ef55ee1e3707d/runs/cpos-launch-host-001), passed every automated check but
 omitted covenant terms that the paid run found. The paid run in turn missed findings that the
 host found.
 
-The [Caesars pilot](runs/cpos-launch-host-czr-001/verification.json) runs `--modules minimum`
+The [Caesars pilot](https://github.com/EricMG13/final-workflow/blob/b4692c6307831e97106a3f075b8ef55ee1e3707d/runs/cpos-launch-host-czr-001/verification.json) runs `--modules minimum`
 in host mode on the retained Caesars filings: 6 of 6 selected sections populated, 23 of 24 answer
-keys found, one rejected answer repaired through the feedback loop.
+keys found, one rejected answer repaired through the feedback loop. These pilots were made with
+earlier module instructions, so they stay on the host-mode pull request's commit rather than in
+this workspace's library.
 
 ### Issuer corpus and filing packs
 

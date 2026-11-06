@@ -22,7 +22,13 @@
         "basis": "Revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "711009",
+        "unit": "USD thousands",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Adjusted EBITDA, issuer non-GAAP, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "2.33",
         "unit": "x",
@@ -44,7 +50,13 @@
         "basis": "Cash. Cash 56,953 thousand (Q3 10-Q page:5); \"approximately $730.0 million\" (Q3 10-Q page:32), equal to 750.0 less the 20.0 drawn; letters of credit not stated. Excludes 96.3 of restricted cash and the receivable-sale facility",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "469509",
+        "unit": "USD thousands",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Net cash (used in) provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -90,6 +102,18 @@
       "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
       "line": 70,
       "quote": "| Revenue | 5,306,197 | 5,431,276 | 1,348,400 | 1,278,971 | 4,112,861 | 3,929,984 | 5,248,399 | Reported; 10-K page:64, Q3 10-Q page:4. LTM is C1 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 77,
+      "quote": "| Adjusted EBITDA, issuer non-GAAP | 615,044 | 701,554 | 198,289 | 192,327 | 541,313 | 550,768 | 711,009 | Reported by the issuer (10-K page:59; Q3 10-Q page:36; Q3 release page:9). Adds back divestiture-related items, capitalized software impairment, intangibles amortization and depreciation; does not add back stock compensation. LTM is C1 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 79,
+      "quote": "| Net cash (used in) provided by operating activities | 515,258 | 429,372 | (182,718) | (124,987) | (220,000) | (179,863) | 469,509 | Reported; 10-K page:65, Q3 release page:7. Seasonal: the first nine months are outflows. LTM is C1 |"
     }
   },
   "checklist": null

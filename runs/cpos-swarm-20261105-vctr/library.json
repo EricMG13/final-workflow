@@ -23,10 +23,10 @@
         "source": "cp1-revenue"
       },
       "ebitda": {
-        "value": "727102",
+        "value": "856348",
         "unit": "US$ thousands",
         "period": "LTM Q3 2026",
-        "basis": "EBITDA proxy, income from operations plus D&A (calculated), as the CP-1 table prints it.",
+        "basis": "Adjusted EBITDA (management, non-GAAP), as the CP-1 table prints it.",
         "source": "cp1-ebitda"
       },
       "leverage": {
@@ -106,8 +106,8 @@
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
       "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
-      "line": 97,
-      "quote": "| EBITDA proxy, income from operations plus D&A (calculated) | 457,690 | 551,274 | 160,158 | 158,239 | 376,506 | 552,334 | 727,102 | derived from the two rows above; no addbacks |"
+      "line": 96,
+      "quote": "| Adjusted EBITDA (management, non-GAAP) | 475,622 | 682,851 | 190,451 | 212,135 | 485,375 | 658,872 | 856,348 | 10-K page:97; Q3-10Q page:42; company reconciliation, not audited; LTM calculated |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",

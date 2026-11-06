@@ -22,7 +22,13 @@
         "basis": "Total revenues, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "3535",
+        "unit": "US$m",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Adjusted EBITDA (consolidated, management-adjusted), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.72",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
       "line": 95,
       "quote": "| Total revenues | 25,201 | 16,601 | 42,978 | 51,578 | 18,029 | 6,032 | 10-K page:220; Q3 10-Q page:4 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 99,
+      "quote": "| Adjusted EBITDA (consolidated, management-adjusted) | 2,047 | 1,401 | 2,889 | 3,535 | 1,049 | 489 | 10-K page:129; Q3 10-Q page:22 and page:33 |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",

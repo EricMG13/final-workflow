@@ -23,10 +23,10 @@
         "source": "cp1-revenue"
       },
       "ebitda": {
-        "value": "345.7",
+        "value": "724.8",
         "unit": "US$m",
         "period": "LTM Jun 2026",
-        "basis": "EBITDA before management add-backs, as the CP-1 table prints it.",
+        "basis": "Adjusted EBITDA (company-defined), as the CP-1 table prints it.",
         "source": "cp1-ebitda"
       },
       "leverage": {
@@ -106,8 +106,8 @@
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-qxo/deliveries/48b1a40a8d7a69c394373740a84749c7cef1f9d092ce90c0259567551840272d/CP-1.md",
       "sha256": "0c4570b0cb02f79e4f6bc512ceeaaaa35a45ba07e203d0adcef2870aec1b148f",
-      "line": 97,
-      "quote": "| EBITDA before management add-backs | 133.7 | -85.0 | 159 | 74 | 345.7 | Calculated: net loss + taxes + net interest + depreciation + amortisation |"
+      "line": 95,
+      "quote": "| Adjusted EBITDA (company-defined) | 647.8 | 1.2 | 272 | 273 | 724.8 | Reported non-GAAP; LTM less H1 2025 (196) |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-qxo/deliveries/48b1a40a8d7a69c394373740a84749c7cef1f9d092ce90c0259567551840272d/CP-1.md",

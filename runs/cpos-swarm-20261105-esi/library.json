@@ -50,7 +50,13 @@
         "basis": "Cash. Revolver with 15.0 drawn, net of letters of credit of 7.0 (Q3-26 p18); of the cash, 176 is held by foreign subsidiaries; total availability across all lines is 506",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "283.3",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash flows from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -102,6 +108,12 @@
       "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
       "line": 73,
       "quote": "| EBITDA, issuer-defined (USD m) | 564.8 | 470.2 | 501.6 | LTM calculated, C1; FY reported, K25 p124 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 78,
+      "quote": "| Net cash flows from operating activities (USD m) | 283.3 | 289.8 | 362.0 | LTM calculated, C1; FY reported, K25 p84 |"
     }
   },
   "checklist": null

@@ -15,7 +15,13 @@
     "summary": "JetBlue is a weak, liquidity-dependent credit: earnings do not cover debt service, but USD 2,226 million of liquidity and modest maturities through 2027 give time. Fare recapture of fuel costs decides the outcome. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is JETBLUE AIRWAYS CORP.",
     "handoff": "runs/cpos-swarm-20261105-jblu/deliveries/b15e2866377314c8071e6ce10855ac0b04d74aaf7a673742c2e6d6035c716d55/CP-2.md",
     "metrics": {
-      "revenue": null,
+      "revenue": {
+        "value": "9993",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Total operating revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
       "ebitda": {
         "value": "115",
         "unit": "US$m",
@@ -44,7 +50,13 @@
         "basis": "Cash. Cash is 1,258 plus current investment securities 251 plus non-current investment securities 117. Undrawn is the Citibank revolver of 600, no balance outstanding. The Morgan Stanley line of up to approximately 200 is excluded because availability varies with pledged securities. No letters of credit are drawn on the revolver; the letters of credit disclosed are cash-collateralised in restricted cash.",
         "source": "cp1-cash"
       },
-      "cashflow": null
+      "cashflow": {
+        "value": "144",
+        "unit": "US$m",
+        "period": "FY2024",
+        "basis": "Net cash (used in) provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
     },
     "ratings": [],
     "gaps": [
@@ -85,11 +97,23 @@
       "line": 72,
       "quote": "| Q3 2026 (September 30, 2026) | 1626 | 600 | US$m | Cash is 1,258 plus current investment securities 251 plus non-current investment securities 117. Undrawn is the Citibank revolver of 600, no balance outstanding. The Morgan Stanley line of up to approximately 200 is excluded because availability varies with pledged securities. No letters of credit are drawn on the revolver; the letters of credit disclosed are cash-collateralised in restricted cash. |"
     },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-jblu/deliveries/b15e2866377314c8071e6ce10855ac0b04d74aaf7a673742c2e6d6035c716d55/CP-1.md",
+      "sha256": "58c5892d83fe67883e53348fce2c2bb7681059206834d241a6a44bac68076eb9",
+      "line": 89,
+      "quote": "| Total operating revenues | 9,279 | 9,062 | 6,818 | 7,749 | 9,993 |"
+    },
     "cp1-ebitda": {
       "path": "runs/cpos-swarm-20261105-jblu/deliveries/b15e2866377314c8071e6ce10855ac0b04d74aaf7a673742c2e6d6035c716d55/CP-1.md",
       "sha256": "58c5892d83fe67883e53348fce2c2bb7681059206834d241a6a44bac68076eb9",
       "line": 93,
       "quote": "| EBITDA, computed (operating loss plus D&A) | (29) | 320 | 244 | 39 | 115 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-jblu/deliveries/b15e2866377314c8071e6ce10855ac0b04d74aaf7a673742c2e6d6035c716d55/CP-1.md",
+      "sha256": "58c5892d83fe67883e53348fce2c2bb7681059206834d241a6a44bac68076eb9",
+      "line": 98,
+      "quote": "| Net cash (used in) provided by operating activities | 144 | (94) | (143) | (273) | (224) |"
     }
   },
   "checklist": null

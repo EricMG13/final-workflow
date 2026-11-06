@@ -22,7 +22,13 @@
         "basis": "Total revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "572.9",
+        "unit": "US$m",
+        "period": "FY2025",
+        "basis": "Adjusted EBITDA (company basis), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "3.24",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "bcde32ba969dc3f68634f56be69b4c3c438b14957c4d8e94474c2f62621f2491",
       "line": 102,
       "quote": "| Total revenue | 2,026.6 | 1,892.6 | 459.7 | 456.2 | 1,415.0 | 1,385.1 | 10-K page:64; Q3 10-Q page:2 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-pbi/deliveries/7bbf38867ad719bbc6903cc6311729c046bdb8f51389584888e93e0096833742/CP-1.md",
+      "sha256": "bcde32ba969dc3f68634f56be69b4c3c438b14957c4d8e94474c2f62621f2491",
+      "line": 114,
+      "quote": "| Adjusted EBITDA (company basis) | Not supplied: not built for FY2024 | 572.9 | 134.8 | 136.7 | 413.8 | 432.4 | FY2025 calculated; others printed in Q3 release page:9. 2026 adds back terminated-plan pension expense; 2025 does not |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-pbi/deliveries/7bbf38867ad719bbc6903cc6311729c046bdb8f51389584888e93e0096833742/CP-1.md",

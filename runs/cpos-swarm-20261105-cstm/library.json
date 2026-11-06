@@ -22,7 +22,13 @@
         "basis": "Revenue, as the CP-1 table prints it.",
         "source": "cp1-revenue"
       },
-      "ebitda": null,
+      "ebitda": {
+        "value": "1354",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Adjusted EBITDA (as reported, includes metal price lag), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
       "leverage": {
         "value": "1.71",
         "unit": "x",
@@ -96,6 +102,12 @@
       "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
       "line": 95,
       "quote": "| Revenue | 8,449 | 2,639 | 7,848 | 6,248 | 10,049 | US$m | Income statements: 10-K page:77; 10-Q Q3 page:3. LTM calculated. Includes metal pass-through. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 96,
+      "quote": "| Adjusted EBITDA (as reported, includes metal price lag) | 846 | 276 | 1,074 | 566 | 1,354 | US$m | Non-GAAP: 10-K page:67; 10-Q Q3 page:41. LTM calculated. |"
     },
     "cp1-cashflow": {
       "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",

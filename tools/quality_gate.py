@@ -153,10 +153,12 @@ def format_lines(root: Path, python: str, path: str) -> set[int]:
 def _mypy_lines(root: Path, python: str, files: list[str]) -> str:
     command = [python, "-m", "mypy", "--follow-imports=silent", "--no-error-summary", *files]
     done = _run(command, root)
-    if done.returncode not in (0, 1):
-        raise GateError(f"mypy failed: {done.stderr.strip() or done.stdout.strip()}")
+    # Two changed files with one module name (two builder/build.py) stop mypy with exit 2 before
+    # it checks anything; each file is then checked on its own.
     if len(files) > 1 and any(text in done.stdout for text in DUPLICATE_MODULE):
         return "".join(_mypy_lines(root, python, [name]) for name in files)
+    if done.returncode not in (0, 1):
+        raise GateError(f"mypy failed: {done.stderr.strip() or done.stdout.strip()}")
     return done.stdout
 
 

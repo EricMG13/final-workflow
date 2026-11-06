@@ -61,5 +61,8 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
   tools/quality_gate.py` (docs/QUALITY-GATE.md). Changed lines and the functions they
   fall in must pass ruff, the complexity limits, `ruff format` and strict mypy;
   the existing code outside that scope is not in the gate.
+- While working, run fast targeted tests only (each run within a few minutes; `timeout 300`).
+  The full suite, slow tests included, runs nightly at 01:00 UTC in GitHub Actions
+  (docs/QUALITY-GATE.md); a nightly failure not in tests/nightly-known-failures.txt is new.
 - Keep one concise verification record. No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.

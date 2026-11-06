@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-bmrn",
+    "issuer": "bmrn",
+    "name": "Biomarin Pharmaceutical Inc",
+    "identity_source": "context",
+    "sector": "Pharmaceutical Preparations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (BMRN)",
+    "summary": "BioMarin is a profitable, cash-generative rare-disease company that took on USD 4,235 million of debt for Amicus. Liquidity is adequate, but leverage on filed earnings is high and the true run-rate is unproven. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is BIOMARIN PHARMACEUTICAL INC.",
+    "handoff": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "11.18",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. LTM = FY2025 + 9M 2026 - 9M 2025; EBITDA 378,821 thousand USD. Debt 4,235,000 (Q3 10-Q page:22); cash 736,007 (page:8); net debt 3,498,993. Amicus in earnings from 2026-04-27 only, and no pro forma EBITDA is supplied. Adding back impairment 137,248, write-off 119,208 and acquired IPR&D 287,685 (analyst-derived, not a company measure) gives EBITDA 922,962, 4.59x and 3.79x. The covenant ratio is defined differently and is not printed",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.43",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. EBITDA 378,821 divided by LTM cash interest 69,721 = 7,245 + 66,048 - 3,572 (Q3 10-Q page:10). Not a run-rate: accrued interest of 37,480 was unpaid at 2026-09-30 (page:20) and Amicus is in EBITDA from 2026-04-27 only. Annualised Q3 coupon interest of 210,732 gives 1.80x on this EBITDA and 4.38x on the 922,962 adjusted EBITDA (analyst-derived)",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "736.0",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Cash 736,007 thousand (Q3 10-Q page:8), no investments held (page:45). Undrawn 600.0 million of the 2026 Revolving Facility, matures April 2031 (page:25, page:48), subject to compliance with the credit agreement. Total 1,336.0 million. No letters of credit drawn on the revolver are stated; the 10-K notes standby letters of credit secured by restricted investments, amount not supplied (10-K page:202)",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: No combined earnings base, covenant ratios, executed legal documents or ratings are supplied, so leverage and covenant headroom cannot be pinned down.",
+      "CP-1 main limitation: No combined earnings base, covenant ratios or legal documents are supplied, so true run-rate leverage and covenant headroom cannot be measured."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-bmrn/inputs/91b63adad7def6728b9cd684c48c1a1c49d1718a8dc5d8773455a7dcffcc69fa",
+      "sha256": "91b63adad7def6728b9cd684c48c1a1c49d1718a8dc5d8773455a7dcffcc69fa",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"BIOMARIN PHARMACEUTICAL INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-bmrn/inputs/91b63adad7def6728b9cd684c48c1a1c49d1718a8dc5d8773455a7dcffcc69fa",
+      "sha256": "91b63adad7def6728b9cd684c48c1a1c49d1718a8dc5d8773455a7dcffcc69fa",
+      "line": 22,
+      "quote": "    \"sector\": \"Pharmaceutical Preparations\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 62,
+      "quote": "| LTM Q3 2026 | 11.18 | 9.24 | x | LTM = FY2025 + 9M 2026 - 9M 2025; EBITDA 378,821 thousand USD. Debt 4,235,000 (Q3 10-Q page:22); cash 736,007 (page:8); net debt 3,498,993. Amicus in earnings from 2026-04-27 only, and no pro forma EBITDA is supplied. Adding back impairment 137,248, write-off 119,208 and acquired IPR&D 287,685 (analyst-derived, not a company measure) gives EBITDA 922,962, 4.59x and 3.79x. The covenant ratio is defined differently and is not printed |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 71,
+      "quote": "| LTM Q3 2026 | 5.43 | x | EBITDA 378,821 divided by LTM cash interest 69,721 = 7,245 + 66,048 - 3,572 (Q3 10-Q page:10). Not a run-rate: accrued interest of 37,480 was unpaid at 2026-09-30 (page:20) and Amicus is in EBITDA from 2026-04-27 only. Annualised Q3 coupon interest of 210,732 gives 1.80x on this EBITDA and 4.38x on the 922,962 adjusted EBITDA (analyst-derived) |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-bmrn/deliveries/1c2d8bf3085c28b50f4b4dfd534158e3b65a3d0ff986aa209c0a97a5635756eb/CP-1.md",
+      "sha256": "d41e5dce10b446024674125b584c0280188e041e8a33a5bd9ae252b58ca0d70d",
+      "line": 80,
+      "quote": "| Q3 2026 | 736.0 | 600.0 | US$m | Cash 736,007 thousand (Q3 10-Q page:8), no investments held (page:45). Undrawn 600.0 million of the 2026 Revolving Facility, matures April 2031 (page:25, page:48), subject to compliance with the credit agreement. Total 1,336.0 million. No letters of credit drawn on the revolver are stated; the 10-K notes standby letters of credit secured by restricted investments, amount not supplied (10-K page:202) |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-hgv",
+    "issuer": "hgv",
+    "name": "Hilton Grand Vacations Inc.",
+    "identity_source": "context",
+    "sector": "Hotels, Rooming Houses, Camps & Other Lodging Places",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (HGV)",
+    "summary": "Hilton Grand Vacations is a cautious credit: leverage looks moderate on reported earnings but high on recurring earnings, liquidity is adequate but falling, sales weakened in the third quarter, and buybacks compete with debt reduction. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-hgv/deliveries/85ec78741e20651639cf71b1c904f13b1716891dc1b4874797f0cf4a2913ccbf/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "3.45",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Corporate debt gross 4,946 and net of unrestricted cash 227, over LTM Adjusted EBITDA 1,434 built as FY2025 less nine months 2025 plus nine months 2026 (company-defined, includes net construction recognitions of 218). Excluding non-recourse debt 2,923 and restricted cash. Excluding net construction: 4.07x total and 3.88x net. Management states approximately 3.9x on an undefined basis. Not a covenant definition.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.07",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 1,434 over LTM cash interest on corporate debt 283 (297 less 221 plus 207). Excludes interest on non-recourse debt (93 cash paid in nine months 2026). Excluding net construction: 4.30x. Not a covenant definition.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "227",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Unrestricted cash at September 30, 2026. Undrawn is the remaining corporate revolver capacity as printed; drawn 490 plus letters of credit 53 plus 457 sums to 1,000 (derived). The revolver matures January 2030; no facility expires within twelve months. Excludes restricted cash 275 and non-recourse capacity (Timeshare Facility 450, Big Cedar Timeshare Facility 175), which funds receivables only.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant terms, financing documents and ratings are not in the sources, so headroom and legal protections cannot be tested.",
+      "CP-1 main limitation: Covenant levels and the management leverage definition are not in the sources, so headroom cannot be tested."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-hgv/inputs/6edd9e91feb582497e031062a9d2821be0472a4f8a6020100729ec6b65f6bb35",
+      "sha256": "6edd9e91feb582497e031062a9d2821be0472a4f8a6020100729ec6b65f6bb35",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Hilton Grand Vacations Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-hgv/inputs/6edd9e91feb582497e031062a9d2821be0472a4f8a6020100729ec6b65f6bb35",
+      "sha256": "6edd9e91feb582497e031062a9d2821be0472a4f8a6020100729ec6b65f6bb35",
+      "line": 22,
+      "quote": "    \"sector\": \"Hotels, Rooming Houses, Camps & Other Lodging Places\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-hgv/deliveries/85ec78741e20651639cf71b1c904f13b1716891dc1b4874797f0cf4a2913ccbf/CP-1.md",
+      "sha256": "1deb6dff00cc26d7b003e387964ad65a7dd8c1a085dac876c08152976dc6e037",
+      "line": 146,
+      "quote": "| LTM Q3 2026 | 3.45 | 3.29 | x | Corporate debt gross 4,946 and net of unrestricted cash 227, over LTM Adjusted EBITDA 1,434 built as FY2025 less nine months 2025 plus nine months 2026 (company-defined, includes net construction recognitions of 218). Excluding non-recourse debt 2,923 and restricted cash. Excluding net construction: 4.07x total and 3.88x net. Management states approximately 3.9x on an undefined basis. Not a covenant definition. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-hgv/deliveries/85ec78741e20651639cf71b1c904f13b1716891dc1b4874797f0cf4a2913ccbf/CP-1.md",
+      "sha256": "1deb6dff00cc26d7b003e387964ad65a7dd8c1a085dac876c08152976dc6e037",
+      "line": 153,
+      "quote": "| LTM Q3 2026 | 5.07 | x | LTM Adjusted EBITDA 1,434 over LTM cash interest on corporate debt 283 (297 less 221 plus 207). Excludes interest on non-recourse debt (93 cash paid in nine months 2026). Excluding net construction: 4.30x. Not a covenant definition. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-hgv/deliveries/85ec78741e20651639cf71b1c904f13b1716891dc1b4874797f0cf4a2913ccbf/CP-1.md",
+      "sha256": "1deb6dff00cc26d7b003e387964ad65a7dd8c1a085dac876c08152976dc6e037",
+      "line": 160,
+      "quote": "| Q3 2026 | 227 | 457 | US$m | Unrestricted cash at September 30, 2026. Undrawn is the remaining corporate revolver capacity as printed; drawn 490 plus letters of credit 53 plus 457 sums to 1,000 (derived). The revolver matures January 2030; no facility expires within twelve months. Excludes restricted cash 275 and non-recourse capacity (Timeshare Facility 450, Big Cedar Timeshare Facility 175), which funds receivables only. |"
+    }
+  },
+  "checklist": null
+}

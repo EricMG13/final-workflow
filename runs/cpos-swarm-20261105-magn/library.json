@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-magn",
+    "issuer": "magn",
+    "name": "Magnera Corp",
+    "identity_source": "context",
+    "sector": "Paper Mills",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 FY2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (MAGN)",
+    "summary": "Magnera's creditors hold a leveraged but liquid credit: gross debt is 5.28x LTM adjusted EBITDA, nothing matures before October 2029, and debt is being repaid. Thin cash conversion, heavy add-backs and weak reporting controls keep the view cautious. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-magn/deliveries/2366d70d0a815e71753d11351c84c9b591e944cd3cb9cd26872106928e3ee54b/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.28",
+        "unit": "x",
+        "period": "Q3 FY2026",
+        "basis": "Total debt / EBITDA. At June 27, 2026. Gross debt principal 1,966 and cash 280 over LTM adjusted EBITDA of 372 (calc). Carrying debt of 1,901 would give 5.11 and 4.36. On operating income plus depreciation and amortization of 250 the ratios would be 7.86 and 6.74. Excludes operating leases, swaps, pension, environmental and tax claims; all cash is netted although 58 percent is outside the U.S.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.91",
+        "unit": "x",
+        "period": "Q3 FY2026",
+        "basis": "EBITDA / cash interest. Proxy: LTM adjusted EBITDA of 372 over 151 less 23, which is 128 (calc). Over interest expense, net of 151 without the adjustment the ratio is 2.46. The same proxy reproduces the reported FY2025 cash interest of 124 exactly (141 less 17)",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "280",
+        "unit": "US$m",
+        "period": "Q3 FY2026",
+        "basis": "Cash. At June 27, 2026. Same revolver basis and limitation. About 58 percent of cash was outside the U.S. Revolver matures November 2029; none of the facility expires within twelve months",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Revolver availability and covenants, executed debt documents, ownership terms and anything after August 6, 2026 are not supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is a company measure with large add-backs, interim cash interest is not reported, and revolver availability and covenants are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-magn/inputs/4a094c245ff44dd6e34e569a37f728533980efba9932af440a0d9b2f6b50325a",
+      "sha256": "4a094c245ff44dd6e34e569a37f728533980efba9932af440a0d9b2f6b50325a",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Magnera Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-magn/inputs/4a094c245ff44dd6e34e569a37f728533980efba9932af440a0d9b2f6b50325a",
+      "sha256": "4a094c245ff44dd6e34e569a37f728533980efba9932af440a0d9b2f6b50325a",
+      "line": 22,
+      "quote": "    \"sector\": \"Paper Mills\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-magn/deliveries/2366d70d0a815e71753d11351c84c9b591e944cd3cb9cd26872106928e3ee54b/CP-1.md",
+      "sha256": "a78bacbb4723d5e8436e6fd7e6e91834e21d1b667c43041d9840bc2ad8acdf4e",
+      "line": 127,
+      "quote": "| Q3 FY2026 | 5.28 | 4.53 | x | At June 27, 2026. Gross debt principal 1,966 and cash 280 over LTM adjusted EBITDA of 372 (calc). Carrying debt of 1,901 would give 5.11 and 4.36. On operating income plus depreciation and amortization of 250 the ratios would be 7.86 and 6.74. Excludes operating leases, swaps, pension, environmental and tax claims; all cash is netted although 58 percent is outside the U.S. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-magn/deliveries/2366d70d0a815e71753d11351c84c9b591e944cd3cb9cd26872106928e3ee54b/CP-1.md",
+      "sha256": "a78bacbb4723d5e8436e6fd7e6e91834e21d1b667c43041d9840bc2ad8acdf4e",
+      "line": 136,
+      "quote": "| Q3 FY2026 | 2.91 | x | Proxy: LTM adjusted EBITDA of 372 over 151 less 23, which is 128 (calc). Over interest expense, net of 151 without the adjustment the ratio is 2.46. The same proxy reproduces the reported FY2025 cash interest of 124 exactly (141 less 17) |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-magn/deliveries/2366d70d0a815e71753d11351c84c9b591e944cd3cb9cd26872106928e3ee54b/CP-1.md",
+      "sha256": "a78bacbb4723d5e8436e6fd7e6e91834e21d1b667c43041d9840bc2ad8acdf4e",
+      "line": 145,
+      "quote": "| Q3 FY2026 | 280 | 350 | US$m | At June 27, 2026. Same revolver basis and limitation. About 58 percent of cash was outside the U.S. Revolver matures November 2029; none of the facility expires within twelve months |"
+    }
+  },
+  "checklist": null
+}

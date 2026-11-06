@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-vsts",
+    "issuer": "vsts",
+    "name": "Vestis Corp",
+    "identity_source": "context",
+    "sector": "Wholesale-Miscellaneous Nondurable Goods",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 FY2026 (July 3, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (VSTS)",
+    "summary": "Vestis is a leveraged but improving credit: reported net leverage is 4.10x against a 5.00x maximum with USD 351.8 million of liquidity, yet revenue still falls and the maximum steps down. Delivery of plan savings decides the outcome. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "2696499",
+        "unit": "US$ thousands",
+        "period": "LTM to Jul 3, 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "4.33",
+        "unit": "x",
+        "period": "Q3 FY2026 (July 3, 2026)",
+        "basis": "Total debt / EBITDA. Calculated on the same basis, trailing twelve months to July 3, 2026. Company-reported net leverage under its own definition is 4.10x; the two differ in EBITDA and in letters of credit.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.75",
+        "unit": "x",
+        "period": "FY2025 (October 3, 2025)",
+        "basis": "EBITDA / cash interest. Calculated. Company trailing twelve month Adjusted EBITDA over cash interest paid on principal debt of 93.6 million (rounded, printed in millions). Excludes finance lease interest and receivables facility fees.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "57.7",
+        "unit": "US$m",
+        "period": "Q3 FY2026 (July 3, 2026)",
+        "basis": "Cash. Revolver undrawn less 5.8 letters of credit; company total liquidity 351.8. Revolver matures September 29, 2028; the receivables facility is scheduled to end August 2, 2027 and is not counted.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "191800",
+        "unit": "US$ thousands",
+        "period": "LTM to Jul 3, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant terms are company summaries, the receivables facility treatment is unresolved and the executed credit documents are not supplied.",
+      "CP-1 main limitation: Covenant terms are company summaries and the receivables facility treatment in the ratio is unresolved."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-vsts/inputs/c28ff4b5be1db183138bacbfdcd7f4640157e3a21bdc54358648d894f8fed07c",
+      "sha256": "c28ff4b5be1db183138bacbfdcd7f4640157e3a21bdc54358648d894f8fed07c",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Vestis Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-vsts/inputs/c28ff4b5be1db183138bacbfdcd7f4640157e3a21bdc54358648d894f8fed07c",
+      "sha256": "c28ff4b5be1db183138bacbfdcd7f4640157e3a21bdc54358648d894f8fed07c",
+      "line": 22,
+      "quote": "    \"sector\": \"Wholesale-Miscellaneous Nondurable Goods\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-1.md",
+      "sha256": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+      "line": 65,
+      "quote": "| Q3 FY2026 (July 3, 2026) | 4.33 | 4.13 | x | Calculated on the same basis, trailing twelve months to July 3, 2026. Company-reported net leverage under its own definition is 4.10x; the two differ in EBITDA and in letters of credit. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-1.md",
+      "sha256": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+      "line": 71,
+      "quote": "| FY2025 (October 3, 2025) | 2.75 | x | Calculated. Company trailing twelve month Adjusted EBITDA over cash interest paid on principal debt of 93.6 million (rounded, printed in millions). Excludes finance lease interest and receivables facility fees. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-1.md",
+      "sha256": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+      "line": 83,
+      "quote": "| Q3 FY2026 (July 3, 2026) | 57.7 | 294.2 | US$m | Revolver undrawn less 5.8 letters of credit; company total liquidity 351.8. Revolver matures September 29, 2028; the receivables facility is scheduled to end August 2, 2027 and is not counted. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-1.md",
+      "sha256": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+      "line": 100,
+      "quote": "| Revenue | 661,663 | 673,799 | 1,984,488 | 2,022,828 | 2,734,839 | 2,696,499 | Release page:12 and page:14; 10-K page:89; LTM as printed |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-vsts/deliveries/d84fae6cfb7b480e1fd1fad2221545a58ea7f99d77a78c6c9aaf2f8be6bf6141/CP-1.md",
+      "sha256": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+      "line": 114,
+      "quote": "| Net cash provided by operating activities | 64,935 | 22,864 | 160,873 | 33,302 | 64,229 | 191,800 | Release page:13; 10-K page:91; LTM calculated |"
+    }
+  },
+  "checklist": null
+}

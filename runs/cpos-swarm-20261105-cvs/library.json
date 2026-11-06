@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cvs",
+    "issuer": "cvs",
+    "name": "CVS HEALTH Corp",
+    "identity_source": "context",
+    "sector": "Retail-Drug Stores and Proprietary Stores",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CVS)",
+    "summary": "CVS is an improving, moderate-leverage credit with solid liquidity, but its 2026 progress depends on one insurance segment and on a separation whose debt, guarantee and covenant treatment is unknown. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "420614",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.06",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt 60,680 over LTM adjusted EBITDA 19,837; net of cash 11,738. Net leverage is 2.76x if only the roughly 5,900 held by the parent or nonrestricted subsidiaries is netted. Operating lease liabilities, the opioid accrual and investments of 37,215 are excluded.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.51",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 19,837 over LTM interest paid 3,048. On interest expense of 3,065 the ratio is 6.47x. Excludes lease payments and settlement payments.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "11738",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. About 5,900 of the cash was at the parent or nonrestricted subsidiaries; restricted cash of 210 is excluded. Facilities expire May 2029, 2030 and 2031. FHLBB capacity of about 1,400 is uncommitted and excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "18708",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, guarantor terms, letters of credit and separation financing are not supplied, and the leverage ratios use our own EBITDA definition.",
+      "CP-1 main limitation: The company reports no EBITDA and discloses no covenant levels, so ratios are analyst-defined, and part of the 2026 cash build is attributed to timing."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cvs/inputs/5778dde57161baa53dd06c29b894f51171d7f5b790a52aed512e326c4ec302ef",
+      "sha256": "5778dde57161baa53dd06c29b894f51171d7f5b790a52aed512e326c4ec302ef",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CVS HEALTH Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cvs/inputs/5778dde57161baa53dd06c29b894f51171d7f5b790a52aed512e326c4ec302ef",
+      "sha256": "5778dde57161baa53dd06c29b894f51171d7f5b790a52aed512e326c4ec302ef",
+      "line": 22,
+      "quote": "    \"sector\": \"Retail-Drug Stores and Proprietary Stores\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-1.md",
+      "sha256": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+      "line": 62,
+      "quote": "| LTM Q3 2026 | 3.06 | 2.47 | x | Debt 60,680 over LTM adjusted EBITDA 19,837; net of cash 11,738. Net leverage is 2.76x if only the roughly 5,900 held by the parent or nonrestricted subsidiaries is netted. Operating lease liabilities, the opioid accrual and investments of 37,215 are excluded. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-1.md",
+      "sha256": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+      "line": 71,
+      "quote": "| LTM Q3 2026 | 6.51 | x | Adjusted EBITDA 19,837 over LTM interest paid 3,048. On interest expense of 3,065 the ratio is 6.47x. Excludes lease payments and settlement payments. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-1.md",
+      "sha256": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+      "line": 80,
+      "quote": "| September 30, 2026 | 11738 | 7500 | US$m | About 5,900 of the cash was at the parent or nonrestricted subsidiaries; restricted cash of 210 is excluded. Facilities expire May 2029, 2030 and 2031. FHLBB capacity of about 1,400 is uncommitted and excluded. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-1.md",
+      "sha256": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+      "line": 97,
+      "quote": "| Total revenues | 402,067 | 296,374 | 314,921 | 420,614 | 102,871 | 108,399 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cvs/deliveries/9b7bef12343fe0bcc19ff1f0c28f437eac5211e2deb44714e968fd4dce827f8b/CP-1.md",
+      "sha256": "f4151359f3658a370d8b62dadc7eb07c7755fc8145b6d23fd94845f1ec56ffa7",
+      "line": 108,
+      "quote": "| Net cash provided by operating activities | 10,639 | 7,249 | 15,318 | 18,708 | 796 | 4,724 |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-svc",
+    "issuer": "svc",
+    "name": "Service Properties Trust",
+    "identity_source": "context",
+    "sector": "Real Estate Investment Trusts",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q3-2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (SVC)",
+    "summary": "No report was published. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "Stopped before publication: no report was delivered from this run."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-svc/inputs/a72cf33ce12be07f9ed0051d7ed4f82ab1f3905d4d81ff0fe1a5919c08327fd3",
+      "sha256": "a72cf33ce12be07f9ed0051d7ed4f82ab1f3905d4d81ff0fe1a5919c08327fd3",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Service Properties Trust\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-svc/inputs/a72cf33ce12be07f9ed0051d7ed4f82ab1f3905d4d81ff0fe1a5919c08327fd3",
+      "sha256": "a72cf33ce12be07f9ed0051d7ed4f82ab1f3905d4d81ff0fe1a5919c08327fd3",
+      "line": 22,
+      "quote": "    \"sector\": \"Real Estate Investment Trusts\","
+    }
+  },
+  "checklist": null
+}

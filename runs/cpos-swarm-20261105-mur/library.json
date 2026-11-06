@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-mur",
+    "issuer": "mur",
+    "name": "Murphy OIL Corp",
+    "identity_source": "context",
+    "sector": "Crude Petroleum & Natural Gas",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (MUR)",
+    "summary": "Murphy's credit is sound today: total debt is 0.89x calculated EBITDA, liquidity is USD 2,499.9 million and no note matures before May 2029. It is exposed to oil prices and to discretionary spending that absorbs most operating cash flow. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is MURPHY OIL CORP.",
+    "handoff": "runs/cpos-swarm-20261105-mur/deliveries/c5f1c0047bd4e60b5d2a7ef03ac20317434b20186fe3a78ddafc8ebc5751517b/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": {
+        "value": "1837.5",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA, calculated (operating income + DD&A + impairment), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "0.89",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Calculated, consolidated including NCI. Total debt 1,634.4 and cash 500.3 at September 30, 2026 over LTM EBITDA of 1,837.5 (FY2025 less 9M 2025 plus 9M 2026), US$m. EBITDA is not the covenant or management definition. Cross-check on management ex-NCI adjusted EBITDA (1,784.8 LTM): 0.92x total debt and 0.64x net debt, mixing consolidated debt with ex-NCI earnings. Excludes operating leases of 653.8 and asset retirement obligations of 1,065.4.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "21.29",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Calculated LTM EBITDA of 1,837.5 over LTM interest paid of 86.3 (FY2025 88.1 less 9M 2025 52.4 plus 9M 2026 50.6), US$m. Cash interest is net of 15.7 capitalized in 9M 2026 and is below the 100.9 interest expense net (18.22x); the sources do not bridge the two.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "500.3",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. Same facility and letters of credit (10-Q Q3 page:14, page:47). Cash includes NCI and 105.1 held outside the United States. Letters of credit issued outside the revolver (211.8 in total at December 31, 2025) are not netted because the issuing lines are not identified.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant and indenture terms, ratings, ownership percentages and customer concentration are not in the sources, so creditor protections and limits on distributions cannot be confirmed.",
+      "CP-1 main limitation: EBITDA is our own calculation including the noncontrolling interest; covenant definitions, indentures and ratings are not in the sources, so headroom and instrument terms are unverified."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-mur/inputs/35c22477a844f0f5aeef5fc23834f3021137d2e15b2b92b3672400aa710b0f94",
+      "sha256": "35c22477a844f0f5aeef5fc23834f3021137d2e15b2b92b3672400aa710b0f94",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"MURPHY OIL CORP\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-mur/inputs/35c22477a844f0f5aeef5fc23834f3021137d2e15b2b92b3672400aa710b0f94",
+      "sha256": "35c22477a844f0f5aeef5fc23834f3021137d2e15b2b92b3672400aa710b0f94",
+      "line": 22,
+      "quote": "    \"sector\": \"Crude Petroleum & Natural Gas\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-mur/deliveries/c5f1c0047bd4e60b5d2a7ef03ac20317434b20186fe3a78ddafc8ebc5751517b/CP-1.md",
+      "sha256": "4d5950c4064f287f2e32c5d0c0406bc21b674c599f97781d7194c385f998c5b5",
+      "line": 155,
+      "quote": "| LTM Q3 2026 | 0.89 | 0.62 | x | Calculated, consolidated including NCI. Total debt 1,634.4 and cash 500.3 at September 30, 2026 over LTM EBITDA of 1,837.5 (FY2025 less 9M 2025 plus 9M 2026), US$m. EBITDA is not the covenant or management definition. Cross-check on management ex-NCI adjusted EBITDA (1,784.8 LTM): 0.92x total debt and 0.64x net debt, mixing consolidated debt with ex-NCI earnings. Excludes operating leases of 653.8 and asset retirement obligations of 1,065.4. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-mur/deliveries/c5f1c0047bd4e60b5d2a7ef03ac20317434b20186fe3a78ddafc8ebc5751517b/CP-1.md",
+      "sha256": "4d5950c4064f287f2e32c5d0c0406bc21b674c599f97781d7194c385f998c5b5",
+      "line": 163,
+      "quote": "| LTM Q3 2026 | 21.29 | x | Calculated LTM EBITDA of 1,837.5 over LTM interest paid of 86.3 (FY2025 88.1 less 9M 2025 52.4 plus 9M 2026 50.6), US$m. Cash interest is net of 15.7 capitalized in 9M 2026 and is below the 100.9 interest expense net (18.22x); the sources do not bridge the two. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-mur/deliveries/c5f1c0047bd4e60b5d2a7ef03ac20317434b20186fe3a78ddafc8ebc5751517b/CP-1.md",
+      "sha256": "4d5950c4064f287f2e32c5d0c0406bc21b674c599f97781d7194c385f998c5b5",
+      "line": 172,
+      "quote": "| September 30, 2026 | 500.3 | 1999.6 | US$m | Same facility and letters of credit (10-Q Q3 page:14, page:47). Cash includes NCI and 105.1 held outside the United States. Letters of credit issued outside the revolver (211.8 in total at December 31, 2025) are not netted because the issuing lines are not identified. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-mur/deliveries/c5f1c0047bd4e60b5d2a7ef03ac20317434b20186fe3a78ddafc8ebc5751517b/CP-1.md",
+      "sha256": "4d5950c4064f287f2e32c5d0c0406bc21b674c599f97781d7194c385f998c5b5",
+      "line": 68,
+      "quote": "| EBITDA, calculated (operating income + DD&A + impairment) | 392.6 | 616.8 | 527.9 | 404.3 | 1,537.3 | 1,093.8 | 1,394.0 | 1,531.3 | 1,837.5 |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-launch-swarm-tigo-001",
+    "issuer": "tigo",
+    "name": "Millicom International Cellular S.A.",
+    "identity_source": "context",
+    "sector": "Telecommunications",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q3-2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (TIGO)",
+    "summary": "No report was published. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-launch-swarm-tigo-001/deliveries/cd4ee1c42ed679af4a17027ce03c490577736a1d1becc1114ebd7bbe9924f2b5/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. One independent reviewer's findings are retained in review.json and are not repaired here. Treat the analysis as candidate."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-launch-swarm-tigo-001/inputs/5b145622a49a1e38ec7885504ac944230be02601fefa1d2f3fb7d83ded83c956",
+      "sha256": "5b145622a49a1e38ec7885504ac944230be02601fefa1d2f3fb7d83ded83c956",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Millicom International Cellular S.A.\","
+    },
+    "sector": {
+      "path": "runs/cpos-launch-swarm-tigo-001/inputs/5b145622a49a1e38ec7885504ac944230be02601fefa1d2f3fb7d83ded83c956",
+      "sha256": "5b145622a49a1e38ec7885504ac944230be02601fefa1d2f3fb7d83ded83c956",
+      "line": 22,
+      "quote": "    \"sector\": \"Telecommunications\","
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cvi",
+    "issuer": "cvi",
+    "name": "CVR Energy Inc",
+    "identity_source": "context",
+    "sector": "Petroleum Refining",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (September 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CVI)",
+    "summary": "Standalone credit strength is high: 1.94x gross leverage, 0.55x net and USD 1,853 million of liquidity. The view for creditors is conditional on a pending, debt-funded acquisition and on cycle-high earnings holding. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CVR ENERGY INC.",
+    "handoff": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "9810",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "964",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA (reported bridge), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "1.94",
+        "unit": "x",
+        "period": "LTM Q3 2026 (September 30, 2026)",
+        "basis": "Total debt / EBITDA. Total debt 1,781 over LTM Adjusted EBITDA 919; cash 1,278 includes 158 of consolidated VIE cash; excludes pending acquisition debt and 500 minimum cash condition.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.96",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 919 over LTM cash interest 132. Coupons are semi-annual, so cash interest is lumpy by quarter, and the window mixes pre- and post-refinancing coupon timing (the new notes' first coupon was due August 15, 2026).",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1278",
+        "unit": "US$m",
+        "period": "Q3 2026 (September 30, 2026)",
+        "basis": "Cash. ABL available 530 (550 less 20 letters of credit) plus CVR Partners ABL 45. Cash includes 158 of consolidated VIE cash; 500 must stay unrestricted until acquisition close; neither facility is drawn.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "1026",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Cash from operations, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Acquisition financing, target earnings and covenant terms are not supplied, so post-closing credit metrics cannot be calculated.",
+      "CP-1 main limitation: Covenant levels, the acquisition financing terms and the sustainability of the current earnings level are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cvi/inputs/90a4adce7121ac13b0bc8c46b1ee93789832813a3c6223523e8f15963f3f61b5",
+      "sha256": "90a4adce7121ac13b0bc8c46b1ee93789832813a3c6223523e8f15963f3f61b5",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CVR ENERGY INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cvi/inputs/90a4adce7121ac13b0bc8c46b1ee93789832813a3c6223523e8f15963f3f61b5",
+      "sha256": "90a4adce7121ac13b0bc8c46b1ee93789832813a3c6223523e8f15963f3f61b5",
+      "line": 22,
+      "quote": "    \"sector\": \"Petroleum Refining\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 56,
+      "quote": "| LTM Q3 2026 (September 30, 2026) | 1.94 | 0.55 | x | Total debt 1,781 over LTM Adjusted EBITDA 919; cash 1,278 includes 158 of consolidated VIE cash; excludes pending acquisition debt and 500 minimum cash condition. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 65,
+      "quote": "| LTM Q3 2026 | 6.96 | x | Adjusted EBITDA 919 over LTM cash interest 132. Coupons are semi-annual, so cash interest is lumpy by quarter, and the window mixes pre- and post-refinancing coupon timing (the new notes' first coupon was due August 15, 2026). |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 74,
+      "quote": "| Q3 2026 (September 30, 2026) | 1,278 | 575 | US$m | ABL available 530 (550 less 20 letters of credit) plus CVR Partners ABL 45. Cash includes 158 of consolidated VIE cash; 500 must stay unrestricted until acquisition close; neither facility is drawn. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 94,
+      "quote": "| Net sales | 7,162 | 3,281 | 1,944 | 8,000 | 5,352 | 9,810 | Statements of operations; 10-K page:132, 10-Q Q3 page:9 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 100,
+      "quote": "| EBITDA (reported bridge) | 591 | 804 | 625 | 913 | 540 | 964 | Same pages |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cvi/deliveries/2cc6d4133c1207315b023a4f0f3db1a2bb8323d6fb0bb926440abd35906e90f8/CP-1.md",
+      "sha256": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+      "line": 104,
+      "quote": "| Cash from operations | 144 | 655 | 163 | 1,026 | 144 | 1,026 | Cash flow statements; Q3 figures derived as nine months less six months |"
+    }
+  },
+  "checklist": null
+}

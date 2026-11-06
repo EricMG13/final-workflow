@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-pbf-holding-co-llc",
+    "issuer": "pbf-holding-co-llc",
+    "name": "PBF Holding Co LLC",
+    "identity_source": "context",
+    "sector": "Petroleum Refining",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-09-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session",
+    "summary": "The issuer is financially strong today, with net cash and long-dated maturities, but earnings are cyclical and arrived mostly in two quarters. Open fire, legal and parent-linked items keep the view cautious. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "38837.2",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "4072.7",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA (company-defined), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "0.5",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Principal 1,850.0 and cash 2,510.6 at 2026-09-30 over LTM Adjusted EBITDA of 3,505.2 (derived); negative means net cash; before the 2026-10-26 redemption of 800.0, which is a subsequent event.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "21.6",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 3,505.2 over LTM cash interest paid 162.3 (both derived); cash interest is net of capitalised interest of 36.5 in 9M 2026, which flatters the ratio; coupon timing makes single quarters uneven.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "2510.6",
+        "unit": "US$m",
+        "period": "2026-09-30",
+        "basis": "Cash. Availability printed as \"approximately $3.1 billion\"; revolver undrawn, letters of credit approximately 157.2, commitment 4,000.0 from 2026-09-30; availability is borrowing-base limited and rounded; whether it nets letters of credit and overlaps cash is not stated; the 2026-10-26 redemption of 800.0 for about 853.4 is not reflected.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "3372.2",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: No forecast or normal-margin earnings view exists, and the financing documents and several event outcomes are missing.",
+      "CP-1 main limitation: Liquidity figures are rounded and cannot be rebuilt, and the covenant and legal documents are not in the pack."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/inputs/e3f25603b3db519b8b37c6f17fae4507d987050b491cc8f2ad5a0c098cf08361",
+      "sha256": "e3f25603b3db519b8b37c6f17fae4507d987050b491cc8f2ad5a0c098cf08361",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"PBF Holding Co LLC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/inputs/e3f25603b3db519b8b37c6f17fae4507d987050b491cc8f2ad5a0c098cf08361",
+      "sha256": "e3f25603b3db519b8b37c6f17fae4507d987050b491cc8f2ad5a0c098cf08361",
+      "line": 22,
+      "quote": "    \"sector\": \"Petroleum Refining\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 85,
+      "quote": "| LTM Q3 2026 | 0.5 | -0.2 | x | Principal 1,850.0 and cash 2,510.6 at 2026-09-30 over LTM Adjusted EBITDA of 3,505.2 (derived); negative means net cash; before the 2026-10-26 redemption of 800.0, which is a subsequent event. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 95,
+      "quote": "| LTM Q3 2026 | 21.6 | x | LTM Adjusted EBITDA 3,505.2 over LTM cash interest paid 162.3 (both derived); cash interest is net of capitalised interest of 36.5 in 9M 2026, which flatters the ratio; coupon timing makes single quarters uneven. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 105,
+      "quote": "| 2026-09-30 | 2,510.6 | 3,100.0 | US$m | Availability printed as \"approximately $3.1 billion\"; revolver undrawn, letters of credit approximately 157.2, commitment 4,000.0 from 2026-09-30; availability is borrowing-base limited and rounded; whether it nets letters of credit and overlaps cash is not stated; the 2026-10-26 redemption of 800.0 for about 853.4 is not reflected. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 55,
+      "quote": "| Revenues | 33,077.9 | 29,297.7 | 7,899.8 | 11,676.3 | 12,127.7 | 31,703.8 | 38,837.2 | Statements of operations: 10K page:154, Q1-10Q page:8, Q2-10Q page:8, Q3-10Q page:8; LTM derived |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 61,
+      "quote": "| EBITDA (company-defined) | -245.4 | 311.3 | 395.9 | 1,346.2 | 2,092.5 | 3,834.6 | 4,072.7 | Same pages; starts from net income, so includes insurance gains, the LCM reversal and derivative losses; LTM derived |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-pbf-holding-co-llc/deliveries/78ca501d3b64b3b7d833beeb5125df8b07f11b77a134ab6ad65ea1dffd78b739/CP-1.md",
+      "sha256": "1cdf760fd0e4e56b00e2ceeb3b00667f06f1fcb79b2ec9bbcb2c8c93d195788e",
+      "line": 64,
+      "quote": "| Net cash from operating activities | -136.8 | -274.3 | -371.2 | 1,520.2 | 1,921.6 | 3,070.6 | 3,372.2 | Cash flow statements are year to date: 10K page:156, Q1-10Q page:9, Q2-10Q page:9, Q3-10Q page:9; Q2 and Q3 derived by subtraction |"
+    }
+  },
+  "checklist": null
+}

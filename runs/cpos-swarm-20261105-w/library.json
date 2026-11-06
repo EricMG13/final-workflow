@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-w",
+    "issuer": "w",
+    "name": "Wayfair Inc.",
+    "identity_source": "context",
+    "sector": "Retail-Catalog & Mail-Order Houses",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-09-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (W)",
+    "summary": "Wayfair is a stronger credit than two years ago, with total debt to Adjusted EBITDA at 3.28x against 6.88x in FY2024, but it remains a thin-margin, demand-sensitive retailer whose leverage looks moderate only on company-defined earnings. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "13207",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Net revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "549",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA (operating income plus D&A), calculated, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.28",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Total debt 2,799 (Q3 10-Q page:11) over derived LTM Adjusted EBITDA 853; net debt deducts 1,098; Adjusted EBITDA adds back equity compensation, so unadjusted leverage is higher (5.10x total debt on operating income plus D&A)",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.02",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Derived LTM Adjusted EBITDA 853 over derived LTM cash interest 170 (139 plus 129 less 98); cash interest is gross of interest income; cover on run-rate coupons of about 195 is 4.36x",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1038",
+        "unit": "US$m",
+        "period": "2026-09-30",
+        "basis": "Cash. 500 less 82 letters of credit (Q3 10-Q page:11); short-term investments of 60 excluded; availability is arithmetic and is not tested against covenants",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "708",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant terms, ratings and executed debt documents are not supplied, and Adjusted EBITDA adds back equity compensation, so headroom and downside cannot be measured precisely.",
+      "CP-1 main limitation: Earnings are company-adjusted and add back equity compensation; covenant definitions and market data are not supplied, so headroom and relative value cannot be measured."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-w/inputs/e3b6fe003758c2152693bc3785d916a8d51266f353efa91b71daa0110cb48520",
+      "sha256": "e3b6fe003758c2152693bc3785d916a8d51266f353efa91b71daa0110cb48520",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Wayfair Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-w/inputs/e3b6fe003758c2152693bc3785d916a8d51266f353efa91b71daa0110cb48520",
+      "sha256": "e3b6fe003758c2152693bc3785d916a8d51266f353efa91b71daa0110cb48520",
+      "line": 22,
+      "quote": "    \"sector\": \"Retail-Catalog & Mail-Order Houses\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 226,
+      "quote": "| LTM Q3 2026 | 3.28 | 1.99 | x | Total debt 2,799 (Q3 10-Q page:11) over derived LTM Adjusted EBITDA 853; net debt deducts 1,098; Adjusted EBITDA adds back equity compensation, so unadjusted leverage is higher (5.10x total debt on operating income plus D&A) |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 236,
+      "quote": "| LTM Q3 2026 | 5.02 | x | Derived LTM Adjusted EBITDA 853 over derived LTM cash interest 170 (139 plus 129 less 98); cash interest is gross of interest income; cover on run-rate coupons of about 195 is 4.36x |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 246,
+      "quote": "| 2026-09-30 | 1038 | 418 | US$m | 500 less 82 letters of credit (Q3 10-Q page:11); short-term investments of 60 excluded; availability is arithmetic and is not tested against covenants |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 266,
+      "quote": "| Net revenue | 11,851 | 12,457 | 9,120 | 9,870 | 13,207 | LTM derived: 12,457 + 9,870 - 9,120 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 271,
+      "quote": "| EBITDA (operating income plus D&A), calculated | (74) | 322 | 167 | 394 | 549 | Calculated; not a company measure |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-w/deliveries/118f569e51d6d56771a526284ac21249f87b91b8e64eae8b6339fe747cd5db21/CP-1.md",
+      "sha256": "8232ff967a14f3da33fdcbbd5e43b820265a70b6cbcc48e608407bb2c6fd17ec",
+      "line": 275,
+      "quote": "| Net cash from operating activities | 317 | 534 | 332 | 506 | 708 | LTM derived |"
+    }
+  },
+  "checklist": null
+}

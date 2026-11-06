@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-mgni",
+    "issuer": "mgni",
+    "name": "Magnite Inc",
+    "identity_source": "context",
+    "sector": "Services-Computer Programming, Data Processing, Etc.",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (MGNI)",
+    "summary": "Magnite is a low-leverage credit: gross debt is 1.27x last-twelve-months Adjusted EBITDA and cash exceeds debt, with a single term loan due in 2031. The business is cyclical and concentrated in a few buyers. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is MAGNITE, INC..",
+    "handoff": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "766746",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "1.27",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Principal 357,730 (Q3Q p17); cash 392,862 (Q3Q p2); LTM Adjusted EBITDA 280,586 derived. Negative net leverage means cash exceeds debt. Debt excludes lease liabilities and uses principal, not carrying value.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "10.98",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 280,586 over LTM cash interest 25,549 (nine-month cash interest 19,064 and 21,674; Q3Q p6). Interest paid on the repaid convertible notes is small; the October 2026 repricing is not reflected.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "392.9",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Cash 392,862 thousand (Q3Q p2) including $78.1 million in foreign-currency accounts (Q3Q p50); availability $170.9 million net of $4.1 million letters of credit (Q3Q p20). Revolver matures February 2029; cash is partly customer-related working capital.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "297209",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The credit agreement, covenant definitions and ratings are not supplied, and part of the cash is customer float.",
+      "CP-1 main limitation: Adjusted EBITDA adds back stock compensation; the credit agreement and covenant definitions are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-mgni/inputs/add9e4e5fe29cabeba543552138279256276897be557a9b8ceef018e156869fc",
+      "sha256": "add9e4e5fe29cabeba543552138279256276897be557a9b8ceef018e156869fc",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"MAGNITE, INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-mgni/inputs/add9e4e5fe29cabeba543552138279256276897be557a9b8ceef018e156869fc",
+      "sha256": "add9e4e5fe29cabeba543552138279256276897be557a9b8ceef018e156869fc",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Computer Programming, Data Processing, Etc.\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 58,
+      "quote": "| LTM Q3 2026 | 1.27 | -0.13 | x | Principal 357,730 (Q3Q p17); cash 392,862 (Q3Q p2); LTM Adjusted EBITDA 280,586 derived. Negative net leverage means cash exceeds debt. Debt excludes lease liabilities and uses principal, not carrying value. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 68,
+      "quote": "| LTM Q3 2026 | 10.98 | x | LTM Adjusted EBITDA 280,586 over LTM cash interest 25,549 (nine-month cash interest 19,064 and 21,674; Q3Q p6). Interest paid on the repaid convertible notes is small; the October 2026 repricing is not reflected. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 78,
+      "quote": "| Q3 2026 | 392.9 | 170.9 | US$m | Cash 392,862 thousand (Q3Q p2) including $78.1 million in foreign-currency accounts (Q3Q p50); availability $170.9 million net of $4.1 million letters of credit (Q3Q p20). Revolver matures February 2029; cash is partly customer-related working capital. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 95,
+      "quote": "| Revenue | 668,170 | 713,953 | 508,597 | 561,390 | 766,746 | 10K p120; Q3Q p3; LTM derived |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-mgni/deliveries/98919896a69452f664b16ee534233503cf417881e30f250dc1d7229fe9ad65cd/CP-1.md",
+      "sha256": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+      "line": 107,
+      "quote": "| Net cash provided by operating activities | 235,201 | 236,168 | 107,711 | 168,752 | 297,209 | 10K p121; Q3Q p5; includes working-capital swings |"
+    }
+  },
+  "checklist": null
+}

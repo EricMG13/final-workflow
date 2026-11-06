@@ -1,0 +1,60 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-gmab",
+    "issuer": "gmab",
+    "name": "Genmab A/S",
+    "identity_source": "context",
+    "sector": "Pharmaceutical Preparations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (GMAB)",
+    "summary": "Genmab's royalty income is strong and net debt is falling, but it borrowed to buy a pipeline asset and its largest royalty has a finite horizon, so the credit is sound but leveraged and only partly assessable. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is GENMAB A/S.",
+    "handoff": "runs/cpos-swarm-20261105-gmab/deliveries/befc2c735de189322e0ccb40238e0423a259c5b01d32dc4c79e2aaa79136987a/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": {
+        "value": "1860",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. Note 8 lists four borrowing instruments and no revolver line, but that does not establish availability, letters of credit or covenant-conditional access. No restricted cash line is presented.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Debt maturities, coupons, covenant levels, revolver availability, ratings and full-year 2025 depreciation are not supplied, so leverage on EBITDA, liquidity headroom and refinancing timing cannot be tested.",
+      "CP-1 main limitation: Full-year 2025 depreciation and amortization, revolver availability, covenant levels and debt maturities are not supplied, so EBITDA leverage, undrawn liquidity and covenant headroom are missing."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-gmab/inputs/f11f6ebfef20e70f4d6999b74c1449c3a4d8535f2ef28448cb9cbb9dc6331b4f",
+      "sha256": "f11f6ebfef20e70f4d6999b74c1449c3a4d8535f2ef28448cb9cbb9dc6331b4f",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"GENMAB A/S\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-gmab/inputs/f11f6ebfef20e70f4d6999b74c1449c3a4d8535f2ef28448cb9cbb9dc6331b4f",
+      "sha256": "f11f6ebfef20e70f4d6999b74c1449c3a4d8535f2ef28448cb9cbb9dc6331b4f",
+      "line": 22,
+      "quote": "    \"sector\": \"Pharmaceutical Preparations\","
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-gmab/deliveries/befc2c735de189322e0ccb40238e0423a259c5b01d32dc4c79e2aaa79136987a/CP-1.md",
+      "sha256": "470d2d1ddbdc4449f689b20b3d5a9b49f6d69c93c24a1bf1e1eda3c8703c07f5",
+      "line": 71,
+      "quote": "| September 30, 2026 | 1860 | Not supplied: same reason as December 31, 2025 | US$m | Note 8 lists four borrowing instruments and no revolver line, but that does not establish availability, letters of credit or covenant-conditional access. No restricted cash line is presented. |"
+    }
+  },
+  "checklist": null
+}

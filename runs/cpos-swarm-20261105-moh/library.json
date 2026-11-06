@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-moh",
+    "issuer": "moh",
+    "name": "Molina Healthcare, Inc.",
+    "identity_source": "context",
+    "sector": "Hospital & Medical Service Plans",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (MOH)",
+    "summary": "Molina is a deteriorating credit with adequate near-term liquidity: debt of USD 3,771 million is 11.32x EBITDA for the twelve months to September 30, 2026, against 1.54x in FY2024, with no principal due before June 2028. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is MOLINA HEALTHCARE, INC..",
+    "handoff": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "44127",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "333",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA (operating income + D&A), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "11.32",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt 3,771; LTM EBITDA 333 (calculated, includes the 93 impairment; 8.85x total debt if it is added back); parent cash and investments 608. On consolidated cash and equivalents of 4,479 net debt is negative. Covenant EBITDA is not supplied.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.39",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. EBITDA 976 (calculated) over cash paid for interest of 181 (10-K page:107). Expense basis: 5.08x on interest expense of 192.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "4479",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. Consolidated cash and equivalents (10-Q Q3 page:2); capacity per 10-Q Q3 page:40. Parent cash and investments 608. Consolidated cash is subject to statutory capital rules; investments of 4,100 are excluded from Cash. Revolver terminates November 20, 2030.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "331",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant headroom cannot be verified because the covenant definitions and reported ratios are not supplied, and EBITDA is calculated rather than reported.",
+      "CP-1 main limitation: EBITDA is calculated, not reported, and cash interest and the covenant ratio are not available for the latest twelve months."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-moh/inputs/038deefd3d0187dee809d7ec7eb3f32548cc8a768b8a64a8e4dfbffc4bec802f",
+      "sha256": "038deefd3d0187dee809d7ec7eb3f32548cc8a768b8a64a8e4dfbffc4bec802f",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"MOLINA HEALTHCARE, INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-moh/inputs/038deefd3d0187dee809d7ec7eb3f32548cc8a768b8a64a8e4dfbffc4bec802f",
+      "sha256": "038deefd3d0187dee809d7ec7eb3f32548cc8a768b8a64a8e4dfbffc4bec802f",
+      "line": 22,
+      "quote": "    \"sector\": \"Hospital & Medical Service Plans\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 59,
+      "quote": "| LTM Q3 2026 | 11.32 | 9.50 | x | Debt 3,771; LTM EBITDA 333 (calculated, includes the 93 impairment; 8.85x total debt if it is added back); parent cash and investments 608. On consolidated cash and equivalents of 4,479 net debt is negative. Covenant EBITDA is not supplied. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 66,
+      "quote": "| FY2025 | 5.39 | x | EBITDA 976 (calculated) over cash paid for interest of 181 (10-K page:107). Expense basis: 5.08x on interest expense of 192. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 79,
+      "quote": "| September 30, 2026 | 4479 | 1250 | US$m | Consolidated cash and equivalents (10-Q Q3 page:2); capacity per 10-Q Q3 page:40. Parent cash and investments 608. Consolidated cash is subject to statutory capital rules; investments of 4,100 are excluded from Cash. Revolver terminates November 20, 2030. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 99,
+      "quote": "| Total revenue | 40,650 | 45,426 | 34,051 | 32,752 | 44,127 | Reported; LTM calculated |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 106,
+      "quote": "| EBITDA (operating income + D&A) | 1,893 | 976 | 1,094 | 451 | 333 | Calculated; not a company-reported measure |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-moh/deliveries/5511a6d75a5f3d6465351bdd58b50c152d8483b6826e1d6a08391d2d4595a687/CP-1.md",
+      "sha256": "9d11362d7487441f85b5fd6c0bd9f2e0a792068fa4a098f857b8fd19f913a548",
+      "line": 110,
+      "quote": "| Net cash from operating activities | 644 | -535 | -237 | 629 | 331 | Reported; LTM calculated; settlement timing drives swings |"
+    }
+  },
+  "checklist": null
+}

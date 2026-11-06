@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-vsat",
+    "issuer": "vsat",
+    "name": "Viasat Inc",
+    "identity_source": "context",
+    "sector": "Communications Services, NEC",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "June 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (VSAT)",
+    "summary": "Viasat has deleveraged and holds ample liquidity, but operating income falls well short of interest expense, spending is heavy, and a USD 600.0 million secured-note maturity falls due by mid-2027. The credit view is adequate but exposed. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is VIASAT INC.",
+    "handoff": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "4640.3",
+        "unit": "USD million",
+        "period": "FY2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "4.58",
+        "unit": "x",
+        "period": "LTM Q1 FY2027",
+        "basis": "Total debt / EBITDA. Debt principal and cash at June 30, 2026 over derived EBITDA for the twelve months ended June 30, 2026 (FY2026 plus Q1 FY2027 less Q1 FY2026); consolidated across the Viasat and Inmarsat groups; not a covenant ratio",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.73",
+        "unit": "x",
+        "period": "LTM Q1 FY2027",
+        "basis": "EBITDA / cash interest. Derived EBITDA over LTM cash interest of USD 303.7 million (FY2026 plus Q1 FY2027 less Q1 FY2026, the two quarters taken from MD&A text rounded to USD 0.1 million); not a covenant ratio",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1735.8",
+        "unit": "US$m",
+        "period": "June 30, 2026",
+        "basis": "Cash. Cash and cash equivalents; undrawn is 600.3 (647.5 less 47.2 letters of credit) plus 550.0; the Inmarsat revolver matures March 28, 2027 and the Viasat revolver can mature early on its springing date; group location of the cash is not supplied",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "1589.9",
+        "unit": "USD million",
+        "period": "FY2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Derived EBITDA only, no covenant levels, no group-level data, and ownership and ratings are not supplied.",
+      "CP-1 main limitation: EBITDA is derived from filed lines, not company-defined, and covenant levels are not printed."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-vsat/inputs/17f947c7803a9c3f9a558a94754568a0528cf2b9b27aade8ad60c15d0b57d192",
+      "sha256": "17f947c7803a9c3f9a558a94754568a0528cf2b9b27aade8ad60c15d0b57d192",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"VIASAT INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-vsat/inputs/17f947c7803a9c3f9a558a94754568a0528cf2b9b27aade8ad60c15d0b57d192",
+      "sha256": "17f947c7803a9c3f9a558a94754568a0528cf2b9b27aade8ad60c15d0b57d192",
+      "line": 22,
+      "quote": "    \"sector\": \"Communications Services, NEC\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 176,
+      "quote": "| LTM Q1 FY2027 | 4.58 | 3.37 | x | Debt principal and cash at June 30, 2026 over derived EBITDA for the twelve months ended June 30, 2026 (FY2026 plus Q1 FY2027 less Q1 FY2026); consolidated across the Viasat and Inmarsat groups; not a covenant ratio |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 184,
+      "quote": "| LTM Q1 FY2027 | 4.73 | x | Derived EBITDA over LTM cash interest of USD 303.7 million (FY2026 plus Q1 FY2027 less Q1 FY2026, the two quarters taken from MD&A text rounded to USD 0.1 million); not a covenant ratio |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 192,
+      "quote": "| June 30, 2026 | 1735.8 | 1150.3 | US$m | Cash and cash equivalents; undrawn is 600.3 (647.5 less 47.2 letters of credit) plus 550.0; the Inmarsat revolver matures March 28, 2027 and the Viasat revolver can mature early on its springing date; group location of the cash is not supplied |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 209,
+      "quote": "| Total revenues | 4,519.6 | 4,640.3 | 4,625.8 | Reported; LTM is FY2026 plus Q1 FY2027 less Q1 FY2026 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-vsat/deliveries/cd968ee0417e6f4e7386b39b23e5b99694ba3eb6bacc66504fba1fa4aba94f94/CP-1.md",
+      "sha256": "744df658ab9af90594ee4ae00143fed4e201b88aa856329b67555201ddcd26a0",
+      "line": 214,
+      "quote": "| Net cash from operating activities | 908.2 | 1,589.9 | 1,592.0 | Reported; FY2026 and LTM include the Ligado lump sum of 420.0 |"
+    }
+  },
+  "checklist": null
+}

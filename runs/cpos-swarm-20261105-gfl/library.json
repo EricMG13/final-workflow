@@ -1,0 +1,60 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-gfl",
+    "issuer": "gfl",
+    "name": "GFL Environmental Inc.",
+    "identity_source": "context",
+    "sector": "Refuse Systems",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q3-2026",
+    "currency": "CAD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (GFL)",
+    "summary": "GFL is a scaled waste operator whose leverage rose sharply with the SECURE acquisition. The credit view is cautious: unadjusted leverage is 5.18x while management's run-rate figure is 3.8x, so integration and the covenant definition decide the outcome. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-gfl/deliveries/2f04c10b11f8d6a6453ba463d4addc92ee13915080a3784074e4d0a25981a7ab/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.18",
+        "unit": "x",
+        "period": "Sep 30, 2026",
+        "basis": "Total debt / EBITDA. Debt 11,696.4 and cash 296.5 over trailing Adjusted EBITDA 2,257.1 (Q3PR page:14). Excludes leases of 705.0. Includes SECURE debt in full but only one month of SECURE EBITDA, so overstated against a pro forma basis; management Net Leverage with run-rate EBITDA 2,988.0 is 3.8x. Not the revolver covenant ratio",
+        "source": "cp1-leverage"
+      },
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The credit agreement, annual statements and take-private terms are not supplied, so covenant headroom and event risk cannot be sized.",
+      "CP-1 main limitation: The credit agreement and full-year 2025 statements are not in the pack, so covenant headroom and full-year cash interest cannot be tested."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-gfl/inputs/8fcb7a42287c8f6efb39cea12a8c3d3db65bfbc11e1653a358aafe84da574912",
+      "sha256": "8fcb7a42287c8f6efb39cea12a8c3d3db65bfbc11e1653a358aafe84da574912",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"GFL Environmental Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-gfl/inputs/8fcb7a42287c8f6efb39cea12a8c3d3db65bfbc11e1653a358aafe84da574912",
+      "sha256": "8fcb7a42287c8f6efb39cea12a8c3d3db65bfbc11e1653a358aafe84da574912",
+      "line": 22,
+      "quote": "    \"sector\": \"Refuse Systems\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-gfl/deliveries/2f04c10b11f8d6a6453ba463d4addc92ee13915080a3784074e4d0a25981a7ab/CP-1.md",
+      "sha256": "457daef9005e0c22adbde0971fc860d76558b22ae25109d41453f8af9485718b",
+      "line": 55,
+      "quote": "| Sep 30, 2026 | 5.18 | 5.05 | x | Debt 11,696.4 and cash 296.5 over trailing Adjusted EBITDA 2,257.1 (Q3PR page:14). Excludes leases of 705.0. Includes SECURE debt in full but only one month of SECURE EBITDA, so overstated against a pro forma basis; management Net Leverage with run-rate EBITDA 2,988.0 is 3.8x. Not the revolver covenant ratio |"
+    }
+  },
+  "checklist": null
+}

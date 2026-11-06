@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-post",
+    "issuer": "post",
+    "name": "Post Holdings, Inc.",
+    "identity_source": "context",
+    "sector": "Grain Mill Products",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 FY2026 (Jun 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (POST)",
+    "summary": "Post is a large food company that is highly leveraged but liquid. Net debt is 4.59x adjusted EBITDA, interest costs are rising and buybacks outran free cash flow, while USD 1,242.4 million of liquidity limits near-term risk. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-post/deliveries/26fdb074fee18ff94eadb65b224fa6b5ef817510d88bb45cac1c67995bd33edd/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "4.75",
+        "unit": "x",
+        "period": "Q3 FY2026 (Jun 30, 2026)",
+        "basis": "Total debt / EBITDA. Principal debt 7,676.0 (Q3 10-Q page:17) over LTM Adjusted EBITDA 1,615.9 (Q3 release page:22). Company-reported credit agreement ratio was 4.6x on adjusted EBITDA of 1,597.3 (page:22). Leases, pensions and purchase commitments are excluded.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.16",
+        "unit": "x",
+        "period": "FY2025 (Sep 30, 2025)",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 1,538.8 over interest paid 370.1 (10-K page:128, supplemental cash flow information). Interest expense, net of 361.4 gives 4.26x.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "265.6",
+        "unit": "US$m",
+        "period": "Q3 FY2026 (Jun 30, 2026)",
+        "basis": "Cash. No borrowings, letters of credit 23.2 (Q3 10-Q page:21; balance sheet page:3). Restricted cash of 6.9 excluded. The facility is the only committed facility found and matures February 20, 2029, so none expires within twelve months.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Adjusted EBITDA is management's measure, and no legal documents, ratings or ownership detail were supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is management's measure, cash interest is only available for FY2025, and the covenant metric is not reported."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-post/inputs/42de786351216298f80706a9245ba3397a337baef9248bdb3ddc19ef12ef23d8",
+      "sha256": "42de786351216298f80706a9245ba3397a337baef9248bdb3ddc19ef12ef23d8",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Post Holdings, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-post/inputs/42de786351216298f80706a9245ba3397a337baef9248bdb3ddc19ef12ef23d8",
+      "sha256": "42de786351216298f80706a9245ba3397a337baef9248bdb3ddc19ef12ef23d8",
+      "line": 22,
+      "quote": "    \"sector\": \"Grain Mill Products\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-post/deliveries/26fdb074fee18ff94eadb65b224fa6b5ef817510d88bb45cac1c67995bd33edd/CP-1.md",
+      "sha256": "c6b89a2a1531678b1e29d8ad7188e3515d0f6ea89db4e21750fe77692e66f2ac",
+      "line": 61,
+      "quote": "| Q3 FY2026 (Jun 30, 2026) | 4.75 | 4.59 | x | Principal debt 7,676.0 (Q3 10-Q page:17) over LTM Adjusted EBITDA 1,615.9 (Q3 release page:22). Company-reported credit agreement ratio was 4.6x on adjusted EBITDA of 1,597.3 (page:22). Leases, pensions and purchase commitments are excluded. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-post/deliveries/26fdb074fee18ff94eadb65b224fa6b5ef817510d88bb45cac1c67995bd33edd/CP-1.md",
+      "sha256": "c6b89a2a1531678b1e29d8ad7188e3515d0f6ea89db4e21750fe77692e66f2ac",
+      "line": 67,
+      "quote": "| FY2025 (Sep 30, 2025) | 4.16 | x | Adjusted EBITDA 1,538.8 over interest paid 370.1 (10-K page:128, supplemental cash flow information). Interest expense, net of 361.4 gives 4.26x. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-post/deliveries/26fdb074fee18ff94eadb65b224fa6b5ef817510d88bb45cac1c67995bd33edd/CP-1.md",
+      "sha256": "c6b89a2a1531678b1e29d8ad7188e3515d0f6ea89db4e21750fe77692e66f2ac",
+      "line": 79,
+      "quote": "| Q3 FY2026 (Jun 30, 2026) | 265.6 | 976.8 | US$m | No borrowings, letters of credit 23.2 (Q3 10-Q page:21; balance sheet page:3). Restricted cash of 6.9 excluded. The facility is the only committed facility found and matures February 20, 2029, so none expires within twelve months. |"
+    }
+  },
+  "checklist": null
+}

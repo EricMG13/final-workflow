@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-chdn",
+    "issuer": "chdn",
+    "name": "Churchill Downs Inc",
+    "identity_source": "context",
+    "sector": "Services-Racing, Including Track Operation",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CHDN)",
+    "summary": "Churchill Downs has a sound but still-moving credit profile: leverage fell, cash flow is strong and liquidity is ample, while a planned asset sale, large buybacks and 2028 note refinancing will decide the direction. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "3004.9",
+        "unit": "USD millions",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Net revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.81",
+        "unit": "x",
+        "period": "Sep 30, 2026",
+        "basis": "Total debt / EBITDA. Total debt 4,748 over LTM Adjusted EBITDA 1,245.3; net of unrestricted cash 167. The October 19, 2026 redemption of the 2027 notes with revolver borrowings does not change total debt",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.54",
+        "unit": "x",
+        "period": "LTM Sep 30, 2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 1,245.3 over LTM cash interest 274.5 (294.5 plus 173 less 193). Not the covenant interest coverage ratio, which was 3.9 at December 31, 2025 and is not supplied later",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "167",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Computed 1,200 commitment less 79 drawn less 10 letters of credit; the filing prints 1.1 billion. Restricted cash of 92 excluded. Before the October 19, 2026 redemption funded by the revolver",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "755.8",
+        "unit": "USD millions",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The asset sale has no disclosed terms, and covenant headroom and executed debt documents are not supplied.",
+      "CP-1 main limitation: Covenant headroom, guarantor perimeter and the definition of management net bank leverage are not supplied, and last-twelve-months figures mix one-decimal and whole-million sources."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-chdn/inputs/7c4f52e55b5e23c0fba0c45fbf91c794297fbfceecf1db4e9e336166f978aca8",
+      "sha256": "7c4f52e55b5e23c0fba0c45fbf91c794297fbfceecf1db4e9e336166f978aca8",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Churchill Downs Inc\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-chdn/inputs/7c4f52e55b5e23c0fba0c45fbf91c794297fbfceecf1db4e9e336166f978aca8",
+      "sha256": "7c4f52e55b5e23c0fba0c45fbf91c794297fbfceecf1db4e9e336166f978aca8",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Racing, Including Track Operation\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-1.md",
+      "sha256": "1ca790f594af2528c57d0f57a2e49328f2a2f28e48929edda12648fa238cae8e",
+      "line": 58,
+      "quote": "| Sep 30, 2026 | 3.81 | 3.68 | x | Total debt 4,748 over LTM Adjusted EBITDA 1,245.3; net of unrestricted cash 167. The October 19, 2026 redemption of the 2027 notes with revolver borrowings does not change total debt |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-1.md",
+      "sha256": "1ca790f594af2528c57d0f57a2e49328f2a2f28e48929edda12648fa238cae8e",
+      "line": 67,
+      "quote": "| LTM Sep 30, 2026 | 4.54 | x | Adjusted EBITDA 1,245.3 over LTM cash interest 274.5 (294.5 plus 173 less 193). Not the covenant interest coverage ratio, which was 3.9 at December 31, 2025 and is not supplied later |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-1.md",
+      "sha256": "1ca790f594af2528c57d0f57a2e49328f2a2f28e48929edda12648fa238cae8e",
+      "line": 76,
+      "quote": "| Sep 30, 2026 | 167 | 1111 | US$m | Computed 1,200 commitment less 79 drawn less 10 letters of credit; the filing prints 1.1 billion. Restricted cash of 92 excluded. Before the October 19, 2026 redemption funded by the revolver |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-1.md",
+      "sha256": "1ca790f594af2528c57d0f57a2e49328f2a2f28e48929edda12648fa238cae8e",
+      "line": 94,
+      "quote": "| Net revenue | 2,925.9 | 2,260 | 2,339 | 3,004.9 | 10-K p77; Q3 10-Q p2; LTM computed |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-chdn/deliveries/b6a7806b21431f704ecb6be581e0c048ed692db4ec2a06b1f1dc1a3bb1d585fd/CP-1.md",
+      "sha256": "1ca790f594af2528c57d0f57a2e49328f2a2f28e48929edda12648fa238cae8e",
+      "line": 99,
+      "quote": "| Net cash provided by operating activities | 769.8 | 674 | 660 | 755.8 | Cash flow statements; LTM computed |"
+    }
+  },
+  "checklist": null
+}

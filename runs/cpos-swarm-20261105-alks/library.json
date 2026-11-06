@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-alks",
+    "issuer": "alks",
+    "name": "Alkermes plc.",
+    "identity_source": "context",
+    "sector": "Pharmaceutical Preparations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ALKS)",
+    "summary": "Alkermes looks serviceable on its secured term loans today, with 787.6 US$m of cash and investments and 3.40 times leverage on Adjusted EBITDA, but depends on managing VIVITROL generic entry expected in 2027. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1753.6",
+        "unit": "US$m",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "146.2",
+        "unit": "US$m",
+        "period": "LTM Sep 30, 2026",
+        "basis": "EBITDA, company definition, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.40",
+        "unit": "x",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Total debt / EBITDA. Carrying debt 1,497.7 US$m and net debt 710.2 US$m over LTM Adjusted EBITDA of 440.2 US$m (management definition, FY2025 portion derived). On reported EBITDA of 146.2 US$m the ratios are 10.25x and 4.86x. Not a covenant ratio; covenant definitions Not supplied",
+        "source": "cp1-leverage"
+      },
+      "coverage": null,
+      "cash": {
+        "value": "631.3",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Cash and cash equivalents only; short-term investments 124.2 and long-term investments 32.1 US$m are excluded, giving 787.6 US$m in total",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "243.0",
+        "unit": "US$m",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Cash from operations, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, cash interest and ownership are not in the sources, and leverage rests on management add-backs.",
+      "CP-1 main limitation: Covenant levels, cash interest and a revolver are not in the sources, and FY2025 Adjusted EBITDA is derived."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-alks/inputs/885addee0d736fc42d87bc797174ed4ac35a16798074c06e23b1959b2f8975fb",
+      "sha256": "885addee0d736fc42d87bc797174ed4ac35a16798074c06e23b1959b2f8975fb",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Alkermes plc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-alks/inputs/885addee0d736fc42d87bc797174ed4ac35a16798074c06e23b1959b2f8975fb",
+      "sha256": "885addee0d736fc42d87bc797174ed4ac35a16798074c06e23b1959b2f8975fb",
+      "line": 22,
+      "quote": "    \"sector\": \"Pharmaceutical Preparations\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-1.md",
+      "sha256": "ba17ec3b21ea8b787a38b6115fd45721db003c4757249d4451fa745fd7eb5b34",
+      "line": 105,
+      "quote": "| LTM Sep 30, 2026 | 3.40 | 1.61 | x | Carrying debt 1,497.7 US$m and net debt 710.2 US$m over LTM Adjusted EBITDA of 440.2 US$m (management definition, FY2025 portion derived). On reported EBITDA of 146.2 US$m the ratios are 10.25x and 4.86x. Not a covenant ratio; covenant definitions Not supplied |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-1.md",
+      "sha256": "ba17ec3b21ea8b787a38b6115fd45721db003c4757249d4451fa745fd7eb5b34",
+      "line": 121,
+      "quote": "| Sep 30, 2026 | 631.3 | Not supplied: no revolving or other committed undrawn facility is described in the pinned sources | US$m | Cash and cash equivalents only; short-term investments 124.2 and long-term investments 32.1 US$m are excluded, giving 787.6 US$m in total |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-1.md",
+      "sha256": "ba17ec3b21ea8b787a38b6115fd45721db003c4757249d4451fa745fd7eb5b34",
+      "line": 138,
+      "quote": "| Total revenues | 1,475.9 | 1,091.4 | 1,369.1 | 394.2 | 480.1 | 1,753.6 | 10-K page:166; 10-Q Q3 page:6; LTM derived |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-1.md",
+      "sha256": "ba17ec3b21ea8b787a38b6115fd45721db003c4757249d4451fa745fd7eb5b34",
+      "line": 143,
+      "quote": "| EBITDA, company definition | 285.6 | 221.2 | 81.8 | 96.9 | 63.0 | 146.2 | Release page:6 for interim periods; FY2025 derived from 10-K lines |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-alks/deliveries/af24378b05e6f3ff861f561153e49c460578fd5b0e281ae40ef711dc9961050e/CP-1.md",
+      "sha256": "ba17ec3b21ea8b787a38b6115fd45721db003c4757249d4451fa745fd7eb5b34",
+      "line": 145,
+      "quote": "| Cash from operations | 520.8 | 350.7 | 72.9 | 101.7 | 93.5 | 243.0 | 10-K page:168; 10-Q Q3 page:7; Q3 by subtraction |"
+    }
+  },
+  "checklist": null
+}

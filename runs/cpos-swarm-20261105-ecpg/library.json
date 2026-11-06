@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ecpg",
+    "issuer": "ecpg",
+    "name": "Encore Capital Group Inc",
+    "identity_source": "context",
+    "sector": "Short-Term Business Credit Institutions",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (2026-09-30)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ECPG)",
+    "summary": "Encore is an improving but still highly levered debt purchaser: leverage fell to 5.13x and cash interest cover rose to 3.07x, but revolver availability narrowed to USD 510.2 million and earnings quality depends on collection forecasts. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is ENCORE CAPITAL GROUP INC.",
+    "handoff": "runs/cpos-swarm-20261105-ecpg/deliveries/8dfe4eb437cb9f892d558aac8837f0df9b6deb59e3cade05300812a4d70ee048/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.13",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Principal debt 4,267,981 (Q3 10-Q page:19 \"4,267,981 4,033,394\") less cash 158,425 (Q3 10-Q page:2 \"Cash and cash equivalents $ 158,425 $ 156,784\"); LTM Adjusted EBITDA 831,829 calculated as FY2025 plus nine months 2026 644,320 less nine months 2025 489,449 (Q3 10-Q page:51 \"Adjusted EBITDA $ 245,171 $ 184,756 $ 644,320 $ 489,449\"). Cash includes cash of consolidated securitisation vehicles and client cash, not separated; carrying borrowings are 4,237,800 after 30,181 of discount and costs.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.07",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 831,829 over LTM cash interest 270,515, calculated as FY2025 259,812 plus nine months 2026 183,459 less nine months 2025 172,756 (Q3 10-Q page:6 \"Cash paid for interest $ 183,459 $ 172,756\"). Cash interest is lumpy because coupons fall on semi-annual dates, so single quarters are not used.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "158.4",
+        "unit": "US$m",
+        "period": "Q3 2026 (2026-09-30)",
+        "basis": "Cash. Cash 158,425 thousand (Q3 10-Q page:2), of which 54.8 is held by U.S.-based entities and 103.6 by foreign entities (Q3 10-Q page:58). Issuer-stated availability (Q3 10-Q page:20 \"was approximately $510.2 million as of September\"), equal to commitment of 1,485.0 less drawn 974.8. Cash includes consolidated securitisation vehicle cash of 48,558 thousand and client cash of 10.4 US$m, not separated. No letters of credit figure is supplied.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant ratios, seller concentration, ratings and executed financing terms are not available.",
+      "CP-1 main limitation: The earnings measure is the company's own Adjusted EBITDA, and no covenant ratios or executed agreements are available."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ecpg/inputs/fb9232dcd1631add7bbcdb6eec1a7bd4a0eec6466deb6a3148ebd7ee287099b7",
+      "sha256": "fb9232dcd1631add7bbcdb6eec1a7bd4a0eec6466deb6a3148ebd7ee287099b7",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"ENCORE CAPITAL GROUP INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ecpg/inputs/fb9232dcd1631add7bbcdb6eec1a7bd4a0eec6466deb6a3148ebd7ee287099b7",
+      "sha256": "fb9232dcd1631add7bbcdb6eec1a7bd4a0eec6466deb6a3148ebd7ee287099b7",
+      "line": 22,
+      "quote": "    \"sector\": \"Short-Term Business Credit Institutions\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-ecpg/deliveries/8dfe4eb437cb9f892d558aac8837f0df9b6deb59e3cade05300812a4d70ee048/CP-1.md",
+      "sha256": "ab3610ee01f0fa09c54f50e64a0bffd5255ff6bf09c099588a370bee5b40463a",
+      "line": 60,
+      "quote": "| LTM Q3 2026 | 5.13 | 4.94 | x | Principal debt 4,267,981 (Q3 10-Q page:19 \"4,267,981 4,033,394\") less cash 158,425 (Q3 10-Q page:2 \"Cash and cash equivalents $ 158,425 $ 156,784\"); LTM Adjusted EBITDA 831,829 calculated as FY2025 plus nine months 2026 644,320 less nine months 2025 489,449 (Q3 10-Q page:51 \"Adjusted EBITDA $ 245,171 $ 184,756 $ 644,320 $ 489,449\"). Cash includes cash of consolidated securitisation vehicles and client cash, not separated; carrying borrowings are 4,237,800 after 30,181 of discount and costs. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-ecpg/deliveries/8dfe4eb437cb9f892d558aac8837f0df9b6deb59e3cade05300812a4d70ee048/CP-1.md",
+      "sha256": "ab3610ee01f0fa09c54f50e64a0bffd5255ff6bf09c099588a370bee5b40463a",
+      "line": 70,
+      "quote": "| LTM Q3 2026 | 3.07 | x | LTM Adjusted EBITDA 831,829 over LTM cash interest 270,515, calculated as FY2025 259,812 plus nine months 2026 183,459 less nine months 2025 172,756 (Q3 10-Q page:6 \"Cash paid for interest $ 183,459 $ 172,756\"). Cash interest is lumpy because coupons fall on semi-annual dates, so single quarters are not used. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ecpg/deliveries/8dfe4eb437cb9f892d558aac8837f0df9b6deb59e3cade05300812a4d70ee048/CP-1.md",
+      "sha256": "ab3610ee01f0fa09c54f50e64a0bffd5255ff6bf09c099588a370bee5b40463a",
+      "line": 79,
+      "quote": "| Q3 2026 (2026-09-30) | 158.4 | 510.2 | US$m | Cash 158,425 thousand (Q3 10-Q page:2), of which 54.8 is held by U.S.-based entities and 103.6 by foreign entities (Q3 10-Q page:58). Issuer-stated availability (Q3 10-Q page:20 \"was approximately $510.2 million as of September\"), equal to commitment of 1,485.0 less drawn 974.8. Cash includes consolidated securitisation vehicle cash of 48,558 thousand and client cash of 10.4 US$m, not separated. No letters of credit figure is supplied. |"
+    }
+  },
+  "checklist": null
+}

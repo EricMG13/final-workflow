@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-otex",
+    "issuer": "otex",
+    "name": "Open Text Corp",
+    "identity_source": "context",
+    "sector": "Services-Computer Integrated Systems Design",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "FY2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (OTEX)",
+    "summary": "OPEN TEXT CORP is a cash-generative credit that has reduced total debt to adjusted EBITDA to 3.10x, but falling support and license revenue and a lower FY2027 outlook put further deleveraging at risk. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is OPEN TEXT CORP.",
+    "handoff": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "5246401",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.07",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "Total debt / EBITDA. Principal 5,836,525 and cash 956,024 at June 30, 2026 over adjusted EBITDA of 1,903,162 for FY2026; restricted cash excluded; letters of credit and guarantees not added",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.92",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 1,903,162 over cash paid for interest 321,694; gross of 41,976 interest received",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "956.0",
+        "unit": "US$m",
+        "period": "FY2026",
+        "basis": "Cash. June 30, 2026 balance sheet; revolver had no outstanding balance; maturity December 19, 2028, about 29 months after the date",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "1006817",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Ratings, executed debt documents, letters of credit, covenant earnings and post-refinancing cash are not supplied, and the outlook is management language.",
+      "CP-1 main limitation: Covenant earnings, letters of credit and post-refinancing cash are not supplied, so headroom and liquidity after October 2026 cannot be fully measured."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-otex/inputs/cdf3e7e5d139751591ad9d995cdcdd0bad8e54e428f889bfd4cbcc1eae58ab70",
+      "sha256": "cdf3e7e5d139751591ad9d995cdcdd0bad8e54e428f889bfd4cbcc1eae58ab70",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"OPEN TEXT CORP\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-otex/inputs/cdf3e7e5d139751591ad9d995cdcdd0bad8e54e428f889bfd4cbcc1eae58ab70",
+      "sha256": "cdf3e7e5d139751591ad9d995cdcdd0bad8e54e428f889bfd4cbcc1eae58ab70",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Computer Integrated Systems Design\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 60,
+      "quote": "| FY2026 | 3.07 | 2.56 | x | Principal 5,836,525 and cash 956,024 at June 30, 2026 over adjusted EBITDA of 1,903,162 for FY2026; restricted cash excluded; letters of credit and guarantees not added |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 70,
+      "quote": "| FY2026 | 5.92 | x | Adjusted EBITDA 1,903,162 over cash paid for interest 321,694; gross of 41,976 interest received |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 81,
+      "quote": "| FY2026 | 956.0 | 750.0 | US$m | June 30, 2026 balance sheet; revolver had no outstanding balance; maturity December 19, 2028, about 29 months after the date |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 102,
+      "quote": "| Total revenues | 5,769,577 | 5,168,405 | 5,246,401 | 1,288,135 | 1,236,634 | 5,194,900 | Reported; 10-K page:234, 10-Q-Sep26 page:3; LTM calculated |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-otex/deliveries/5272f9cd0a53239771f01aa1dd06170b59acd6b8e45b3fcefb47756acc745c65/CP-1.md",
+      "sha256": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+      "line": 108,
+      "quote": "| Net cash provided by operating activities | 967,691 | 830,618 | 1,006,817 | 147,763 | 172,273 | 1,031,327 | 10-K page:236, PR-Nov26 page:16, 20; LTM calculated |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-kbr",
+    "issuer": "kbr",
+    "name": "KBR Inc",
+    "identity_source": "context",
+    "sector": "Heavy Construction Other Than Bldg Const - Contractors",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 FY2026 (Oct 2, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (KBR)",
+    "summary": "KBR is moderately levered and well funded today, with net leverage of 2.1x and liquidity of USD 1,046 million. The planned spin-off of its larger segment will reset its debt and earnings base, and those terms are not disclosed. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is KBR, INC..",
+    "handoff": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "7786",
+        "unit": "US$ millions",
+        "period": "FY2025",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "2.52",
+        "unit": "x",
+        "period": "Q3 FY2026 (Oct 2, 2026)",
+        "basis": "Total debt / EBITDA. Calculated, see C1. Gross debt principal 2,557 and net debt 2,118 over TTM adjusted EBITDA 1,015, a company non-GAAP measure that includes joint venture add-backs from 2026 (C4). Company prints net 2.1x. Excludes leases. Not the credit agreement definition, which is not supplied.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.87",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Calculated, see C2: adjusted EBITDA 968 over cash paid for interest 141 from the audited cash flow statement. Interest expense was 158 (6.13x on that basis). Whether cash interest paid includes lease or swap settlements is not stated.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "439",
+        "unit": "US$m",
+        "period": "Q3 FY2026 (Oct 2, 2026)",
+        "basis": "Cash. Cash of continuing operations; includes 67 of joint venture and Aspire Defence project cash. Revolver commitment 1,000 less 375 drawn less 18 of letters of credit on the facility, see C5. The release states 625 (no deduction for letters of credit). Bilateral and uncommitted letter of credit lines excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Post-spin debt, covenant and guarantor terms and the credit agreement are not supplied, and adjusted EBITDA changed definition in 2026.",
+      "CP-1 main limitation: Covenant definitions are not supplied, cash interest paid is available for fiscal 2025 only, and adjusted EBITDA changed definition in 2026."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-kbr/inputs/c304761f9bd2586b448183019e4812a5ac15096b7af69ae768003723d6326293",
+      "sha256": "c304761f9bd2586b448183019e4812a5ac15096b7af69ae768003723d6326293",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"KBR, INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-kbr/inputs/c304761f9bd2586b448183019e4812a5ac15096b7af69ae768003723d6326293",
+      "sha256": "c304761f9bd2586b448183019e4812a5ac15096b7af69ae768003723d6326293",
+      "line": 22,
+      "quote": "    \"sector\": \"Heavy Construction Other Than Bldg Const - Contractors\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 61,
+      "quote": "| Q3 FY2026 (Oct 2, 2026) | 2.52 | 2.09 | x | Calculated, see C1. Gross debt principal 2,557 and net debt 2,118 over TTM adjusted EBITDA 1,015, a company non-GAAP measure that includes joint venture add-backs from 2026 (C4). Company prints net 2.1x. Excludes leases. Not the credit agreement definition, which is not supplied. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 73,
+      "quote": "| FY2025 | 6.87 | x | Calculated, see C2: adjusted EBITDA 968 over cash paid for interest 141 from the audited cash flow statement. Interest expense was 158 (6.13x on that basis). Whether cash interest paid includes lease or swap settlements is not stated. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 79,
+      "quote": "| Q3 FY2026 (Oct 2, 2026) | 439 | 607 | US$m | Cash of continuing operations; includes 67 of joint venture and Aspire Defence project cash. Revolver commitment 1,000 less 375 drawn less 18 of letters of credit on the facility, see C5. The release states 625 (no deduction for letters of credit). Bilateral and uncommitted letter of credit lines excluded. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-kbr/deliveries/e02d217769b7fcf0bbbd79dfb0b5dcecb7284d141b6483a7af002b7035ea48b5/CP-1.md",
+      "sha256": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+      "line": 100,
+      "quote": "| Revenues | 2,028 | 1,931 | 5,935 | 5,901 | 7,786 | 7,710 | [10-Q_2026-10-02_kbr-20261002.htm.jsonl, page:3] [10-K_2026-01-02_kbr-20260102.htm.jsonl, page:113] |"
+    }
+  },
+  "checklist": null
+}

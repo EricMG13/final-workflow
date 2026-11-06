@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ccl",
+    "issuer": "ccl",
+    "name": "Carnival Corp Ltd.",
+    "identity_source": "context",
+    "sector": "Water Transportation",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "August 31, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CCL)",
+    "summary": "Credit view is strong and improving but not yet earnings-led: net debt to EBITDA fell to 3.19x through debt repayment, with liquidity of USD 5,720 million, while EBITDA was flat and cash returns to shareholders are rising. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "27593",
+        "unit": "US$m",
+        "period": "LTM to Aug 31, 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "7311",
+        "unit": "US$m",
+        "period": "LTM to Aug 31, 2026",
+        "basis": "EBITDA (operating income + D&A, unadjusted), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.36",
+        "unit": "x",
+        "period": "LTM to August 31, 2026",
+        "basis": "Total debt / EBITDA. Total debt 24,559 (Q3 10-Q page:9); cash 1,220 (Q3 10-Q page:2). LTM EBITDA is 7,273 plus nine months 2026 5,850 less nine months 2025 5,812 = 7,311 (Q3 10-Q page:2). Unadjusted. Fiscal 2025 comes from the joint report and 2026 from the single-company reports; the group consolidated is the same.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.06",
+        "unit": "x",
+        "period": "FY2025 (to November 30, 2025)",
+        "basis": "EBITDA / cash interest. EBITDA 7,273 (operating income plus depreciation and amortization, 10-K page:63) divided by cash paid for interest, net of capitalized interest, of 1.2 billion (10-K page:98). The cash interest figure is printed rounded to 0.1 billion, so the ratio lies between 5.82 and 6.32 if the true figure is between 1.15 billion and 1.25 billion.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1220",
+        "unit": "US$m",
+        "period": "August 31, 2026",
+        "basis": "Cash. Cash (Q3 10-Q page:2); revolver availability (Q3 10-Q page:10). Export credit undrawn of 10.7 billion excluded (Q3 10-Q page:10). Revolver matures June 2030, so no committed facility expires within twelve months. An accordion of up to 1.0 billion of additional commitments (10-K page:80) is uncommitted and excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "6821",
+        "unit": "US$m",
+        "period": "LTM to Aug 31, 2026",
+        "basis": "Cash from operations, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Indentures, covenant ratios, rating levels and fiscal 2025 adjusted EBITDA are not supplied, so legal ranking and covenant headroom cannot be assessed.",
+      "CP-1 main limitation: EBITDA is operating income plus depreciation and amortization; fiscal 2025 adjusted EBITDA and interim cash interest are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ccl/inputs/0ae02699c3e76f28ddabed001602c70760df4bfe5d4037c1d00e74d8c149ab79",
+      "sha256": "0ae02699c3e76f28ddabed001602c70760df4bfe5d4037c1d00e74d8c149ab79",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Carnival Corp Ltd.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ccl/inputs/0ae02699c3e76f28ddabed001602c70760df4bfe5d4037c1d00e74d8c149ab79",
+      "sha256": "0ae02699c3e76f28ddabed001602c70760df4bfe5d4037c1d00e74d8c149ab79",
+      "line": 22,
+      "quote": "    \"sector\": \"Water Transportation\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 68,
+      "quote": "| LTM to August 31, 2026 | 3.36 | 3.19 | x | Total debt 24,559 (Q3 10-Q page:9); cash 1,220 (Q3 10-Q page:2). LTM EBITDA is 7,273 plus nine months 2026 5,850 less nine months 2025 5,812 = 7,311 (Q3 10-Q page:2). Unadjusted. Fiscal 2025 comes from the joint report and 2026 from the single-company reports; the group consolidated is the same. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 74,
+      "quote": "| FY2025 (to November 30, 2025) | 6.06 | x | EBITDA 7,273 (operating income plus depreciation and amortization, 10-K page:63) divided by cash paid for interest, net of capitalized interest, of 1.2 billion (10-K page:98). The cash interest figure is printed rounded to 0.1 billion, so the ratio lies between 5.82 and 6.32 if the true figure is between 1.15 billion and 1.25 billion. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 86,
+      "quote": "| August 31, 2026 | 1220 | 4500 | US$m | Cash (Q3 10-Q page:2); revolver availability (Q3 10-Q page:10). Export credit undrawn of 10.7 billion excluded (Q3 10-Q page:10). Revolver matures June 2030, so no committed facility expires within twelve months. An accordion of up to 1.0 billion of additional commitments (10-K page:80) is uncommitted and excluded. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 103,
+      "quote": "| Total revenues | 26,622 | 20,292 | 21,263 | 27,593 | 8,435 | US$m | 10-K page:63; Q3 10-Q page:2. LTM = FY2025 + nine months 2026 - nine months 2025. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 106,
+      "quote": "| EBITDA (operating income + D&A, unadjusted) | 7,273 | 5,812 | 5,850 | 7,311 | 2,974 | US$m | Calculated; rounding of 1 against revenue less operating and administrative expenses (see Calculations). |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-ccl/deliveries/233fd0ba18a13e938845a6ffeb8395a3b974aa2765cca3eb02aa9426d6244eda/CP-1.md",
+      "sha256": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+      "line": 111,
+      "quote": "| Cash from operations | 6,218 | 4,700 | 5,303 | 6,821 | 1,410 | US$m | 10-K page:64; Q3 10-Q page:3; Q3 release page:9 for the quarter. |"
+    }
+  },
+  "checklist": null
+}

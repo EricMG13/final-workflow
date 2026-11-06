@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-bwin",
+    "issuer": "bwin",
+    "name": "Baldwin Insurance Group, Inc.",
+    "identity_source": "context",
+    "sector": "Insurance Agents, Brokers & Service",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-06-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (BWIN)",
+    "summary": "Baldwin has elevated and rising leverage but adequate liquidity and long-dated first-lien debt; the credit view is cautious. Acquired earnings reaching run rate, and covenant headroom, decide the outcome. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1737842",
+        "unit": "US$ thousands",
+        "period": "LTM Q2 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "6.30",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "Total debt / EBITDA. Principal debt 2,193,045 thousand plus revolver 302,000 thousand at 2026-06-30 (10-Q Q2 2026 page:38) over last-twelve-months Adjusted EBITDA 396,153 thousand, built as FY2025 plus six months 2026 less six months 2025 (page:61, 10-K page:99). Cash and equivalents 184,499 thousand. Debt carries full acquisition financing but EBITDA holds about six months of acquired earnings; no pro forma figure supplied. Calculated here.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.89",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 396,153 thousand over last-twelve-months cash interest 137,063 thousand, built as FY2025 plus six months 2026 less six months 2025. Whether cash paid for interest is net of interest rate swap settlements is not stated. Calculated here.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "184.5",
+        "unit": "US$m",
+        "period": "2026-06-30",
+        "basis": "Cash. Cash 184,499 thousand (10-Q Q2 2026 page:5); company-stated available capacity (page:74). Excludes fiduciary cash of 426,189 thousand. Availability is net of letters of credit; any covenant limit on drawing is not supplied.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant headroom, pro forma acquired earnings, ratings and the executed debt documents are not supplied, so leverage cannot be tested against its covenant.",
+      "CP-1 main limitation: Adjusted EBITDA is company defined, holds only six months of acquired earnings against full acquisition debt, and no pro forma or covenant figure is supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-bwin/inputs/8078b6eb19ff2611ca7e63e8361807aa16e370931c16f21c4255d38d5faaa273",
+      "sha256": "8078b6eb19ff2611ca7e63e8361807aa16e370931c16f21c4255d38d5faaa273",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Baldwin Insurance Group, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-bwin/inputs/8078b6eb19ff2611ca7e63e8361807aa16e370931c16f21c4255d38d5faaa273",
+      "sha256": "8078b6eb19ff2611ca7e63e8361807aa16e370931c16f21c4255d38d5faaa273",
+      "line": 22,
+      "quote": "    \"sector\": \"Insurance Agents, Brokers & Service\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 65,
+      "quote": "| LTM Q2 2026 | 6.30 | 5.83 | x | Principal debt 2,193,045 thousand plus revolver 302,000 thousand at 2026-06-30 (10-Q Q2 2026 page:38) over last-twelve-months Adjusted EBITDA 396,153 thousand, built as FY2025 plus six months 2026 less six months 2025 (page:61, 10-K page:99). Cash and equivalents 184,499 thousand. Debt carries full acquisition financing but EBITDA holds about six months of acquired earnings; no pro forma figure supplied. Calculated here. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 75,
+      "quote": "| LTM Q2 2026 | 2.89 | x | Adjusted EBITDA 396,153 thousand over last-twelve-months cash interest 137,063 thousand, built as FY2025 plus six months 2026 less six months 2025. Whether cash paid for interest is net of interest rate swap settlements is not stated. Calculated here. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 84,
+      "quote": "| 2026-06-30 | 184.5 | 259.4 | US$m | Cash 184,499 thousand (10-Q Q2 2026 page:5); company-stated available capacity (page:74). Excludes fiduciary cash of 426,189 thousand. Availability is net of letters of credit; any covenant limit on drawing is not supplied. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-bwin/deliveries/9f480a8569c1ffd45e5095421ffd5b67f8c464e82e3459d7c359248d2b5ded98/CP-1.md",
+      "sha256": "a5458975838919042f71156b0976b8147a5aa9c8336e2bb8d1b2e7346480b7c9",
+      "line": 101,
+      "quote": "| Total revenues | 1,389,037 | 1,504,884 | 378,811 | 492,939 | 792,216 | 1,025,174 | 1,737,842 |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-caci",
+    "issuer": "caci",
+    "name": "Caci International Inc",
+    "identity_source": "context",
+    "sector": "Services-Computer Integrated Systems Design",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CACI)",
+    "summary": "CACI has a sound but more leveraged credit profile, supported by a federally funded revenue base, ample liquidity and solid cash flow. Leverage after the March 2026 acquisition is the weak point, and covenant and guarantor terms are unverified. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CACI INTERNATIONAL INC /DE/.",
+    "handoff": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "9567.779",
+        "unit": "US$m",
+        "period": "FY2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "4.20",
+        "unit": "x",
+        "period": "FY2026 (June 30, 2026)",
+        "basis": "Total debt / EBITDA. Principal debt 4,931.125 over management EBITDA 1,173.914; cash 191.756. EBITDA includes the acquired business only from March 9, 2026; debt includes its full financing; not pro forma.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.49",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "EBITDA / cash interest. Management EBITDA 1,173.914 over cash paid for interest 213.640. Acquisition debt outstanding only from March 2026, so cash interest does not yet show a full year of it.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "279.389",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. Undrawn capacity as printed in the Q1 FY2027 filing; revolver drawn 605.000. Cash includes pound sterling and euro balances of 92.7 not immediately available to U.S. operations. Receivable sale capacity (maximum 350.0) is almost fully used and is excluded. Revolver matures November 2030.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "886.710",
+        "unit": "US$m",
+        "period": "FY2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, guarantors, ownership and acquired-business earnings are not supplied, so leverage cannot be tested against covenants or on a run-rate basis.",
+      "CP-1 main limitation: Management EBITDA is the only earnings measure; covenant levels, definitions and a pro forma acquisition view are not supplied, so leverage is not on a covenant or run-rate basis."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-caci/inputs/771458f144b8d7a95d0c8ef74d2f2b133b5846c23aea051905b07e94014f45fd",
+      "sha256": "771458f144b8d7a95d0c8ef74d2f2b133b5846c23aea051905b07e94014f45fd",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CACI INTERNATIONAL INC /DE/\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-caci/inputs/771458f144b8d7a95d0c8ef74d2f2b133b5846c23aea051905b07e94014f45fd",
+      "sha256": "771458f144b8d7a95d0c8ef74d2f2b133b5846c23aea051905b07e94014f45fd",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Computer Integrated Systems Design\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 58,
+      "quote": "| FY2026 (June 30, 2026) | 4.20 | 4.04 | x | Principal debt 4,931.125 over management EBITDA 1,173.914; cash 191.756. EBITDA includes the acquired business only from March 9, 2026; debt includes its full financing; not pro forma. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 66,
+      "quote": "| FY2026 | 5.49 | x | Management EBITDA 1,173.914 over cash paid for interest 213.640. Acquisition debt outstanding only from March 2026, so cash interest does not yet show a full year of it. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 77,
+      "quote": "| September 30, 2026 | 279.389 | 1,395.0 | US$m | Undrawn capacity as printed in the Q1 FY2027 filing; revolver drawn 605.000. Cash includes pound sterling and euro balances of 92.7 not immediately available to U.S. operations. Receivable sale capacity (maximum 350.0) is almost fully used and is excluded. Revolver matures November 2030. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 94,
+      "quote": "| Revenues | 8,627.824 | 9,567.779 | 2,287.623 | 2,474.597 | 9,754.753 | US$m | Statements of operations: annual 10-K page:66; Q1 10-Q page:2. LTM calculated. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-caci/deliveries/454fe1aa3147f2eedae828f7484eb6c0e747e320f3e6ccb579fa0c9c4330a9e8/CP-1.md",
+      "sha256": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+      "line": 102,
+      "quote": "| Net cash provided by operating activities | 547.009 | 886.710 | 171.065 | 161.314 | 876.959 | US$m | Cash flow statements. Includes receivable sale program flows. LTM calculated. |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-val",
+    "issuer": "val",
+    "name": "Valaris Ltd",
+    "identity_source": "context",
+    "sector": "Drilling Oil & Gas Wells",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (September 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (VAL)",
+    "summary": "Valaris has low standalone refinancing risk, with liquidity of USD 900.1 million and no debt due before 2030, but earnings fell and spending exceeds cash flow. The pending Transocean takeover could change the credit before the standalone figures are tested. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "2.68",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Principal 1,100.0 over Adjusted EBITDA for Q4 2025 to Q3 2026, 410.8; cash 525.1 at September 30, 2026. Issuer-defined EBITDA; the October 30, 2026 coupon is after the balance date.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "7.10",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 642.2 over interest paid, net of amounts capitalized, 90.5 (10-K page:153).",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "525.1",
+        "unit": "US$m",
+        "period": "Q3 2026 (September 30, 2026)",
+        "basis": "Cash. Cash from 10-Q Q3 page:9; revolver nothing drawn and no letters of credit under it (page:22, page:26). Excludes restricted cash of 16.5. The revolver matures April 3, 2028, so it does not expire within twelve months.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "227.5",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, the combination terms and the treatment of the notes are not supplied.",
+      "CP-1 main limitation: Covenant levels, ratings and 2026 cash interest paid are not supplied; Adjusted EBITDA is a company measure."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-val/inputs/630c8480b8c6896f51051152fc8ca75c81e04a78fc5ea8aebca9a62a14a6fd8f",
+      "sha256": "630c8480b8c6896f51051152fc8ca75c81e04a78fc5ea8aebca9a62a14a6fd8f",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Valaris Ltd\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-val/inputs/630c8480b8c6896f51051152fc8ca75c81e04a78fc5ea8aebca9a62a14a6fd8f",
+      "sha256": "630c8480b8c6896f51051152fc8ca75c81e04a78fc5ea8aebca9a62a14a6fd8f",
+      "line": 22,
+      "quote": "    \"sector\": \"Drilling Oil & Gas Wells\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 61,
+      "quote": "| LTM Q3 2026 | 2.68 | 1.40 | x | Principal 1,100.0 over Adjusted EBITDA for Q4 2025 to Q3 2026, 410.8; cash 525.1 at September 30, 2026. Issuer-defined EBITDA; the October 30, 2026 coupon is after the balance date. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 67,
+      "quote": "| FY2025 | 7.10 | x | Adjusted EBITDA 642.2 over interest paid, net of amounts capitalized, 90.5 (10-K page:153). |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 79,
+      "quote": "| Q3 2026 (September 30, 2026) | 525.1 | 375.0 | US$m | Cash from 10-Q Q3 page:9; revolver nothing drawn and no letters of credit under it (page:22, page:26). Excludes restricted cash of 16.5. The revolver matures April 3, 2028, so it does not expire within twelve months. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-val/deliveries/3eb8f8cb17b7862f37560da9f35cb101a71a1614ee168efcdb9d17cdfb7d3174/CP-1.md",
+      "sha256": "553419305d3d0840e45db8a53a4ea08f11150ae95be0ecddbcfd829bc1c4363f",
+      "line": 103,
+      "quote": "| Net cash provided by operating activities | 546.2 | 155.3 | 67.2 | 227.5 | 10-K page:107; 10-Q Q3 page:10; Q3 release page:10 |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-et",
+    "issuer": "et",
+    "name": "Energy Transfer LP",
+    "identity_source": "context",
+    "sector": "Natural Gas Transmission",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ET)",
+    "summary": "Energy Transfer's debt looks serviceable on current earnings and liquidity, with leverage of 3.58 times easing from 4.28 times, but it depends on subsidiary earnings growth, continued market access and funding for acquisitions. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "124528",
+        "unit": "US$m",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.58",
+        "unit": "x",
+        "period": "Sep 30, 2026 (LTM)",
+        "basis": "Total debt / EBITDA. Total debt 68,850 and cash 926 over LTM Adjusted EBITDA 19,216. Issuer-reported covenant ratio 2.83 times. Consolidated debt includes Sunoco LP and USAC, as does the EBITDA",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.43",
+        "unit": "x",
+        "period": "LTM Sep 30, 2026",
+        "basis": "EBITDA / cash interest. Cash interest approximated as 3,136 plus 2,450 less 2,050 = 3,536 (Q3 10-Q page:85; nine-month figures printed in billions and rounded); LTM Adjusted EBITDA 19,216. Expense-basis cover on interest expense of 3,735 is 5.14 times",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "926",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Parent 4,406 plus Sunoco LP 2,300 plus USAC 1,060. Parent facility commitments step down from 5,000 to 4,840 on April 11, 2027. Cash is consolidated cash, including subsidiaries",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "13569",
+        "unit": "US$m",
+        "period": "LTM Sep 30, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant definitions, executed debt documents, the filing explaining the 2026 change of state and the Vaquero funding plan are not supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is issuer non-GAAP, covenant definitions are not supplied, and maturities are only available as at year-end."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-et/inputs/dfad783f6af55323b89ba2b387376722ec78e773820c07687193a91e09314cf8",
+      "sha256": "dfad783f6af55323b89ba2b387376722ec78e773820c07687193a91e09314cf8",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Energy Transfer LP\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-et/inputs/dfad783f6af55323b89ba2b387376722ec78e773820c07687193a91e09314cf8",
+      "sha256": "dfad783f6af55323b89ba2b387376722ec78e773820c07687193a91e09314cf8",
+      "line": 22,
+      "quote": "    \"sector\": \"Natural Gas Transmission\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-1.md",
+      "sha256": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+      "line": 238,
+      "quote": "| Sep 30, 2026 (LTM) | 3.58 | 3.53 | x | Total debt 68,850 and cash 926 over LTM Adjusted EBITDA 19,216. Issuer-reported covenant ratio 2.83 times. Consolidated debt includes Sunoco LP and USAC, as does the EBITDA |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-1.md",
+      "sha256": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+      "line": 247,
+      "quote": "| LTM Sep 30, 2026 | 5.43 | x | Cash interest approximated as 3,136 plus 2,450 less 2,050 = 3,536 (Q3 10-Q page:85; nine-month figures printed in billions and rounded); LTM Adjusted EBITDA 19,216. Expense-basis cover on interest expense of 3,735 is 5.14 times |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-1.md",
+      "sha256": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+      "line": 256,
+      "quote": "| Sep 30, 2026 | 926 | 7,766 | US$m | Parent 4,406 plus Sunoco LP 2,300 plus USAC 1,060. Parent facility commitments step down from 5,000 to 4,840 on April 11, 2027. Cash is consolidated cash, including subsidiaries |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-1.md",
+      "sha256": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+      "line": 273,
+      "quote": "| Total revenues | 85,536 | 60,216 | 99,208 | 19,954 | 37,103 | 124,528 | 10-K page:287; Q3 10-Q page:4; LTM calculated (C7) |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-et/deliveries/9b2c8439d0c00e276c087ae480e7ce497c30342d76d625f794dab3c0d3d8a11d/CP-1.md",
+      "sha256": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+      "line": 281,
+      "quote": "| Net cash provided by operating activities | 10,149 | 8,251 | 11,671 | Not shown | Not shown | 13,569 | 10-K page:289; Q3 10-Q page:6 and page:7; discrete Q3 not derived |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-rkt",
+    "issuer": "rkt",
+    "name": "Rocket Companies, Inc.",
+    "identity_source": "context",
+    "sector": "Mortgage Bankers & Loan Correspondents",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "September 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (RKT)",
+    "summary": "Rocket is a scaled but rate-sensitive mortgage credit with moderate unsecured leverage of 3.78x gross and 2.83x net, supported by cash and an undrawn revolver, but exposed to uncommitted warehouse funding and founder control. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-rkt/deliveries/c05ece11ade1f1c6d5374b6ee659a4eec86c6cb79ae3968e9591074062f61277/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "3.78",
+        "unit": "x",
+        "period": "Q3 2026 (LTM to September 30, 2026)",
+        "basis": "Total debt / EBITDA. Total debt 10,743; cash 2,699; LTM adjusted EBITDA 2,843 (1,281 plus 2,252 less 690). First LTM made only of quarters that include both acquisitions. Company-defined EBITDA; earnings are rate-sensitive and Q4 2026 adjusted revenue is guided below Q3; secured financing of 14,187 excluded; no company-printed ratio exists to compare.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.15",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. FY2025 adjusted EBITDA of 1,281 over cash paid for interest of 596 (10-K page:138). Basis is mixed: adjusted EBITDA is already after secured-financing interest, while cash paid for interest is a single figure not split between funding-facility interest and bond interest, so the ratio understates cover on a bond-only basis.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "2699",
+        "unit": "US$m",
+        "period": "September 30, 2026",
+        "basis": "Cash. Cash (Q3 10-Q page:4); revolver committed 2,500, outstanding nil, maturing July 16, 2029 (Q3 10-Q page:30). Company-stated total 11.4 billion includes 6.2 billion of undrawn available MSR and advance lines (Q3 10-Q page:67), which cannot be reproduced from the note. Cash includes buy-down funds and margin cash held for counterparties, which are not quantified. Restricted cash of 240 is excluded (Q3 10-Q page:11).",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, guarantors, ratings, cash interest and creditor protections in the debt and governance documents are not supplied, so headroom and ranking cannot be sized.",
+      "CP-1 main limitation: Cash interest, covenant levels, guarantors and undrawn secured availability are not printed, and the earnings base includes both acquisitions fully only from the fourth quarter of 2025."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-rkt/inputs/2c3b1fbba94f4a511900e452ab48c8c288b5d2472b9c175cb66b98c0de72d2ac",
+      "sha256": "2c3b1fbba94f4a511900e452ab48c8c288b5d2472b9c175cb66b98c0de72d2ac",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Rocket Companies, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-rkt/inputs/2c3b1fbba94f4a511900e452ab48c8c288b5d2472b9c175cb66b98c0de72d2ac",
+      "sha256": "2c3b1fbba94f4a511900e452ab48c8c288b5d2472b9c175cb66b98c0de72d2ac",
+      "line": 22,
+      "quote": "    \"sector\": \"Mortgage Bankers & Loan Correspondents\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-rkt/deliveries/c05ece11ade1f1c6d5374b6ee659a4eec86c6cb79ae3968e9591074062f61277/CP-1.md",
+      "sha256": "54e4775b2f314e2c41568ee11caf51c8cfb55f59fdffa205fe2c46e2c7684901",
+      "line": 72,
+      "quote": "| Q3 2026 (LTM to September 30, 2026) | 3.78 | 2.83 | x | Total debt 10,743; cash 2,699; LTM adjusted EBITDA 2,843 (1,281 plus 2,252 less 690). First LTM made only of quarters that include both acquisitions. Company-defined EBITDA; earnings are rate-sensitive and Q4 2026 adjusted revenue is guided below Q3; secured financing of 14,187 excluded; no company-printed ratio exists to compare. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-rkt/deliveries/c05ece11ade1f1c6d5374b6ee659a4eec86c6cb79ae3968e9591074062f61277/CP-1.md",
+      "sha256": "54e4775b2f314e2c41568ee11caf51c8cfb55f59fdffa205fe2c46e2c7684901",
+      "line": 78,
+      "quote": "| FY2025 | 2.15 | x | FY2025 adjusted EBITDA of 1,281 over cash paid for interest of 596 (10-K page:138). Basis is mixed: adjusted EBITDA is already after secured-financing interest, while cash paid for interest is a single figure not split between funding-facility interest and bond interest, so the ratio understates cover on a bond-only basis. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-rkt/deliveries/c05ece11ade1f1c6d5374b6ee659a4eec86c6cb79ae3968e9591074062f61277/CP-1.md",
+      "sha256": "54e4775b2f314e2c41568ee11caf51c8cfb55f59fdffa205fe2c46e2c7684901",
+      "line": 90,
+      "quote": "| September 30, 2026 | 2,699 | 2,500 | US$m | Cash (Q3 10-Q page:4); revolver committed 2,500, outstanding nil, maturing July 16, 2029 (Q3 10-Q page:30). Company-stated total 11.4 billion includes 6.2 billion of undrawn available MSR and advance lines (Q3 10-Q page:67), which cannot be reproduced from the note. Cash includes buy-down funds and margin cash held for counterparties, which are not quantified. Restricted cash of 240 is excluded (Q3 10-Q page:11). |"
+    }
+  },
+  "checklist": null
+}

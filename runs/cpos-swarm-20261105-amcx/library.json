@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-amcx",
+    "issuer": "amcx",
+    "name": "AMC Global Media Inc.",
+    "identity_source": "context",
+    "sector": "Cable & Other Pay Television Services",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "30 Jun 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (AMCX)",
+    "summary": "A refinanced but weakening credit: no debt matures before February 2029, yet earnings fell and the revolver is gone. Free cash flow and cash of USD 464.0 million support it; falling earnings and unseen indenture terms are the risks. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.54",
+        "unit": "x",
+        "period": "LTM Q2 2026 (30 Jun 2026)",
+        "basis": "Total debt / EBITDA. AOI for the twelve months to June 30, 2026, 313,045 thousand, printed in Rel Jul page:11 and recomputed (C1). Debt principal 1,735,554 thousand; cash 463,996 thousand. Calculated (C3). Same AOI limitation; no credit-agreement ratio exists for this date.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.07",
+        "unit": "x",
+        "period": "LTM Q2 2026 (30 Jun 2026)",
+        "basis": "EBITDA / cash interest. AOI 313,045 thousand over twelve-month cash interest paid 151,153 thousand (C2). Calculated (C4). Quarterly cash interest paid is uneven (Q1 2026 77,983 against 78,984 for the six months, 10-Q Q1-26 page:23 and 10-Q Q2-26 page:27); the twelve-month window smooths this. The 10.50% secured notes carry a higher rate than the debt they replaced, so run-rate cash interest differs (C8).",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "463.996",
+        "unit": "US$m",
+        "period": "30 Jun 2026",
+        "basis": "Cash. Cash from 10-Q Q2-26 page:2. The revolving credit facility was terminated on May 12, 2026 (10-Q Q2-26 page:17), so no committed facility remains in the sources. Cash includes about $136.5 million held by foreign subsidiaries (page:55). An unused receivables sale program with a $125.0 million limit (page:10) is excluded because it is not a committed facility.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Indentures, ratings, the Netflix contract and any filing after July 30, 2026 are not supplied.",
+      "CP-1 main limitation: Latest figures are to June 30, 2026, and the notes' covenant tests are not printed in the sources."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-amcx/inputs/95e365e5dede6bf5d3238dc431d8121ca3ba426646f866c4518f2a27b51f7e19",
+      "sha256": "95e365e5dede6bf5d3238dc431d8121ca3ba426646f866c4518f2a27b51f7e19",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"AMC Global Media Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-amcx/inputs/95e365e5dede6bf5d3238dc431d8121ca3ba426646f866c4518f2a27b51f7e19",
+      "sha256": "95e365e5dede6bf5d3238dc431d8121ca3ba426646f866c4518f2a27b51f7e19",
+      "line": 22,
+      "quote": "    \"sector\": \"Cable & Other Pay Television Services\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-1.md",
+      "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+      "line": 61,
+      "quote": "| LTM Q2 2026 (30 Jun 2026) | 5.54 | 4.06 | x | AOI for the twelve months to June 30, 2026, 313,045 thousand, printed in Rel Jul page:11 and recomputed (C1). Debt principal 1,735,554 thousand; cash 463,996 thousand. Calculated (C3). Same AOI limitation; no credit-agreement ratio exists for this date. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-1.md",
+      "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+      "line": 69,
+      "quote": "| LTM Q2 2026 (30 Jun 2026) | 2.07 | x | AOI 313,045 thousand over twelve-month cash interest paid 151,153 thousand (C2). Calculated (C4). Quarterly cash interest paid is uneven (Q1 2026 77,983 against 78,984 for the six months, 10-Q Q1-26 page:23 and 10-Q Q2-26 page:27); the twelve-month window smooths this. The 10.50% secured notes carry a higher rate than the debt they replaced, so run-rate cash interest differs (C8). |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-amcx/deliveries/edc04db704e240a56b1c369929b1290fb9f3e0f1f7d83f26e330d969078d0e1f/CP-1.md",
+      "sha256": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+      "line": 77,
+      "quote": "| 30 Jun 2026 | 463.996 | 0 | US$m | Cash from 10-Q Q2-26 page:2. The revolving credit facility was terminated on May 12, 2026 (10-Q Q2-26 page:17), so no committed facility remains in the sources. Cash includes about $136.5 million held by foreign subsidiaries (page:55). An unused receivables sale program with a $125.0 million limit (page:10) is excluded because it is not a committed facility. |"
+    }
+  },
+  "checklist": null
+}

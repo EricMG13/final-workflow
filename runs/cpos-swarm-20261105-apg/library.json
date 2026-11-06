@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-apg",
+    "issuer": "apg",
+    "name": "APi Group Corp",
+    "identity_source": "context",
+    "sector": "Services-To Dwellings & Other Buildings",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (APG)",
+    "summary": "APi Group is a diversified, cash-generative services business whose leverage rose in 2026 as acquisitions and buybacks were debt-funded: total debt over adjusted EBITDA is 3.02x on a last-twelve-months basis against 2.67x at FY2025. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "8907",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Net revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.02",
+        "unit": "x",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Total debt / EBITDA. Total debt obligations 3,601 and cash 373 at Sep 30, 2026 over derived LTM adjusted EBITDA 1,191 (FY2025 plus nine months 2026 less nine months 2025); acquired EBITDA only from closing dates, no pro forma; the 100 revolver draw after quarter-end is excluded",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "9.23",
+        "unit": "x",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "EBITDA / cash interest. Derived LTM adjusted EBITDA 1,191 over derived LTM cash interest 129; flatters run-rate because the May 2026 notes pay semi-annually and the quarter's cash interest is 38; on Q3 2026 interest expense, net, annualised (45 times 4) cover would be 6.62x, an indicative figure only",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "373",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Revolver availability after 335 drawn and 6 of letters of credit on a 1,000 facility; issuer reports total liquidity of 1,032; facility matures May 14, 2031",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "775",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Executed financing documents are not supplied, so covenant definitions, guarantors and permitted payments cannot be verified.",
+      "CP-1 main limitation: Last-twelve-months figures are derived, adjusted EBITDA is management-defined, and covenant EBITDA is not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-apg/inputs/5361f531841cad8936701ac126679da0830e0b3a545fa6b1b9ab2f313f6dfc9d",
+      "sha256": "5361f531841cad8936701ac126679da0830e0b3a545fa6b1b9ab2f313f6dfc9d",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"APi Group Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-apg/inputs/5361f531841cad8936701ac126679da0830e0b3a545fa6b1b9ab2f313f6dfc9d",
+      "sha256": "5361f531841cad8936701ac126679da0830e0b3a545fa6b1b9ab2f313f6dfc9d",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-To Dwellings & Other Buildings\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-1.md",
+      "sha256": "f7db30806e7a98570fba7e4bc97f39d6f69658956a05590382766f0c4cdbcca8",
+      "line": 54,
+      "quote": "| LTM Q3 2026 (derived) | 3.02 | 2.71 | x | Total debt obligations 3,601 and cash 373 at Sep 30, 2026 over derived LTM adjusted EBITDA 1,191 (FY2025 plus nine months 2026 less nine months 2025); acquired EBITDA only from closing dates, no pro forma; the 100 revolver draw after quarter-end is excluded |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-1.md",
+      "sha256": "f7db30806e7a98570fba7e4bc97f39d6f69658956a05590382766f0c4cdbcca8",
+      "line": 62,
+      "quote": "| LTM Q3 2026 (derived) | 9.23 | x | Derived LTM adjusted EBITDA 1,191 over derived LTM cash interest 129; flatters run-rate because the May 2026 notes pay semi-annually and the quarter's cash interest is 38; on Q3 2026 interest expense, net, annualised (45 times 4) cover would be 6.62x, an indicative figure only |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-1.md",
+      "sha256": "f7db30806e7a98570fba7e4bc97f39d6f69658956a05590382766f0c4cdbcca8",
+      "line": 70,
+      "quote": "| Sep 30, 2026 | 373 | 659 | US$m | Revolver availability after 335 drawn and 6 of letters of credit on a 1,000 facility; issuer reports total liquidity of 1,032; facility matures May 14, 2031 |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-1.md",
+      "sha256": "f7db30806e7a98570fba7e4bc97f39d6f69658956a05590382766f0c4cdbcca8",
+      "line": 90,
+      "quote": "| Net revenues | 7,018 | 7,911 | 5,794 | 6,790 | 8,907 | Statements of operations; LTM = FY2025 + 9M 2026 - 9M 2025 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-apg/deliveries/bf26458a80815fe8b7cbd3820d01db1b1a1321c4c6a3f990fd12140f47876dcb/CP-1.md",
+      "sha256": "f7db30806e7a98570fba7e4bc97f39d6f69658956a05590382766f0c4cdbcca8",
+      "line": 99,
+      "quote": "| Net cash from operating activities | 620 | 759 | 377 | 393 | 775 | Cash flow statement |"
+    }
+  },
+  "checklist": null
+}

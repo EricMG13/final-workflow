@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cnx",
+    "issuer": "cnx",
+    "name": "CNX Resources Corp",
+    "identity_source": "context",
+    "sector": "Crude Petroleum & Natural Gas",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CNX)",
+    "summary": "CNX Resources Corp has a moderate-risk profile: gross leverage 1.79x, cash interest cover 8.07x, undrawn facilities of 1,673.053 and no debt due before 2029. Gas price exposure and buybacks above free cash flow are the weak points. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-cnx/deliveries/613d5ac5fed64eb99f545433a1563eba9ec2f54aeea31e513f6cdf03030cf868/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "1.79",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt at September 30, 2026 over trailing adjusted EBITDAX stated in the Q3 2026 supplement. Same definitions and limitations; supplement figures are rounded to US$ millions.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "8.07",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Trailing adjusted EBITDAX over cash interest: FY2025 less nine months 2025 plus nine months 2026. Same limitation; not the CNXM or parent covenant interest coverage definition.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1.977",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Same definitions at September 30, 2026. Includes 533.000 for the CNXM revolver, which the parent does not guarantee and which is available to CNXM and its subsidiaries; the parent revolver contributes 1140.053. Parent availability is limited to the borrowing base and elected commitments.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Earnings are a management non-GAAP measure and covenant headroom, indentures and ratings are not supplied.",
+      "CP-1 main limitation: Adjusted EBITDAX is a management measure; covenant EBITDA and headroom are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cnx/inputs/85b88b96cc0f2168f01ec8d7b4e089124543ac7d5895fc347354eca91d4820c2",
+      "sha256": "85b88b96cc0f2168f01ec8d7b4e089124543ac7d5895fc347354eca91d4820c2",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CNX Resources Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cnx/inputs/85b88b96cc0f2168f01ec8d7b4e089124543ac7d5895fc347354eca91d4820c2",
+      "sha256": "85b88b96cc0f2168f01ec8d7b4e089124543ac7d5895fc347354eca91d4820c2",
+      "line": 22,
+      "quote": "    \"sector\": \"Crude Petroleum & Natural Gas\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cnx/deliveries/613d5ac5fed64eb99f545433a1563eba9ec2f54aeea31e513f6cdf03030cf868/CP-1.md",
+      "sha256": "c0f44bdd70d7e099610125a54c1d5c9012c94f2f941873e4e05bc3a34c0b1a67",
+      "line": 60,
+      "quote": "| LTM Q3 2026 | 1.79 | 1.78 | x | Debt at September 30, 2026 over trailing adjusted EBITDAX stated in the Q3 2026 supplement. Same definitions and limitations; supplement figures are rounded to US$ millions. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cnx/deliveries/613d5ac5fed64eb99f545433a1563eba9ec2f54aeea31e513f6cdf03030cf868/CP-1.md",
+      "sha256": "c0f44bdd70d7e099610125a54c1d5c9012c94f2f941873e4e05bc3a34c0b1a67",
+      "line": 69,
+      "quote": "| LTM Q3 2026 | 8.07 | x | Trailing adjusted EBITDAX over cash interest: FY2025 less nine months 2025 plus nine months 2026. Same limitation; not the CNXM or parent covenant interest coverage definition. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cnx/deliveries/613d5ac5fed64eb99f545433a1563eba9ec2f54aeea31e513f6cdf03030cf868/CP-1.md",
+      "sha256": "c0f44bdd70d7e099610125a54c1d5c9012c94f2f941873e4e05bc3a34c0b1a67",
+      "line": 78,
+      "quote": "| Q3 2026 | 1.977 | 1673.053 | US$m | Same definitions at September 30, 2026. Includes 533.000 for the CNXM revolver, which the parent does not guarantee and which is available to CNXM and its subsidiaries; the parent revolver contributes 1140.053. Parent availability is limited to the borrowing base and elected commitments. |"
+    }
+  },
+  "checklist": null
+}

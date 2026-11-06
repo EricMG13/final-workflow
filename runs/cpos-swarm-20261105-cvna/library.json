@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cvna",
+    "issuer": "cvna",
+    "name": "Carvana Co.",
+    "identity_source": "context",
+    "sector": "Retail-Auto Dealers & Gasoline Stations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CVNA)",
+    "summary": "Carvana has a sound but market-dependent credit profile: leverage is moderate at 1.91x and cash is large, but earnings rely on loan buyers, consumers and short-dated funding lines. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CARVANA CO..",
+    "handoff": "runs/cpos-swarm-20261105-cvna/deliveries/c1d12bf5cfe8c6eb3c447d46a4fd16858d1b540bff05617ae509a33ad1768512/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "1.91",
+        "unit": "x",
+        "period": "Q3 2026",
+        "basis": "Total debt / EBITDA. Debt at September 30, 2026: 5,161 plus finance leases 100; cash 3,049. EBITDA is LTM, derived from nine-month amounts, 2,752. Includes the 1,660 term loan; excludes trade floor plan payables of 300 and the tax receivable agreement liability. Calculated.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.88",
+        "unit": "x",
+        "period": "Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 2,752 over LTM cash interest 468 (336 plus 443 less 311, nine months). Cash interest includes interest on asset-based financing; the new term loan carries a lower coupon than the redeemed notes, so the next periods are not comparable. Calculated.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "3049",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Cash at September 30, 2026 (restricted cash 123 excluded); availability as reported. Contractual undrawn commitment is 5,529 (commitments 5,600 less 71 outstanding); the 3,458 difference is not borrowable on the collateral held. Excludes the super senior and pari passu debt baskets and unpledged beneficial interests.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Debt documents, covenant levels and related-party agreements are not supplied, so protections and control cannot be tested.",
+      "CP-1 main limitation: Financing documents and covenant levels are not in the pack, so protections and headroom cannot be tested."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cvna/inputs/3b0d728dae64d48f4491be2af6d53653b4803495916d71df1f3f2f764a94f8be",
+      "sha256": "3b0d728dae64d48f4491be2af6d53653b4803495916d71df1f3f2f764a94f8be",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CARVANA CO.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cvna/inputs/3b0d728dae64d48f4491be2af6d53653b4803495916d71df1f3f2f764a94f8be",
+      "sha256": "3b0d728dae64d48f4491be2af6d53653b4803495916d71df1f3f2f764a94f8be",
+      "line": 22,
+      "quote": "    \"sector\": \"Retail-Auto Dealers & Gasoline Stations\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cvna/deliveries/c1d12bf5cfe8c6eb3c447d46a4fd16858d1b540bff05617ae509a33ad1768512/CP-1.md",
+      "sha256": "4ef8f715c899f1915a393172033b3fb40237f7d9ecafdb8bce537094028ffbf3",
+      "line": 66,
+      "quote": "| Q3 2026 | 1.91 | 0.80 | x | Debt at September 30, 2026: 5,161 plus finance leases 100; cash 3,049. EBITDA is LTM, derived from nine-month amounts, 2,752. Includes the 1,660 term loan; excludes trade floor plan payables of 300 and the tax receivable agreement liability. Calculated. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cvna/deliveries/c1d12bf5cfe8c6eb3c447d46a4fd16858d1b540bff05617ae509a33ad1768512/CP-1.md",
+      "sha256": "4ef8f715c899f1915a393172033b3fb40237f7d9ecafdb8bce537094028ffbf3",
+      "line": 75,
+      "quote": "| Q3 2026 | 5.88 | x | LTM Adjusted EBITDA 2,752 over LTM cash interest 468 (336 plus 443 less 311, nine months). Cash interest includes interest on asset-based financing; the new term loan carries a lower coupon than the redeemed notes, so the next periods are not comparable. Calculated. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cvna/deliveries/c1d12bf5cfe8c6eb3c447d46a4fd16858d1b540bff05617ae509a33ad1768512/CP-1.md",
+      "sha256": "4ef8f715c899f1915a393172033b3fb40237f7d9ecafdb8bce537094028ffbf3",
+      "line": 84,
+      "quote": "| Q3 2026 | 3049 | 2071 | US$m | Cash at September 30, 2026 (restricted cash 123 excluded); availability as reported. Contractual undrawn commitment is 5,529 (commitments 5,600 less 71 outstanding); the 3,458 difference is not borrowable on the collateral held. Excludes the super senior and pari passu debt baskets and unpledged beneficial interests. |"
+    }
+  },
+  "checklist": null
+}

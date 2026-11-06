@@ -1,0 +1,70 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-launch-host-czr-001",
+    "issuer": "czr",
+    "name": "Caesars Entertainment, Inc.",
+    "identity_source": "context",
+    "sector": "Gaming",
+    "sector_source": "sector",
+    "date": "2026-10-02",
+    "period": "q2-2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CZR)",
+    "summary": "No report was published. Launched through CP-OS as of 2026-10-02 on the retained context.",
+    "handoff": "runs/cpos-launch-host-czr-001/deliveries/178f757368491363b34690572d4405ff8b6b5070b8883360989947ef368001ea/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "11648",
+        "unit": "USD m",
+        "period": "LTM to June 30, 2026",
+        "basis": "Net revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": {
+        "value": "1297",
+        "unit": "USD m",
+        "period": "LTM to June 30, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-launch-host-czr-001/inputs/70a1a94c5cc4a6bf8f11bf47e9f0a41d9be046e2bcfa93425809b6450d15d5c1",
+      "sha256": "70a1a94c5cc4a6bf8f11bf47e9f0a41d9be046e2bcfa93425809b6450d15d5c1",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Caesars Entertainment, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-launch-host-czr-001/inputs/70a1a94c5cc4a6bf8f11bf47e9f0a41d9be046e2bcfa93425809b6450d15d5c1",
+      "sha256": "70a1a94c5cc4a6bf8f11bf47e9f0a41d9be046e2bcfa93425809b6450d15d5c1",
+      "line": 22,
+      "quote": "    \"sector\": \"Gaming\","
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-launch-host-czr-001/deliveries/178f757368491363b34690572d4405ff8b6b5070b8883360989947ef368001ea/CP-1.md",
+      "sha256": "61c83d3e3ee8df68a362930def996cf678e2e35924dc16aa46093cfd4d02ba30",
+      "line": 37,
+      "quote": "| Net revenues (USD m) | 11,648 | 11,486 | LTM calculated, C1; FY reported, 10-K line 1734 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-launch-host-czr-001/deliveries/178f757368491363b34690572d4405ff8b6b5070b8883360989947ef368001ea/CP-1.md",
+      "sha256": "61c83d3e3ee8df68a362930def996cf678e2e35924dc16aa46093cfd4d02ba30",
+      "line": 43,
+      "quote": "| Net cash provided by operating activities (USD m) | 1,297 | 1,302 | LTM calculated, C1; FY reported, 10-K line 1833 |"
+    }
+  },
+  "checklist": null
+}

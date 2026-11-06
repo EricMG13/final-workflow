@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cstm",
+    "issuer": "cstm",
+    "name": "Constellium SE",
+    "identity_source": "context",
+    "sector": "Secondary Smelting & Refining of  Nonferrous Metals",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (September 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CSTM)",
+    "summary": "Constellium SE has a sound fundamental credit profile: net leverage fell to 1.56x with USD 992 million of liquidity and no senior notes due before 2028. Earnings quality and the 2029 refinancing, not near-term liquidity, decide the outcome. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CONSTELLIUM SE.",
+    "handoff": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "10049",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "1.71",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. EBITDA is LTM Adjusted EBITDA excluding metal price lag, 1,354 less 289 = 1,065. Total debt is carrying value 1,817 at September 30, 2026; net debt is debt less cash 158 = 1,659 (company reports 1,658 after a cross-currency swap adjustment of 1). On Adjusted EBITDA as reported (1,354) the ratios are 1.34x and 1.23x. LTM mixes the FY2025 annual report with 2026 quarterly comparatives; the A&T segment revision affects earlier 2025 periods. Excludes 417 of receivables derecognized under factoring.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "10.65",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA excluding metal price lag 1,065 divided by LTM interest paid 100 (104 + 79 - 83). On Adjusted EBITDA as reported (1,354) the ratio is 13.54x. An LTM window is used so the figure covers twelve months of cash interest.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "158",
+        "unit": "US$m",
+        "period": "Q3 2026 (September 30, 2026)",
+        "basis": "Cash. 541 ABL availability plus 114 French facility. Excludes factoring availability 179; company total liquidity 992. The October 22, 2026 ABL amendment (commitments 550 to 700) is a subsequent event and is not in these figures.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "638",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Cash from operations, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, indentures, guarantors, ownership and ratings are not in the sources, so creditor protection and distribution capacity are unassessed.",
+      "CP-1 main limitation: Covenant levels and agreements are not supplied; earnings include non-cash metal price lag and are management-adjusted."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cstm/inputs/d8ee79011dd587819ea89f0119056a42b6a9a7490b73bd4082709f4e37cfea92",
+      "sha256": "d8ee79011dd587819ea89f0119056a42b6a9a7490b73bd4082709f4e37cfea92",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CONSTELLIUM SE\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cstm/inputs/d8ee79011dd587819ea89f0119056a42b6a9a7490b73bd4082709f4e37cfea92",
+      "sha256": "d8ee79011dd587819ea89f0119056a42b6a9a7490b73bd4082709f4e37cfea92",
+      "line": 22,
+      "quote": "    \"sector\": \"Secondary Smelting & Refining of  Nonferrous Metals\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 64,
+      "quote": "| LTM Q3 2026 | 1.71 | 1.56 | x | EBITDA is LTM Adjusted EBITDA excluding metal price lag, 1,354 less 289 = 1,065. Total debt is carrying value 1,817 at September 30, 2026; net debt is debt less cash 158 = 1,659 (company reports 1,658 after a cross-currency swap adjustment of 1). On Adjusted EBITDA as reported (1,354) the ratios are 1.34x and 1.23x. LTM mixes the FY2025 annual report with 2026 quarterly comparatives; the A&T segment revision affects earlier 2025 periods. Excludes 417 of receivables derecognized under factoring. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 71,
+      "quote": "| LTM Q3 2026 | 10.65 | x | LTM Adjusted EBITDA excluding metal price lag 1,065 divided by LTM interest paid 100 (104 + 79 - 83). On Adjusted EBITDA as reported (1,354) the ratio is 13.54x. An LTM window is used so the figure covers twelve months of cash interest. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 80,
+      "quote": "| Q3 2026 (September 30, 2026) | 158 | 655 | US$m | 541 ABL availability plus 114 French facility. Excludes factoring availability 179; company total liquidity 992. The October 22, 2026 ABL amendment (commitments 550 to 700) is a subsequent event and is not in these figures. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 95,
+      "quote": "| Revenue | 8,449 | 2,639 | 7,848 | 6,248 | 10,049 | US$m | Income statements: 10-K page:77; 10-Q Q3 page:3. LTM calculated. Includes metal pass-through. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cstm/deliveries/52c6d2a1651f81e4f098241808abe608b86bea944aefe9b12db3a1edb0fb4363/CP-1.md",
+      "sha256": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+      "line": 103,
+      "quote": "| Cash from operations | 489 | 186 | 420 | 271 | 638 | US$m | 10-K page:79; 10-Q Q3 page:6; Q3 quarter from Release Q3 page:14. LTM calculated. |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,46 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-launch-swarm-gfl-001",
+    "issuer": "gfl",
+    "name": "GFL Environmental Inc.",
+    "identity_source": "context",
+    "sector": "Waste management",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q3-2026",
+    "currency": "CAD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (GFL)",
+    "summary": "No report was published. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-launch-swarm-gfl-001/deliveries/3af2733e722963d89ca841eda23db8e94deca78bd9144a87ee0ca7c54985b24f/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. One independent reviewer's findings are retained in review.json and are not repaired here. Treat the analysis as candidate."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-launch-swarm-gfl-001/inputs/3b2c2e634d2c0d1d787b2efc6bec59a8cda3a4f73d98ab4b38ff36c15a35719c",
+      "sha256": "3b2c2e634d2c0d1d787b2efc6bec59a8cda3a4f73d98ab4b38ff36c15a35719c",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"GFL Environmental Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-launch-swarm-gfl-001/inputs/3b2c2e634d2c0d1d787b2efc6bec59a8cda3a4f73d98ab4b38ff36c15a35719c",
+      "sha256": "3b2c2e634d2c0d1d787b2efc6bec59a8cda3a4f73d98ab4b38ff36c15a35719c",
+      "line": 22,
+      "quote": "    \"sector\": \"Waste management\","
+    }
+  },
+  "checklist": null
+}

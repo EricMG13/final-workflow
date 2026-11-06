@@ -1,0 +1,46 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-launch-swarm-aal-001",
+    "issuer": "aal",
+    "name": "American Airlines, Inc.",
+    "identity_source": "context",
+    "sector": "Airlines",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q3-2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (AAL)",
+    "summary": "No report was published. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-launch-swarm-aal-001/deliveries/3a5252fca08542797d3d0568c0810b77d4f2af2a3bfa23437b08bec029642cb0/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. One independent reviewer's findings are retained in review.json and are not repaired here. Treat the analysis as candidate."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-launch-swarm-aal-001/inputs/98f1f716e6f02a189c11cf5090f848cbc3d38a64fb4114f8c880e8ed58e5a16a",
+      "sha256": "98f1f716e6f02a189c11cf5090f848cbc3d38a64fb4114f8c880e8ed58e5a16a",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"American Airlines, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-launch-swarm-aal-001/inputs/98f1f716e6f02a189c11cf5090f848cbc3d38a64fb4114f8c880e8ed58e5a16a",
+      "sha256": "98f1f716e6f02a189c11cf5090f848cbc3d38a64fb4114f8c880e8ed58e5a16a",
+      "line": 22,
+      "quote": "    \"sector\": \"Airlines\","
+    }
+  },
+  "checklist": null
+}

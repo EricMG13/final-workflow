@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cnc",
+    "issuer": "cnc",
+    "name": "Centene Corp",
+    "identity_source": "context",
+    "sector": "Hospital & Medical Service Plans",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CNC)",
+    "summary": "Credit quality improved in 2026 as debt fell and earnings recovered, but earnings are front-loaded, parent cash is thin and the business depends on government rates and regulation. The view is adequate and improving, not yet secure. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CENTENE CORP.",
+    "handoff": "runs/cpos-swarm-20261105-cnc/deliveries/166f171fb5b43b52739bf017a0ebf62d1fc1174d1a0b08343cc50b86102aec9a/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "3.62",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. LTM to September 30, 2026; the issuer prints no EBITDA, so this is an analyst definition. Net debt deducts 376; consolidated cash is not used because it is mostly regulated. C4",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.85",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Interest paid LTM of 627. Interest paid is total cash interest; no split by instrument is printed. C4",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "20700",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. No revolver borrowings (Q3 10-Q page:47). Unregulated cash 376, of which 175 available for general corporate use. Revolver matures March 5, 2030",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant definitions, guarantors and the receivable purchase agreement are not supplied, and the issuer reports no EBITDA, so leverage rests on an analyst definition.",
+      "CP-1 main limitation: The issuer reports no EBITDA, so every leverage and cover ratio uses an analyst definition; covenant definitions and executed agreements are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cnc/inputs/513a568e8f913d85d10b3279b6da71f4942d77c29169f956b5f35a2740b22b67",
+      "sha256": "513a568e8f913d85d10b3279b6da71f4942d77c29169f956b5f35a2740b22b67",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CENTENE CORP\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cnc/inputs/513a568e8f913d85d10b3279b6da71f4942d77c29169f956b5f35a2740b22b67",
+      "sha256": "513a568e8f913d85d10b3279b6da71f4942d77c29169f956b5f35a2740b22b67",
+      "line": 22,
+      "quote": "    \"sector\": \"Hospital & Medical Service Plans\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cnc/deliveries/166f171fb5b43b52739bf017a0ebf62d1fc1174d1a0b08343cc50b86102aec9a/CP-1.md",
+      "sha256": "d148eae49bfb36d490e6a47382af69ec58ed9ca91eec53f6c1c1514a18cb82bc",
+      "line": 106,
+      "quote": "| LTM Q3 2026 | 3.62 | 3.53 | x | LTM to September 30, 2026; the issuer prints no EBITDA, so this is an analyst definition. Net debt deducts 376; consolidated cash is not used because it is mostly regulated. C4 |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cnc/deliveries/166f171fb5b43b52739bf017a0ebf62d1fc1174d1a0b08343cc50b86102aec9a/CP-1.md",
+      "sha256": "d148eae49bfb36d490e6a47382af69ec58ed9ca91eec53f6c1c1514a18cb82bc",
+      "line": 116,
+      "quote": "| LTM Q3 2026 | 6.85 | x | Interest paid LTM of 627. Interest paid is total cash interest; no split by instrument is printed. C4 |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cnc/deliveries/166f171fb5b43b52739bf017a0ebf62d1fc1174d1a0b08343cc50b86102aec9a/CP-1.md",
+      "sha256": "d148eae49bfb36d490e6a47382af69ec58ed9ca91eec53f6c1c1514a18cb82bc",
+      "line": 126,
+      "quote": "| Sep 30, 2026 | 20,700 | 4,000 | US$m | No revolver borrowings (Q3 10-Q page:47). Unregulated cash 376, of which 175 available for general corporate use. Revolver matures March 5, 2030 |"
+    }
+  },
+  "checklist": null
+}

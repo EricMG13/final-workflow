@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-oln",
+    "issuer": "oln",
+    "name": "OLIN Corp",
+    "identity_source": "context",
+    "sector": "Chemicals & Allied Products",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (OLN)",
+    "summary": "OLIN Corp's credit is weakening but near-term liquidity is adequate. Net debt to adjusted EBITDA rose to 5.21x from 4.08x as trailing earnings fell. The Huntsman merger and covenant relief timing decide the next year. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-oln/deliveries/5278c77f14c56cf6898303958f3c88e0497b57f07c93f00f321a23d20db3e7f6/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.62",
+        "unit": "x",
+        "period": "Q3 2026",
+        "basis": "Total debt / EBITDA. Total debt at September 30, 2026 over trailing twelve month adjusted EBITDA to September 30, 2026 (EX-99.1 Q3 page:11); management measure, not the covenant ratio",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.15",
+        "unit": "x",
+        "period": "Q3 2026",
+        "basis": "EBITDA / cash interest. Trailing twelve month adjusted EBITDA over trailing cash interest paid of USD 170.2 million built from nine month, FY2025 and prior-year nine month amounts",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "214.8",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Revolver undrawn commitments as printed (10-Q Q3 page:13); excludes USD 34.0 million receivables facility capacity limited by borrowing base; no covenant restriction on borrowing stated",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, Huntsman financials and executed debt documents are not supplied, so headroom and combined leverage cannot be tested.",
+      "CP-1 main limitation: Covenant levels are not printed, so headroom cannot be tested, and adjusted EBITDA is a management non-GAAP measure."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-oln/inputs/09d8a3ab70b39856c937eb920b788157e416ce636cea1515d7a99dd15e9d89b1",
+      "sha256": "09d8a3ab70b39856c937eb920b788157e416ce636cea1515d7a99dd15e9d89b1",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"OLIN Corp\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-oln/inputs/09d8a3ab70b39856c937eb920b788157e416ce636cea1515d7a99dd15e9d89b1",
+      "sha256": "09d8a3ab70b39856c937eb920b788157e416ce636cea1515d7a99dd15e9d89b1",
+      "line": 22,
+      "quote": "    \"sector\": \"Chemicals & Allied Products\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-oln/deliveries/5278c77f14c56cf6898303958f3c88e0497b57f07c93f00f321a23d20db3e7f6/CP-1.md",
+      "sha256": "7df7316b863cab8ea464b4d35c09d645a7fd3da78a51db340a44c7a910837154",
+      "line": 55,
+      "quote": "| Q3 2026 | 5.62 | 5.21 | x | Total debt at September 30, 2026 over trailing twelve month adjusted EBITDA to September 30, 2026 (EX-99.1 Q3 page:11); management measure, not the covenant ratio |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-oln/deliveries/5278c77f14c56cf6898303958f3c88e0497b57f07c93f00f321a23d20db3e7f6/CP-1.md",
+      "sha256": "7df7316b863cab8ea464b4d35c09d645a7fd3da78a51db340a44c7a910837154",
+      "line": 64,
+      "quote": "| Q3 2026 | 3.15 | x | Trailing twelve month adjusted EBITDA over trailing cash interest paid of USD 170.2 million built from nine month, FY2025 and prior-year nine month amounts |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-oln/deliveries/5278c77f14c56cf6898303958f3c88e0497b57f07c93f00f321a23d20db3e7f6/CP-1.md",
+      "sha256": "7df7316b863cab8ea464b4d35c09d645a7fd3da78a51db340a44c7a910837154",
+      "line": 73,
+      "quote": "| Q3 2026 | 214.8 | 1029.6 | US$m | Revolver undrawn commitments as printed (10-Q Q3 page:13); excludes USD 34.0 million receivables facility capacity limited by borrowing base; no covenant restriction on borrowing stated |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-gtn",
+    "issuer": "gtn",
+    "name": "Gray Media, Inc",
+    "identity_source": "context",
+    "sector": "Television Broadcasting Stations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q2 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (GTN)",
+    "summary": "Gray Media is a heavily levered but liquid local broadcaster: principal debt is 8.28 times last-twelve-months Adjusted EBITDA, interest cover is thin, and no principal falls due before December 2028. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is GRAY MEDIA, INC.",
+    "handoff": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "3148",
+        "unit": "USD m",
+        "period": "LTM to Jun 30, 2026",
+        "basis": "Total revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "8.67",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "Total debt / EBITDA. Principal 5,810 and cash 368 over Adjusted EBITDA 670 for FY2025 (C4). 2025 was a political off-year. Same exclusions.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "1.70",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 670 over cash interest paid 393 (S-10K page:94); C5.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "176",
+        "unit": "US$m",
+        "period": "Q2 2026",
+        "basis": "Cash. Cash at June 30, 2026 and revolver availability of 745 on a 750 commitment (S-Q2-26 page:15). Excludes the receivables facility, which is fully drawn at 400 and gives no availability. Before the July 2026 repurchases, which were funded partly by revolver borrowings of an undisclosed amount.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "250",
+        "unit": "USD m",
+        "period": "LTM to Jun 30, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Governing debt documents, post-June borrowing and the quarter ended September 2026 are not supplied, and Adjusted EBITDA is release-only.",
+      "CP-1 main limitation: Adjusted EBITDA is release-only and last twelve months mixes an election-year half with an off-year half; credit agreement terms and post-June borrowing are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-gtn/inputs/457b491e723cfaa80de6921ac6aa99b1d24251f7cfebd35fd33b60ef8d3cb70e",
+      "sha256": "457b491e723cfaa80de6921ac6aa99b1d24251f7cfebd35fd33b60ef8d3cb70e",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"GRAY MEDIA, INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-gtn/inputs/457b491e723cfaa80de6921ac6aa99b1d24251f7cfebd35fd33b60ef8d3cb70e",
+      "sha256": "457b491e723cfaa80de6921ac6aa99b1d24251f7cfebd35fd33b60ef8d3cb70e",
+      "line": 22,
+      "quote": "    \"sector\": \"Television Broadcasting Stations\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 75,
+      "quote": "| FY2025 | 8.67 | 8.12 | x | Principal 5,810 and cash 368 over Adjusted EBITDA 670 for FY2025 (C4). 2025 was a political off-year. Same exclusions. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 83,
+      "quote": "| FY2025 | 1.70 | x | Adjusted EBITDA 670 over cash interest paid 393 (S-10K page:94); C5. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 92,
+      "quote": "| Q2 2026 | 176 | 745 | US$m | Cash at June 30, 2026 and revolver availability of 745 on a 750 commitment (S-Q2-26 page:15). Excludes the receivables facility, which is fully drawn at 400 and gives no availability. Before the July 2026 repurchases, which were funded partly by revolver borrowings of an undisclosed amount. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 110,
+      "quote": "| Total revenue (USD m) | 3,148 | 3,095 | 3,644 | LTM calculated C1; FY reported (S-10K page:73) |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-gtn/deliveries/105c12b2185d9e8b897d7edaf52e9550a707b87769a7976da1dd6568939797f3/CP-1.md",
+      "sha256": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+      "line": 118,
+      "quote": "| Net cash provided by operating activities (USD m) | 250 | 289 | 751 | LTM calculated C1; FY reported (S-10K page:75) |"
+    }
+  },
+  "checklist": null
+}

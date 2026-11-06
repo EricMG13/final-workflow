@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-amtm",
+    "issuer": "amtm",
+    "name": "Amentum Holdings, Inc.",
+    "identity_source": "context",
+    "sector": "Services-Business Services, NEC",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (July 3, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (AMTM)",
+    "summary": "Amentum Holdings, Inc. has sound liquidity of USD 1,376 million and net leverage of 3.03x, down from 3.23x, supported by U.S. Government revenue; thin cash conversion and untested loan terms limit the view. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "14130",
+        "unit": "US$m",
+        "period": "LTM or July 3, 2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "1013",
+        "unit": "US$m",
+        "period": "LTM or July 3, 2026",
+        "basis": "EBITDA, company definition before adjustments, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.44",
+        "unit": "x",
+        "period": "Q3 2026 LTM (July 3, 2026)",
+        "basis": "Total debt / EBITDA. Principal debt 3,875 (Q3 10-Q page:10), cash 459 (page:2), LTM Adjusted EBITDA 1,128 (Q3 release page:10). Net figure matches management's stated 3.0x. LTM spans 53 weeks.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.93",
+        "unit": "x",
+        "period": "Q3 2026 LTM",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 1,128 over LTM interest paid 287 (306 plus 175 less 194; Q3 10-Q page:5). The LTM includes the lower April 2026 margins only from April 24, 2026.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "459",
+        "unit": "US$m",
+        "period": "Q3 2026 (July 3, 2026)",
+        "basis": "Cash. Cash from Q3 10-Q page:2. Capacity 917 net of 83 of letters of credit on the 1,000 revolver, nothing borrowed (page:12). Cash includes 123 held in consolidated joint ventures (page:13), which may not be freely available to the group.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "505",
+        "unit": "US$m",
+        "period": "LTM or July 3, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The credit agreement, its April 2026 amendment, ratings and current ownership are not in the sources, so covenant and creditor-control conclusions are provisional.",
+      "CP-1 main limitation: Adjusted EBITDA is a management measure, and the post-amendment covenant level and credit agreement terms are not in the sources."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-amtm/inputs/f35913dfc940216c52100a4ebad511585e07d7ab0e645bded7b78046135f5c43",
+      "sha256": "f35913dfc940216c52100a4ebad511585e07d7ab0e645bded7b78046135f5c43",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Amentum Holdings, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-amtm/inputs/f35913dfc940216c52100a4ebad511585e07d7ab0e645bded7b78046135f5c43",
+      "sha256": "f35913dfc940216c52100a4ebad511585e07d7ab0e645bded7b78046135f5c43",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Business Services, NEC\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 59,
+      "quote": "| Q3 2026 LTM (July 3, 2026) | 3.44 | 3.03 | x | Principal debt 3,875 (Q3 10-Q page:10), cash 459 (page:2), LTM Adjusted EBITDA 1,128 (Q3 release page:10). Net figure matches management's stated 3.0x. LTM spans 53 weeks. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 68,
+      "quote": "| Q3 2026 LTM | 3.93 | x | LTM Adjusted EBITDA 1,128 over LTM interest paid 287 (306 plus 175 less 194; Q3 10-Q page:5). The LTM includes the lower April 2026 margins only from April 24, 2026. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 76,
+      "quote": "| Q3 2026 (July 3, 2026) | 459 | 917 | US$m | Cash from Q3 10-Q page:2. Capacity 917 net of 83 of letters of credit on the 1,000 revolver, nothing borrowed (page:12). Cash includes 123 held in consolidated joint ventures (page:13), which may not be freely available to the group. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 94,
+      "quote": "| Revenues | 14,393 | 10,468 | 10,205 | 14,130 | Reported (10-K page:114; Q3 10-Q page:2). LTM is calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 99,
+      "quote": "| EBITDA, company definition before adjustments | 994 | 733 | 752 | 1,013 | Net income to common plus interest, tax, depreciation and amortization (10-K page:157; Q3 release page:11 and page:12). LTM calculated. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-amtm/deliveries/55738b6cb211d8d2164306f99c5b5ff54dbaa5b5b1d21e2c1e973463039cb972/CP-1.md",
+      "sha256": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+      "line": 106,
+      "quote": "| Net cash provided by operating activities | 543 | 273 | 235 | 505 | Reported (10-K page:115; Q3 10-Q page:4). LTM calculated. |"
+    }
+  },
+  "checklist": null
+}

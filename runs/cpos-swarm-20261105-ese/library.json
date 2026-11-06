@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ese",
+    "issuer": "ese",
+    "name": "Esco Technologies Inc",
+    "identity_source": "context",
+    "sector": "Communications Equipment, NEC",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "June 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ESE)",
+    "summary": "ESCO is lightly levered today, with USD 85.0 million of borrowings and USD 515.536 million of liquidity at June 30, 2026, but the pending Megger acquisition will reset debt, covenants and ownership. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is ESCO TECHNOLOGIES INC.",
+    "handoff": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "0.278",
+        "unit": "x",
+        "period": "LTM June 30, 2026",
+        "basis": "Total debt / EBITDA. Total borrowings 85,000 over LTM EBITDA 305,677; net debt 11,764 after cash of 73,236. Pre-Megger; Megger debt and EBITDA are Not supplied. Not a covenant calculation.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "20.42",
+        "unit": "x",
+        "period": "LTM June 30, 2026",
+        "basis": "EBITDA / cash interest. LTM EBITDA 305,677 over LTM interest paid 14,970. The roughly 7 million of Megger debt financing costs in Q3 2026 interest expense is not cash interest paid in this measure and is not in the denominator.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "73.236",
+        "unit": "US$m",
+        "period": "June 30, 2026",
+        "basis": "Cash. 500.0 less drawn 45.0 less letters of credit 12.7. Company states approximately 442. The 250.0 increase option needs lender consent and is excluded. The revolver matures August 30, 2028.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, the new credit agreement, Megger financials and anything after August 10, 2026 are not supplied, so the post-closing credit cannot be sized.",
+      "CP-1 main limitation: Pro forma debt, covenant levels and Megger earnings are not supplied, so the reported base may not describe the post-closing company."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ese/inputs/da65696ce609dcf19999b44c58b8a10f43f7d7bc7cde7c4a3762d76affdde214",
+      "sha256": "da65696ce609dcf19999b44c58b8a10f43f7d7bc7cde7c4a3762d76affdde214",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"ESCO TECHNOLOGIES INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ese/inputs/da65696ce609dcf19999b44c58b8a10f43f7d7bc7cde7c4a3762d76affdde214",
+      "sha256": "da65696ce609dcf19999b44c58b8a10f43f7d7bc7cde7c4a3762d76affdde214",
+      "line": 22,
+      "quote": "    \"sector\": \"Communications Equipment, NEC\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 92,
+      "quote": "| LTM June 30, 2026 | 0.278 | 0.038 | x | Total borrowings 85,000 over LTM EBITDA 305,677; net debt 11,764 after cash of 73,236. Pre-Megger; Megger debt and EBITDA are Not supplied. Not a covenant calculation. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 102,
+      "quote": "| LTM June 30, 2026 | 20.42 | x | LTM EBITDA 305,677 over LTM interest paid 14,970. The roughly 7 million of Megger debt financing costs in Q3 2026 interest expense is not cash interest paid in this measure and is not in the denominator. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ese/deliveries/ed05ba03abb9f88b4ca22cbe2e4e27cb2f94eb3083e7dda05270d3d4587b1303/CP-1.md",
+      "sha256": "23a50d14b3104c2571d80147c88f81427457a9b11a2aa773f3459c4d026de1e7",
+      "line": 112,
+      "quote": "| June 30, 2026 | 73.236 | 442.300 | US$m | 500.0 less drawn 45.0 less letters of credit 12.7. Company states approximately 442. The 250.0 increase option needs lender consent and is excluded. The revolver matures August 30, 2028. |"
+    }
+  },
+  "checklist": null
+}

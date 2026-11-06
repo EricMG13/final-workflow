@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-chscp",
+    "issuer": "chscp",
+    "name": "CHS Inc",
+    "identity_source": "context",
+    "sector": "Wholesale-Farm Product Raw Materials",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "FY2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CHSCP)",
+    "summary": "CHS has a solid fundamental credit profile on reported figures: low year-end leverage of 1.27x and ample committed liquidity. Its earnings are volatile and policy-dependent, so the profile is strong but cyclical. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CHS INC.",
+    "handoff": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "39231217",
+        "unit": "USD thousands",
+        "period": "FY2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "1.27",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "Total debt / EBITDA. Derived EBITDA 1,969,497 (C1); total debt 2,501,725 and net debt 2,238,122 (C5), USD thousands; year-end seasonal low in short-term borrowing, so interim leverage is higher",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "11.79",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "EBITDA / cash interest. Derived EBITDA 1,969,497 over cash paid for interest 167,057 (C1, C6); preferred dividends of 168,668 are not in the denominator",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "263.603",
+        "unit": "US$m",
+        "period": "FY2026",
+        "basis": "Cash. Revolver commitment 2,800.0 with no borrowings at 2026-08-31 (10-K page:163); letters of credit drawn on it not supplied so availability may be lower; securitization and repurchase capacity excluded because the committed share is not separable; excludes restricted cash of 123.217",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "1584009",
+        "unit": "USD thousands",
+        "period": "FY2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, guarantors, letter of credit usage and fiscal 2024 debt are not supplied, and EBITDA is derived rather than reported.",
+      "CP-1 main limitation: EBITDA is derived, not reported, includes equity income and ignores major maintenance spending. Covenant levels, letter of credit usage and fiscal 2024 debt are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-chscp/inputs/7441cd131643680d7cdd1713c448cca9698ae339b2ccfb6c0e8da281781f9451",
+      "sha256": "7441cd131643680d7cdd1713c448cca9698ae339b2ccfb6c0e8da281781f9451",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CHS INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-chscp/inputs/7441cd131643680d7cdd1713c448cca9698ae339b2ccfb6c0e8da281781f9451",
+      "sha256": "7441cd131643680d7cdd1713c448cca9698ae339b2ccfb6c0e8da281781f9451",
+      "line": 22,
+      "quote": "    \"sector\": \"Wholesale-Farm Product Raw Materials\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 57,
+      "quote": "| FY2026 | 1.27 | 1.14 | x | Derived EBITDA 1,969,497 (C1); total debt 2,501,725 and net debt 2,238,122 (C5), USD thousands; year-end seasonal low in short-term borrowing, so interim leverage is higher |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 65,
+      "quote": "| FY2026 | 11.79 | x | Derived EBITDA 1,969,497 over cash paid for interest 167,057 (C1, C6); preferred dividends of 168,668 are not in the denominator |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 73,
+      "quote": "| FY2026 | 263.603 | 2,800.0 | US$m | Revolver commitment 2,800.0 with no borrowings at 2026-08-31 (10-K page:163); letters of credit drawn on it not supplied so availability may be lower; securitization and repurchase capacity excluded because the committed share is not separable; excludes restricted cash of 123.217 |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 90,
+      "quote": "| Revenues (USD thousands) | 39,231,217 | 35,462,608 | 39,261,229 | Reported, 10-K page:144 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-chscp/deliveries/2f95234c365da17771002673cfe1d7ed0fb05452195fa941d453b6b3d1475624/CP-1.md",
+      "sha256": "528858c503c0f2423d9c2d1493f07a702d9a9b2cff8b46977b62e66b20b29170",
+      "line": 101,
+      "quote": "| Net cash provided by operating activities (USD thousands) | 1,584,009 | 635,787 | 1,272,880 | Reported, 10-K page:146 |"
+    }
+  },
+  "checklist": null
+}

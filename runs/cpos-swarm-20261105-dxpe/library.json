@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-dxpe",
+    "issuer": "dxpe",
+    "name": "DXP Enterprises Inc",
+    "identity_source": "context",
+    "sector": "Wholesale-Industrial Machinery & Equipment",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (September 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (DXPE)",
+    "summary": "DXP is moderately leveraged and improving, with strong liquidity and a distant maturity. Acquisition spending, unhedged floating-rate debt and unusually low cash taxes are the swing factors, so the credit view is acceptable with monitoring. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is DXP ENTERPRISES INC.",
+    "handoff": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "2212689",
+        "unit": "USD thousands",
+        "period": "LTM to Q3 2026",
+        "basis": "Sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "247180",
+        "unit": "USD thousands",
+        "period": "LTM to Q3 2026",
+        "basis": "EBITDA (company), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.30",
+        "unit": "x",
+        "period": "Q3 2026 LTM",
+        "basis": "Total debt / EBITDA. Debt 839,525 and cash 218,834 at September 30, 2026 (Q3 10-Q pages 2 and 11). LTM Adjusted EBITDA 254,413 = 225,302 + 195,444 - 166,333. Not pro forma; covenant EBITDA headline is 270,000 (Q3 release page:2).",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.33",
+        "unit": "x",
+        "period": "Q3 2026 LTM",
+        "basis": "EBITDA / cash interest. 254,413 over 58,803 = 53,698 + 45,330 - 40,225 (Q3 10-Q page:19). On interest expense (66,455 LTM) the ratio is 3.83x. Cash interest is a year-to-date disclosure only, so LTM is spliced from three filings.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "218.8",
+        "unit": "US$m",
+        "period": "Q3 2026 (September 30, 2026)",
+        "basis": "Cash. Cash 218,834; capacity 225,000 less letters of credit 32,829 = 192,171 (Q3 10-Q page:33); company states liquidity of 411.0 US$m, equal to the sum. Availability is printed as capacity less letters of credit; the borrowing base is not printed. No facility expires within twelve months.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "118400",
+        "unit": "USD thousands",
+        "period": "LTM to Q3 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant EBITDA is unreconciled to reported Adjusted EBITDA, and ownership and restricted payment capacity are undocumented.",
+      "CP-1 main limitation: Leverage uses company-defined Adjusted EBITDA; the covenant EBITDA bridge and the covenant level for two quarter-ends are unresolved."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-dxpe/inputs/be741ade5f3ce71fa0fd12e85135207822d5c3bd4725f3f29649b4083fde9ae2",
+      "sha256": "be741ade5f3ce71fa0fd12e85135207822d5c3bd4725f3f29649b4083fde9ae2",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"DXP ENTERPRISES INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-dxpe/inputs/be741ade5f3ce71fa0fd12e85135207822d5c3bd4725f3f29649b4083fde9ae2",
+      "sha256": "be741ade5f3ce71fa0fd12e85135207822d5c3bd4725f3f29649b4083fde9ae2",
+      "line": 22,
+      "quote": "    \"sector\": \"Wholesale-Industrial Machinery & Equipment\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 60,
+      "quote": "| Q3 2026 LTM | 3.30 | 2.44 | x | Debt 839,525 and cash 218,834 at September 30, 2026 (Q3 10-Q pages 2 and 11). LTM Adjusted EBITDA 254,413 = 225,302 + 195,444 - 166,333. Not pro forma; covenant EBITDA headline is 270,000 (Q3 release page:2). |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 69,
+      "quote": "| Q3 2026 LTM | 4.33 | x | 254,413 over 58,803 = 53,698 + 45,330 - 40,225 (Q3 10-Q page:19). On interest expense (66,455 LTM) the ratio is 3.83x. Cash interest is a year-to-date disclosure only, so LTM is spliced from three filings. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 78,
+      "quote": "| Q3 2026 (September 30, 2026) | 218.8 | 192.2 | US$m | Cash 218,834; capacity 225,000 less letters of credit 32,829 = 192,171 (Q3 10-Q page:33); company states liquidity of 411.0 US$m, equal to the sum. Availability is printed as capacity less letters of credit; the borrowing base is not printed. No facility expires within twelve months. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 94,
+      "quote": "| Sales | 2,016,365 | 513,724 | 587,180 | 1,488,975 | 1,685,299 | 2,212,689 | Statements of operations: 10-K page:68; Q3 10-Q page:2. LTM calculated. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 101,
+      "quote": "| EBITDA (company) | 218,602 | 54,266 | 65,767 | 161,063 | 189,641 | 247,180 | 10-K page:52; Q3 10-Q page:31. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-dxpe/deliveries/12c8d904734837db847132581b7828a309a283c386f37d3ee081d4ebd076829c/CP-1.md",
+      "sha256": "c1bbfbf25d30d6263e3558a0f95f7d442dadd213e4ba60d3d7022d862445351c",
+      "line": 104,
+      "quote": "| Net cash from operating activities | 94,264 | 34,886 | 18,686 | 56,505 | 80,641 | 118,400 | Cash flow statements: 10-K page:70; Q3 release page:9; Q3 10-Q page:3. |"
+    }
+  },
+  "checklist": null
+}

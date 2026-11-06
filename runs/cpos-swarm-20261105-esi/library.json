@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-esi",
+    "issuer": "esi",
+    "name": "Element Solutions Inc",
+    "identity_source": "context",
+    "sector": "Miscellaneous Chemical Products",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ESI)",
+    "summary": "Element Solutions has moderate reported leverage of 3.09x, strong earnings growth, cash interest cover of 7.85x and adequate liquidity of USD 702.9 million. Debt-funded acquisitions raised leverage, and cash conversion is weaker than earnings. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "3489.4",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "564.8",
+        "unit": "USD m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA, issuer-defined, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "3.09",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt 2,082.1, cash 224.9; LTM Adjusted EBITDA 673.1; same limitation; on the release's debt table net debt 1,869.8 gives 2.78x; not a covenant ratio",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "7.85",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 673.1 over LTM interest paid 85.7; interest paid is a cash measure and differs from accrual interest expense, net, of 81.2 LTM; C5",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "224.9",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Revolver with 15.0 drawn, net of letters of credit of 7.0 (Q3-26 p18); of the cash, 176 is held by foreign subsidiaries; total availability across all lines is 506",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant definitions, the terminated merger's terms and pro forma EBITDA for the acquisitions are not supplied.",
+      "CP-1 main limitation: Last-twelve-months EBITDA includes the acquired businesses only from their 2026 closing dates, and covenant definitions are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-esi/inputs/1920ec84f7b9710e00bbaac803890d2695813e40c10637e35f2e7d8eaaf0285a",
+      "sha256": "1920ec84f7b9710e00bbaac803890d2695813e40c10637e35f2e7d8eaaf0285a",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Element Solutions Inc\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-esi/inputs/1920ec84f7b9710e00bbaac803890d2695813e40c10637e35f2e7d8eaaf0285a",
+      "sha256": "1920ec84f7b9710e00bbaac803890d2695813e40c10637e35f2e7d8eaaf0285a",
+      "line": 22,
+      "quote": "    \"sector\": \"Miscellaneous Chemical Products\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 99,
+      "quote": "| LTM Q3 2026 | 3.09 | 2.76 | x | Debt 2,082.1, cash 224.9; LTM Adjusted EBITDA 673.1; same limitation; on the release's debt table net debt 1,869.8 gives 2.78x; not a covenant ratio |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 109,
+      "quote": "| LTM Q3 2026 | 7.85 | x | LTM Adjusted EBITDA 673.1 over LTM interest paid 85.7; interest paid is a cash measure and differs from accrual interest expense, net, of 81.2 LTM; C5 |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 119,
+      "quote": "| Q3 2026 | 224.9 | 478.0 | US$m | Revolver with 15.0 drawn, net of letters of credit of 7.0 (Q3-26 p18); of the cash, 176 is held by foreign subsidiaries; total availability across all lines is 506 |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 70,
+      "quote": "| Net sales (USD m) | 3,489.4 | 2,551.2 | 2,456.9 | LTM calculated, C1; FY reported, K25 p82 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-esi/deliveries/353f1d5a83c1766b2f952f0b7fb134881de13c4859971c9c45559a028dda65fe/CP-1.md",
+      "sha256": "0b784e0bff14bdc1d3f4b3894b4edcc8e5b0011eb0edb677c3ca72eb727a1ab8",
+      "line": 73,
+      "quote": "| EBITDA, issuer-defined (USD m) | 564.8 | 470.2 | 501.6 | LTM calculated, C1; FY reported, K25 p124 |"
+    }
+  },
+  "checklist": null
+}

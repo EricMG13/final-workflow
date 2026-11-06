@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-praa",
+    "issuer": "praa",
+    "name": "PRA Group Inc",
+    "identity_source": "context",
+    "sector": "Short-Term Business Credit Institutions",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Jun 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (PRAA)",
+    "summary": "The fundamental credit view is adequate and stable: gross debt is 2.78x issuer Adjusted EBITDA and cash interest is covered 5.36x, but earnings, ERC and ERC-linked availability rest on internal forecasts, and purchases are debt funded. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is PRA GROUP INC.",
+    "handoff": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1201837",
+        "unit": "thousands of USD",
+        "period": "FY2025",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "2.78",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "Total debt / EBITDA. Debt principal 3,771,251 (Q2 10-Q page:11) over last-twelve-months Adjusted EBITDA 1,358,913; net of cash 132,431. Interest-bearing deposits of 100,460 and investments of 145,473 are excluded. Same limitation.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "5.36",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 1,358,913 over derived cash interest 253,430 (FY2025 less H1 2025 plus H1 2026; Q2 10-Q page:5). Cash interest paid is the cash flow supplemental figure and its composition (for example deposit interest and swap settlements) is not itemized.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "132.431",
+        "unit": "US$m",
+        "period": "Jun 30, 2026",
+        "basis": "Cash. Cash (Q2 10-Q page:2); total availability (Q2 10-Q page:40). 733.096 is based on current ERC and 265.372 is additional availability subject to borrowing base and advance rates. Cash excludes investments of 145.473 held for the banking subsidiary and restricted cash of 3.248.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant ratios and executed debt documents are not supplied, and nothing after August 7, 2026 is covered, so headroom and the current position are unobserved.",
+      "CP-1 main limitation: Adjusted EBITDA is an issuer non-GAAP measure, not the covenant definition, so these ratios are not covenant headroom."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-praa/inputs/fb395d626a32c7d3e686eb338c55b901d79ab38a3782a023f0c732503b0056b3",
+      "sha256": "fb395d626a32c7d3e686eb338c55b901d79ab38a3782a023f0c732503b0056b3",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"PRA GROUP INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-praa/inputs/fb395d626a32c7d3e686eb338c55b901d79ab38a3782a023f0c732503b0056b3",
+      "sha256": "fb395d626a32c7d3e686eb338c55b901d79ab38a3782a023f0c732503b0056b3",
+      "line": 22,
+      "quote": "    \"sector\": \"Short-Term Business Credit Institutions\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-1.md",
+      "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+      "line": 170,
+      "quote": "| LTM Q2 2026 | 2.78 | 2.68 | x | Debt principal 3,771,251 (Q2 10-Q page:11) over last-twelve-months Adjusted EBITDA 1,358,913; net of cash 132,431. Interest-bearing deposits of 100,460 and investments of 145,473 are excluded. Same limitation. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-1.md",
+      "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+      "line": 180,
+      "quote": "| LTM Q2 2026 | 5.36 | x | Adjusted EBITDA 1,358,913 over derived cash interest 253,430 (FY2025 less H1 2025 plus H1 2026; Q2 10-Q page:5). Cash interest paid is the cash flow supplemental figure and its composition (for example deposit interest and swap settlements) is not itemized. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-1.md",
+      "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+      "line": 191,
+      "quote": "| Jun 30, 2026 | 132.431 | 998.468 | US$m | Cash (Q2 10-Q page:2); total availability (Q2 10-Q page:40). 733.096 is based on current ERC and 265.372 is additional availability subject to borrowing base and advance rates. Cash excludes investments of 145.473 held for the banking subsidiary and restricted cash of 3.248. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-praa/deliveries/28b5569bb8458e2260b468a9c455abf596b55cdd69e217eebded5737f3bf0b79/CP-1.md",
+      "sha256": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+      "line": 211,
+      "quote": "| Total revenues | 1,114,524 | 1,201,837 | 287,688 | 372,174 | 557,307 | 686,707 | Same |"
+    }
+  },
+  "checklist": null
+}

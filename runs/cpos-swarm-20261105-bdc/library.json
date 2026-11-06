@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-bdc",
+    "issuer": "bdc",
+    "name": "Belden Inc.",
+    "identity_source": "context",
+    "sector": "Drawing & Insulating of  Nonferrous Wire",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (BDC)",
+    "summary": "Belden has strong liquidity but, after the debt-funded Ruckus purchase, much higher leverage that rests on unproven acquired earnings. The credit view is cautious and depends on Ruckus delivering. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is BELDEN INC..",
+    "handoff": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "5.57",
+        "unit": "x",
+        "period": "Q3 2026 (LTM)",
+        "basis": "Total debt / EBITDA. Debt before unamortised costs (USD 3,103.780 million) over LTM Adjusted EBITDA (USD 557.166 million = FY2025 plus nine months 2026 less nine months 2025). Ruckus is included for one quarter only; debt includes all of Term Loan B. Overstated against a full-year combined base. Company Adjusted EBITDA, not a covenant definition.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "10.63",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA USD 458.734 million over interest paid USD 43.157 million (10-K page 107). Pre-Ruckus capital structure.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "380.7",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Cash USD 380.706 million, of which USD 232.0 million is held outside the U.S. (10-Q Q3 pages 2 and 34); availability (page 18). The shortfall to the USD 400.0 million commitment is not explained in the sources.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Term loan terms, Ruckus earnings history and ratings are not supplied.",
+      "CP-1 main limitation: No pro forma EBITDA for Ruckus is supplied, so a full-year combined leverage ratio cannot be calculated."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-bdc/inputs/c6d9bea849396ac29c99bcba0cfe7683fa092d214ad8aab3fe1d1ba06b34ee33",
+      "sha256": "c6d9bea849396ac29c99bcba0cfe7683fa092d214ad8aab3fe1d1ba06b34ee33",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"BELDEN INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-bdc/inputs/c6d9bea849396ac29c99bcba0cfe7683fa092d214ad8aab3fe1d1ba06b34ee33",
+      "sha256": "c6d9bea849396ac29c99bcba0cfe7683fa092d214ad8aab3fe1d1ba06b34ee33",
+      "line": 22,
+      "quote": "    \"sector\": \"Drawing & Insulating of  Nonferrous Wire\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 53,
+      "quote": "| Q3 2026 (LTM) | 5.57 | 4.89 | x | Debt before unamortised costs (USD 3,103.780 million) over LTM Adjusted EBITDA (USD 557.166 million = FY2025 plus nine months 2026 less nine months 2025). Ruckus is included for one quarter only; debt includes all of Term Loan B. Overstated against a full-year combined base. Company Adjusted EBITDA, not a covenant definition. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 59,
+      "quote": "| FY2025 | 10.63 | x | Adjusted EBITDA USD 458.734 million over interest paid USD 43.157 million (10-K page 107). Pre-Ruckus capital structure. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-bdc/deliveries/5eccbb2bbe2b7939358c106854bd2f4c2da574fe8be68acff33c41798fd7db39/CP-1.md",
+      "sha256": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+      "line": 69,
+      "quote": "| Q3 2026 | 380.7 | 373.5 | US$m | Cash USD 380.706 million, of which USD 232.0 million is held outside the U.S. (10-Q Q3 pages 2 and 34); availability (page 18). The shortfall to the USD 400.0 million commitment is not explained in the sources. |"
+    }
+  },
+  "checklist": null
+}

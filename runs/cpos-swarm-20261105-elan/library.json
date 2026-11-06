@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-elan",
+    "issuer": "elan",
+    "name": "Elanco Animal Health Inc",
+    "identity_source": "context",
+    "sector": "Pharmaceutical Preparations",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-06-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (ELAN)",
+    "summary": "Elanco is a moderately leveraged, improving credit with adequate liquidity and no large maturity before 2028. Its weak point is leverage quality: 3.91x on total debt, add-backs of USD 236 million and claims outside the debt table. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "3.91",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "Total debt / EBITDA. Debt at 2026-06-30 is gross debt 3,944 including the 255 finance lease; cash 530; trailing Adjusted EBITDA 1,008 as printed (Aug release page:14). Net debt here is 3,414. The company's own net leverage, deducting the finance lease too, is 3.1x. Adjusted EBITDA is a management measure that excludes covenant adjustments",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.37",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 901 over cash interest paid 206 (10-K page:112), net of 43 received on net investment hedges; before that receipt the cover would be 3.62x on 249",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "530",
+        "unit": "US$m",
+        "period": "2026-06-30",
+        "basis": "Cash. Undrawn is about 750 revolver plus about 165 securitization capacity (Q2 10-Q page:36). Same borrowing base caveat. A significant part of cash is held outside the U.S. (page:36); the split is not supplied",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Executed debt documents, achieved covenant ratios, ratings and any evidence after 2026-08-05 are not in the pack.",
+      "CP-1 main limitation: Adjusted EBITDA is a management measure; trailing cash interest and achieved covenant ratios are not supplied; the latest balance sheet is June 30, 2026."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-elan/inputs/f7c64d35ea0396669fb4a13a10eedb17c6d4612678c62234d77a0ad21bc4c259",
+      "sha256": "f7c64d35ea0396669fb4a13a10eedb17c6d4612678c62234d77a0ad21bc4c259",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Elanco Animal Health Inc\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-elan/inputs/f7c64d35ea0396669fb4a13a10eedb17c6d4612678c62234d77a0ad21bc4c259",
+      "sha256": "f7c64d35ea0396669fb4a13a10eedb17c6d4612678c62234d77a0ad21bc4c259",
+      "line": 22,
+      "quote": "    \"sector\": \"Pharmaceutical Preparations\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 63,
+      "quote": "| LTM Q2 2026 | 3.91 | 3.39 | x | Debt at 2026-06-30 is gross debt 3,944 including the 255 finance lease; cash 530; trailing Adjusted EBITDA 1,008 as printed (Aug release page:14). Net debt here is 3,414. The company's own net leverage, deducting the finance lease too, is 3.1x. Adjusted EBITDA is a management measure that excludes covenant adjustments |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 70,
+      "quote": "| FY2025 | 4.37 | x | Adjusted EBITDA 901 over cash interest paid 206 (10-K page:112), net of 43 received on net investment hedges; before that receipt the cover would be 3.62x on 249 |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-elan/deliveries/ecd5eb8ea5faeb94eefddfdc261f9f19cbcd3e13440afb2b72f89b8ebcd07cea/CP-1.md",
+      "sha256": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+      "line": 78,
+      "quote": "| 2026-06-30 | 530 | 915 | US$m | Undrawn is about 750 revolver plus about 165 securitization capacity (Q2 10-Q page:36). Same borrowing base caveat. A significant part of cash is held outside the U.S. (page:36); the split is not supplied |"
+    }
+  },
+  "checklist": null
+}

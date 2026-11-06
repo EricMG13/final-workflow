@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cohr",
+    "issuer": "cohr",
+    "name": "Coherent Corp",
+    "identity_source": "context",
+    "sector": "Optical Instruments & Lenses",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-09-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (COHR)",
+    "summary": "Fundamentals are sound but stretched by growth: strong margins, 2.58x total and 1.46x net analyst leverage and 2,421.9 million of liquidity, against negative free cash flow, two large customers and unquantified commitments. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is COHERENT CORP..",
+    "handoff": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "7118181",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "1419756",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "EBITDA (analyst), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "2.29",
+        "unit": "x",
+        "period": "FY2026 (2026-06-30)",
+        "basis": "Total debt / EBITDA. Total debt is principal 3,257,482 thousand; net debt deducts cash 1,162,018 and short-term investments 825,000 thousand. Analyst EBITDA 1,419,756 thousand, which includes the 124,133 thousand gain on sale of business (excluding it, total debt to EBITDA would be 2.51x)",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "7.50",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "EBITDA / cash interest. Analyst EBITDA 1,419,756 thousand over cash paid for interest 189,256 thousand; cash interest as printed in the cash flow supplement",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1752.9",
+        "unit": "US$m",
+        "period": "2026-09-30",
+        "basis": "Cash. Cash and cash equivalents 1,552.9 plus short-term investments 200.0. Undrawn is stated revolver availability. Foreign subsidiary facility headroom is not included. Restricted cash of 583 excluded",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "79514",
+        "unit": "US$ thousands",
+        "period": "FY2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: EBITDA and covenant ratios are analyst figures, and no customer terms, financing documents or sponsor detail are supplied.",
+      "CP-1 main limitation: No reported EBITDA or covenant ratio exists, so EBITDA is an analyst measure and covenant headroom is only indicative."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cohr/inputs/51ad9088927a94e7d9ee78792ddf70230393bd5579849af5550b3403180d1e22",
+      "sha256": "51ad9088927a94e7d9ee78792ddf70230393bd5579849af5550b3403180d1e22",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"COHERENT CORP.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cohr/inputs/51ad9088927a94e7d9ee78792ddf70230393bd5579849af5550b3403180d1e22",
+      "sha256": "51ad9088927a94e7d9ee78792ddf70230393bd5579849af5550b3403180d1e22",
+      "line": 22,
+      "quote": "    \"sector\": \"Optical Instruments & Lenses\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 191,
+      "quote": "| FY2026 (2026-06-30) | 2.29 | 0.89 | x | Total debt is principal 3,257,482 thousand; net debt deducts cash 1,162,018 and short-term investments 825,000 thousand. Analyst EBITDA 1,419,756 thousand, which includes the 124,133 thousand gain on sale of business (excluding it, total debt to EBITDA would be 2.51x) |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 199,
+      "quote": "| FY2026 | 7.50 | x | Analyst EBITDA 1,419,756 thousand over cash paid for interest 189,256 thousand; cash interest as printed in the cash flow supplement |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 208,
+      "quote": "| 2026-09-30 | 1,752.9 | 669 | US$m | Cash and cash equivalents 1,552.9 plus short-term investments 200.0. Undrawn is stated revolver availability. Foreign subsidiary facility headroom is not included. Restricted cash of 583 excluded |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 225,
+      "quote": "| Revenues | 5,810,115 | 7,118,181 | 1,581,378 | 2,370,324 | 7,907,127 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 229,
+      "quote": "| EBITDA (analyst) | 843,476 | 1,419,756 | 381,503 | 524,982 | 1,563,235 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-cohr/deliveries/11b4d3f243cdac002c8ab5cd7cf861e8e17c65ff523cd7f50aaa754ff8461caf/CP-1.md",
+      "sha256": "e4e4ce4fa83d85379d2c83feac201a5311a1f501f08d9487dc359d2c2dcc8a35",
+      "line": 234,
+      "quote": "| Net cash from operating activities | 633,600 | 79,514 | 45,955 | (92,681) | (59,122) |"
+    }
+  },
+  "checklist": null
+}

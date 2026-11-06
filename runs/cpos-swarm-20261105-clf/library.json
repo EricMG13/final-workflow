@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-clf",
+    "issuer": "clf",
+    "name": "Cleveland-Cliffs Inc.",
+    "identity_source": "context",
+    "sector": "Metal Mining",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CLF)",
+    "summary": "Cleveland-Cliffs' credit is a leveraged cyclical recovery: total debt to LTM Adjusted EBITDA of 7.93x, interest cover of 1.84x on cash interest and liquidity of $3,246 million, with no senior note due before 2029 but a 2028 ABL. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CLEVELAND-CLIFFS INC..",
+    "handoff": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "20073",
+        "unit": "US$m",
+        "period": "LTM to Sep 30, 2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "7.93",
+        "unit": "x",
+        "period": "Q3 2026 (LTM to Sep 30, 2026)",
+        "basis": "Total debt / EBITDA. Debt principal 7,712 (10-Q Q3 page:15), cash 77; LTM Adjusted EBITDA 972 = 37 + 993 - 58. Adjusted EBITDA is a management non-GAAP measure that includes non-service pension and OPEB credits; excluding them would raise the multiples (see Interpretation)",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "1.84",
+        "unit": "x",
+        "period": "Q3 2026 (LTM to Sep 30, 2026)",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 972 over LTM cash interest 529 = 459 + 411 - 341 (10-Q Q3 page:9). Cash interest excludes finance lease interest and may differ from interest expense by timing of coupon dates; over net interest expense of 604 the cover is 1.61x",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "77",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Cash (10-Q Q3 page:3). Borrowing base 4,060 less borrowings 834 less letters of credit 57 (10-Q Q3 page:15). Cash plus capacity is 3,246, stated by the issuer as \"$3.2 billion in liquidity\" (10-Q Q3 page:46)",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "116",
+        "unit": "US$m",
+        "period": "LTM to Sep 30, 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Ratings, covenant terms, indentures, ownership and the sources of expected debt reduction are not supplied, and the improved view rests on one strong quarter.",
+      "CP-1 main limitation: Leverage rests on management's Adjusted EBITDA, which was thin before the 2026 recovery. Covenant levels, indentures and the property sale behind expected debt reduction are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-clf/inputs/9824d18b9e3851ae3ee2ee1eb294b36a7465c031f02ec1e26c0d1341d4ae46e3",
+      "sha256": "9824d18b9e3851ae3ee2ee1eb294b36a7465c031f02ec1e26c0d1341d4ae46e3",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CLEVELAND-CLIFFS INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-clf/inputs/9824d18b9e3851ae3ee2ee1eb294b36a7465c031f02ec1e26c0d1341d4ae46e3",
+      "sha256": "9824d18b9e3851ae3ee2ee1eb294b36a7465c031f02ec1e26c0d1341d4ae46e3",
+      "line": 22,
+      "quote": "    \"sector\": \"Metal Mining\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 63,
+      "quote": "| Q3 2026 (LTM to Sep 30, 2026) | 7.93 | 7.85 | x | Debt principal 7,712 (10-Q Q3 page:15), cash 77; LTM Adjusted EBITDA 972 = 37 + 993 - 58. Adjusted EBITDA is a management non-GAAP measure that includes non-service pension and OPEB credits; excluding them would raise the multiples (see Interpretation) |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 72,
+      "quote": "| Q3 2026 (LTM to Sep 30, 2026) | 1.84 | x | LTM Adjusted EBITDA 972 over LTM cash interest 529 = 459 + 411 - 341 (10-Q Q3 page:9). Cash interest excludes finance lease interest and may differ from interest expense by timing of coupon dates; over net interest expense of 604 the cover is 1.61x |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 81,
+      "quote": "| Sep 30, 2026 | 77 | 3169 | US$m | Cash (10-Q Q3 page:3). Borrowing base 4,060 less borrowings 834 less letters of credit 57 (10-Q Q3 page:15). Cash plus capacity is 3,246, stated by the issuer as \"$3.2 billion in liquidity\" (10-Q Q3 page:46) |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 102,
+      "quote": "| Revenues | 18610 | 14297 | 15760 | 20073 | LTM = 18,610 + 15,760 - 14,297. 10-K page:109; 10-Q Q3 page:4. Q3 2026 alone: 5,612 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-clf/deliveries/6a7dd06cc19f00ab65b5e6e9af9d2b0aab536d132781bab9e4aa29e39406d717/CP-1.md",
+      "sha256": "febe06aea238831d2c068e9106ca38dc5907ecb1605c542b2cdb6b84313cc844",
+      "line": 109,
+      "quote": "| Net cash from operating activities | -462 | -449 | 129 | 116 | 10-K page:110; 10-Q Q3 page:5. LTM = -462 + 129 - (-449). Q3 2026 alone: 224 (Release Q3 page:8) |"
+    }
+  },
+  "checklist": null
+}

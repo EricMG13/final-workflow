@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ncl-corp-ltd",
+    "issuer": "ncl-corp-ltd",
+    "name": "NCL CORP Ltd.",
+    "identity_source": "context",
+    "sector": "Water Transportation",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session",
+    "summary": "NCL Corporation Ltd. is a leveraged cruise credit with adequate liquidity: net debt is 5.42x last-twelve-months Adjusted EBITDA, up from 5.26x, earnings are softening and a heavy newbuild program keeps free cash flow negative. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "10162.9",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "5.51",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt 14,884.5 and net debt 14,633.8 at September 30, 2026 over LTM Adjusted EBITDA 2,700.1 (calculated). Principal basis (15,498.0, including finance leases) gives 5.74x. Before the October 2026 refinancing; excludes operating leases of 940.3. The parent release shows 5.5x on its own perimeter; that figure is not the issuer's.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.87",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. FY2025 Adjusted EBITDA 2,731.4 over cash paid for interest and related fees, net of capitalized interest, of 952.0 including early redemption premiums (10-K page:169). Excluding the 162.4 early redemption premium (cash flow statement) the ratio is 3.46x. Not a covenant ratio.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "250.7",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Availability printed as 1.1 billion; total stated about 1.4 billion. Excludes the October 2026 revolver upsizing and the 380.0 revolver repayment. Undrawn export-credit facilities of about 10.8 billion are restricted to ship construction and are not included.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "2169.0",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant values, credit agreements and the outcome of the November 17, 2026 springing-maturity test are not supplied, and Adjusted EBITDA is a company measure.",
+      "CP-1 main limitation: No covenant ratio values, credit agreements or instrument table at Q3 2026 are supplied, and Adjusted EBITDA is a company non-GAAP measure."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/inputs/1eac4b587c5c6cd9d96c3f400eed0e70dc9aa1137a14c30469dde7d21791294f",
+      "sha256": "1eac4b587c5c6cd9d96c3f400eed0e70dc9aa1137a14c30469dde7d21791294f",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"NCL CORP Ltd.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/inputs/1eac4b587c5c6cd9d96c3f400eed0e70dc9aa1137a14c30469dde7d21791294f",
+      "sha256": "1eac4b587c5c6cd9d96c3f400eed0e70dc9aa1137a14c30469dde7d21791294f",
+      "line": 22,
+      "quote": "    \"sector\": \"Water Transportation\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 57,
+      "quote": "| LTM Q3 2026 | 5.51 | 5.42 | x | Debt 14,884.5 and net debt 14,633.8 at September 30, 2026 over LTM Adjusted EBITDA 2,700.1 (calculated). Principal basis (15,498.0, including finance leases) gives 5.74x. Before the October 2026 refinancing; excludes operating leases of 940.3. The parent release shows 5.5x on its own perimeter; that figure is not the issuer's. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 63,
+      "quote": "| FY2025 | 2.87 | x | FY2025 Adjusted EBITDA 2,731.4 over cash paid for interest and related fees, net of capitalized interest, of 952.0 including early redemption premiums (10-K page:169). Excluding the 162.4 early redemption premium (cash flow statement) the ratio is 3.46x. Not a covenant ratio. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 75,
+      "quote": "| Q3 2026 | 250.7 | 1100 | US$m | Availability printed as 1.1 billion; total stated about 1.4 billion. Excludes the October 2026 revolver upsizing and the 380.0 revolver repayment. Undrawn export-credit facilities of about 10.8 billion are restricted to ship construction and are not included. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 93,
+      "quote": "| Total revenue | 9,827.6 | 2,331.2 | 2,640.5 | 2,946.8 | 7,918.5 | 7,583.2 | 10,162.9 | Reported (10-K page:121; Q1 10-Q page:2; Q2 10-Q page:2; Q3 10-Q page:2). LTM calculated. |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-ncl-corp-ltd/deliveries/bc1d95968b2e5073f41413377e800fa484c7fd382941a84712792ada4686b2cb/CP-1.md",
+      "sha256": "0d306e620183fe5605e53df2bfa6840225b9fdf3340d4d66074ce76c6547a7b6",
+      "line": 100,
+      "quote": "| Net cash provided by operating activities | 2,077.3 | 811.5 | 605.0 | 292.8 | 1,709.3 | 1,617.6 | 2,169.0 | Reported for FY2025, Q1 2026 and the 9M columns (10-K page:123; Q1 10-Q page:3; Q3 10-Q page:3); Q2 2026 and Q3 2026 derived from year-to-date reports. LTM calculated. |"
+    }
+  },
+  "checklist": null
+}

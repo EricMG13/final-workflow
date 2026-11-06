@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-mms",
+    "issuer": "mms",
+    "name": "Maximus Inc",
+    "identity_source": "context",
+    "sector": "Services-Business Services, NEC",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "June 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (MMS)",
+    "summary": "Maximus is a moderately levered, covenant-compliant government services credit. Net leverage has risen to 2.25x on buybacks and a receivables build, and liquidity depends on fourth-quarter collections and the revolver. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is MAXIMUS, INC..",
+    "handoff": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "5248399",
+        "unit": "USD thousands",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "2.33",
+        "unit": "x",
+        "period": "LTM Q3 FY2026 (June 30, 2026)",
+        "basis": "Total debt / EBITDA. Principal 1,653,548, cash 56,953, LTM adjusted EBITDA 711,009 (C1); Credit Agreement ratio 2.00. Issuer-adjusted EBITDA, not the covenant measure; the seasonal fourth-quarter collections (fiscal Q4 2025 free cash flow was 641,845, C13) have not yet occurred",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "8.24",
+        "unit": "x",
+        "period": "LTM Q3 FY2026 (June 30, 2026)",
+        "basis": "EBITDA / cash interest. LTM adjusted EBITDA 711,009 over LTM interest payments 86,279 (C1); Credit Agreement coverage 8.72. The 325 million added to Term Loan B on May 27, 2026 bore interest for only part of the quarter, so LTM cash interest understates the run-rate",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "57.0",
+        "unit": "US$m",
+        "period": "June 30, 2026",
+        "basis": "Cash. Cash 56,953 thousand (Q3 10-Q page:5); \"approximately $730.0 million\" (Q3 10-Q page:32), equal to 750.0 less the 20.0 drawn; letters of credit not stated. Excludes 96.3 of restricted cash and the receivable-sale facility",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The Credit Agreement, ratings, ownership detail and everything after August 6, 2026 are not supplied, so creditor protections and fiscal 2026 outcomes cannot be verified.",
+      "CP-1 main limitation: Credit Agreement definitions and letter of credit usage are not supplied, and nothing after August 6, 2026 is covered, including fiscal fourth quarter results."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-mms/inputs/427dc9f0877ed950bde305fcdd6af025bde473794c90eea607afca11f0c6cd79",
+      "sha256": "427dc9f0877ed950bde305fcdd6af025bde473794c90eea607afca11f0c6cd79",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"MAXIMUS, INC.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-mms/inputs/427dc9f0877ed950bde305fcdd6af025bde473794c90eea607afca11f0c6cd79",
+      "sha256": "427dc9f0877ed950bde305fcdd6af025bde473794c90eea607afca11f0c6cd79",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Business Services, NEC\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 108,
+      "quote": "| LTM Q3 FY2026 (June 30, 2026) | 2.33 | 2.25 | x | Principal 1,653,548, cash 56,953, LTM adjusted EBITDA 711,009 (C1); Credit Agreement ratio 2.00. Issuer-adjusted EBITDA, not the covenant measure; the seasonal fourth-quarter collections (fiscal Q4 2025 free cash flow was 641,845, C13) have not yet occurred |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 118,
+      "quote": "| LTM Q3 FY2026 (June 30, 2026) | 8.24 | x | LTM adjusted EBITDA 711,009 over LTM interest payments 86,279 (C1); Credit Agreement coverage 8.72. The 325 million added to Term Loan B on May 27, 2026 bore interest for only part of the quarter, so LTM cash interest understates the run-rate |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 128,
+      "quote": "| June 30, 2026 | 57.0 | 730.0 | US$m | Cash 56,953 thousand (Q3 10-Q page:5); \"approximately $730.0 million\" (Q3 10-Q page:32), equal to 750.0 less the 20.0 drawn; letters of credit not stated. Excludes 96.3 of restricted cash and the receivable-sale facility |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-mms/deliveries/7383d094dfdcbb2d54f2477f85423fa1ae4aba13aa8bb8cd650868efec4182e3/CP-1.md",
+      "sha256": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+      "line": 70,
+      "quote": "| Revenue | 5,306,197 | 5,431,276 | 1,348,400 | 1,278,971 | 4,112,861 | 3,929,984 | 5,248,399 | Reported; 10-K page:64, Q3 10-Q page:4. LTM is C1 |"
+    }
+  },
+  "checklist": null
+}

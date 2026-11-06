@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ccs",
+    "issuer": "ccs",
+    "name": "Century Communities, Inc.",
+    "identity_source": "context",
+    "sector": "Operative Builders",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-09-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CCS)",
+    "summary": "Century Communities has a weakened but liquid credit profile: leverage is 6.16x adjusted EBITDA and operating cash flow is negative, offset by USD 744.0 million of undrawn revolver and no bond maturity before August 2029. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "3814.943",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "236.052",
+        "unit": "US$m",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA, company-defined, as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "6.16",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Total debt 1,812.587 (Q3 10-Q page:14) over LTM adjusted EBITDA 294.366, derived as FY2025 plus nine months 2026 less nine months 2025 (10-K page:91; Q3 10-Q page:65). Cash and cash equivalents 86.086 (Q3 10-Q page:2). Debt is at the balance sheet date; the HistoryMaker Homes acquisition of October 7, 2026 is not included. Using unadjusted EBITDA the ratios are 2.83x, 5.07x and 7.68x total, and 2.54x, 4.69x and 7.31x net (see Calculations).",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.30",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 349.705 (10-K page:91) over cash interest paid of approximately 81.3 (10-K page:43, page:130). Unadjusted EBITDA gives 3.50x.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "86.086",
+        "unit": "US$m",
+        "period": "2026-09-30",
+        "basis": "Cash. Cash and cash equivalents (Q3 10-Q page:2). Commitment 1,200.0 after the September 30, 2026 First Amendment (Q3 10-Q page:16) less 456.0 drawn (Q3 10-Q page:17). Excludes escrow 33.740. Company-reported liquidity 863.8 equals cash 86.086 plus escrow 33.740 plus 744.0 (Q3 10-Q page:52). Letters of credit of 42.3 are issued under unspecified facilities (Q3 10-Q page:26); if all sat under the revolver, undrawn capacity would be 701.7. Mortgage repurchase and construction loan headroom is excluded (see Liquidity and covenants).",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, post-acquisition funding and 2026 cash interest are not in the sources.",
+      "CP-1 main limitation: Covenant levels are not in the sources, and cash interest paid is disclosed only for full years."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ccs/inputs/3f4bc378facbce0f1396d451dfff0e16ea0431cd8d227bb7281acea631c866f1",
+      "sha256": "3f4bc378facbce0f1396d451dfff0e16ea0431cd8d227bb7281acea631c866f1",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Century Communities, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ccs/inputs/3f4bc378facbce0f1396d451dfff0e16ea0431cd8d227bb7281acea631c866f1",
+      "sha256": "3f4bc378facbce0f1396d451dfff0e16ea0431cd8d227bb7281acea631c866f1",
+      "line": 22,
+      "quote": "    \"sector\": \"Operative Builders\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 57,
+      "quote": "| LTM Q3 2026 | 6.16 | 5.87 | x | Total debt 1,812.587 (Q3 10-Q page:14) over LTM adjusted EBITDA 294.366, derived as FY2025 plus nine months 2026 less nine months 2025 (10-K page:91; Q3 10-Q page:65). Cash and cash equivalents 86.086 (Q3 10-Q page:2). Debt is at the balance sheet date; the HistoryMaker Homes acquisition of October 7, 2026 is not included. Using unadjusted EBITDA the ratios are 2.83x, 5.07x and 7.68x total, and 2.54x, 4.69x and 7.31x net (see Calculations). |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 64,
+      "quote": "| FY2025 | 4.30 | x | Adjusted EBITDA 349.705 (10-K page:91) over cash interest paid of approximately 81.3 (10-K page:43, page:130). Unadjusted EBITDA gives 3.50x. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 75,
+      "quote": "| 2026-09-30 | 86.086 | 744.000 | US$m | Cash and cash equivalents (Q3 10-Q page:2). Commitment 1,200.0 after the September 30, 2026 First Amendment (Q3 10-Q page:16) less 456.0 drawn (Q3 10-Q page:17). Excludes escrow 33.740. Company-reported liquidity 863.8 equals cash 86.086 plus escrow 33.740 plus 744.0 (Q3 10-Q page:52). Letters of credit of 42.3 are issued under unspecified facilities (Q3 10-Q page:26); if all sat under the revolver, undrawn capacity would be 701.7. Mortgage repurchase and construction loan headroom is excluded (see Liquidity and covenants). |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 93,
+      "quote": "| Total revenues (US$m) | 4,398.288 | 4,117.816 | 2,884.240 | 2,581.367 | 3,814.943 | Income statements: 10-K page:107; Q3 10-Q page:3. LTM derived. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-ccs/deliveries/50a2dae376aaab2e7d6dd37d161c3ca05f1a6309ca0d2fbc06b43397930ff211/CP-1.md",
+      "sha256": "deba02fbf78513edd8848cc803441953597a0770ce39b23fafaf06d522a04d21",
+      "line": 98,
+      "quote": "| EBITDA, company-defined (US$m) | 521.899 | 284.630 | 208.746 | 160.168 | 236.052 | 10-K page:91; Q3 10-Q page:65. LTM derived. Non-GAAP. |"
+    }
+  },
+  "checklist": null
+}

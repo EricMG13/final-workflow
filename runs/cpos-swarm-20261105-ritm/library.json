@@ -1,0 +1,60 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ritm",
+    "issuer": "ritm",
+    "name": "Rithm Capital Corp.",
+    "identity_source": "context",
+    "sector": "Real Estate Investment Trusts",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026 (Q3 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (RITM)",
+    "summary": "Neutral to cautious. A profitable mortgage servicing and origination core and demonstrated market access support the credit, but heavy near-term maturities, uncommitted funding lines and a structurally junior position for the unsecured notes dominate. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-ritm/deliveries/8693c1c9f0d9eeb8ab9ce32ca358e0cdd8ccab5b152c9e69bc89350d04fe6557/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": {
+        "value": "1708.750",
+        "unit": "US$m",
+        "period": "Sep 30, 2026 (Q3 2026)",
+        "basis": "Cash. Cash and cash equivalents excluding restricted cash of US$740.572m and restricted cash of consolidated entities of US$101.715m (10-Q Q3 page:44). Available financing of US$10,785.284m is uncommitted and collateral-dependent (10-Q Q3 page:57); it is not counted as undrawn committed facilities.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: No indentures, committed-liquidity data, covenant levels or ratings were supplied, and no EBITDA is reported.",
+      "CP-1 main limitation: Committed undrawn capacity, covenant levels and the unencumbered-asset figure are not printed, so liquidity headroom and covenant headroom cannot be calculated."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ritm/inputs/73b514b2c18312238fd1fbb7bdc629559e11381beb8e9b95dfc9d7b54bcabe9d",
+      "sha256": "73b514b2c18312238fd1fbb7bdc629559e11381beb8e9b95dfc9d7b54bcabe9d",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Rithm Capital Corp.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ritm/inputs/73b514b2c18312238fd1fbb7bdc629559e11381beb8e9b95dfc9d7b54bcabe9d",
+      "sha256": "73b514b2c18312238fd1fbb7bdc629559e11381beb8e9b95dfc9d7b54bcabe9d",
+      "line": 22,
+      "quote": "    \"sector\": \"Real Estate Investment Trusts\","
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-ritm/deliveries/8693c1c9f0d9eeb8ab9ce32ca358e0cdd8ccab5b152c9e69bc89350d04fe6557/CP-1.md",
+      "sha256": "83dd16196f7c0aeaace81c36303ff30cf269c7cb1ac71b4f21c26c24183eec6d",
+      "line": 72,
+      "quote": "| Sep 30, 2026 (Q3 2026) | 1708.750 | Not supplied: borrowing capacity is stated to be uncommitted and no committed undrawn amount is printed | US$m | Cash and cash equivalents excluding restricted cash of US$740.572m and restricted cash of consolidated entities of US$101.715m (10-Q Q3 page:44). Available financing of US$10,785.284m is uncommitted and collateral-dependent (10-Q Q3 page:57); it is not counted as undrawn committed facilities. |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-krmn",
+    "issuer": "krmn",
+    "name": "Karman Holdings Inc.",
+    "identity_source": "context",
+    "sector": "Aircraft Parts & Auxiliary Equipment, NEC",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q2 2026 (Jun 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (KRMN)",
+    "summary": "Karman is a leveraged but liquid defense supplier whose credit profile is weakening as acquisition debt outpaces cash generation. Strong demand and USD 201.741 million of liquidity support it; cash conversion and customer concentration are the weak points. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-krmn/deliveries/e8c071d79f923e0923c14cf46d0250c255ac484b15782c85803861a40c248680/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "4.29",
+        "unit": "x",
+        "period": "Q2 2026 (LTM to Jun 30)",
+        "basis": "Total debt / EBITDA. Principal at Jun 30, 2026 over LTM Adjusted EBITDA (FY2025 plus six months 2026 less six months 2025). Not pro forma for Seemann; Walker excluded (pending).",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.37",
+        "unit": "x",
+        "period": "Q2 2026 (LTM to Jun 30)",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA over LTM cash interest paid. On reported (unadjusted) EBITDA the ratio is 2.97x. The August 3, 2026 repricing lowers future cash interest and is not in this period.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "51.741",
+        "unit": "US$m",
+        "period": "Q2 2026 (Jun 30, 2026)",
+        "basis": "Cash. Cash from 10-Q Q2 2026 page:2; no balance outstanding on the revolver at Jun 30, 2026 (page:18). Cash only; no restricted cash disclosed. The pending $94.0m Walker acquisition is not deducted.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The credit agreement and ownership are not supplied, earnings are not pro forma for acquisitions, and several filed figures conflict.",
+      "CP-1 main limitation: Earnings are not pro forma for acquisitions, the credit agreement is not supplied, and the term loan size is stated two ways."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-krmn/inputs/87b8658c174a3590ff5e4601d51c62bc2c7fbb0a3a422b7e215e4d8a8cf451b8",
+      "sha256": "87b8658c174a3590ff5e4601d51c62bc2c7fbb0a3a422b7e215e4d8a8cf451b8",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Karman Holdings Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-krmn/inputs/87b8658c174a3590ff5e4601d51c62bc2c7fbb0a3a422b7e215e4d8a8cf451b8",
+      "sha256": "87b8658c174a3590ff5e4601d51c62bc2c7fbb0a3a422b7e215e4d8a8cf451b8",
+      "line": 22,
+      "quote": "    \"sector\": \"Aircraft Parts & Auxiliary Equipment, NEC\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-krmn/deliveries/e8c071d79f923e0923c14cf46d0250c255ac484b15782c85803861a40c248680/CP-1.md",
+      "sha256": "dab20e128dd129496297d28f1337579e0a80ba39af03113d7b2358b600763190",
+      "line": 58,
+      "quote": "| Q2 2026 (LTM to Jun 30) | 4.29 | 4.00 | x | Principal at Jun 30, 2026 over LTM Adjusted EBITDA (FY2025 plus six months 2026 less six months 2025). Not pro forma for Seemann; Walker excluded (pending). |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-krmn/deliveries/e8c071d79f923e0923c14cf46d0250c255ac484b15782c85803861a40c248680/CP-1.md",
+      "sha256": "dab20e128dd129496297d28f1337579e0a80ba39af03113d7b2358b600763190",
+      "line": 67,
+      "quote": "| Q2 2026 (LTM to Jun 30) | 3.37 | x | LTM Adjusted EBITDA over LTM cash interest paid. On reported (unadjusted) EBITDA the ratio is 2.97x. The August 3, 2026 repricing lowers future cash interest and is not in this period. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-krmn/deliveries/e8c071d79f923e0923c14cf46d0250c255ac484b15782c85803861a40c248680/CP-1.md",
+      "sha256": "dab20e128dd129496297d28f1337579e0a80ba39af03113d7b2358b600763190",
+      "line": 76,
+      "quote": "| Q2 2026 (Jun 30, 2026) | 51.741 | 150.0 | US$m | Cash from 10-Q Q2 2026 page:2; no balance outstanding on the revolver at Jun 30, 2026 (page:18). Cash only; no restricted cash disclosed. The pending $94.0m Walker acquisition is not deducted. |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-irm",
+    "issuer": "irm",
+    "name": "Iron Mountain Inc",
+    "identity_source": "context",
+    "sector": "Real Estate Investment Trusts",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026 (Sep 30, 2026)",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (IRM)",
+    "summary": "Iron Mountain is a large, cash-generative but highly levered REIT: debt is 6.22x LTM Adjusted EBITDA and free cash flow is negative, so the credit depends on continued market access and data center lease commencements. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is IRON MOUNTAIN INC.",
+    "handoff": "runs/cpos-swarm-20261105-irm/deliveries/c515f9352d27cbf2c7d5e596b59c290543d8287a5f2de2786699a9f9b44d0707/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "7798995",
+        "unit": "US$ thousand",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "6.22",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Debt 17,972,202 thousand (10-Q Q3 page:19-20) over LTM Adjusted EBITDA 2,888,192 thousand derived as FY2025 plus nine months 2026 (2,182,915) less nine months 2025 (1,868,673), 10-Q Q3 page:42; cash 188,160 thousand. Derived LTM; principal basis (18,096,426 thousand) gives 6.27x.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.16",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 2,888,192 thousand over LTM cash interest 914,978 thousand (FY2025 plus nine months 2026 801,904 less nine months 2025 711,517, 10-Q Q3 page:7). Derived LTM; 2026 capitalized interest is not disclosed in the pinned 10-Qs.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "188.2",
+        "unit": "US$m",
+        "period": "Q3 2026 (Sep 30, 2026)",
+        "basis": "Cash. Cash from 10-Q Q3 page:2; revolver availability as printed (10-Q Q3 page:20). Same basis; other undrawn lines of about 207.9 US$m are listed in Calculations and excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Adjusted EBITDA is a management measure, covenant ratios use other definitions, and no ratings, indentures or Q3 2026 maturity table are supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is a management measure, covenant ratios use other definitions, and no maturity table exists after December 31, 2025."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-irm/inputs/9bee5f583dd9c7776f1152268ebe2d2da262ea2bd6a67a8712cdfef3c69af924",
+      "sha256": "9bee5f583dd9c7776f1152268ebe2d2da262ea2bd6a67a8712cdfef3c69af924",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"IRON MOUNTAIN INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-irm/inputs/9bee5f583dd9c7776f1152268ebe2d2da262ea2bd6a67a8712cdfef3c69af924",
+      "sha256": "9bee5f583dd9c7776f1152268ebe2d2da262ea2bd6a67a8712cdfef3c69af924",
+      "line": 22,
+      "quote": "    \"sector\": \"Real Estate Investment Trusts\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-irm/deliveries/c515f9352d27cbf2c7d5e596b59c290543d8287a5f2de2786699a9f9b44d0707/CP-1.md",
+      "sha256": "7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d",
+      "line": 65,
+      "quote": "| LTM Q3 2026 | 6.22 | 6.16 | x | Debt 17,972,202 thousand (10-Q Q3 page:19-20) over LTM Adjusted EBITDA 2,888,192 thousand derived as FY2025 plus nine months 2026 (2,182,915) less nine months 2025 (1,868,673), 10-Q Q3 page:42; cash 188,160 thousand. Derived LTM; principal basis (18,096,426 thousand) gives 6.27x. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-irm/deliveries/c515f9352d27cbf2c7d5e596b59c290543d8287a5f2de2786699a9f9b44d0707/CP-1.md",
+      "sha256": "7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d",
+      "line": 75,
+      "quote": "| LTM Q3 2026 | 3.16 | x | LTM Adjusted EBITDA 2,888,192 thousand over LTM cash interest 914,978 thousand (FY2025 plus nine months 2026 801,904 less nine months 2025 711,517, 10-Q Q3 page:7). Derived LTM; 2026 capitalized interest is not disclosed in the pinned 10-Qs. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-irm/deliveries/c515f9352d27cbf2c7d5e596b59c290543d8287a5f2de2786699a9f9b44d0707/CP-1.md",
+      "sha256": "7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d",
+      "line": 84,
+      "quote": "| Q3 2026 (Sep 30, 2026) | 188.2 | 2218.2 | US$m | Cash from 10-Q Q3 page:2; revolver availability as printed (10-Q Q3 page:20). Same basis; other undrawn lines of about 207.9 US$m are listed in Calculations and excluded. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-irm/deliveries/c515f9352d27cbf2c7d5e596b59c290543d8287a5f2de2786699a9f9b44d0707/CP-1.md",
+      "sha256": "7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d",
+      "line": 101,
+      "quote": "| Total revenues | 6,149,909 | 6,901,737 | 5,058,570 | 5,955,828 | 7,798,995 | US$ thousand | Statements of operations: 10-K page:96-97; 10-Q Q3 page:3-4. LTM = FY2025 + 9M 2026 - 9M 2025. |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-tree",
+    "issuer": "tree",
+    "name": "LendingTree, Inc.",
+    "identity_source": "context",
+    "sector": "Loan Brokers",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Jun 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (TREE)",
+    "summary": "LendingTree's credit profile has strengthened: total debt to Adjusted EBITDA fell from 4.56x to 2.58x and liquidity is USD 185.8 million, but earnings are concentrated in Insurance and one partner, and the quality of EBITDA is unverified. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1268169",
+        "unit": "US$ thousands",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "2.58",
+        "unit": "x",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Total debt / EBITDA. Gross principal 397,000 over LTM Adjusted EBITDA of 153,639 (FY2025 plus H1 2026 less H1 2025); net of cash of 110,766. Issuer non-GAAP EBITDA adds back non-cash compensation; on unadjusted EBITDA the ratios are 3.10 and 2.24 (calculation C5).",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.42",
+        "unit": "x",
+        "period": "LTM Jun 30, 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA of 153,639 over LTM interest paid of 34,740 (37,203 plus 16,031 less 18,494). Issuer non-GAAP EBITDA; calculation C6.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "110.8",
+        "unit": "US$m",
+        "period": "Jun 30, 2026",
+        "basis": "Cash. Cash of 110,766 (10-Q Q2 2026 page:2). Revolver commitment of 75,000 with no borrowings (10-Q Q2 2026 page:19); \"$75.0 million available for borrowing\" at July 30, 2026 (10-Q Q2 2026 page:39). The financial covenant is tested only above US$20.0m of revolver usage.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "86077",
+        "unit": "US$ thousands",
+        "period": "LTM Jun 30, 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: The credit agreement is not supplied, so covenant headroom, guarantors and letter of credit usage are unverified, and nothing after July 30, 2026 is included.",
+      "CP-1 main limitation: Adjusted EBITDA is an issuer non-GAAP measure that adds back non-cash compensation; covenant definitions and letter of credit usage are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-tree/inputs/d200051bbc093266762c46db0da57fcc23aae21f45bdfa41362781dff2cb6e7d",
+      "sha256": "d200051bbc093266762c46db0da57fcc23aae21f45bdfa41362781dff2cb6e7d",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"LendingTree, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-tree/inputs/d200051bbc093266762c46db0da57fcc23aae21f45bdfa41362781dff2cb6e7d",
+      "sha256": "d200051bbc093266762c46db0da57fcc23aae21f45bdfa41362781dff2cb6e7d",
+      "line": 22,
+      "quote": "    \"sector\": \"Loan Brokers\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-1.md",
+      "sha256": "66d19075d0cda548fb908b11cbace236ac80961fccbfe892b5468b6b2cd9a36f",
+      "line": 176,
+      "quote": "| LTM Jun 30, 2026 | 2.58 | 1.86 | x | Gross principal 397,000 over LTM Adjusted EBITDA of 153,639 (FY2025 plus H1 2026 less H1 2025); net of cash of 110,766. Issuer non-GAAP EBITDA adds back non-cash compensation; on unadjusted EBITDA the ratios are 3.10 and 2.24 (calculation C5). |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-1.md",
+      "sha256": "66d19075d0cda548fb908b11cbace236ac80961fccbfe892b5468b6b2cd9a36f",
+      "line": 184,
+      "quote": "| LTM Jun 30, 2026 | 4.42 | x | LTM Adjusted EBITDA of 153,639 over LTM interest paid of 34,740 (37,203 plus 16,031 less 18,494). Issuer non-GAAP EBITDA; calculation C6. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-1.md",
+      "sha256": "66d19075d0cda548fb908b11cbace236ac80961fccbfe892b5468b6b2cd9a36f",
+      "line": 192,
+      "quote": "| Jun 30, 2026 | 110.8 | 75.0 | US$m | Cash of 110,766 (10-Q Q2 2026 page:2). Revolver commitment of 75,000 with no borrowings (10-Q Q2 2026 page:19); \"$75.0 million available for borrowing\" at July 30, 2026 (10-Q Q2 2026 page:39). The financial covenant is tested only above US$20.0m of revolver usage. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-1.md",
+      "sha256": "66d19075d0cda548fb908b11cbace236ac80961fccbfe892b5468b6b2cd9a36f",
+      "line": 209,
+      "quote": "| Revenue | 900,219 | 1,117,324 | 489,844 | 640,689 | 250,116 | 313,422 | 1,268,169 | Reported; LTM calculated (C1) |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-tree/deliveries/ee1c7f6237c1ec4fa0aa413b7794110334c9a00f30d1b368ed93892f3106a4c0/CP-1.md",
+      "sha256": "66d19075d0cda548fb908b11cbace236ac80961fccbfe892b5468b6b2cd9a36f",
+      "line": 217,
+      "quote": "| Net cash provided by operating activities | 62,258 | 73,103 | 27,743 | 40,717 | 27,953 | 29,165 | 86,077 | Reported; Q2 and LTM calculated (C7, C12) |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-aap",
+    "issuer": "aap",
+    "name": "Advance Auto Parts Inc",
+    "identity_source": "context",
+    "sector": "Retail-Auto & Home Supply Stores",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 FY2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (AAP)",
+    "summary": "Liquidity is strong and debt is fixed-rate with a long runway, but earnings are thin, coverage is modest and the revolver ranks ahead of the notes. The credit is cautious and improving rather than comfortable. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is ADVANCE AUTO PARTS INC.",
+    "handoff": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "8599",
+        "unit": "US$m",
+        "period": "LTM Oct 10, 2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "508",
+        "unit": "US$m",
+        "period": "LTM Oct 10, 2026",
+        "basis": "EBITDA (operating income plus D&A, derived), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "6.67",
+        "unit": "x",
+        "period": "LTM October 10, 2026",
+        "basis": "Total debt / EBITDA. Derived LTM EBITDA of 508 (fifty-three weeks); debt 3,388 and cash 3,085 at October 10, 2026; no add-backs. Net debt uses all cash, of which 2.3 billion is qualified cash subject to revolver availability conditions. Management's own lease-adjusted net leverage is 2.2x on adjusted EBITDAR and is not comparable.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "2.54",
+        "unit": "x",
+        "period": "LTM October 10, 2026",
+        "basis": "EBITDA / cash interest. LTM EBITDA of 508 over derived LTM interest paid of 200. Interest paid is gross and is not reduced by interest income, which sits in other income, net; coupons are semi-annual so quarterly interest paid is lumpy.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "3085",
+        "unit": "US$m",
+        "period": "Q3 FY2026",
+        "basis": "Cash. Cash at October 10, 2026; availability as reported. Of cash, 2.3 billion is qualified cash, described as unrestricted but subject to minimum availability and excess availability conditions and springing control on default. The uncommitted 500 accordion is excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "383",
+        "unit": "US$m",
+        "period": "LTM Oct 10, 2026",
+        "basis": "Net cash from operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: No debt agreements, ratings, covenant ratios or ownership detail were supplied, so legal protection and headroom cannot be tested.",
+      "CP-1 main limitation: EBITDA is a simple reported measure that includes restructuring charges, and no covenant ratio or headroom is reported."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-aap/inputs/ffcc1267b075abb958b7ec70e65c9102a0d2613c38bcd4fb41ec20b2a4c808c3",
+      "sha256": "ffcc1267b075abb958b7ec70e65c9102a0d2613c38bcd4fb41ec20b2a4c808c3",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"ADVANCE AUTO PARTS INC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-aap/inputs/ffcc1267b075abb958b7ec70e65c9102a0d2613c38bcd4fb41ec20b2a4c808c3",
+      "sha256": "ffcc1267b075abb958b7ec70e65c9102a0d2613c38bcd4fb41ec20b2a4c808c3",
+      "line": 22,
+      "quote": "    \"sector\": \"Retail-Auto & Home Supply Stores\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 59,
+      "quote": "| LTM October 10, 2026 | 6.67 | 0.60 | x | Derived LTM EBITDA of 508 (fifty-three weeks); debt 3,388 and cash 3,085 at October 10, 2026; no add-backs. Net debt uses all cash, of which 2.3 billion is qualified cash subject to revolver availability conditions. Management's own lease-adjusted net leverage is 2.2x on adjusted EBITDAR and is not comparable. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 68,
+      "quote": "| LTM October 10, 2026 | 2.54 | x | LTM EBITDA of 508 over derived LTM interest paid of 200. Interest paid is gross and is not reduced by interest income, which sits in other income, net; coupons are semi-annual so quarterly interest paid is lumpy. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 77,
+      "quote": "| Q3 FY2026 | 3085 | 894 | US$m | Cash at October 10, 2026; availability as reported. Of cash, 2.3 billion is qualified cash, described as unrestricted but subject to minimum availability and excess availability conditions and springing control on default. The uncommitted 500 accordion is excluded. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 96,
+      "quote": "| Net sales | 8,601 | 2,614 | 2,000 | 2,012 | 2,036 | 6,626 | 6,628 | 8,599 |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 104,
+      "quote": "| EBITDA (operating income plus D&A, derived) | 229 | 143 | 157 | 105 | 90 | 406 | 127 | 508 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-aap/deliveries/38883cd7115c0c6595fc56daf56faad35996bf63a7875a96143670edc81d95f8/CP-1.md",
+      "sha256": "6fd45275ddb5cbdb5982040a992f95f406215372a19750692a32638091271979",
+      "line": 105,
+      "quote": "| Net cash from operating activities | (46) | (19) | 271 | 59 | (12) | 311 | (118) | 383 |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,48 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-ske",
+    "issuer": "ske",
+    "name": "Skeena Resources Ltd",
+    "identity_source": "context",
+    "sector": "Gold and Silver Ores",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "q2-2026",
+    "currency": "CAD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (SKE)",
+    "summary": "Skeena is a pre-revenue, single-asset construction credit that is funded for now but unproven. The evidence supports a cautious, not adverse, view; earnings-based leverage and cover cannot be measured. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-ske/deliveries/a2a8b9b25bde9a7b155c58b00b27945569a2f3755a26dd6d2a92dc0009c27486/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": null,
+      "coverage": null,
+      "cash": null,
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: No EBITDA, cost to complete, or legal terms for the notes are supplied, and the statements are unaudited interim.",
+      "CP-1 main limitation: Unaudited interim statements only; no full-year 2025 flows, no EBITDA, no cash interest paid for the half-year, and no legal terms for the notes."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-ske/inputs/74622c0ba0b18d4f8697485a569e78b3429cdc3e20d2499bc2bcfcfddaa82602",
+      "sha256": "74622c0ba0b18d4f8697485a569e78b3429cdc3e20d2499bc2bcfcfddaa82602",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Skeena Resources Ltd\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-ske/inputs/74622c0ba0b18d4f8697485a569e78b3429cdc3e20d2499bc2bcfcfddaa82602",
+      "sha256": "74622c0ba0b18d4f8697485a569e78b3429cdc3e20d2499bc2bcfcfddaa82602",
+      "line": 22,
+      "quote": "    \"sector\": \"Gold and Silver Ores\","
+    }
+  },
+  "checklist": null
+}

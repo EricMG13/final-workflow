@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cmpr",
+    "issuer": "cmpr",
+    "name": "CIMPRESS plc",
+    "identity_source": "context",
+    "sector": "Commercial Printing",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (CMPR)",
+    "summary": "Cimpress is a moderately leveraged, cash-generative credit whose leverage rose to 3.71x after a debt-funded acquisition while margins weakened. Liquidity of USD 317.8 million and a distant refinancing date support it. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-cmpr/deliveries/58f8f2f992c5d4b8bf3957e48bd1aa53f3fc4902d9a1665e00e41f54dfac1779/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "3736643",
+        "unit": "USD thousands",
+        "period": "FY2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.57",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "Total debt / EBITDA. Debt principal 1,636,404 and cash 248,851 at June 30, 2026 over issuer adjusted EBITDA 458,498 for FY2026; excludes finance leases; issuer-defined EBITDA",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.18",
+        "unit": "x",
+        "period": "FY2026",
+        "basis": "EBITDA / cash interest. Adjusted EBITDA 458,498 over cash paid for interest 109,647 (gross; interest received 12,120)",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "120.127",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Printed capacity after 35.0 of revolver borrowings and letters of credit; cash is consolidated cash, part of it held by subsidiaries",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: EBITDA is issuer-defined, and the covenant definitions, legal documents and ownership detail are not supplied.",
+      "CP-1 main limitation: EBITDA is issuer-defined and adds back share-based compensation; covenant EBITDA and the covenant ratio are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cmpr/inputs/cf0965bc4987df7eefe0cb235248c6be1e28043aa64bce321b3e4b9ac5045758",
+      "sha256": "cf0965bc4987df7eefe0cb235248c6be1e28043aa64bce321b3e4b9ac5045758",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CIMPRESS plc\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cmpr/inputs/cf0965bc4987df7eefe0cb235248c6be1e28043aa64bce321b3e4b9ac5045758",
+      "sha256": "cf0965bc4987df7eefe0cb235248c6be1e28043aa64bce321b3e4b9ac5045758",
+      "line": 22,
+      "quote": "    \"sector\": \"Commercial Printing\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cmpr/deliveries/58f8f2f992c5d4b8bf3957e48bd1aa53f3fc4902d9a1665e00e41f54dfac1779/CP-1.md",
+      "sha256": "9e1fc8f0f97240969fffa2c1f742f5f1ca2be5257610ee2a00f548b8773a3c57",
+      "line": 51,
+      "quote": "| FY2026 | 3.57 | 3.03 | x | Debt principal 1,636,404 and cash 248,851 at June 30, 2026 over issuer adjusted EBITDA 458,498 for FY2026; excludes finance leases; issuer-defined EBITDA |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cmpr/deliveries/58f8f2f992c5d4b8bf3957e48bd1aa53f3fc4902d9a1665e00e41f54dfac1779/CP-1.md",
+      "sha256": "9e1fc8f0f97240969fffa2c1f742f5f1ca2be5257610ee2a00f548b8773a3c57",
+      "line": 60,
+      "quote": "| FY2026 | 4.18 | x | Adjusted EBITDA 458,498 over cash paid for interest 109,647 (gross; interest received 12,120) |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cmpr/deliveries/58f8f2f992c5d4b8bf3957e48bd1aa53f3fc4902d9a1665e00e41f54dfac1779/CP-1.md",
+      "sha256": "9e1fc8f0f97240969fffa2c1f742f5f1ca2be5257610ee2a00f548b8773a3c57",
+      "line": 71,
+      "quote": "| Sep 30, 2026 | 120.127 | 197.7 | US$m | Printed capacity after 35.0 of revolver borrowings and letters of credit; cash is consolidated cash, part of it held by subsidiaries |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cmpr/deliveries/58f8f2f992c5d4b8bf3957e48bd1aa53f3fc4902d9a1665e00e41f54dfac1779/CP-1.md",
+      "sha256": "9e1fc8f0f97240969fffa2c1f742f5f1ca2be5257610ee2a00f548b8773a3c57",
+      "line": 88,
+      "quote": "| Revenue | 3,291,856 | 3,403,079 | 3,736,643 | 863,277 | 934,052 | 3,807,418 | Reported; LTM derived; 10-K page:87; 10-Q Sep 2026 page:3 |"
+    }
+  },
+  "checklist": null
+}

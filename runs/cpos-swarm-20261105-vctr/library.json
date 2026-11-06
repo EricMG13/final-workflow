@@ -1,0 +1,120 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-vctr",
+    "issuer": "vctr",
+    "name": "Victory Capital Holdings, Inc.",
+    "identity_source": "context",
+    "sector": "Investment Advice",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (VCTR)",
+    "summary": "Before the First Eagle acquisition, Victory's debt is small against its earnings: 1.14x gross and 0.90x net of last-twelve-months adjusted EBITDA, with 14.83x cash interest cover. The credit view after closing is open. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1594045",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "Total revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "727102",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA proxy, income from operations plus D&A (calculated), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "1.14",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Principal 975,150 and cash 207,724 at September 30, 2026 over calculated LTM adjusted EBITDA 856,348; excludes the pending First Eagle acquisition and any new debt; cash is consolidated and includes regulated subsidiaries; management non-GAAP measure",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "14.83",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA / cash interest. Calculated LTM adjusted EBITDA 856,348 over calculated LTM cash interest 57,742; the nine months of 2025 cash interest base is unusually high in the third quarter of 2025 (see Calculations), which lowers LTM cash interest; not a forecast run rate",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "207.724",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. September 30, 2026; same basis; WestEnd contingent consideration of 53.8 US$m is estimated payable over the next year and is not deducted",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "624816",
+        "unit": "US$ thousands",
+        "period": "LTM Q3 2026",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: First Eagle financing amounts and terms are not in the sources, and covenant headroom cannot be calculated.",
+      "CP-1 main limitation: Adjusted EBITDA is a management measure, and the pending First Eagle acquisition financing is not in the pack."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-vctr/inputs/9e96aec1be60fc30bd3853ebe28d82af5bc222a4621f74e4d59778dfc86b3113",
+      "sha256": "9e96aec1be60fc30bd3853ebe28d82af5bc222a4621f74e4d59778dfc86b3113",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Victory Capital Holdings, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-vctr/inputs/9e96aec1be60fc30bd3853ebe28d82af5bc222a4621f74e4d59778dfc86b3113",
+      "sha256": "9e96aec1be60fc30bd3853ebe28d82af5bc222a4621f74e4d59778dfc86b3113",
+      "line": 22,
+      "quote": "    \"sector\": \"Investment Advice\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 54,
+      "quote": "| LTM Q3 2026 | 1.14 | 0.90 | x | Principal 975,150 and cash 207,724 at September 30, 2026 over calculated LTM adjusted EBITDA 856,348; excludes the pending First Eagle acquisition and any new debt; cash is consolidated and includes regulated subsidiaries; management non-GAAP measure |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 63,
+      "quote": "| LTM Q3 2026 | 14.83 | x | Calculated LTM adjusted EBITDA 856,348 over calculated LTM cash interest 57,742; the nine months of 2025 cash interest base is unusually high in the third quarter of 2025 (see Calculations), which lowers LTM cash interest; not a forecast run rate |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 72,
+      "quote": "| Q3 2026 | 207.724 | 100.000 | US$m | September 30, 2026; same basis; WestEnd contingent consideration of 53.8 US$m is estimated payable over the next year and is not deducted |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 90,
+      "quote": "| Total revenue | 893,477 | 1,306,131 | 361,195 | 396,573 | 932,009 | 1,219,923 | 1,594,045 | 10-K page:107; Q3-10Q page:5; reported; LTM calculated |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 97,
+      "quote": "| EBITDA proxy, income from operations plus D&A (calculated) | 457,690 | 551,274 | 160,158 | 158,239 | 376,506 | 552,334 | 727,102 | derived from the two rows above; no addbacks |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-vctr/deliveries/947d384ec7198281548d49a0ee0a3be939d5e3ff6472cb5df9e4ad018b3466b3/CP-1.md",
+      "sha256": "d301b10470f387a928e4cc51b12e6dd730b54fd41535e9908f3af5c8aa30f352",
+      "line": 98,
+      "quote": "| Net cash provided by operating activities | 339,979 | 385,485 | n/a | n/a | 240,409 | 479,740 | 624,816 | 10-K page:110; Q3-10Q page:8; reported; LTM calculated |"
+    }
+  },
+  "checklist": null
+}

@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-sun",
+    "issuer": "sun",
+    "name": "Sunoco LP",
+    "identity_source": "context",
+    "sector": "Petroleum Refining",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "2026-09-30",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (SUN)",
+    "summary": "Sunoco LP's credit profile has improved to 3.51x net leverage and USD 3,060 million of liquidity, supported by diversified earnings, but it rests on recently acquired earnings, management-adjusted EBITDA and sponsor control. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "51578",
+        "unit": "US$m",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Total revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.72",
+        "unit": "x",
+        "period": "Q3 2026 LTM",
+        "basis": "Total debt / EBITDA. Total debt 13,163 US$m and cash 760 US$m at 2026-09-30 over LTM Adjusted EBITDA 3,535 US$m (derived). One month of Parkland (October 2025) still absent; reported covenant net leverage 3.5x. Offen debt funding after quarter end not included.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.87",
+        "unit": "x",
+        "period": "Q3 2026 LTM",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 3,535 US$m over LTM interest paid 726 US$m (derived). On net interest expense of 768 US$m the cover is 4.60x. The covenant Interest Coverage Ratio uses a credit-agreement definition not seen.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "760",
+        "unit": "US$m",
+        "period": "2026-09-30",
+        "basis": "Cash. Unused availability after 111 US$m borrowings (substantially all CAD-denominated) and 84 US$m of letters of credit (Q3 10-Q page:15). Facility matures 2030-06-17, so nothing expires within twelve months. Cash is consolidated and not tested for trapped or restricted amounts.",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "2643",
+        "unit": "US$m",
+        "period": "LTM Q3 2026 (derived)",
+        "basis": "Net cash provided by operating activities, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Trailing earnings are not pro forma, debt documents are not supplied, and the funding of the Offen acquisition is not stated.",
+      "CP-1 main limitation: Trailing earnings still omit pre-acquisition Parkland months, covenant terms are not seen in executed form, and ratios rest on management-adjusted EBITDA."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-sun/inputs/eaf301b6e48e67e6aaccb094631a52cadaa411c1b95b847269bbb6c22d3bdb77",
+      "sha256": "eaf301b6e48e67e6aaccb094631a52cadaa411c1b95b847269bbb6c22d3bdb77",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Sunoco LP\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-sun/inputs/eaf301b6e48e67e6aaccb094631a52cadaa411c1b95b847269bbb6c22d3bdb77",
+      "sha256": "eaf301b6e48e67e6aaccb094631a52cadaa411c1b95b847269bbb6c22d3bdb77",
+      "line": 22,
+      "quote": "    \"sector\": \"Petroleum Refining\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 56,
+      "quote": "| Q3 2026 LTM | 3.72 | 3.51 | x | Total debt 13,163 US$m and cash 760 US$m at 2026-09-30 over LTM Adjusted EBITDA 3,535 US$m (derived). One month of Parkland (October 2025) still absent; reported covenant net leverage 3.5x. Offen debt funding after quarter end not included. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 65,
+      "quote": "| Q3 2026 LTM | 4.87 | x | LTM Adjusted EBITDA 3,535 US$m over LTM interest paid 726 US$m (derived). On net interest expense of 768 US$m the cover is 4.60x. The covenant Interest Coverage Ratio uses a credit-agreement definition not seen. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 74,
+      "quote": "| 2026-09-30 | 760 | 2300 | US$m | Unused availability after 111 US$m borrowings (substantially all CAD-denominated) and 84 US$m of letters of credit (Q3 10-Q page:15). Facility matures 2030-06-17, so nothing expires within twelve months. Cash is consolidated and not tested for trapped or restricted amounts. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 95,
+      "quote": "| Total revenues | 25,201 | 16,601 | 42,978 | 51,578 | 18,029 | 6,032 | 10-K page:220; Q3 10-Q page:4 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-sun/deliveries/837d55925e816118e625f13743ec413a93ea7c17ce3e3abe1f7417966278b923/CP-1.md",
+      "sha256": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+      "line": 101,
+      "quote": "| Net cash provided by operating activities | 1,192 | 800 | 2,251 | 2,643 | Not supplied: printed cumulatively | Not supplied: printed cumulatively | 10-K page:221; Q3 10-Q page:5 |"
+    }
+  },
+  "checklist": null
+}

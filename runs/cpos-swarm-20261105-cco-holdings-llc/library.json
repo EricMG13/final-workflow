@@ -1,0 +1,96 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-cco-holdings-llc",
+    "issuer": "cco-holdings-llc",
+    "name": "CCO Holdings LLC",
+    "identity_source": "context",
+    "sector": "Cable & Other Pay Television Services",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q2 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session",
+    "summary": "CCO Holdings is a large, cash-generative but leveraged cable credit: debt is 4.22x EBITDA and cash interest cover is 4.43x, with USD 3,985 million of liquidity. Its unsecured notes sit behind secured debt, and the Cox closing is unresolved. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is CCO HOLDINGS LLC.",
+    "handoff": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "54396",
+        "unit": "US$m",
+        "period": "LTM Q2 2026",
+        "basis": "Revenues, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "4.22",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "Total debt / EBITDA. Principal debt 93,845 and net debt 93,560 (cash 285) at June 30, 2026 over LTM Adjusted EBITDA 22,251 (calculated: 22,611 + 11,046 - 11,406). Including the equipment installment plan facility (1,596) and short-term borrowings (1,155) the ratio is 4.34x. Net debt deducts unrestricted cash only (restricted cash 90).",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.43",
+        "unit": "x",
+        "period": "LTM Q2 2026",
+        "basis": "EBITDA / cash interest. LTM Adjusted EBITDA 22,251 over LTM cash interest 5,024 (calculated: 4,957 + 2,493 - 2,426). Operating lease cash (334 in FY2025) is not in cash interest. Not a covenant ratio.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "285",
+        "unit": "US$m",
+        "period": "Q2 2026",
+        "basis": "Cash. Cash at June 30, 2026 (restricted cash 90 excluded). Availability \"approximately $3.7 billion\" (10-Q Jun 2026 page:11, page:27). Facility split and letters of credit at this date not printed. The equipment installment plan facility (capacity 2.0 billion, carrying 1,596) is not counted. A revolver tranche of about 960 matures August 31, 2027, within twelve months of the as-of date.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Executed debt documents, covenant ratios after December 31, 2025, the Cox financing and anything after July 24, 2026 are not supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is a company non-GAAP measure; current series-level debt, covenant ratios and events after July 24, 2026 are not in the sources."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/inputs/1a68c05f8e4415af1307ec03597fe0b094afc35e94c83b63b62cbe99d897f95e",
+      "sha256": "1a68c05f8e4415af1307ec03597fe0b094afc35e94c83b63b62cbe99d897f95e",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"CCO HOLDINGS LLC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/inputs/1a68c05f8e4415af1307ec03597fe0b094afc35e94c83b63b62cbe99d897f95e",
+      "sha256": "1a68c05f8e4415af1307ec03597fe0b094afc35e94c83b63b62cbe99d897f95e",
+      "line": 22,
+      "quote": "    \"sector\": \"Cable & Other Pay Television Services\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 58,
+      "quote": "| LTM Q2 2026 | 4.22 | 4.20 | x | Principal debt 93,845 and net debt 93,560 (cash 285) at June 30, 2026 over LTM Adjusted EBITDA 22,251 (calculated: 22,611 + 11,046 - 11,406). Including the equipment installment plan facility (1,596) and short-term borrowings (1,155) the ratio is 4.34x. Net debt deducts unrestricted cash only (restricted cash 90). |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 68,
+      "quote": "| LTM Q2 2026 | 4.43 | x | LTM Adjusted EBITDA 22,251 over LTM cash interest 5,024 (calculated: 4,957 + 2,493 - 2,426). Operating lease cash (334 in FY2025) is not in cash interest. Not a covenant ratio. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 78,
+      "quote": "| Q2 2026 | 285 | 3700 | US$m | Cash at June 30, 2026 (restricted cash 90 excluded). Availability \"approximately $3.7 billion\" (10-Q Jun 2026 page:11, page:27). Facility split and letters of credit at this date not printed. The equipment installment plan facility (capacity 2.0 billion, carrying 1,596) is not counted. A revolver tranche of about 960 matures August 31, 2027, within twelve months of the as-of date. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-cco-holdings-llc/deliveries/4627bfbe4a6dfe30d85933d4a4672114845a374ddd5557886c369af850febcfd/CP-1.md",
+      "sha256": "ff0983c08cacf687da932db43c595db40bb04809c1727a1f0dd3c0f49ce24118",
+      "line": 95,
+      "quote": "| Revenues | 55,085 | 54,774 | 13,766 | 13,526 | 27,501 | 27,123 | 54,396 | Reported (10-K page:141; 10-Q Jun 2026 page:5). LTM calculated. |"
+    }
+  },
+  "checklist": null
+}

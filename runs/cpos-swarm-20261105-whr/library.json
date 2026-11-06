@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-whr",
+    "issuer": "whr",
+    "name": "Whirlpool Corp",
+    "identity_source": "context",
+    "sector": "Household Appliances",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Sep 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (WHR)",
+    "summary": "Whirlpool's credit is weak and weakening but not in near-term distress: liquidity and a maturity runway to 2028 offset leverage of 9.52x total debt on ongoing EBITDA and negative nine-month operating cash flow. Launched through CP-OS as of 2026-11-05 on the retained context; the EDGAR registrant name in that context is WHIRLPOOL CORP /DE/.",
+    "handoff": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "14565",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026",
+        "basis": "Net sales, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": {
+        "value": "810",
+        "unit": "USD millions",
+        "period": "LTM Q3 2026",
+        "basis": "EBITDA, operating profit basis (operating profit plus D&A), as the CP-1 table prints it.",
+        "source": "cp1-ebitda"
+      },
+      "leverage": {
+        "value": "9.52",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Ongoing EBITDA 720 (ongoing EBIT 338 plus D&A 382); total debt 6,852 and cash 1,103 at 2026-09-30. LTM includes India for October and November 2025 only. Company net debt leverage is defined in the releases but not printed.",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "3.05",
+        "unit": "x",
+        "period": "FY2025",
+        "basis": "EBITDA / cash interest. Ongoing EBITDA 1,067 over cash paid for interest 350 (10-K page:77). Analyst-built EBITDA.",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "1103",
+        "unit": "US$m",
+        "period": "Sep 30, 2026",
+        "basis": "Cash. Cash as reported. Undrawn is the 2,000 ABL, nothing drawn, plus 193 Brazil (10-Q Q3 page:21). Nominal commitment; usable availability depends on a borrowing base that is not printed.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant definitions, borrowing base availability and interim cash interest are not supplied, so headroom and usable liquidity cannot be measured.",
+      "CP-1 main limitation: Interim cash interest is not printed, and EBITDA is built by the analyst from company ongoing EBIT plus cash flow depreciation, so ratios depend on that definition."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-whr/inputs/584c197fbf255cc4fcd3a144aa71822e32a12b1a0036ed5924f197ae8dd98251",
+      "sha256": "584c197fbf255cc4fcd3a144aa71822e32a12b1a0036ed5924f197ae8dd98251",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"WHIRLPOOL CORP /DE/\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-whr/inputs/584c197fbf255cc4fcd3a144aa71822e32a12b1a0036ed5924f197ae8dd98251",
+      "sha256": "584c197fbf255cc4fcd3a144aa71822e32a12b1a0036ed5924f197ae8dd98251",
+      "line": 22,
+      "quote": "    \"sector\": \"Household Appliances\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-1.md",
+      "sha256": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+      "line": 51,
+      "quote": "| LTM Q3 2026 | 9.52 | 7.98 | x | Ongoing EBITDA 720 (ongoing EBIT 338 plus D&A 382); total debt 6,852 and cash 1,103 at 2026-09-30. LTM includes India for October and November 2025 only. Company net debt leverage is defined in the releases but not printed. |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-1.md",
+      "sha256": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+      "line": 58,
+      "quote": "| FY2025 | 3.05 | x | Ongoing EBITDA 1,067 over cash paid for interest 350 (10-K page:77). Analyst-built EBITDA. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-1.md",
+      "sha256": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+      "line": 68,
+      "quote": "| Sep 30, 2026 | 1,103 | 2,193 | US$m | Cash as reported. Undrawn is the 2,000 ABL, nothing drawn, plus 193 Brazil (10-Q Q3 page:21). Nominal commitment; usable availability depends on a borrowing base that is not printed. |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-1.md",
+      "sha256": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+      "line": 84,
+      "quote": "| Net sales | 16,607 | 15,524 | 11,426 | 10,467 | 14,565 | 10-K page:75; 10-Q Q3 page:5. LTM is FY2025 less 9M 2025 plus 9M 2026. |"
+    },
+    "cp1-ebitda": {
+      "path": "runs/cpos-swarm-20261105-whr/deliveries/600ba54c99dc17941c9bba7b600c6eaf7218daddddbde36a6b1a469f8d715090/CP-1.md",
+      "sha256": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+      "line": 91,
+      "quote": "| EBITDA, operating profit basis (operating profit plus D&A) | 476 | 1,176 | 841 | 475 | 810 | Sum of operating profit and D&A. Not a company-printed figure. |"
+    }
+  },
+  "checklist": null
+}

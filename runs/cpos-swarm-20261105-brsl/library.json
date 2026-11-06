@@ -1,0 +1,84 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-brsl",
+    "issuer": "brsl",
+    "name": "Brightstar Lottery PLC",
+    "identity_source": "context",
+    "sector": "Services-Miscellaneous Amusement & Recreation",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "June 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (BRSL)",
+    "summary": "Brightstar has an adequate credit profile: contracted revenue and USD 1,742 million of liquidity support it, but net leverage of 3.24x rests on adjusted earnings, and Italian renewal risk in 2028 and partner claims limit headroom. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-brsl/deliveries/6ac5cd1fe01fc33c1e4e935baea414fc1382653c3b109247591aa9e6d0f49f62/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "3.72",
+        "unit": "x",
+        "period": "LTM June 30, 2026",
+        "basis": "Total debt / EBITDA. Calculated: carrying debt 4,354 and net debt 3,796 over LTM Adjusted EBITDA 1,170 (1,121 + 573 - 524); matches the Q2 deck figure of 3.24x; no covenant definition applied",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "6.09",
+        "unit": "x",
+        "period": "LTM June 30, 2026",
+        "basis": "EBITDA / cash interest. Calculated: LTM Adjusted EBITDA 1,170 over LTM cash interest 192 (213 + 68 - 89); management EBITDA; the revolver and term loan covenant uses net interest costs, whose definition is not supplied",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "558",
+        "unit": "US$m",
+        "period": "June 30, 2026",
+        "basis": "Cash. As printed in the Q2 6-K (total 1,742, components sum to 1,743 by rounding); new revolvers due March 2031 with 604 drawn; letters of credit under the new revolvers are not stated; about 40 of cash sits in countries with transfer restrictions",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant levels, license agreements and any reporting after August 4, 2026 are not supplied.",
+      "CP-1 main limitation: Adjusted EBITDA is a management measure, covenant levels are not supplied, and nothing after August 4, 2026 is covered."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-brsl/inputs/5dec6fdc4bf237796c486a0095b8a59b71b216970050467cf9aed314b06e0f82",
+      "sha256": "5dec6fdc4bf237796c486a0095b8a59b71b216970050467cf9aed314b06e0f82",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Brightstar Lottery PLC\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-brsl/inputs/5dec6fdc4bf237796c486a0095b8a59b71b216970050467cf9aed314b06e0f82",
+      "sha256": "5dec6fdc4bf237796c486a0095b8a59b71b216970050467cf9aed314b06e0f82",
+      "line": 22,
+      "quote": "    \"sector\": \"Services-Miscellaneous Amusement & Recreation\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-brsl/deliveries/6ac5cd1fe01fc33c1e4e935baea414fc1382653c3b109247591aa9e6d0f49f62/CP-1.md",
+      "sha256": "015c9f0c9127b25cc24bccb61512f935749a711ecf6358ec0969afa9d5638e98",
+      "line": 64,
+      "quote": "| LTM June 30, 2026 | 3.72 | 3.24 | x | Calculated: carrying debt 4,354 and net debt 3,796 over LTM Adjusted EBITDA 1,170 (1,121 + 573 - 524); matches the Q2 deck figure of 3.24x; no covenant definition applied |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-brsl/deliveries/6ac5cd1fe01fc33c1e4e935baea414fc1382653c3b109247591aa9e6d0f49f62/CP-1.md",
+      "sha256": "015c9f0c9127b25cc24bccb61512f935749a711ecf6358ec0969afa9d5638e98",
+      "line": 73,
+      "quote": "| LTM June 30, 2026 | 6.09 | x | Calculated: LTM Adjusted EBITDA 1,170 over LTM cash interest 192 (213 + 68 - 89); management EBITDA; the revolver and term loan covenant uses net interest costs, whose definition is not supplied |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-brsl/deliveries/6ac5cd1fe01fc33c1e4e935baea414fc1382653c3b109247591aa9e6d0f49f62/CP-1.md",
+      "sha256": "015c9f0c9127b25cc24bccb61512f935749a711ecf6358ec0969afa9d5638e98",
+      "line": 82,
+      "quote": "| June 30, 2026 | 558 | 1,185 | US$m | As printed in the Q2 6-K (total 1,742, components sum to 1,743 by rounding); new revolvers due March 2031 with 604 drawn; letters of credit under the new revolvers are not stated; about 40 of cash sits in countries with transfer restrictions |"
+    }
+  },
+  "checklist": null
+}

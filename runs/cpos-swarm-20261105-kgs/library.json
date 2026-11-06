@@ -1,0 +1,108 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-kgs",
+    "issuer": "kgs",
+    "name": "Kodiak Gas Services, Inc.",
+    "identity_source": "context",
+    "sector": "Natural Gas Transmission",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Jun 30, 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (KGS)",
+    "summary": "Kodiak is a contract compression credit with contracted revenue and liquidity of USD 1,742.0 million, but leverage of 3.63x is no longer falling quickly because power growth spending outruns cash flow; funding and execution of that build decide the outcome. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-2.md",
+    "metrics": {
+      "revenue": {
+        "value": "1392494",
+        "unit": "USD thousands",
+        "period": "LTM Jun-2026",
+        "basis": "Revenue, as the CP-1 table prints it.",
+        "source": "cp1-revenue"
+      },
+      "ebitda": null,
+      "leverage": {
+        "value": "3.63",
+        "unit": "x",
+        "period": "LTM Jun-2026",
+        "basis": "Total debt / EBITDA. Principal 2,780,917 over LTM adjusted EBITDA 766,091; cash 137,553; excludes acquired power EBITDA before April 1, 2026 so leverage is overstated against a pro forma perimeter (pro forma EBITDA Not calculable); management reports 3.2x and 3.1x netting all cash on a covenant basis (release 2026-08-06 page:5)",
+        "source": "cp1-leverage"
+      },
+      "coverage": {
+        "value": "4.14",
+        "unit": "x",
+        "period": "LTM Jun-2026",
+        "basis": "EBITDA / cash interest. LTM adjusted EBITDA 766,091 over LTM cash interest 185,176 (FY2025 plus H1 2026 103,535 less H1 2025 87,075); the ABL covenant minimum is 2.5x on a defined basis not supplied",
+        "source": "cp1-coverage"
+      },
+      "cash": {
+        "value": "137.6",
+        "unit": "US$m",
+        "period": "Jun 30, 2026",
+        "basis": "Cash. Commitments 2,000,000 less drawn 380,917 less letters of credit 14,600 (10-Q 2026-06-30 page:20-21); company states $1.6 billion available and $1.7 billion total liquidity (page:48; release 2026-08-06 page:5); the ABL matures September 5, 2030, so no facility expires within twelve months; borrowing base not supplied",
+        "source": "cp1-cash"
+      },
+      "cashflow": {
+        "value": "478887",
+        "unit": "USD thousands",
+        "period": "LTM Jun-2026",
+        "basis": "Operating cash flow, as the CP-1 table prints it.",
+        "source": "cp1-cashflow"
+      }
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant definitions, executed financing documents and power customer contracts are not supplied, so covenant headroom and power revenue visibility cannot be tested.",
+      "CP-1 main limitation: Adjusted EBITDA omits the acquired power business before April 2026, and covenant definitions are not supplied, so the 3.2x covenant leverage reported by management cannot be recomputed."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-kgs/inputs/45f2a3562d2dfb1c25d8d6636b278dfe41f8d48fe6d85e1a214b7248a9909e44",
+      "sha256": "45f2a3562d2dfb1c25d8d6636b278dfe41f8d48fe6d85e1a214b7248a9909e44",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Kodiak Gas Services, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-kgs/inputs/45f2a3562d2dfb1c25d8d6636b278dfe41f8d48fe6d85e1a214b7248a9909e44",
+      "sha256": "45f2a3562d2dfb1c25d8d6636b278dfe41f8d48fe6d85e1a214b7248a9909e44",
+      "line": 22,
+      "quote": "    \"sector\": \"Natural Gas Transmission\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-1.md",
+      "sha256": "928e75ea3fae150cc85c2160f71e6fedb1e4eb8f73c7fa7de4272160b731156b",
+      "line": 150,
+      "quote": "| LTM Jun-2026 | 3.63 | 3.45 | x | Principal 2,780,917 over LTM adjusted EBITDA 766,091; cash 137,553; excludes acquired power EBITDA before April 1, 2026 so leverage is overstated against a pro forma perimeter (pro forma EBITDA Not calculable); management reports 3.2x and 3.1x netting all cash on a covenant basis (release 2026-08-06 page:5) |"
+    },
+    "cp1-coverage": {
+      "path": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-1.md",
+      "sha256": "928e75ea3fae150cc85c2160f71e6fedb1e4eb8f73c7fa7de4272160b731156b",
+      "line": 159,
+      "quote": "| LTM Jun-2026 | 4.14 | x | LTM adjusted EBITDA 766,091 over LTM cash interest 185,176 (FY2025 plus H1 2026 103,535 less H1 2025 87,075); the ABL covenant minimum is 2.5x on a defined basis not supplied |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-1.md",
+      "sha256": "928e75ea3fae150cc85c2160f71e6fedb1e4eb8f73c7fa7de4272160b731156b",
+      "line": 169,
+      "quote": "| Jun 30, 2026 | 137.6 | 1,604.5 | US$m | Commitments 2,000,000 less drawn 380,917 less letters of credit 14,600 (10-Q 2026-06-30 page:20-21); company states $1.6 billion available and $1.7 billion total liquidity (page:48; release 2026-08-06 page:5); the ABL matures September 5, 2030, so no facility expires within twelve months; borrowing base not supplied |"
+    },
+    "cp1-revenue": {
+      "path": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-1.md",
+      "sha256": "928e75ea3fae150cc85c2160f71e6fedb1e4eb8f73c7fa7de4272160b731156b",
+      "line": 188,
+      "quote": "| Revenue (USD thousands) | 1,159,311 | 1,308,100 | 1,392,494 | Reported; LTM is FY2025 plus H1 2026 less H1 2025 |"
+    },
+    "cp1-cashflow": {
+      "path": "runs/cpos-swarm-20261105-kgs/deliveries/c990e78229675017da33923207ba716ff2c826442d1f41475811a192dfe2d860/CP-1.md",
+      "sha256": "928e75ea3fae150cc85c2160f71e6fedb1e4eb8f73c7fa7de4272160b731156b",
+      "line": 199,
+      "quote": "| Operating cash flow (USD thousands) | 327,987 | 599,740 | 478,887 | Reported; LTM calculated |"
+    }
+  },
+  "checklist": null
+}

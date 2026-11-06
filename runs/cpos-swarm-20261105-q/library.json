@@ -1,0 +1,72 @@
+{
+  "schema": "issuer-library-run/1",
+  "run": {
+    "id": "cpos-swarm-20261105-q",
+    "issuer": "q",
+    "name": "Qnity Electronics, Inc.",
+    "identity_source": "context",
+    "sector": "Semiconductors & Related Devices",
+    "sector_source": "sector",
+    "date": "2026-11-05",
+    "period": "Q3 2026",
+    "currency": "USD",
+    "workflow": "credit_snapshot",
+    "title": "CP-OS host session (Q)",
+    "summary": "Qnity has a moderate-leverage, well-funded credit profile: total debt is 2.37x LTM Adjusted Operating EBITDA and liquidity is 2,362. Cancellable, concentrated demand and cash costs outside adjusted EBITDA are the main weaknesses. Launched through CP-OS as of 2026-11-05 on the retained context.",
+    "handoff": "runs/cpos-swarm-20261105-q/deliveries/ac25e5a67cc1169b00c86a2c25230da6d5718e7fbc1e2c55882daab8bb7acf4c/CP-2.md",
+    "metrics": {
+      "revenue": null,
+      "ebitda": null,
+      "leverage": {
+        "value": "2.37",
+        "unit": "x",
+        "period": "LTM Q3 2026",
+        "basis": "Total debt / EBITDA. Total debt as stated at September 30, 2026 over FY2025 plus nine months 2026 less nine months 2025 Adjusted Operating EBITDA. Carrying value net of unamortized discount; principal would give a higher ratio. Excludes indirect legacy costs and transformation charges.",
+        "source": "cp1-leverage"
+      },
+      "coverage": null,
+      "cash": {
+        "value": "1124",
+        "unit": "US$m",
+        "period": "Q3 2026",
+        "basis": "Cash. Cash at September 30, 2026 (Q3 p:5), of which 785 is held by foreign subsidiaries (Q3 p:41). Revolver 1,250 less 12 of letters of credit (Q3 p:20), no drawings. Uncommitted lines (136 unused) excluded.",
+        "source": "cp1-cash"
+      },
+      "cashflow": null
+    },
+    "ratings": [],
+    "gaps": [
+      "Host session: an agent answered every module from the pinned filings and CP-5 is its own review. No independent review has been made. Treat the analysis as candidate.",
+      "CP-2 main limitation: Covenant terms, the reported covenant ratio, 2026 cash interest and the executed debt documents are not supplied.",
+      "CP-1 main limitation: Adjusted Operating EBITDA is a company measure; covenant EBITDA, the reported covenant ratio and 2026 cash interest are not supplied."
+    ],
+    "artifacts": []
+  },
+  "sources": {
+    "context": {
+      "path": "runs/cpos-swarm-20261105-q/inputs/02e995f945c46ea1425b085c688f4524b4d428bdd3a6b5db374bc8b937d27e4d",
+      "sha256": "02e995f945c46ea1425b085c688f4524b4d428bdd3a6b5db374bc8b937d27e4d",
+      "line": 14,
+      "quote": "    \"issuer_name\": \"Qnity Electronics, Inc.\","
+    },
+    "sector": {
+      "path": "runs/cpos-swarm-20261105-q/inputs/02e995f945c46ea1425b085c688f4524b4d428bdd3a6b5db374bc8b937d27e4d",
+      "sha256": "02e995f945c46ea1425b085c688f4524b4d428bdd3a6b5db374bc8b937d27e4d",
+      "line": 22,
+      "quote": "    \"sector\": \"Semiconductors & Related Devices\","
+    },
+    "cp1-leverage": {
+      "path": "runs/cpos-swarm-20261105-q/deliveries/ac25e5a67cc1169b00c86a2c25230da6d5718e7fbc1e2c55882daab8bb7acf4c/CP-1.md",
+      "sha256": "064ca3ea3aef43b8418639f3df76e4a2425ccbdb84518e05e992a6ab890aaeca",
+      "line": 105,
+      "quote": "| LTM Q3 2026 | 2.37 | 1.71 | x | Total debt as stated at September 30, 2026 over FY2025 plus nine months 2026 less nine months 2025 Adjusted Operating EBITDA. Carrying value net of unamortized discount; principal would give a higher ratio. Excludes indirect legacy costs and transformation charges. |"
+    },
+    "cp1-cash": {
+      "path": "runs/cpos-swarm-20261105-q/deliveries/ac25e5a67cc1169b00c86a2c25230da6d5718e7fbc1e2c55882daab8bb7acf4c/CP-1.md",
+      "sha256": "064ca3ea3aef43b8418639f3df76e4a2425ccbdb84518e05e992a6ab890aaeca",
+      "line": 121,
+      "quote": "| Q3 2026 | 1,124 | 1,238 | US$m | Cash at September 30, 2026 (Q3 p:5), of which 785 is held by foreign subsidiaries (Q3 p:41). Revolver 1,250 less 12 of letters of credit (Q3 p:20), no drawings. Uncommitted lines (136 unused) excluded. |"
+    }
+  },
+  "checklist": null
+}

@@ -21,7 +21,7 @@ branch on main `579b55b` (reader summary, persona and view-first openings for ev
 
 Results:
 
-- **Published:** 117 of 118.
+- **Published:** 117 of 118 in the swarm, and 118 of 118 after one repair run.
 - **Relaunch check:** a relaunch of each published run's own command exits 0, prints its report
   and writes no file. CP-OS rechecks every accepted answer on that relaunch.
 - **First-time acceptance:** 64 runs had every module accepted on the first attempt.
@@ -36,7 +36,7 @@ Results:
   in the wrong place.
 - **Stopped run:** `cpos-swarm-20261105-svc` stopped after three CP-2 rejections and is kept
   unchanged as the earlier attempt. Its repair, `cpos-swarm-20261105-svc-002`, is a new run
-  folder.
+  folder; it published with every module accepted first time and passes the same relaunch check.
 - **Usage:** about 49.7 million Sonnet subagent tokens (about 0.42 million per issuer), from
   02:02 to about 03:45 UTC. Host usage per module is still not measured.
 
@@ -58,7 +58,7 @@ letter-of-credit notes, not called "Not calculable". Pack and context limits the
 - Most packs have no credit agreement or indenture, so covenant headroom is usually not
   calculable.
 
-Checks: Go `TestCurrentRetainedWorkspace` passes with the 118 new run folders. No run folder
+Checks: Go `TestCurrentRetainedWorkspace` passes with the 119 new run folders. No run folder
 contains the SEC contact string.
 
 ## 2026-11-06 — Sonnet swarm pilot, five issuers, independent review

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Post Holdings, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "0207225cf916a688a599956fca0dbd3a4cedfd539e02ef72ef73b2252d375b67",
+    "CP-1.md": "c6b89a2a1531678b1e29d8ad7188e3515d0f6ea89db4e21750fe77692e66f2ac",
+    "CP-1A.md": "850147f7553883b0637d4aa06699942089857cd17afafc82af67f14c70101a44",
+    "CP-2.md": "b948db02d6ba8cd38678e35667d4f8cbafa5c9944a5179ffcc9177517ca76c9d",
+    "CP-5.md": "9bcc9e95d6d7d920212c87ee03cf91e7ef208c8b571b128110be0b9ec9dda018",
+    "view.json": "f3076673809cb252e827bf55c8ab94cd4ad2c42b841dc70568144a41c63120db",
+    "report-view.json": "faa765a560514070c9c28fac47ca57fc7bd475df924fac9ae94430d173a70f1d",
+    "report.html": "0824728301461f8f92c98f7c34b3e6096726a10ce81fee93c3209a9b1bbd2e35"
+  }
+}

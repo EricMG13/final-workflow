@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for NEWELL BRANDS INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "76b36ebebc3da26e35258cfc1d5238c4f31ac02f26874a5c908da1046b4e7b0c",
+    "CP-1.md": "d5a9065811e44ca39f3fa15acd9d11f35ebd1ced370fa07658e63d3b51da3b1d",
+    "CP-1A.md": "941c20e8a49b07fa5a41d2499a967e1852785616331c7ee2842448c4fc2bdb78",
+    "CP-2.md": "0d671c22d582c6a8b4b0a6f8e518b84b0b77d37205d6bb01ec8ebbedc993b2a9",
+    "CP-5.md": "083fd5bd7d8949f1dc797b78b03a37a674a9f1f146372d4387e6c26b224a7f6f",
+    "view.json": "8d6d281b0eb8a01195441be761822b22e3201cfc10c5cc38879a7e4a92426010",
+    "report-view.json": "b2833f426d6313d250d406ac7005e0f051e6100f8aef76838e331c63a0a2f594",
+    "report.html": "72bf58aa80a39e0c8db60bcc3fafab0024c86e896d40c38a8e3b0a0274d1bcc7"
+  }
+}

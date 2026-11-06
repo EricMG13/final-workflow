@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "novelis-inc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "novelis-inc",
+    "issuer_name": "Novelis Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2026-03-31_nvl-20260331.htm.jsonl": {
+      "path": "source-text/10-K_2026-03-31_nvl-20260331.htm.jsonl",
+      "sha256": "630dfaef3a347b5bc90017d13c739e132a0efac3aeb6333b93d9aa9c3f125e30"
+    },
+    "10-Q_2025-12-31_nvl-20251231.htm.jsonl": {
+      "path": "source-text/10-Q_2025-12-31_nvl-20251231.htm.jsonl",
+      "sha256": "7c3c815c655f1bd83efacf6827b6774b4b93e5d320aad458b7e7fc75e1ccd80b"
+    },
+    "10-Q_2026-06-30_nvl-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_nvl-20260630.htm.jsonl",
+      "sha256": "ba8ddb9d46239114d2dd866f92530127628a312e217f01c622dff70805bd90cb"
+    },
+    "10-Q_2026-09-30_nvl-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_nvl-20260930.htm.jsonl",
+      "sha256": "d32d6f8b1877bce87168ef75701298999272e2cc239c9328390eaafc7d40bcff"
+    },
+    "EX-99.1_2026-05-19_novelisq4fy26results.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-19_novelisq4fy26results.htm.jsonl",
+      "sha256": "da5b2fe17bee59287d9273512c195f4d710d0a86a8be059e4808658cb30ef647"
+    },
+    "EX-99.1_2026-08-05_novelisq1fy27results.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_novelisq1fy27results.htm.jsonl",
+      "sha256": "93f30ffce44ee10a450dca4f333141188846c86ffae4127361330647232321d7"
+    },
+    "EX-99.1_2026-11-05_novelisq2fy27results.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-05_novelisq2fy27results.htm.jsonl",
+      "sha256": "33ba4aaebc2945cb7c0c06cf8f15a6d1a483e8561da72ad63830ee26f556284c"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1304280-novelis-inc.json",
+      "sha256": "e98b858a20d2c069629867a63f74620ff3a26183f951dc5fd1ab64bb298a449a"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "0d77d71bb74ae219c25b4cc2c97de63b68bec05cdcacc326c2c2383cafe2bca8"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "75e69f89339527da4e2b29669e9f60cda41e3f6129253d28d6920cb67d153da3"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "39c48cbd4b9802355094a7e03dc0ae3871fcb8fb3ae43868cec6f7ac9b8757e0"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "845e620db6de5d036671ee119db1d9f2e40a63adcfffb69dd6226219171089e3"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "318e3a20d652f990183c0e408feb0df63bc97379ad08e4710ab341e80bbaec04"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Novelis Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Novelis Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for PRECISION DRILLING Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/767c16b58f1d34871c74e730a1bd9e6e46690f7b762d177b039bcbaddded1655/1.response.md",
+    "CP-1": "requests/CP-1/086ecef689f388a08cf5392d0c9eab55bda9660bc56b56a0f42b1653ded23d14/2.response.md",
+    "CP-1A": "requests/CP-1A/7430b990b3b36760d5ebc96a9341a6ec8bf5f589517411ed3419d4874c46a075/1.response.md",
+    "CP-2": "requests/CP-2/e24ce5887cccedbd41a0f1e9734323546279c2d1f32e7e2076ab3be0604b5d25/1.response.md",
+    "CP-5": "requests/CP-5/93870a5ec23a2d07ea2f83d6be30af3f071c3b831ad932bde4534975836161de/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "860efa7dd7acebd39d77f8eacdfea13417d096d981b8ee4b139db27a3713dfb6",
+  "report_sha256": "0551ba37ce09c4d2a053e6b6f1f843cfafdf54dbf9e7ce4c6d5721e8f8e6f340"
+}

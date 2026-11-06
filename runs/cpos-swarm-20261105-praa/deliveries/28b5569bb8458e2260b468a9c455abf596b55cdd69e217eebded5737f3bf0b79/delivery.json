@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for PRA GROUP INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "ad930b06ca8dfafbd7d05aa59918ec9f5ec7345e1f274cfd0ac40c5b9907cbbd",
+    "CP-1.md": "f504ebf424f2b6080338462ae74293629fc8293218527f27a4fbeb97c3179884",
+    "CP-1A.md": "7ef973de3d6ffddb47e9f6283951b59270b39a7a5b808c9a73fc485a4265b73d",
+    "CP-2.md": "0c84ce8694925e5a8959c3c5d9333637422c4152830c152b06a914e0284da6d3",
+    "CP-5.md": "aa79287c8fcae64b4b5658e547529a01b012b1c4ad9c54fc99f93517ded351d8",
+    "view.json": "d7d23f68a3f6dd8ae2fda2f1cf91d133822ce1e39edbf1cf38140dabc9986c79",
+    "report-view.json": "9a5144b36ef9b03091f1c6f6afe206dea63d8636842525ff13bb44e05e777ece",
+    "report.html": "43d330dafdf4a34130a93a320a77a27d3586f58cafe0125b6716a3764147da77"
+  }
+}

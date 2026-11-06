@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for OLIN Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "728efd77512ff127e878c235404a8f40fc8f81833ce6d2ce37a46e77c06dd33e",
+    "CP-1.md": "7df7316b863cab8ea464b4d35c09d645a7fd3da78a51db340a44c7a910837154",
+    "CP-1A.md": "e75928d2909d837811c9a94d44abfd9bfa0b7de91945f4bfc2f9433576fc2eb4",
+    "CP-2.md": "565975b3e8279bab48fcadffc15f0dad2393431b7e304b7868132f31d10f3c08",
+    "CP-5.md": "076c1c85ff0dfb23b7555aeda322e4d733c19cbbcc51ab11b2d2132929ef88bf",
+    "view.json": "68693263507f3b8e6fcc6a1377ebc826cbef7defd872652ee0d83f5b9381a29f",
+    "report-view.json": "a1d0972b325db27798f2aa000b8cd858362cb1af617c6165abad46628e05f582",
+    "report.html": "85bb9d02acc20c436ab98b4428d4addee91f28d853918d249838d27be367eaf8"
+  }
+}

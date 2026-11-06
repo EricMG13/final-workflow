@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for OLIN Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/6eb98b5701eaed1e585a9a82483db4dbba06696af04717c366744861d57f7421/1.response.md",
+    "CP-1": "requests/CP-1/eaee26671e79248a1d0e5260e4cb1cad9e94935a3e2179c41aa3f9817161a12c/2.response.md",
+    "CP-1A": "requests/CP-1A/eae2d4961475b4b6ea75153075904764b250053c4b966c2180872d30d3ffdfdf/2.response.md",
+    "CP-2": "requests/CP-2/d539277d4e88f7f7fb375591ae4ec4531c4c60ecbb196efabdc66ecd1393b30b/1.response.md",
+    "CP-5": "requests/CP-5/10e373fcaac391d3e20bc7a0461e28a7a3f2109191ec5d8713d6af8c4ef76881/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "61d66b46c601cee98896619a219a12886dbd35eb1d906bad3fe631ab7b0d85da",
+  "report_sha256": "85bb9d02acc20c436ab98b4428d4addee91f28d853918d249838d27be367eaf8"
+}

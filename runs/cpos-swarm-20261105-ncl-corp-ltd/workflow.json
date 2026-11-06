@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "ncl-corp-ltd-2026-11-05-credit_snapshot-host",
+    "issuer_id": "ncl-corp-ltd",
+    "issuer_name": "NCL CORP Ltd.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_nclc-20251231x10k.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_nclc-20251231x10k.htm.jsonl",
+      "sha256": "1590d4030e80abfbd09d00a74521526f72070052531a8716f865a880a8fa9501"
+    },
+    "10-Q_2026-03-31_nclc-20260331x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_nclc-20260331x10q.htm.jsonl",
+      "sha256": "1693fea3f52de137a2e148c9e6f9853be5398eb34944625b7e837b2bd396c943"
+    },
+    "10-Q_2026-06-30_nclc-20260630x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_nclc-20260630x10q.htm.jsonl",
+      "sha256": "2f18ccd1a947471efb9474a7bd377c5db5871d9445b97fe0a1fc7e783f6d645f"
+    },
+    "10-Q_2026-09-30_nclc-20260930x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_nclc-20260930x10q.htm.jsonl",
+      "sha256": "7769d1c310cec4c8e024523931f2cd599a487768128283054dca38ddd11d7d93"
+    },
+    "EX-99.1_2026-05-04_exh_991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-04_exh_991.htm.jsonl",
+      "sha256": "19e48d4c7cb2b40fb1bcbfbbe436e7e39f669c8965c4e705c327d948db3f04d8"
+    },
+    "EX-99.1_2026-07-30_exh_991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-30_exh_991.htm.jsonl",
+      "sha256": "ffe75efbccd58bfc3c88fabf4a188883f7003d5a095dba1da47bbe08c4d94307"
+    },
+    "EX-99.1_2026-10-29_exh_991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-29_exh_991.htm.jsonl",
+      "sha256": "6f93f8906074ef388d05f277a1b3874ed298e830f3945372d3d73a8925dc791c"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1318742-ncl-corp-ltd.json",
+      "sha256": "1eac4b587c5c6cd9d96c3f400eed0e70dc9aa1137a14c30469dde7d21791294f"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "6eca7bbfa1a73da9aab5c7e60c07d3529b646bc52ddabc46ac9ec429f1a619e2"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "b2f9994a282556eb0c8c45d7a6ca48723eec15dbf910fbef0d44eec98e27063c"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "a079762ef614baddb0d64b59affb9c1a5e6332e03461b83f4f8e8b1cc581753a"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "44474cc4cf4794f7a56497aa3e3276b96ea2ecee6ec3fc1a200d98fb37a3e264"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "b975db83edeb6aeda40a4656f176c959e6fab4cd24b6e824ea86fb52a1d83d27"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for NCL CORP Ltd. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "NCL CORP Ltd. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

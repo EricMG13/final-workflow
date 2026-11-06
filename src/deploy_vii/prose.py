@@ -62,9 +62,15 @@ _RESERVED = re.compile(r"[{}\[\]]")
 _B = r"(?<![0-9A-Za-z])"
 _E = r"(?![0-9A-Za-z])"
 _YEAR = r"(?:19|20)[0-9]{2}"
+# A quantity word: written after a number it makes that number a figure.
+_QUANTITY = (
+    r"(?i:basis points?|bps?|percent|per cent|percentage points?|pp|times|x|bn|mn|million|"
+    r"billion|thousand)(?![0-9A-Za-z])"
+)
 # A bare year is a detached token: a percent sign after it makes a figure (1900%), as a unit
-# letter already did (1900x, 1900bn) (task 7.10 item 15).
-_YEAR_E = r"(?![0-9A-Za-z%])"
+# letter already did (1900x, 1900bn) (task 7.10 item 15), and so does a quantity word after a
+# space (2024 basis points, 2024 %) (S13 A04).
+_YEAR_E = rf"(?![0-9A-Za-z%])(?! (?:%|{_QUANTITY}))"
 _MONTH = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|"
     r"December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?"
@@ -76,6 +82,7 @@ _INSTRUMENT_WORD = (
 )
 _INSTRUMENT_NOUN = rf"(?:(?i:notes?|bonds?|debentures?)|{_YEAR}s)"
 _ITEM = r"[0-9]{1,2}[A-Z]?"
+_PACK_NOUN = r"(?:located )?(?:pages?|sources?|spans?|documents?|files?)"
 _ITEM_JOIN = r"(?:-|\u2013|/|, and |, | and )"
 
 # The allowed labels. Everything numeric that none of these covers is a figure.
@@ -133,13 +140,14 @@ LABELS: Mapping[str, re.Pattern[str]] = MappingProxyType(
                 )
             )
         ),
-        # Pack-coverage counts: how much of the Source Pack was read (195 of 195, 195 pages,
-        # 195 located spans). They describe pack structure, not the issuer, so they are labels.
-        # A duration (120 days) or any other bare count stays a figure.
+        # Pack-coverage counts: how much of the Source Pack was read (195 of 195 pages, 195
+        # pages, 195 located spans). They describe pack structure, not the issuer, so they are
+        # labels. "N of M" is one only with a pack noun after it (S13 A04): "3 of 4 quarters", a
+        # duration (120 days) or any other bare count stays a figure.
         "coverage": re.compile(
             "|".join(
                 (
-                    rf"{_B}[0-9]{{1,5}} of [0-9]{{1,5}}{_E}",
+                    rf"{_B}[0-9]{{1,5}} of [0-9]{{1,5}} {_PACK_NOUN}{_E}",
                     rf"{_B}[0-9]{{1,5}} pages?{_E}",
                     rf"{_B}[0-9]{{1,6}} located spans?{_E}",
                 )
@@ -159,6 +167,22 @@ LABELS: Mapping[str, re.Pattern[str]] = MappingProxyType(
     }
 )
 _WORD = re.compile(r"\S+")
+# A number written in words is a figure when a quantity word or "-fold" follows it ("seven
+# times", "twenty-five percent", "threefold"), and so is a multiplying verb ("halved",
+# "doubled") (S13 A04). A number word alone ("one of the notes") stays prose.
+_NUMBER_WORD = (
+    r"(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|"
+    r"fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|"
+    r"seventy|eighty|ninety|hundred|thousand)"
+)
+_WORD_FIGURE = re.compile(
+    "|".join(
+        (
+            rf"{_B}(?i:{_NUMBER_WORD}(?:[- ]{_NUMBER_WORD})*)(?: {_QUANTITY}|-?(?i:fold){_E})",
+            rf"{_B}(?i:halved|doubled|tripled|quadrupled){_E}",
+        )
+    )
+)
 _PUNCTUATION = ".,;:!?()\"'"
 
 RunKind = Literal["text", "ref", "gap"]
@@ -221,12 +245,13 @@ def bare_figures(text: str, *, names: Collection[str] = ()) -> tuple[str, ...]:
             spans += [m.span() for m in re.finditer(re.escape(name), text)]
     for start, end in spans:
         covered[start:end] = [True] * (end - start)
-    found: list[str] = []
+    found: list[tuple[int, str]] = []
     for word in _WORD.finditer(text):
         start, token = word.start(), word.group()
         if any(char.isnumeric() and not covered[start + at] for at, char in enumerate(token)):
-            found.append(token.strip(_PUNCTUATION) or token)
-    return tuple(dict.fromkeys(found))
+            found.append((start, token.strip(_PUNCTUATION) or token))
+    found += [(m.start(), m.group()) for m in _WORD_FIGURE.finditer(text) if not covered[m.start()]]
+    return tuple(dict.fromkeys(token for _, token in sorted(found)))
 
 
 def _run_issues(

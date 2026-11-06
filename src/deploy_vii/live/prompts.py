@@ -82,13 +82,20 @@ CITATION_RULE = (
     "as printed; never reassemble a sentence across interleaved table text. Never continue a "
     "quote onto the next page."
 )
+# S13 A04: what `prose.bare_figures` refuses beyond a numeric token outside a label.
+FIGURE_WORDS_RULE = (
+    "`N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in "
+    "words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year "
+    "before a quantity word (`2024 basis points`) are bare figures."
+)
 # Task 7.0: the 6.2 run-text rule (`deploy_vii.prose`), as the validator applies it to
 # `analysis[].text`; every example is a `prose.LABELS` label (a test holds them to it).
 RUN_TEXT_RULE = (
     "`analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), "
     "filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers "
     "(`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a "
-    "citation's quote, not in the text (the validator rejects a bare figure)."
+    "citation's quote, not in the text (the validator rejects a bare figure). "
+    f"{FIGURE_WORDS_RULE}"
 )
 # Task 7.0h (E1 batch e1-cp1-5): an indented object spent the completion budget on whitespace and
 # was cut before its last field; a cut rejects the whole submission and is never repaired.
@@ -384,7 +391,7 @@ REVIEW_PROSE_RULE = (
     "`Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the "
     "evidence it comes from and is never written out. Write no braces or square brackets "
     "anywhere in prose, since all are reserved for references. A space or an empty string is "
-    "not prose."
+    f"not prose. {FIGURE_WORDS_RULE}"
 )
 
 

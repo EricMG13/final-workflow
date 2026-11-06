@@ -1302,7 +1302,7 @@
   "narrative": [
    {
     "id": "narrative.a",
-    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose.",
+    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose. `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.narrative:validate_narrative_review"
     ]
@@ -1506,7 +1506,7 @@
   "readiness": [
    {
     "id": "readiness.a",
-    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose.",
+    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose. `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.downstream_readiness:validate_downstream_review"
     ]
@@ -1985,7 +1985,7 @@
    },
    {
     "id": "source_readiness.h",
-    "statement": "h. `analysis`: at least one evidence-grounded read-through entry; an empty list is rejected. `analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers (`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a citation's quote, not in the text (the validator rejects a bare figure).",
+    "statement": "h. `analysis`: at least one evidence-grounded read-through entry; an empty list is rejected. `analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers (`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a citation's quote, not in the text (the validator rejects a bare figure). `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.readiness:validate_review",
      "fn:deploy_vii.prose:issues"

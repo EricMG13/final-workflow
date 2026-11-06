@@ -74,6 +74,7 @@ from deploy_vii.report_view import fact_spelling, figure_unit
 from deploy_workflow.context import ContextRefused, context_facts
 from deploy_workflow.owners.blank import is_blank, one_per_page
 from deploy_workflow.owners.cp1a import probe_one_step
+from deploy_workflow.owners.cp2a import DECLINE_FORMULA
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
     PeriodBasis,
@@ -801,6 +802,20 @@ def _run_text_issues(path: str, text: str) -> list[str]:
     return []
 
 
+def _guard_issues(path: str, text: str) -> list[str]:
+    """The prohibited-conclusion guard of analyst text: CP-1A's default kinds, then this core's
+    probability-weighting phrases (ruling L11), a phrase guard and not a semantic check."""
+    low = text.lower()
+    return [
+        *prohibited_issues(path, text),
+        *(
+            f'{path}: prohibited conclusion (probability weighting): "{phrase}"'
+            for phrase in PROBABILITY_PHRASES
+            if phrase in low
+        ),
+    ]
+
+
 def _text_issues(
     path: str, text: str, bound: Mapping[str, Fact], names: Sequence[str], *, claim: bool = False
 ) -> list[str]:
@@ -813,24 +828,38 @@ def _text_issues(
     issues = [clipped((path, ": ", issue)) for issue in found]
     if claim and not found:
         issues += _run_text_issues(path, text)
-    issues.extend(prohibited_issues(path, text))
-    low = text.lower()  # this core's phrase guard (ruling L11), not a semantic check
-    issues.extend(
-        f'{path}: prohibited conclusion (probability weighting): "{phrase}"'
-        for phrase in PROBABILITY_PHRASES
-        if phrase in low
-    )
-    return issues
+    return [*issues, *_guard_issues(path, text)]
 
 
-def _limitation_issues(path: str, text: str | None) -> list[str]:
-    """Round 11 blank text: a stated limitation of whitespace alone (round 12 B10: and `Cf`
-    characters), or `""`, is empty text, in the pinned frame (V08). A limitation is optional, so None is not refused."""
-    return [f"{path}: empty text"] if text is not None and is_blank(text) else []
+def _limitation_issues(path: str, text: str | None, names: Sequence[str]) -> list[str]:
+    """A stated limitation (plain text, `Claim.limitation`; optional, so None is not refused).
+    Round 11 blank text: whitespace alone (round 12 B10: and `Cf` characters), or `""`, is empty
+    text, in the pinned frame (V08). No reference resolves in a limitation, so a figure or
+    reference is refused (as CP-2H's `_limitation`); then the same conclusion guard as a
+    rationale (S07-cp2-gh-A02)."""
+    if text is None:
+        return []
+    if is_blank(text):
+        return [f"{path}: empty text"]
+    found = prose.check(text, refs=(), gaps=(), names=names)
+    return [*(clipped((path, ": ", issue)) for issue in found), *_guard_issues(path, text)]
 
 
 def _is_definition(b: Cp2aBreak) -> bool:
     return b.origin == "Definition"
+
+
+_FORMULA_KIND: Mapping[str, BreakKind] = {f: k for k, f in DECLINE_FORMULA.items()}
+
+
+def _names_tested_metric(b: Cp2aBreak, kind: BreakKind) -> bool:
+    """S07-cp2-gh-A01: whether `kind` is the metric CP-2A tested for a break, read from the
+    decline formula its known required decline carries (any base period). A known decline whose
+    formula CP-2G does not map names no metric (fail closed). With no known decline the metric is
+    not knowable from CP-2A's output, so this cannot refuse it (`_metric_check` then reports it
+    unverified)."""
+    rd = b.required_decline
+    return rd.status != "known" or _FORMULA_KIND.get(rd.formula or "") == kind
 
 
 def _metric_check(
@@ -884,8 +913,10 @@ def _break_issues(
             issues.append(f"{where}.break_id: duplicate break {bm.break_id}")
         else:
             seen.add(bm.break_id)
-            ok, _cause = _metric_check(
-                b, _METRIC_KIND[bm.metric], operands, cp2a.base_period, basis
+            kind = _METRIC_KIND[bm.metric]
+            ok = (
+                _names_tested_metric(b, kind)
+                and _metric_check(b, kind, operands, cp2a.base_period, basis)[0]
             )
             if not ok:
                 issues.append(
@@ -922,18 +953,18 @@ def content_issues(inputs: ForwardInputs) -> tuple[str, ...]:
                     break
         path = f"base_drivers.{name}.rationale"
         issues += _text_issues(path, driver.rationale, bound, names, claim=True)
-        issues += _limitation_issues(f"base_drivers.{name}.limitation", driver.limitation)
+        issues += _limitation_issues(f"base_drivers.{name}.limitation", driver.limitation, names)
     if sub.downside.scenario not in {s.row for s in ctx.cp2a.scenarios}:
         issues.append(f"downside.scenario: not a CP-2A scenario: {sub.downside.scenario}")
     issues += _text_issues("downside.rationale", sub.downside.rationale, bound, names, claim=True)
-    issues += _limitation_issues("downside.limitation", sub.downside.limitation)
+    issues += _limitation_issues("downside.limitation", sub.downside.limitation, names)
     issues += _break_issues(sub.break_metrics, ctx.cp2a, operands, ctx.basis)
     issues += _text_issues(
         "minimum_liquidity.rationale", sub.minimum_liquidity.rationale, bound, names, claim=True
     )
     rationale = sub.assessment.rationale
     issues += _text_issues("assessment.rationale", rationale, bound, names, claim=True)
-    issues += _limitation_issues("assessment.limitation", sub.assessment.limitation)
+    issues += _limitation_issues("assessment.limitation", sub.assessment.limitation, names)
     if sub.assessment.confidence == "High":
         issues.append(HIGH_ISSUE)
     for i, gap in enumerate(sub.gaps):

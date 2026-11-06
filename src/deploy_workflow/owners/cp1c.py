@@ -66,7 +66,7 @@ from deploy_vii.report_view import fact_spelling
 from deploy_workflow.context import ContextRefused, RunContext, Valuation, context_facts
 from deploy_workflow.context_cites import context_text
 from deploy_workflow.owners.blank import is_blank, one_per_page
-from deploy_workflow.owners.cp1a import probe_one_step
+from deploy_workflow.owners.cp1a import OneStep, probe_one_step, submit_one_step
 from deploy_workflow.owners.cp2g import select_cp1
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
@@ -3345,22 +3345,8 @@ def submit(
     )
     if rules is not None and rules(normal):
         validate = _with_rules(validate, rules, normal)
-    attempt = store.submit_step(ticket_id, MODULE_ID, STEP_IDS, step_id, normal, validate)
-    if (
-        attempt.status == "pending"
-        and len(attempt.steps) == 1
-        and attempt.steps[0].status == "valid"
-    ):
-        outcome = _validate_step(store, store.pack(), attempt)
-        if outcome.issues or not outcome.retained_as(attempt.steps[0]):
-            raise ValueError("Retained CP-1C output differs from trusted validation")
-        candidate = _candidate(outcome.output or "", attempt)
-        attempt = store.finish(
-            ticket_id,
-            candidate.model_dump_json(),
-            lambda supplied: () if supplied == candidate else ("CP-1C candidate differs",),
-            qualification=QUALIFICATION,
-        )
+    one_step = OneStep(MODULE_ID, STEP_ID, _validate_step, _candidate, QUALIFICATION)
+    attempt = submit_one_step(store, ticket_id, one_step, normal, validate)
     return Submitted(attempt, normal, resolved, (), (), None)
 
 

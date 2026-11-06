@@ -815,7 +815,7 @@ def _outcome(item: BridgeItem, assessment: Assessment, sources: Sequence[Source]
 _NOT_MONEY = "Accepted basis quote must state the amount in the bridge's currency and millions: "
 _MILLIONS_WORD = r"(?:m|mm|mn|million|millions)"
 _LINK_WORDS = (
-    "a|an|and|or|but|is|are|was|were|be|been|in|on|at|by|for|from|to|per|each|as|with|"
+    "a|an|and|or|but|is|was|be|in|on|at|by|for|from|to|each|as|with|"
     "under|over|against|after|before|during|since|until|through|across|net|gross|annually"
 )
 _END = r"(?:[.,;:)!?]|\Z)"
@@ -831,7 +831,7 @@ _CURRENCY_TOKENS = frozenset(
         *("RUPEE", "RUPEES", "RAND", "PESO", "PESOS"),
     )
 )
-_TOKEN_BEFORE = re.compile(r"(\S*) ?\Z")
+_AROUND = 64  # characters of page text read either side of the figure (a unit, code or symbol)
 
 
 def _money_tail(tail: str, currency: str) -> bool:
@@ -840,17 +840,19 @@ def _money_tail(tail: str, currency: str) -> bool:
     unit = rf" ?(?:{_MILLIONS_WORD}(?: ?{code})?|{code})"
     after = r"(?![^\W\d_])"
     pattern = rf"{unit}(?:{_END}| (?:of|{_LINK_WORDS}){after})|{_END}| (?:{_LINK_WORDS}){after}"
-    return re.match(pattern, tail, re.IGNORECASE) is not None
+    return re.match(pattern, tail[:_AROUND], re.IGNORECASE) is not None
 
 
 def _money_head(head: str, currency: str) -> bool:
-    """Whether the token before the figure is no currency, or the run's `currency`."""
-    match = _TOKEN_BEFORE.search(head)
-    token = "" if match is None else match.group(1)
-    if token.upper() == currency or token in _CURRENCY_SYMBOLS.get(currency, ()):
+    """Whether the word before the figure is no currency, or the run's `currency`. The word is
+    the last one of `head` with its punctuation dropped (`(EUR`, `EUR:`, `U.S.$`), a currency
+    symbol kept."""
+    last = head[-_AROUND:].split()[-1:]
+    word = "".join(c for c in "".join(last) if c.isalnum() or unicodedata.category(c) == "Sc")
+    if word.upper() == currency or word in _CURRENCY_SYMBOLS.get(currency, ()):
         return True
-    named = _CURRENCY_CODE.fullmatch(token) is not None or token.upper() in _CURRENCY_TOKENS
-    return not named and not any(unicodedata.category(char) == "Sc" for char in token)
+    named = _CURRENCY_CODE.fullmatch(word) is not None or word.upper() in _CURRENCY_TOKENS
+    return not named and not any(unicodedata.category(char) == "Sc" for char in word)
 
 
 def _money_figure(citation: Citation, sources: Sequence[Source], currency: str) -> bool:
@@ -868,7 +870,8 @@ def _money_figure(citation: Citation, sources: Sequence[Source], currency: str) 
         for text in texts:
             at = text.find(needle)
             while at >= 0:
-                contexts.append((text[: at + start], text[at + end :]))
+                before = text[max(0, at + start - _AROUND) : at + start]
+                contexts.append((before, text[at + end : at + end + _AROUND]))
                 at = text.find(needle, at + 1)
         if not all(_money_head(h, currency) and _money_tail(t, currency) for h, t in contexts):
             return False

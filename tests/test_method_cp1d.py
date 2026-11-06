@@ -610,6 +610,14 @@ WRONG_BASIS_PAGES = {
     "text after period": POSITIVE_PAGE1.replace(BASIS_CLAUSE, " restated" + BASIS_CLAUSE),
     "second currency": POSITIVE_PAGE1.replace(BASIS_CLAUSE, BASIS_CLAUSE + " EUR;"),
     "second scale": POSITIVE_PAGE1.replace(BASIS_CLAUSE, BASIS_CLAUSE + " amounts in thousands;"),
+    "lowercase code": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; usd; amounts in millions;"),
+    "capitalised unit clause": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; USD; Amounts in millions;"),
+    "thousand millions": POSITIVE_PAGE1.replace(
+        BASIS_CLAUSE, "; USD; amounts in thousand millions;"
+    ),
+    "currency inside the unit clause": POSITIVE_PAGE1.replace(
+        BASIS_CLAUSE, "; USD; amounts in millions of EUR;"
+    ),
     "second basis line": POSITIVE_PAGE1.replace(
         HEADER,
         "Basis: FY2025 (January 1-December 31, 2025); EUR; amounts in thousands.\n" + HEADER,
@@ -627,6 +635,26 @@ def test_bridge_basis_must_state_the_run_currency_in_millions(variant: str) -> N
     assert cp1d.validation_issues(inputs) == ("Bridge table not found",)
     with pytest.raises(ValueError, match="Bridge table not found"):
         cp1d.compute(inputs)
+
+
+@pytest.mark.parametrize(
+    "clause",
+    [
+        " ; USD; amounts in millions;",  # blanks round a semicolon are not text
+        "; USD ;  amounts in millions ;",
+        ";USD;amounts in millions;",
+    ],
+)
+def test_bridge_basis_clause_spacing_and_ending_still_parse(clause: str) -> None:
+    page1 = POSITIVE_PAGE1.replace(BASIS_CLAUSE, clause)
+    assert page1 != POSITIVE_PAGE1
+    bridge = cp1d.parse_bridge([page1])
+    assert bridge is not None
+    assert [i.amount for i in bridge.items][:3] == [
+        Decimal("3.00"),
+        Decimal("1.20"),
+        Decimal("0.80"),
+    ]
 
 
 def test_bridge_basis_currency_is_the_runs() -> None:
@@ -1369,6 +1397,19 @@ NOT_MONEY_LINES = [
     "Signed supplier contracts cover 1.5 thousand of the saving.",
     "Signed supplier contracts cover 1.5bn of the saving.",
     "Signed supplier contracts cover 1.5 months of the saving.",
+    # Review of the fix: a percentage said in words, and another currency in brackets,
+    # after a colon or across a line wrap or a no-break space.
+    "Signed supplier contracts cover 1.5 per cent of the saving.",
+    "Signed supplier contracts cover 1.5 pct of the saving.",
+    "Signed supplier contracts cover 1.5 percentage points of margin.",
+    "Signed supplier contracts cover 2 are signed.",
+    "Signed supplier contracts cover (EUR 1.50m) of the saving.",
+    "Signed supplier contracts cover EUR: 1.50m of the saving.",
+    "Signed supplier contracts cover EUR\u00a01.50m of the saving.",
+    "Signed supplier contracts cover EUR\n1.50m of the saving.",
+    "Signed supplier contracts cover (\u20ac1.50m) of the saving.",
+    "Signed supplier contracts cover 1.5 thousand USD of the saving.",
+    "Signed supplier contracts cover 1.5 billion of the saving.",
 ]
 
 
@@ -1397,6 +1438,14 @@ def test_basis_figure_in_another_unit_or_currency_is_refused(line: str) -> None:
         ("Signed supplier contracts cover an annualised saving of usd 1.80m.", "1.80"),
         ("Signed supplier contracts cover an annualised saving of 1.80m, net of costs.", "1.80"),
         ("Signed supplier contracts cover 1.80 in annualised savings.", "1.80"),
+        # Review of the fix: punctuation round a USD mark, a no-break space, a line wrap.
+        ("Signed supplier contracts cover ($1.80m) of the saving.", "1.80"),
+        ("Signed supplier contracts cover (USD 1.80m) of the saving.", "1.80"),
+        ("Signed supplier contracts cover USD:\u00a01.80m of the saving.", "1.80"),
+        ("Signed supplier contracts cover USD\n1.80 million.", "1.80"),
+        ("Signed supplier contracts cover 1.80\u00a0m of the saving.", "1.80"),
+        ("Signed supplier contracts cover 1.80 mn USD.", "1.80"),
+        ("Signed supplier contracts cover 1.80 MM.", "1.80"),
     ],
 )
 def test_basis_figure_in_the_bridge_money_unit_composes(line: str, amount: str) -> None:
@@ -1447,6 +1496,13 @@ def test_basis_bounds_come_before_the_unit_rule() -> None:
         ("a saving of ", " each quarter.", "USD", True),
         ("a saving of ", " eachness.", "USD", False),
         ("a saving of ", "-Q are signed.", "USD", False),
+        ("a saving of (EUR ", "m) of it.", "USD", False),
+        ("a saving of EUR: ", "m.", "USD", False),
+        ("a saving of ($", "m).", "USD", True),
+        ("a saving of U.S.$", "m.", "USD", True),
+        ("a saving of ", " per cent.", "USD", False),
+        ("", " are signed.", "USD", False),
+        ("", ".", "USD", True),
     ],
 )
 def test_money_figure_follows_the_run_currency(

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for UBS Group AG as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "2e54133f1b22d47b492e44c16bd40091878fdaaf285f1d8de08cc5d1ee03cf43",
+    "CP-1.md": "685fa8e5832878fa7692e257450c83b45286cefc7233978ce033b37754932207",
+    "CP-1A.md": "7fa4d371e764e1152820b84955958152894dccaa744ff170272babe7d2e99475",
+    "CP-2.md": "18d5ae29b71b4120b0d445bed97b442048fd215ff958c49281cf2ab5a33751df",
+    "CP-5.md": "d8acb68ff73e27576dde4f8c6776ac9f8d6b33c47cdf7080c5b4f240b4a5f24f",
+    "view.json": "507434ba19cbf8b054f6b761514f41a4d4dd1e9de0cb20c33f00cf7ba52069c1",
+    "report-view.json": "8f6cb2ac182d2bd2380ab02477ecffc82155b3ce9c7d29c8b3eb91b169536182",
+    "report.html": "b0dab56a580b56f542ff5abdf08488368f309477096084c2737694d2cf486ed7"
+  }
+}

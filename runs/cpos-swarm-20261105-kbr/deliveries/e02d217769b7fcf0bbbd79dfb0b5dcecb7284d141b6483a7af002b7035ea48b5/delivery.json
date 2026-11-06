@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for KBR, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "f7de1ba5ed525115fdd3c83c3a0beac7369e97ba22a1a433988832a77f1390b3",
+    "CP-1.md": "2ee644440c62d0f854d57693d96ab89485a6049fcf5731139bf800d08ae27afb",
+    "CP-1A.md": "a9a51cb8794eb364fc6ef75046bacc82691aaa3e562d97f06f798f52b1476e1f",
+    "CP-2.md": "0b1b71e322d36c840b7d2db89fba29d9f16667a695c4a1356511df621a18e77e",
+    "CP-5.md": "280bc6552744771b8262b6996d209874d669706543e5e971f2c9b42f492659bb",
+    "view.json": "bb249b3d897a741acd53dc07f99aba40e9b0fd610f1326b2a8c430c962486a0a",
+    "report-view.json": "6bb66727ce2af9b277b4cbe282dd4f40e6fda6f0831e058fab7a944f23c50139",
+    "report.html": "3bbf2b8e0c8797e7c337cbce0849de4a20aa8bb0f56dcbec6b766551a48577bd"
+  }
+}

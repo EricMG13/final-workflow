@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "syf-2026-11-05-credit_snapshot-host",
+    "issuer_id": "syf",
+    "issuer_name": "Synchrony Financial",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_syf-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_syf-20251231.htm.jsonl",
+      "sha256": "0b60c3e342553b852e824b86621a2fdaa6ad093dc06c4e55a2eed5e6cf19d9d4"
+    },
+    "10-Q_2026-03-31_syf-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_syf-20260331.htm.jsonl",
+      "sha256": "25bad560fab9d89eaa95fa105d6deb566b793ff4487d93802c1c0d41e804e06c"
+    },
+    "10-Q_2026-06-30_syf-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_syf-20260630.htm.jsonl",
+      "sha256": "e78db7390d45896274c6d04cfc239ed8817a6d1e34b0f8639e41e84d8aaaf93a"
+    },
+    "10-Q_2026-09-30_syf-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_syf-20260930.htm.jsonl",
+      "sha256": "bb3d956d892f83bdc99a4d6e03538bf27003f138c169bcc3d1bc7e8f04cc2a06"
+    },
+    "EX-99.1_2026-04-21_earningsrelease1q26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-21_earningsrelease1q26.htm.jsonl",
+      "sha256": "0d50d951300ce2cbbde6c33a9c8f647888bd4c1a3c654b0abb8bb16574fa4c01"
+    },
+    "EX-99.1_2026-07-21_earningsrelease2q26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-21_earningsrelease2q26.htm.jsonl",
+      "sha256": "6450eda3e6d3c5e0b0af4323ee79065c818c4ce5b11bc0f800cb9d5d7e7bc639"
+    },
+    "EX-99.1_2026-10-20_earningsrelease3q26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-20_earningsrelease3q26.htm.jsonl",
+      "sha256": "79e5f3de157c7238c31f3c91c9d36532abc559b56d3ee90900d572761d0e13ee"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1601712-synchrony-financial-syf-syf-pb-syf-pa.json",
+      "sha256": "b7d2667de27eee9eaad22a8f2531b97f3d412b9a580fc12af95f3529015a7aad"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "dd19b5efa06d7de2416e2cdc30515b18436ff961a5fd605ff4b7bece990a2e1d"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "b683fd6958e49ae4739ea60e6766d901f16161ee7267f2e11d0c81fe3f0fa6de"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "5ffa955aa154a19e57c8c2ab3a6246d9d52acf6d4235c1731f8fd46ac9eef54b"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "2398b1223892bc4ad85e6404840b119505946e7eebc5d3fe2e5b509de15fbb86"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "1c9755e35e11fe265af6ba423d3a1c0b6bb72c83d43a147da5c255df50cd89c1"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Synchrony Financial as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Synchrony Financial — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

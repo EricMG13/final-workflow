@@ -206,6 +206,59 @@ and rewrite tournament), all pass.
 Not verified: the Playwright browser gate (selectors renamed, not executed here); validate.py quick/full
 modes as a whole; the 6s iframe failure path and Retry in Windows Edge; Windows rendering of the activity
 icon and the tokenised ramp; nothing committed.
+## 2026-11-06 — Swarm run: 118 SECData issuers, host mode, `minimum` set
+
+At the user's instruction ("30x sonnet agents"; goal "complete minimum 100 issuers"), 15 workflows
+with 2 concurrent Sonnet analysts each ran `cpos_launch --config host --modules minimum`. They
+covered all 118 usable SECData packs as of 2026-11-05, with SECData's contexts (commit `b5d5faa`
+on SECData PR #1) and `docs/templates/host-analyst-checklist.md`. That made about 30 analysts at
+a time. Each analyst drafted every module, worked through the checklist's "Before you submit" on
+the draft, then submitted. There was no review loop, by the user's ruling ("remove the review
+process, too slow"). Run folders are `runs/cpos-swarm-20261105-<issuer id>`. The code is this
+branch on main `579b55b` (reader summary, persona and view-first openings for every module).
+
+Results:
+
+- **Published:** 117 of 118 in the swarm, and 118 of 118 after one repair run.
+- **Relaunch check:** a relaunch of each published run's own command exits 0, prints its report
+  and writes no file. CP-OS rechecks every accepted answer on that relaunch.
+- **First-time acceptance:** 64 runs had every module accepted on the first attempt.
+- **Rejected attempts by module:**
+  - CP-0: 3
+  - CP-1: 23
+  - CP-1A: 18
+  - CP-2: 17
+  - CP-5: 5
+- **What CP-OS rejected:** only format, never content. The causes were a reader-summary number
+  missing from the body, a cell over the word limit, a missing report selector, or an H2 heading
+  in the wrong place.
+- **Stopped run:** `cpos-swarm-20261105-svc` stopped after three CP-2 rejections and is kept
+  unchanged as the earlier attempt. Its repair, `cpos-swarm-20261105-svc-002`, is a new run
+  folder; it published with every module accepted first time and passes the same relaunch check.
+- **Usage:** about 49.7 million Sonnet subagent tokens (about 0.42 million per issuer), from
+  02:02 to about 03:45 UTC. Host usage per module is still not measured.
+
+The runs had no independent review. Each CP-5 is a self-review by the analyst that wrote the other
+modules, and its notes say so. The analysts reported defects that their own CP-5 found but could
+not correct, because an accepted answer cannot be replaced:
+
+- wrong page locators;
+- unsupported wording;
+- a misread pro forma table;
+- in four runs, an edit script failed and the uncorrected draft was submitted.
+
+The checklist did fix the pilot's main GFL defect: revolver availability is now derived from the
+letter-of-credit notes, not called "Not calculable". Pack and context limits the analysts met:
+
+- Viasat's and Cimpress's 8-K releases carry no figures (call notices or image-only).
+- The 40-F packs hold only cover documents, with no audited annual statements.
+- Flutter's context gives the Netherlands, the funds' country; its filings say Ireland.
+- Most packs have no credit agreement or indenture, so covenant headroom is usually not
+  calculable.
+
+Checks: Go `TestCurrentRetainedWorkspace` passes with the 119 new run folders. No run folder
+contains the SEC contact string.
+
 ## 2026-11-06 — Sonnet swarm pilot, five issuers, independent review
 
 At the user's instruction ("use a workflow for the 5-issuer pilot"), workflow run `wf_ffe44974-253`

@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "ego-2026-11-05-credit_snapshot-host",
+    "issuer_id": "ego",
+    "issuer_name": "ELDORADO GOLD CORP /FI",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "40-F_2025-12-31_ego-20251231_d2.htm.jsonl": {
+      "path": "source-text/40-F_2025-12-31_ego-20251231_d2.htm.jsonl",
+      "sha256": "2d84dc109f346979ffc12a8e05f174bb9ee3c9bd6fcc72c5f9456622e3a05ce3"
+    },
+    "6-K-EX-99.1_2026-03-31_eldoradogoldreportsfirstqu.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_eldoradogoldreportsfirstqu.htm.jsonl",
+      "sha256": "3b31b8f45b42d214b8f1d541ff63602490ab0a53167940d88fa15730bc28a118"
+    },
+    "6-K-EX-99.1_2026-03-31_unauditedcondensedconsolid.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_unauditedcondensedconsolid.htm.jsonl",
+      "sha256": "6ab28f2649ba0274d424a4a577f9d317100b3de9ac89fbdc0f56e73f18e3f38e"
+    },
+    "6-K-EX-99.1_2026-06-30_eldoradogoldreportsq22026f.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-06-30_eldoradogoldreportsq22026f.htm.jsonl",
+      "sha256": "1bf15cab552e9fcdd05ecc97d7c3b6b694607e1283203ea2fc40315ad381fe66"
+    },
+    "6-K-EX-99.1_2026-06-30_unauditedcondensedconsolid.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-06-30_unauditedcondensedconsolid.htm.jsonl",
+      "sha256": "8eec4357e5c66f092a21b76dc3bc3ec04482a3d8fa39d15deb38a763bed500e0"
+    },
+    "6-K-EX-99.1_2026-09-30_eldoradogoldreportsq32026f.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-09-30_eldoradogoldreportsq32026f.htm.jsonl",
+      "sha256": "6528e78e0161f7a2d85b02006c1c676359a3ab495a586ed79cf2e7d97da5afc6"
+    },
+    "6-K-EX-99.1_2026-09-30_unauditedcondensedconsolid.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-09-30_unauditedcondensedconsolid.htm.jsonl",
+      "sha256": "f32fd44e1756d4bad20e63e1b631e75cf54a1931414a7ce2b1f905276f2ab561"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/918608-eldorado-gold-corp-fi-ego.json",
+      "sha256": "a8b2bf5acce83dbd54227ec6757e97e8686f295cadb3f91a9fecf63c4f1d9423"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "e4c8040f92009dae04869f0ff9e16d0408e0713a70eabe64af27d059b5b470c2"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "5db6cf73f6eef4c44dc33ce127763028e548513027462d84a8e76060c36c656b"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "de02e9245ee514dc6f8062dda2c1d93e7be7ff9776e9b3ec1e9f94e429d9c189"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "7f340c3a81812ce2680121775a9ebc9d3c5d0aa3e2c6e009e7ab6396ab35705b"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "d322cb798575faf3a6a176c413acb1494e7530aaf82ea9843a89bd05bf9645ee"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for ELDORADO GOLD CORP /FI as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "ELDORADO GOLD CORP /FI — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

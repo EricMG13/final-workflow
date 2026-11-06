@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Caesars Entertainment, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/8ebff89b78c251fd2323a93376f0e64b8166950826a7794a72ce74966e3c49c4/1.response.md",
+    "CP-1": "requests/CP-1/4470731c5adbbb32e83d9b7f5571960a5532fcc3633075d7be900badade25ba3/1.response.md",
+    "CP-1A": "requests/CP-1A/6de6669050a639392d046fbc355316d1cec45be63963bdc2148c3efea0dab16b/1.response.md",
+    "CP-2": "requests/CP-2/18edd1b383404af2bf1b3d882a799ec6ce2a3e731398b20f7660fad812112e9a/1.response.md",
+    "CP-5": "requests/CP-5/73dcd47bdba3b8db51d889a6233833cd1805ab25b2e156c75ae0c4058d51d719/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "090b5dfea2f28d3758e04cb103e5f354c1530a3979e72277a128e946c24522a5",
+  "report_sha256": "d8934ae57da6322f27d5fa34d0a3b7637d4ce11adea987c7027e7f014d355752"
+}

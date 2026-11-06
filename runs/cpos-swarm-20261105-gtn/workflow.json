@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "gtn-2026-11-05-credit_snapshot-host",
+    "issuer_id": "gtn",
+    "issuer_name": "GRAY MEDIA, INC",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_gtn20251231_10k.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_gtn20251231_10k.htm.jsonl",
+      "sha256": "88cd2be27d00e9908e881a07fffdbfb7e9fbcb182cd4daa7213df1b4b5f00737"
+    },
+    "10-Q_2025-09-30_gtn20250930_10q.htm.jsonl": {
+      "path": "source-text/10-Q_2025-09-30_gtn20250930_10q.htm.jsonl",
+      "sha256": "b62445e5fe4a163fa362c47bf83e36bde2a987867496619de6fe27a40edfa171"
+    },
+    "10-Q_2026-03-31_gtn20260331_10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_gtn20260331_10q.htm.jsonl",
+      "sha256": "3356f048b1cdb10c04c5b80b0d02babf79237e5dc24d851924643abb820dcebd"
+    },
+    "10-Q_2026-06-30_gtn20260630_10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_gtn20260630_10q.htm.jsonl",
+      "sha256": "e96d90052b60b94fa2a12b7f9024364ed7aff9961690c651cc002284f695a02b"
+    },
+    "EX-99.1_2026-02-26_ex_924265.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-02-26_ex_924265.htm.jsonl",
+      "sha256": "178b7bc5710105291e494cc784bd65c8c9bce375e1552cc63408e1853ff6a993"
+    },
+    "EX-99.1_2026-05-07_ex_956963.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-07_ex_956963.htm.jsonl",
+      "sha256": "b04f43ebe7b79436fed34dc07bcf8f9f9fb0c9fac32a39299a3e02ac7ae325d8"
+    },
+    "EX-99.1_2026-08-07_ex_998938.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-07_ex_998938.htm.jsonl",
+      "sha256": "1120ddd52748c4fbbc1c17f2a7297d8e7f38db5b861bb6f5b9064b68dbae4a0d"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/43196-gray-media-inc-gtn-gtn-a.json",
+      "sha256": "457b491e723cfaa80de6921ac6aa99b1d24251f7cfebd35fd33b60ef8d3cb70e"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "2d7313dd304f0e1143e0590953a781d75235d97d940df5a498484a6d54d5cbea"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "add94346c16fbb8d5a1be434ef12bb99561193e263c448d368c3afbd88928ebb"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "1b108026473512e6db1dd729db39a4b554bcaf83d4d770904d1e3a958592f8f5"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "f6d1c63418284544b847772148923a1318d65f314a1e4d2bf5a52436f642f781"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "db4836729d4694cdd930dc8c2718f9e8b0c4eafcf1c26d923566aec05dc830bb"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for GRAY MEDIA, INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "GRAY MEDIA, INC — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

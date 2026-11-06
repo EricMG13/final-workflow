@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "vsat-2026-11-05-credit_snapshot-host",
+    "issuer_id": "vsat",
+    "issuer_name": "VIASAT INC",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2026-03-31_vsat-20260331.htm.jsonl": {
+      "path": "source-text/10-K_2026-03-31_vsat-20260331.htm.jsonl",
+      "sha256": "1c23252df4c637638200fb9348ed5ffed927449a4a7929f8c2d3d32f47700503"
+    },
+    "10-Q_2025-09-30_vsat-20250930.htm.jsonl": {
+      "path": "source-text/10-Q_2025-09-30_vsat-20250930.htm.jsonl",
+      "sha256": "affc4c69c7c054d13cdfda6457a45a61e4b7982a7ef0303bf8063d9286a1a6ad"
+    },
+    "10-Q_2025-12-31_vsat-20251231.htm.jsonl": {
+      "path": "source-text/10-Q_2025-12-31_vsat-20251231.htm.jsonl",
+      "sha256": "5d4e2a3c2b8235f73cafa0a24986ef754436ce1f537220a0974c358be9cb6975"
+    },
+    "10-Q_2026-06-30_vsat-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_vsat-20260630.htm.jsonl",
+      "sha256": "aa18d6c66e80cd5c7aff8b398e77f86edf1249c806f11b1736b4f27d82fc2783"
+    },
+    "EX-99.1_2026-02-05_d39970dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-02-05_d39970dex991.htm.jsonl",
+      "sha256": "23138ee0a880a44b449e95b5f9aaf632204fd99f3516e24acaab0a87d204ddee"
+    },
+    "EX-99.1_2026-05-28_d133220dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-28_d133220dex991.htm.jsonl",
+      "sha256": "301e0612a07fbb30e52a3dca025f633bcfbda12e9eec66bdabe72b6cb0b1fb32"
+    },
+    "EX-99.1_2026-08-04_d131434dex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-04_d131434dex991.htm.jsonl",
+      "sha256": "46196d78a07d35d23f4ab35f7f30250011a1d6884ef2fdab541757adc0227713"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/797721-viasat-inc-vsat.json",
+      "sha256": "17f947c7803a9c3f9a558a94754568a0528cf2b9b27aade8ad60c15d0b57d192"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "208e7942f337199a48647feff5855fcd1c7c61b9752dbb5dc05f4cd4cb80682e"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "6e30c482eeb959d60f1103b0d5e3a470e303b2a3ff76e63bfdcc35fd2d3fea86"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "977939a386ff93d1de638ad2c0e8dc7c1171b86b4ee11a880af8c4f8faeead27"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "50f3ec13ff6cc667247c031ff06187d39d8dc8b4c0b390c7be327234c23472a8"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "458bb1d23aeda41f04077ecadadafd89d13bec901e5684410076160877695793"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for VIASAT INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "VIASAT INC — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

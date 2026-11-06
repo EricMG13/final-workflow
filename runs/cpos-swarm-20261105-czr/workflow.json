@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "czr-2026-11-05-credit_snapshot-host",
+    "issuer_id": "czr",
+    "issuer_name": "Caesars Entertainment, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_czr-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_czr-20251231.htm.jsonl",
+      "sha256": "bc64a6b58a2e5481a0cfade7eea5b0ab2abc3801003c4d6cb677785a5aa59468"
+    },
+    "10-Q_2026-03-31_czr-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_czr-20260331.htm.jsonl",
+      "sha256": "5678521031e1645ef46bac311c4cabf43977488c6d11dfa25cc00a4f23b2d8a8"
+    },
+    "10-Q_2026-06-30_czr-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_czr-20260630.htm.jsonl",
+      "sha256": "c1584ea1247740f06c0dd4b0a8964b1753f8cc5c74266698804a67fd5a8dafb5"
+    },
+    "10-Q_2026-09-30_czr-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_czr-20260930.htm.jsonl",
+      "sha256": "020dbbd4c466f93db126b9e9ea0f09672470d3e5caa33fd667f739807400c48f"
+    },
+    "EX-99.1_2026-04-28_ex991-2026q1ceiearningsrel.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-28_ex991-2026q1ceiearningsrel.htm.jsonl",
+      "sha256": "7471385a5ad76519a93a6fc4a1f0048a88c7bfb7676d6a0b6e78c8e1a9e19c13"
+    },
+    "EX-99.1_2026-07-28_ex991-2026q2ceiearningsrel.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-28_ex991-2026q2ceiearningsrel.htm.jsonl",
+      "sha256": "89cd5ad8c7a0d45cdf4a8f6462fc3964a9e7d04aae46811b1f50bebeb80c1762"
+    },
+    "EX-99.1_2026-10-27_ex991-2026q3ceiearningsrel.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-27_ex991-2026q3ceiearningsrel.htm.jsonl",
+      "sha256": "72e92043d95db7701dbaee10509a03094dd97f5a7811f25a956ad12661393bcd"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1590895-caesars-entertainment-inc-czr.json",
+      "sha256": "fb12b9963cea633059e88f881abb925ca379a0e095eca4255a6e391fb14bd7dc"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "fdad8a04ed350e2bdde3c10596aa9223ed9a1861467c8a6b4826a1134dd466cc"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "7e460d03797a04ed30daa1f7f5a75e63fb346d7b202e562ee6f986dc746e85f4"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "34cb7d4dc26ecc4d7b818603fcd44772e8347f1fa368d6ad1adfa740be05490f"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "161001c1ac825e443a49f2cfd6cba74803eb33d0fcdb3759ac404d0cd9eaa48d"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "2c31e7863a470ad20d55f9f1dca44b05ba46a2bdd4692e3fd06fe4528769815e"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Caesars Entertainment, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Caesars Entertainment, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for IRON MOUNTAIN INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/19ce5443240f6caac85e83beda168a7e99ec4bc614d9dac0b93287144070e5dd/1.response.md",
+    "CP-1": "requests/CP-1/0011426d0d21f3489403d3cc4ec840e6bae166262ee9b0baadd8a48c779b6ba7/2.response.md",
+    "CP-1A": "requests/CP-1A/175ef32a375816aed11a2322ba5ccb4b284c13dc0d7c837a6104ddb3087288ad/1.response.md",
+    "CP-2": "requests/CP-2/b268b02a3b04a21d0cefd782c1735e8371dc8dc8e8ae8600e03a30430af02515/1.response.md",
+    "CP-5": "requests/CP-5/01339dbb59989eeca681fe2de495d07d1213cbe227448b2977cee8493506f8ad/2.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "9214a51d03748e6fc588913cb8f7e2c600998d977df3af63208e3bb4dbf25848",
+  "report_sha256": "2b7a583c92e2c923c49e99c562c6a740139c0d1eed8efbd1e9058fb695fa54a0"
+}

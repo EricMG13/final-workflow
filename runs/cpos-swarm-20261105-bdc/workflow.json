@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "bdc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "bdc",
+    "issuer_name": "BELDEN INC.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_bdc-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_bdc-20251231.htm.jsonl",
+      "sha256": "80ef274084e1c7703f38055c49f44de69b5a31dd5b2e660bad032bc466600517"
+    },
+    "10-Q_2026-03-29_bdc-20260329.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-29_bdc-20260329.htm.jsonl",
+      "sha256": "92ae5feb886f18c8068e6e144870a7ce7fe24ecefea2657b8f22ad10746ee6ac"
+    },
+    "10-Q_2026-06-28_bdc-20260628.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-28_bdc-20260628.htm.jsonl",
+      "sha256": "60c04fb4ddf3b8e563e4be095f10f190f61691e26efdac7b09cb5561f0a211ee"
+    },
+    "10-Q_2026-09-27_bdc-20260927.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-27_bdc-20260927.htm.jsonl",
+      "sha256": "7239af9a6f61de7f4eea5ba8a5ab17342b8c139514426ea01b365d68fd81dcfe"
+    },
+    "EX-99.1_2026-04-30_companynewsreleasedatedmar.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-30_companynewsreleasedatedmar.htm.jsonl",
+      "sha256": "800b10b5a6acbba2ef9d00a1b953296d6d2a04b007b53040c5086b01b69c7caa"
+    },
+    "EX-99.1_2026-07-30_companynewsreleasedatedjul.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-30_companynewsreleasedatedjul.htm.jsonl",
+      "sha256": "97518bcedf20ecd151c6170017340147f2d2133733fbcb29ebcfd34f2604e982"
+    },
+    "EX-99.1_2026-10-29_companynewsreleasedatedoct.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-29_companynewsreleasedatedoct.htm.jsonl",
+      "sha256": "bd6ff1210615fc5d7c13577de667703f5a66b803e28876ed410b2fa777310433"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/913142-belden-inc-bdc.json",
+      "sha256": "c6d9bea849396ac29c99bcba0cfe7683fa092d214ad8aab3fe1d1ba06b34ee33"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "df3bc59b6d402214d246a92ced7ab93e9fc66cc298b8314378193909094a396a"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "47c39df99905401f99fff88dfd4f3d7abc9d098b2e62712842d96d39dc1b9205"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "99ecbaac9c60ca85f4e90c6c38a933e226a4b24507c13a4a51f2376b97a9ca1e"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "8e6ca1687cc0a8ed10dee8e003e9bbe5e11665d25330883e456e2ba94de7cd8f"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "8ba1e95a3c7aa97024a492f6f9b4ce1f55bed5dab1ed17a2a0bec02d58741bd5"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for BELDEN INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "BELDEN INC. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

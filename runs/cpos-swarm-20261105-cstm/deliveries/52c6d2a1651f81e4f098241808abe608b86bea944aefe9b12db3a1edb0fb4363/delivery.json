@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CONSTELLIUM SE as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "e448de069eb7c811e3b2a2cfd9bc5a9082f5527e833a6cdf53464bc5bafe5bb4",
+    "CP-1.md": "0be39b719ef3e1ad43f3001b21e072ad911c3e441b42c3067a440ada26b88568",
+    "CP-1A.md": "96d690230ddab7f652a1700962c5d908397d38400cb598136c3a4e909782a343",
+    "CP-2.md": "88053d74cf5304d750fbdff7bf6c6c534651632fde82acc998af36ee41249c94",
+    "CP-5.md": "b73638fb372363034e6b48800d60a902f0a21208e24668b65425f2e37f452c87",
+    "view.json": "71e07d687c29193e3740b336df8fa950dd1199508e946f2e7e8e950a6e5b9256",
+    "report-view.json": "700d73fe23ba2f371f20a8c38ebdf0d4f8acbb3647fdd775806c251efe7eff90",
+    "report.html": "3af0852987ba8796242aac751a077c1cad151e1327c239eab3d3aa64f60588f2"
+  }
+}

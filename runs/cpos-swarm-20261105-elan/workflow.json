@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "elan-2026-11-05-credit_snapshot-host",
+    "issuer_id": "elan",
+    "issuer_name": "Elanco Animal Health Inc",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_elan-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_elan-20251231.htm.jsonl",
+      "sha256": "631f12506b56aa385a6cb05350b491f6e4807480f3dfa124f622742afde4eb4d"
+    },
+    "10-Q_2025-09-30_elan-20250930.htm.jsonl": {
+      "path": "source-text/10-Q_2025-09-30_elan-20250930.htm.jsonl",
+      "sha256": "7696222aac33b3c5724420ded155220803d97cf7ef1e18a5f318f74a02a9f48b"
+    },
+    "10-Q_2026-03-31_elan-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_elan-20260331.htm.jsonl",
+      "sha256": "8e89da9cffbcecbe1eed4ffa4c7a49caeeccf8b4ba6b25abfd3550722e65c68a"
+    },
+    "10-Q_2026-06-30_elan-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_elan-20260630.htm.jsonl",
+      "sha256": "c53b62a714e3fe245be0c34b9cfa53c27b751637f6f9ab0c69e1814c10ec5ae4"
+    },
+    "EX-99.1_2026-02-24_elanco-12312025exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-02-24_elanco-12312025exhibit991.htm.jsonl",
+      "sha256": "1f19620e2ed3f724fb36ed2529d45e324cf0c5eb195eeb5f344974991a2cc3a7"
+    },
+    "EX-99.1_2026-05-06_elanco-20260331exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-06_elanco-20260331exhibit991.htm.jsonl",
+      "sha256": "4e76217e501306dbc17cfb4f968ce0b23feddf7680c305268cc02ac6e80dcede"
+    },
+    "EX-99.1_2026-08-05_elanco-20260630exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_elanco-20260630exhibit991.htm.jsonl",
+      "sha256": "b942651707926f126b37ca482f9fd9191b045d925b308278420efd4d0def6d7f"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1739104-elanco-animal-health-inc-elan.json",
+      "sha256": "f7c64d35ea0396669fb4a13a10eedb17c6d4612678c62234d77a0ad21bc4c259"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "8281a597ee30b63ddc2f6f44c80f0e4b8efaecdbd7e05f315766e1295cee2cfe"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "49b18d5c2a1aa612e003d45f41f7a03bba127ac128e29a888fe2cf5a14015391"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "eb62a030adf3d8d6c773b5bbc7595083072d868b5dab3a96c22b6b8387e35b10"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "74136a26cb7aceefcaf44a0289b014f5fbf7aebb0d1b08d379e6bd35a4a86443"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "513ea6c191d0ec23e80798a7337bf5cb54a8412fc7de1833d7618b41b2d3602f"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Elanco Animal Health Inc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Elanco Animal Health Inc — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

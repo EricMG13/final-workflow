@@ -1,0 +1,217 @@
+## Request
+
+Evidence trace and research integrity QA for Allison Transmission Holdings Inc, as of 2026-11-05 (evidence cutoff 2026-11-05), pathway credit_snapshot, run alsn-2026-11-05-credit_snapshot-host. Scope: every material claim and derived figure in the source readiness, financial base, business and transaction, and credit synthesis handoffs is traced to the seven pinned sources, recomputed where derived, and graded. Amounts are US$ millions as printed unless a ratio or percentage is stated.
+
+Locator convention: S1 to S7 are the sources listed below; `page:N` is the chunk number of the extracted text, not the printed page.
+
+## Sources
+
+### Issuer sources relied on
+
+| Id | Exact name | sha256 |
+| --- | --- | --- |
+| S1 | 10-K_2025-12-31_alsn-20251231.htm.jsonl | 4759ff666c33cf9b4aa9fc9af406b5ff948ca8c7e8b83ef1d1b8c3371ee474c1 |
+| S2 | 10-Q_2026-03-31_alsn-20260331.htm.jsonl | be0a328aec24e49cdf0300569cba1bccab7cce3c7f95d5658c5db76418cb7b3d |
+| S3 | 10-Q_2026-06-30_alsn-20260630.htm.jsonl | 0d35855e179d244457d2146b580b35b12b14abea216ea0bdfab3dfa942713609 |
+| S4 | 10-Q_2026-09-30_alsn-20260930.htm.jsonl | 45fe422f6a742d85a38f1278f190cb497541b353ed938208d565068e9ab989b0 |
+| S5 | EX-99.1_2026-05-04_d138525dex991.htm.jsonl | fe207b266e861065ca33402f15b822e8bf63e3f1f6c76c7ba33719a7889867e5 |
+| S6 | EX-99.1_2026-08-03_d95413dex991.htm.jsonl | 351a085e364488314b64d2b881181e5b5b95879fe010b71d75af6ac7e45fdd04 |
+| S7 | EX-99.1_2026-11-02_d187329dex991.htm.jsonl | b8087f0341293bcafb0ca28c8fc71ee181a5c666b45fe74a0ca9cfe109b0ba65 |
+
+Run settings, not issuer evidence: context file 1411207-allison-transmission-holdings-inc-alsn.json, sha256 f65312705cd8bb204fde9755509326ba975099b166b8d246c949fcd0ea955b5a.
+
+### Supplied handoffs
+
+| Module | sha256 |
+| --- | --- |
+| CP-0 | 944a1fdb32b0e105bdb98bcce7fe9920a9ab8a1870c238bf911cb1860242755e |
+| CP-1 | b27b50a0994fa47ab4bf54e7b8dd4dd25bcc010c8d3d2635214f68fda996a5d1 |
+| CP-1A | be911cd43317c5c9e3b0719c6b55735952efe3e667f403e5f91bac7ad242802a |
+| CP-2 | 3c5b98128b1331940df6fc514c4ed76e24ae4a7ff327fdd907fc578b96707e09 |
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| Every material figure in the credit work traces to a filed page and recomputes, apart from one rounding slip and one wrong statement about pro forma disclosure. Neither changes a conclusion, but committee use stays restricted. | Medium | Debt documents and combined-business earnings are not supplied, so covenant capacity, guarantors and combined leverage cannot be verified. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| The third quarter interest cover was shown as 7.73x and should read 7.74x. | Coverage remains comfortable; no conclusion changes. | High |
+| Earlier notes said no pro forma information existed, but each quarterly report gives pro forma net sales and net income; later notes corrected this. | Combined leverage stays uncomputable because pro forma earnings before interest and depreciation are absent. | High |
+| Debt, liquidity and covenant balances trace to the third quarter filing and tie to management's release once 25 of financing costs are allowed for. | Balance sheet inputs for the credit view are reliable. | High |
+| The reported covenant ratio of 0.84x reproduces from filed numbers, but the definition is inferred, not read. | Headroom of 4.66x is probably real but unconfirmed without the credit agreement. | Medium |
+| Legal documents are not supplied. | Capacity for distributions, priming and the guarantee package cannot be verified. | High |
+
+### Evidence trace view
+
+The credit work for Allison Transmission Holdings Inc is well sourced and committee use is restricted, not blocked. Of the 21 claims traced in the credit driver table below, 19 are verified to a filed page and recompute exactly, 1 is verified with a rounding correction (third quarter interest cover) and 1 is an estimate that rests on stated assumptions (run-rate cash interest). Every derived figure in the financial base, business and transaction and synthesis handoffs was recomputed; the only arithmetic discrepancy is the 7.73x that should be 7.74x. One factual statement in the source readiness and financial base handoffs, that no pro forma disclosure existed, is wrong: each quarterly report has a pro forma note (S2 page:9, S3 page:9, S4 page:9). The business and transaction and synthesis handoffs corrected it, and this review confirms the correction. The earlier handoffs cannot be edited, so readers should use the corrected statement. The restrictions that remain are structural: no executed legal documents, no pro forma earnings before interest and depreciation, an unresolved guarantor roster and preliminary purchase accounting. No source is dated after the 2026-11-05 cutoff, and subsequent events are labelled as such.
+
+### Contrary evidence
+
+The strongest evidence against the synthesis view of a moderate and improving credit is the perimeter mismatch: trailing Adjusted EBITDA holds the acquired unit for three of four quarters, so reported leverage is overstated, yet the acquired unit earns a 12.7% Adjusted EBITDA margin against 37.8% for the legacy unit, so a full year would add less earnings than its sales share suggests (S7 page:10). A second counterpoint is that management's 2.0x net leverage target is below the 2.47x computed on the reported trailing basis, while distributions of 195 over nine months continue. Both would win if the pro forma earnings were weak or if the credit agreement allowed large distributions, which the pack cannot show.
+
+### Handoff register
+
+| Module | Handoff and run | Scope | Source quality | Envelope and headings status | QA status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| CP-0 | Source readiness, run alsn-2026-11-05-credit_snapshot-host | Seven filed sources, context settings | Filed statements controlling; releases supporting | Accepted by CP-OS structural check | Restricted | One wrong statement on pro forma disclosure (issue I1) |
+| CP-1 | Financial base, same run | Consolidated Holdings, FY2025 and 2026 quarters | Filed statements; derived ratios | Accepted by CP-OS structural check | Restricted | Mis-rounded third quarter cover (I2); pro forma gap overstated (I1) |
+| CP-1A | Business and transaction, same run | Business, transaction, governance, pro forma correction | Filed statements, management language tagged | Accepted by CP-OS structural check | Restricted | Wording slip on labor contract timing (I3) |
+| CP-2 | Credit synthesis, same run | Credit view from upstream handoffs only | Upstream handoffs, tagged categories | Accepted by CP-OS structural check | Restricted | Repeats 7.73x (I2); estimate flagged correctly |
+
+### Source register
+
+| Source Document ID | Source Document Name | Source Quality | Period | Entity Covered | Data Supplied | Limitation | Downstream Use |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S1 | 10-K_2025-12-31_alsn-20251231.htm.jsonl | Primary, audited | FY2025 | Holdings consolidated | Statements, debt note, Adjusted EBITDA bridge, business description | Excludes the acquired unit; one segment | Annual base, customers, pension status |
+| S2 | 10-Q_2026-03-31_alsn-20260331.htm.jsonl | Primary, unaudited | Q1 2026 | Holdings consolidated | Balances, debt, covenant ratio, pro forma note | Superseded for balances | Quarterly trend and trailing builds |
+| S3 | 10-Q_2026-06-30_alsn-20260630.htm.jsonl | Primary, unaudited | Q2 2026 | Holdings consolidated | Balances, debt, covenant ratio, pro forma note | Superseded for balances | Quarterly trend and trailing builds |
+| S4 | 10-Q_2026-09-30_alsn-20260930.htm.jsonl | Primary, unaudited | Q3 and 9M 2026 | Holdings consolidated, ATI as issuer | Latest statements, debt, liquidity, segments, acquisition, ratings | Preliminary purchase accounting | Primary source for all current figures |
+| S5 | EX-99.1_2026-05-04_d138525dex991.htm.jsonl | Management release, supporting | Q1 2026 | Holdings | Net debt, leverage target, repayment statements | Management characterisation | Attributed management claims |
+| S6 | EX-99.1_2026-08-03_d95413dex991.htm.jsonl | Management release, supporting | Q2 2026 | Holdings | Net debt, revolver repayment | Management characterisation | Attributed management claims |
+| S7 | EX-99.1_2026-11-02_d187329dex991.htm.jsonl | Management release, supporting | Q3 2026 | Holdings | Segment EBITDA, guidance, quarterly interest paid | Guidance is forward-looking | Segment margins, quarterly cash interest |
+
+### Credit driver trace
+
+| Rank | Credit Driver | Originating Module | Source-Supported Basis | Why Material | Committee Relevance | Source Trace | Limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Net debt rose from 1,414 to 3,540 after the acquisition | CP-1 | Debt 2,909 and 4,037; cash 1,495 and 497 | Defines leverage change | Core | S1 page:101, S1 page:81, S4 page:19, S4 page:2 | Debt measure differs from management's 4,012 |
+| 2 | Trailing leverage 2.82x total and 2.47x net | CP-1 | Debt 4,037, trailing Adjusted EBITDA 1,431 | Headline leverage | Core | S1 page:117, S3 page:38, S4 page:41, S2 page:33 | Mixed perimeter, overstated against a combined year |
+| 3 | Liquidity of 1,493 with an undrawn revolver | CP-1 | Cash 497 plus revolver 996 | Refinancing cushion | Core | S4 page:2, S4 page:21 | Foreign cash 361 of the 497 (S4 page:44) |
+| 4 | First lien net leverage 0.84x against a maximum of 5.50x | CP-1 | Reported ratio; reproduced from filed figures | Covenant headroom | High | S4 page:22 | Definition inferred; agreement not supplied |
+| 5 | Interest cover on cash paid, 7.74x trailing | CP-1 | Trailing Adjusted EBITDA 1,431 over trailing interest paid 185 | Debt service | High | S1 page:81, S2 page:3, S3 page:3, S4 page:3 | Third quarter shown as 7.73x upstream; mixed perimeter |
+| 6 | Maturity profile: 300 in 2027, 500 in 2029, 1,505 in 2031, 1,694 in 2033 | CP-1 | Debt note by instrument | Refinancing | High | S4 page:19, S4 page:20, S4 page:22 | Constructed by final maturity year |
+| 7 | Acquisition price 2,628 funded by 2,000 of new debt plus cash | CP-1A | Purchase note and financing paragraph | Transaction size | Core | S4 page:6, S4 page:7, S1 page:118 | Preliminary 2,732 in the annual report |
+| 8 | Lower-margin acquired unit, 12.7% against 37.8% | CP-1A | Segment Adjusted EBITDA reconciliation | Mix and cyclicality | Core | S7 page:10 | Third quarter is seasonally softest for the unit |
+| 9 | Adjusted EBITDA includes 200 of adjustments, 17.2% | CP-1 | Reconciliation lines | Earnings quality | High | S4 page:41 | Credit agreement definition not supplied |
+| 10 | Top five OEMs 52% of FY2025 net sales | CP-1A | Risk factor text | Concentration | High | S1 page:28 | Pre-acquisition; not updated |
+| 11 | Dividends and repurchases of 195 for nine months | CP-1 | Cash flow statement | Competes with debt reduction | High | S4 page:3 | Target definition not supplied |
+| 12 | Pro forma net sales and net income exist | CP-1A | Pro forma note | Corrects earlier statement | High | S2 page:9, S3 page:9, S4 page:9 | Pro forma Adjusted EBITDA absent |
+| 13 | Management leverage target of 2.0x net | CP-1A | Release statement | Intent, not commitment | Medium | S5 page:1 | Undefined |
+| 14 | Credit ratings Ba1 and BB+ unchanged across 2025-12-31, 2026-03-31 and 2026-09-30 | CP-1A | Rating tables | External view | Medium | S4 page:46, S1 page:66, S2 page:38 | Outlook not supplied |
+| 15 | Run-rate cash interest of about 203 and cover of 7.04x | CP-2 | Rates and amounts in debt note | Forward debt service | Medium | S4 page:19, S4 page:20 | Estimate at constant rates; excludes fees, hedges, interest income |
+| 16 | Secured term loans 1,699 ahead of notes 2,300 | CP-1 | Debt note and security text | Structure | High | S4 page:19, S4 page:20 | Guarantor roster unresolved |
+| 17 | Claims outside debt: leases 79, pension and retiree medical 70 at year-end 2025, warranty 127 | CP-1 | Notes | Non-debt claims | Medium | S4 page:25, S4 page:23, S1 page:50 | Pension not updated to 2026-09-30 |
+| 18 | Acquired unit sales up 4.1% in the third quarter, derived | CP-1A | Pro forma less reported net sales | Trend of acquired unit | Medium | S4 page:9, S4 page:30, S4 page:2 | Derived; earnings not available |
+| 19 | Covenant effectively not binding: earnings would need to fall about 85% | CP-2 | First lien debt less cash over 5.50 | Early-warning value | Medium | S4 page:22 | Depends on inferred definition |
+| 20 | Goodwill and intangibles 4,410, 50.2% of assets | CP-1A | Balance sheet | Impairment exposure | Medium | S4 page:2 | Preliminary purchase accounting |
+| 21 | No facility matures within twelve months of the cutoff | CP-1 | Revolver January 2031; first notes October 2027 | Near-term liquidity | High | S4 page:21, S4 page:22 | October 2027 notes fall within twelve months of the cutoff date |
+
+### Claim support
+
+| Credit Driver / Conclusion | Originating Module | Source Evidence | Citation Present? | Source Quality | Classification | Claim Status | Confidence Level | Traceability Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Drivers 1, 3, 6, 7, 10, 14, 16, 17, 20, 21 | CP-1, CP-1A | Filed statements and notes | Yes | Primary | Documentary Fact | Verified | High | Fully traced |
+| Drivers 2, 5, 9 | CP-1 | Filed statements with trailing builds | Yes | Primary | Calculated | Verified, with the 7.74x rounding correction | Medium | Fully traced |
+| Drivers 4, 19 | CP-1, CP-2 | Reported ratio and reproduction | Yes | Primary | Analyst Interpretation on definition | Verified as to figures, inferred as to definition | Medium | Traced with inference |
+| Drivers 8, 11, 13 | CP-1A, CP-1 | Segment reconciliation, cash flow, release statement | Yes | Primary and management release | Documentary Fact and Management Language | Verified | High | Fully traced |
+| Drivers 12, 18 | CP-1A | Pro forma notes | Yes | Primary, unaudited | Documentary Fact and derived | Verified; corrects earlier handoffs | High | Fully traced |
+| Driver 15 | CP-2 | Rates and amounts in the debt note | Yes | Primary | Calculated estimate | Estimate | Medium | Traced with assumptions |
+
+### Metric and logic checks
+
+| Severity | Module | Metric / Logic Issue | Formula / Definition Issue | Source Conflict | Required Fix | Clearance Impact |
+| --- | --- | --- | --- | --- | --- | --- |
+| Minor | CP-1 and CP-2 | Third quarter cover shown as 7.73x | 1,431 divided by 185 is 7.7351, which rounds to 7.74x | None | Read as 7.74x | None; conclusions unchanged |
+| Material | CP-1 | Trailing leverage uses reported Adjusted EBITDA with the acquired unit for part of the year | No pro forma earnings; leverage overstated against a combined year, cover possibly flattered | None between sources; limitation is structural | Keep every trailing ratio labelled; do not state combined leverage | Restricts leverage conclusions to labelled trailing basis |
+| Minor | CP-1 | Debt measure | Note total 4,037 includes 38 of finance leases and is before 25 of financing costs; release shows 4,012 | S4 page:19 against S7 page:3 | Name the measure beside each ratio; done in CP-1 | None |
+| Minor | CP-1 | Maturity chart zeros for 2026, 2028, 2030 and 2032 | Zero means no final maturity in the year, not no payments; amortization of 1 and 3 per quarter sits in the final-maturity year | None | Read the zeros with the basis column | None |
+| Minor | CP-1 | Covenant ratio reproduction | Matches at four dates (0.84x, negative 0.87x, 1.29x, 1.01x) but definition is inferred | Agreement not supplied | Obtain the agreement | Covenant statements stay Medium confidence |
+
+### Legal and structural claims
+
+| Severity | Module | Legal / Structural Claim | Required Legal Source | Evidence Gap | Required Fix | Legal Review Dependency |
+| --- | --- | --- | --- | --- | --- | --- |
+| Material | CP-1, CP-1A, CP-2 | Secured term loans rank ahead of unsecured notes | Credit agreement, guarantee and collateral agreement, indentures | Filings describe the lien; documents not supplied | Obtain documents | Required before any priming or recovery work |
+| Material | CP-1A | Guarantor roster | Credit agreement, indentures | Notes text conflicts internally (S4 page:20 against S4 page:22) | Resolve against documents | Required |
+| Material | CP-1, CP-2 | Distribution capacity and covenant definition | Credit agreement, indentures | Baskets and definitions not supplied | Obtain documents | Required before sizing capacity |
+| Minor | CP-1A | Purchase price mechanics | Stock purchase agreement | Adjustment terms not supplied | Obtain agreement | Not required for the snapshot |
+
+### Market and relative value claims
+
+| Severity | Module | Market / RV Claim | Missing Datapoint | Evidence Gap | Required Fix | Committee Impact |
+| --- | --- | --- | --- | --- | --- | --- |
+| Minor | CP-2 | None made; the handoffs state no peer ranking, instrument recommendation or recovery conclusion | Market prices, spreads, peers | Context supplies no quotes or peers | None required | Relative value is outside this run |
+
+### Conflicts and versions
+
+| Severity | Affected Modules | Data / Claim Conflict | Version Issue | Required Fix | Downstream Impact |
+| --- | --- | --- | --- | --- | --- |
+| Minor | CP-1A, CP-2 | Purchase price 2,732 (S1 page:118) against 2,628 (S4 page:7) | Preliminary annual report figure superseded by later 10-Q | Use 2,628; logged, not reconciled | None |
+| Material | CP-0, CP-1 against CP-1A, CP-2 | Pro forma disclosure absent against present (S4 page:9) | Earlier handoffs superseded by corrections | Use the corrected statement | Gap severity for pro forma earnings stays high because Adjusted EBITDA is absent |
+| Minor | CP-1 | Debt 4,037 against 4,012 | Measure difference of 25 of financing costs | Label | None |
+| Minor | CP-1A | Guarantor wording | Internal conflict in notes text | Obtain documents | None until documents are read |
+
+### Other issues
+
+| Severity | Module | Issue Type | Description | Required Fix | Committee Impact |
+| --- | --- | --- | --- | --- | --- |
+| Minor | CP-1A | Wording | The UAW agreement expires in November 2027 and the first notes mature in October 2027; the handoff says they coincide, which overstates | Read as within about a month of each other | None |
+| Minor | CP-1 | Gap statement | The financial base said run-rate cover was not calculable; the synthesis estimates it at constant rates, consistent with both | Use the estimate with its stated assumptions | None |
+| Minor | CP-0 | Search method | The pro forma search matched one spelling only; other absence statements in the handoffs (factoring, supply chain finance, purchase commitments) were re-run with variants and hold | None further | None |
+
+### Handoff defects
+
+| Severity | Module | Handoff Component | Defect | Required Fix | Downstream Handoff Impact |
+| --- | --- | --- | --- | --- | --- |
+| Minor | CP-0 | Gaps and consumer table | Pro forma statement wrong | Superseded by CP-1A and CP-2 corrections | None after correction |
+| Minor | CP-1 | Gaps table and chart basis | Pro forma gap overstated; 7.73x | Superseded by CP-1A and CP-2 | None after correction |
+| Minor | CP-1A | Operating model row on labor | Timing wording | Reword | None |
+
+### Issue register
+
+| Issue ID | Severity | Module | Issue Type | Description | Required Fix | Clearance Impact | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| I1 | Material | CP-0, CP-1 | Factual error | No pro forma disclosure existed, per the handoffs; each quarterly report has pro forma net sales and net income | Use corrected statement from CP-1A and CP-2 | Does not change conclusions; combined leverage still uncomputable | Corrected downstream, original text stands |
+| I2 | Minor | CP-1, CP-2 | Rounding | 7.73x should be 7.74x | Read as 7.74x | None | Open, immaterial |
+| I3 | Minor | CP-1A | Wording | Labor contract timing described as coinciding with the first maturity | Reword | None | Open, immaterial |
+| I4 | Material | CP-1, CP-2 | Structural limitation | Trailing ratios mix perimeters | Label every trailing ratio | Restricts leverage statements | Open, restriction |
+| I5 | Material | CP-1A, CP-2 | Missing source | Executed legal documents not supplied | Obtain documents | Restricts legal capacity statements | Open, restriction |
+| I6 | Minor | CP-1A | Unresolved distinction | Guarantor roster | Obtain documents | None for the snapshot | Open |
+| I7 | Minor | CP-2 | Estimate | Run-rate interest excludes fees, hedges and interest income | Keep the label | None | Accepted with label |
+
+## Calculations
+
+All derived figures in the upstream handoffs were recomputed from the cited inputs. Recomputed values are from the printed figures on the pages named in each handoff.
+
+| Check | Upstream result | Recomputed | Status |
+| --- | --- | --- | --- |
+| Trailing Adjusted EBITDA: 1,130 less 296 plus 362; 1,130 less 609 plus 766; 1,130 less 865 plus 1,166 | 1,196; 1,287; 1,431 | 1,196; 1,287; 1,431 | Matches |
+| Trailing interest paid: 120 less 27 plus 41; 120 less 60 plus 107; 120 less 87 plus 152 | 134; 167; 185 | 134; 167; 185 | Matches |
+| Net debt: 2,909 less 1,495; 4,295 less 311; 4,140 less 399; 4,037 less 497 | 1,414; 3,984; 3,741; 3,540 | 1,414; 3,984; 3,741; 3,540 | Matches |
+| Total debt over trailing Adjusted EBITDA | 2.57x; 3.59x; 3.22x; 2.82x | 2.57x; 3.59x; 3.22x; 2.82x | Matches |
+| Net debt over trailing Adjusted EBITDA | 1.25x; 3.33x; 2.91x; 2.47x | 1.25x; 3.33x; 2.91x; 2.47x | Matches |
+| Cover: 1,130 / 120; 1,196 / 134; 1,287 / 167; 1,431 / 185 | 9.42x; 8.93x; 7.71x; 7.73x | 9.42x; 8.93x; 7.71x; 7.74x | Third quarter mis-rounded |
+| Liquidity: cash plus revolver availability | 2,240; 1,156; 1,394; 1,493 | 2,240; 1,156; 1,394; 1,493 | Matches |
+| Covenant reproduction: (505 + 1,194 less 497) / 1,431 and three other dates | 0.84x; negative 0.87x; 1.29x; 1.01x | 0.840; negative 0.873; 1.293; 1.013 | Matches |
+| Covenant headroom: 5.50 less 0.84 | 4.66x | 4.66x | Matches |
+| Adjustments to Adjusted EBITDA: 1,166 less 966; share 200 / 1,166 | 200; 17.2% | 200; 17.15% | Matches |
+| Debt change Q1 to Q3: 4,295 less 4,037 | 258 | 258, equal to 150 + 100 + 3 + 6 less 1 | Matches |
+| Maturity rows: 300 + 500 + 1,505 + 1,694 + 38 | 4,037 | 4,037 | Matches |
+| Working capital: (200) + 15 + 207 + 12 | 34 | 34 | Matches |
+| Segment ties: 881 + 653; 333 + 83 less 16; 927 + 285 less 46; 362 + 404 + 400 | 1,534; 400; 1,166; 1,166 | 1,534; 400; 1,166; 1,166 | Matches |
+| Implied acquired-unit net sales: pro forma less reported | 601; 661; 627; 1,889 | 601; 661; 627; 1,889 | Matches |
+| Acquired unit growth: 653 / 627; 2,032 / 1,889 | 4.1%; 7.6% | 4.15%; 7.57% | Matches within rounding |
+| Mix: 653 / 1,534; 2,032 / 4,506; 285 / 1,212; 4,410 / 8,789 | 42.6%; 45.1%; 23.5%; 50.2% | 42.57%; 45.10%; 23.51%; 50.18% | Matches |
+| Acquisition outlay: 2,664 less 101 less 34 | 2,529 | 2,529 | Matches |
+| Run-rate cash interest at quarter-end rates | 203.36; 7.04x | 203.36; 7.037x | Matches |
+| Liquidity cover of 2027 notes; covenant earnings decline; retained cash; floating sensitivity | 4.98x; 84.7%; 467 and 13.2%; 16.99 | 4.977x; 84.73%; 467 and 13.19%; 16.99 | Matches |
+| Secured and note shares: 1,699 / 4,037; 2,300 / 4,037 | 42.1%; 57.0% | 42.09%; 56.97% | Matches |
+
+## Gaps
+
+| Gap | Severity | Effect and action |
+| --- | --- | --- |
+| Executed legal documents are not supplied | Material | Restricts any statement on covenant definitions, distribution capacity, guarantors, priming and recovery mechanics; obtain before relying on them |
+| Pro forma Adjusted EBITDA and interest are not supplied | Material | Combined leverage and cover cannot be stated; trailing ratios stay labelled |
+| Definition of management's 2.0x net leverage target is not supplied | Material | Cannot state distance to target |
+| Post-acquisition customer concentration, headcount and pension balances are not supplied | Minor | Figures stay at FY2025 and are labelled |
+| Source text is extracted from filings; charts and original layout were not inspected | Minor | Figures were tied to printed totals; no fidelity review of the original files |
+| Research integrity grade: Restricted. The method caps the confidence band at Low for a Restricted status; the cap reflects the open restrictions and not weak sourcing of the traced figures | Material | Committee use permitted only with the restrictions above; not Committee Ready until documents and pro forma earnings are available |
+
+## Next module
+
+None: this is the last selected module. The report assembles from the accepted handoffs, and readers should apply the corrections in the issue register, especially I1 and I2.

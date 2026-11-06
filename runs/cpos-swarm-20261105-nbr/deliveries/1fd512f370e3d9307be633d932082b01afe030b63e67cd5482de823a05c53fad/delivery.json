@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for NABORS INDUSTRIES LTD as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "01371c96badec91a1c024971fd80be337cc1aa2bfcd663093f556e7185d90614",
+    "CP-1.md": "52018b6902eb6b45bb6e53a2bf745847730117a063b22f7e4d05d077344c3098",
+    "CP-1A.md": "f02a6fc7d78a4d519e49400e20ea3798cf539d2c21918de4595f30dd43ae553c",
+    "CP-2.md": "47b1b6e8236d5652cae1ec2d84f6b1857b3ece4c07348fedfd3feb48171d24c0",
+    "CP-5.md": "85ae58aba6e29e0440ccd153550a06017874b22603ccf0acae25015f8246eece",
+    "view.json": "8b117420316a213e54441880423f2c5e6a735d4cbeca6198c746f86350b613fd",
+    "report-view.json": "b7d723323f8379d9693fbcc2e5e01438fab099478b262412b47ed46c2f04d4dd",
+    "report.html": "b707ccb3848a4610184c60cd34f22f5422ed38b122e93f1e88657ba7a034d9b5"
+  }
+}

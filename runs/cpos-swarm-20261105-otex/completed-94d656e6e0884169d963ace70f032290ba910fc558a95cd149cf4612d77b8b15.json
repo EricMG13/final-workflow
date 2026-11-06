@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for OPEN TEXT CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/01517d54bcfddfe31adeaec14f15640e09e47e20169d94311406ea99374afb6d/1.response.md",
+    "CP-1": "requests/CP-1/955ea42857560d7d5ac9aeff545e76859c8ee54866e9881ecc5bb675471d9c10/1.response.md",
+    "CP-1A": "requests/CP-1A/4d80754377aed66643bcc664ee70ae1a437d6ee4df67e5bbe231d633673ede1d/2.response.md",
+    "CP-2": "requests/CP-2/642e4e3c961a4327670cb0fa52be0c4303bcdb9516dca63e15ce272e3cfc5d93/1.response.md",
+    "CP-5": "requests/CP-5/63ec238a85027172fddd296d7fc15bee3a41c42379f546ab37a17f06050242b6/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "672ef347878f26b5de2b681386deede2074ac1421460a94add8f30a56dbc0803",
+  "report_sha256": "418973e891dbf948cee2532afe0ae2404915aa267cee3cf8923158ca7a833d15"
+}

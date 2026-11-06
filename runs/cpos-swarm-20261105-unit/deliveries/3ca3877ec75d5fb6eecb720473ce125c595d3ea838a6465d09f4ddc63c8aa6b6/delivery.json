@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Uniti Group Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "013c310c8396f81ac9f077f177c9c4e522274d65b9d75cc140acddd2c5a45803",
+    "CP-1.md": "825e72c7214f02408d5dc6ffc79807be881b2e40ab76417f16f55955164b5b08",
+    "CP-1A.md": "e66fab52b8a2a4ca43862ac6b5cde9c92bfe871c7c2ccf619345ed47660a1fae",
+    "CP-2.md": "aa36d2d84bb15fc9e5adcae91ef166e160ca6ea73fd1649fc013e70afc47b4cd",
+    "CP-5.md": "01afd776cb1b7224060ffab643ae1710a6a53aa1dfb399c5fc5dc2a3cb95696a",
+    "view.json": "21936169cfe6c516d718ad6c0a396dca759caa4c75ce619601608519cce97b21",
+    "report-view.json": "56fb840ccb63c21ff58fc36ee50a2b0cdc2b3f8d6dfde2cba74066dba72dbc87",
+    "report.html": "9b8afcd55c7bd273f4710676d80e735f617d4452bac5a81436ea13d5c52b92e9"
+  }
+}

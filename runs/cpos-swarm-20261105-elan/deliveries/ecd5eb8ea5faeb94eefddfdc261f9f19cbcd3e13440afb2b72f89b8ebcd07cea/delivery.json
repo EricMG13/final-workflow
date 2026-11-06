@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Elanco Animal Health Inc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "8ffd0a3ea4b4fadd946c35793403822f340da652db0c5ccd908ec080b837b7c5",
+    "CP-1.md": "19be7edf0ca98b29a4e8c2b9ebba4001d961ee1f2533d983d698ca38f32017c1",
+    "CP-1A.md": "a6ccedf578e43f60119c1afd57978666299164939a4975b1197029f2b1e010d6",
+    "CP-2.md": "7732e5ceb89dd0b0cbdb42e93f70273a0bc2b14fe102d30fae4f628b9de8c1e1",
+    "CP-5.md": "8b49323fb6d44581be9682f69e454efa46fc43953686479c164a02d439e89647",
+    "view.json": "c47e456b78feebf84d383e18e6abcdce51feb6d057705d01e2c7b89ae54ad776",
+    "report-view.json": "d0957dee0f6a23642bdab030951146672266c08cb53b1a7b780288b32a1e13df",
+    "report.html": "29537956fc15904c667ffbd40868aa169156939a046a480095ec761a87b31809"
+  }
+}

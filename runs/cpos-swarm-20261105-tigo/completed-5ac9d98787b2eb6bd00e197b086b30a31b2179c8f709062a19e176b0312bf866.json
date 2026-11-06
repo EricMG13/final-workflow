@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for MILLICOM INTERNATIONAL CELLULAR SA as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/68c0b17b6583241c2852ec535c24e8121313c33874c919be51da2fda9b99a348/1.response.md",
+    "CP-1": "requests/CP-1/a641c59df080e94a0e4d892746a60e5883d37012b2346d6f7cf499e49ba1acce/1.response.md",
+    "CP-1A": "requests/CP-1A/bc1ff241b69fedc8f74445c569580176e0e47b4a37939438ffeb79483cdf9c36/2.response.md",
+    "CP-2": "requests/CP-2/04da643ef17b32e1853b972366df04f6e375723fb2a8592513301aa1818402d9/1.response.md",
+    "CP-5": "requests/CP-5/ee8ad62f41e5316e06dfb406eb598b1a4985acc61c5faab9529091c05c113629/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "09e710d5a4c4c454c8b5fb26986ee0f201cf403f3b559c53181a1425247332d6",
+  "report_sha256": "8fc78f946b5d5a3ff1755ed0a503eb3e4f8d9300840d3af15dd0c52c63753d17"
+}

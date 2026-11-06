@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "evcm-2026-11-05-credit_snapshot-host",
+    "issuer_id": "evcm",
+    "issuer_name": "EverCommerce Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_evcm-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_evcm-20251231.htm.jsonl",
+      "sha256": "9453e2f9c8cc62a7277621021c62f3f54236a25bf3cf1e3b80b24b270acfdeda"
+    },
+    "10-Q_2025-09-30_evcm-20250930.htm.jsonl": {
+      "path": "source-text/10-Q_2025-09-30_evcm-20250930.htm.jsonl",
+      "sha256": "c623a998349d981306a4008c02834586a4ebe2e4107c66b4b568d918f958b19e"
+    },
+    "10-Q_2026-03-31_evcm-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_evcm-20260331.htm.jsonl",
+      "sha256": "5c26bdd8bf153e5bfd09b7fbf88482355fd2b7aa6070fa7591d5646bba84c567"
+    },
+    "10-Q_2026-06-30_evcm-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_evcm-20260630.htm.jsonl",
+      "sha256": "10448bb75b9f2c76dfd332b46c1c0f84482b82dea66954fe734c59c4942a2fc7"
+    },
+    "EX-99.1_2026-03-12_evcm4q25earningsrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-03-12_evcm4q25earningsrelease.htm.jsonl",
+      "sha256": "a9dd89e7b8b9caedc67b5ca23c4c00c50167031adbb4a9acf31fb4d79b184de8"
+    },
+    "EX-99.1_2026-05-07_evcmq126earningsrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-07_evcmq126earningsrelease.htm.jsonl",
+      "sha256": "23a859e7b010a64ac0174f20afb33fcbcd2794ab62794c2c0fa2908a92c61007"
+    },
+    "EX-99.1_2026-08-05_evcmq226earningsrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_evcmq226earningsrelease.htm.jsonl",
+      "sha256": "c993c59da637677fd5abb60ae274814e4acec6999b88d0a88f7a5a9eb9801129"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1853145-evercommerce-inc-evcm.json",
+      "sha256": "d7ba235d89e8ce4355aaee443a70a11c6953f0338ca9492a954e8f1ca023cd96"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "85dd91f461d9fa78095c27db1a43b5868a2948e5ac92e8a36b5b05c29a337c08"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "72d81ee6ca9a428691c20659d176c00012e4e8a5c001bf1ffed246920ec50021"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "eccf5367f4303ef564a8b8d8fc9d6cb6c259e62d26bf4d84487e417c2e765134"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "581354a7f656579350bd7f6d67b1ff98d1dec5a151d966451220010660cb57f8"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "2ce8de3fd655f1fb1eca11a7de605654fe31024039d54926a5da6c1e819cf238"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for EverCommerce Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "EverCommerce Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

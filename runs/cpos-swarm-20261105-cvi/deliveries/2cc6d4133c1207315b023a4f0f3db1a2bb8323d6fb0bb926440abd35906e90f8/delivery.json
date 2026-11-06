@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CVR ENERGY INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "1a8afb0886e9641787b9eba27d5f0b727ffb872f803108f1a4c711fde39ffcd9",
+    "CP-1.md": "9c164a98bc29dc8cc35cb5f96e9f8a657f07617efbc98c8c5211d463b38e186e",
+    "CP-1A.md": "e11038a3e84cc7ca65afae07f6ea044a394b2b341c239b0cdbd893b749d4ccc0",
+    "CP-2.md": "fbf82cc4a311b78a88fb80beaa24473a87779fff9bbde5ffada078f4d16384e1",
+    "CP-5.md": "d4f36e2fa2e652bad98a11b6f218c05505834a6c8e92ee6e6f4c6b6944a47ed7",
+    "view.json": "9b7c075111fd9eb95541f59ec2e9a52e9d117fa4ea2d13c66956d67e562ac594",
+    "report-view.json": "4c8f9ff0bce49496286772ebc30d80abce57c574c2722cbb7601e98a596c8908",
+    "report.html": "c940803788c514517d4c3655649e2c9991eaa1c0e548cbc0946977cf5de25706"
+  }
+}

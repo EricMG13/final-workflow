@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "bldr-2026-11-05-credit_snapshot-host",
+    "issuer_id": "bldr",
+    "issuer_name": "Builders FirstSource, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_bldr-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_bldr-20251231.htm.jsonl",
+      "sha256": "9bd0da5e45c4f2248ca4db64d57fc684925bf29516d1562226f10d757c9e4459"
+    },
+    "10-Q_2026-03-31_bldr-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_bldr-20260331.htm.jsonl",
+      "sha256": "363b4992626af02adfa3367e60743e610fb97e980272b73e97926fb679323cd7"
+    },
+    "10-Q_2026-06-30_bldr-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_bldr-20260630.htm.jsonl",
+      "sha256": "02ee03cdc0624d85cbcbf7a710722ddc9ac45fd9b91dc10f08e351fa9e01c57b"
+    },
+    "10-Q_2026-09-30_bldr-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_bldr-20260930.htm.jsonl",
+      "sha256": "eb3b1081f3726d9edfb8731ffaa8e1149a0312dcd5760fffdc5c5e326cc6f78d"
+    },
+    "EX-99.1_2026-04-30_bldr-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-30_bldr-ex99_1.htm.jsonl",
+      "sha256": "57b8b8fc9c442c401865b306d40dc3f4e8bf2c98e87e713da2af276f2efa22fe"
+    },
+    "EX-99.1_2026-07-30_bldr-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-30_bldr-ex99_1.htm.jsonl",
+      "sha256": "d9ac22d1edd973fb8f940548ad5207a292c8d1318f8581d90b82000eb7ba1b98"
+    },
+    "EX-99.1_2026-10-29_bldr-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-29_bldr-ex99_1.htm.jsonl",
+      "sha256": "e8822f68613ed2eb08d6f6868127023f13ee8e8fe4e83662a7f4abe50d874bbc"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1316835-builders-firstsource-inc-bldr.json",
+      "sha256": "26c088bea94d5b4a50b7398f335a28e56083f68ba3e62b9362de602502e2ae7e"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "eaa391323baa8d0bd5eda18ef551489404d8eec091a2ab4b18de2073c33cdbbe"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "39bbb7ff06f87efd17c41705669b0be48c1acf2241dbcd314944b98e7043837c"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "e5016c9e813e8ccb024f47978ca101ebb8a49298f29a06a3677c72b733da6e78"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "0e42d10136c1cc0627955c0b64c61fb93e9e74b6c1e887b14b88fa5a7f60f5d3"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "5561e59621ba484a868a7aba98f3a42edbd5907d011b7534067b208fb5758c57"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Builders FirstSource, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Builders FirstSource, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

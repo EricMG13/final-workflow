@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Rithm Capital Corp. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "48c6d7ae503045da1cae2c5c7a86ddde9f062574551bdb4f6c2d47743f9e2c09",
+    "CP-1.md": "83dd16196f7c0aeaace81c36303ff30cf269c7cb1ac71b4f21c26c24183eec6d",
+    "CP-1A.md": "adef905b89513a990eb3b2cbfde2dd6e2734465afc9bc562cb1c8a9f79d8049f",
+    "CP-2.md": "ba83b152d542e76b3ea5afd0f46a86e7c5308cbf580be20b5e2a058d7d6ffbb2",
+    "CP-5.md": "fc27028015290c84c844d5138e591df1bf0c7a964f3ad25116bbb27f80e7cdb0",
+    "view.json": "930745f799f6dd11db260dd854d46e7e59f153999f4d8d87afa297d7f7242f47",
+    "report-view.json": "ee2f277aef2445cca7d61890f6f56d10bfdc4539625d0bd085b9c6d589c0c900",
+    "report.html": "bccc93bcb6ed1f7f65f17ff8d8adbdd14d7b0d9361273e410fbafa7fa70321c7"
+  }
+}

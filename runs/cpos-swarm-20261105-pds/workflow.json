@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "pds-2026-11-05-credit_snapshot-host",
+    "issuer_id": "pds",
+    "issuer_name": "PRECISION DRILLING Corp",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "40-F_2025-12-31_pds-20251231.htm.jsonl": {
+      "path": "source-text/40-F_2025-12-31_pds-20251231.htm.jsonl",
+      "sha256": "370dd908e02517a9c6fdef15ebd1f7cb116b5559c399f640ba611cac38448995"
+    },
+    "6-K-EX-99.1_2026-03-31_exh_991.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_exh_991.htm.jsonl",
+      "sha256": "dea56c7134da9a355171c554a1de2c864262ee500671edb8950e5a8046055900"
+    },
+    "6-K-EX-99.1_2026-07-28_exh_991.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-07-28_exh_991.htm.jsonl",
+      "sha256": "36192463cc83167a35ad5734c404a3c626d50b0ad4594b8a7f2194bea3a8cff9"
+    },
+    "6-K-EX-99.1_2026-10-27_exh_991.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-10-27_exh_991.htm.jsonl",
+      "sha256": "fee608b6431a2965784fc76b2de265f5506a117164e5844d50a088bea40f38a4"
+    },
+    "6-K-EX-99.2_2026-03-31_exh_992.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-03-31_exh_992.htm.jsonl",
+      "sha256": "d96a5e5808d43b7099d6d8e58ef62238fb3bf3aa05ae6b50ff5d6edaea1184fb"
+    },
+    "6-K-EX-99.2_2026-06-30_exh_992.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-06-30_exh_992.htm.jsonl",
+      "sha256": "d0dc4f680eda414a6085125595dd65a3350a1093a614c44804e7f758bd709179"
+    },
+    "6-K-EX-99.2_2026-10-27_exh_992.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-10-27_exh_992.htm.jsonl",
+      "sha256": "2be96c22c1511c1bfacc2dbbfc1299a96c6051c24999485cd2efd4fef772c85e"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1013605-precision-drilling-corp-pds.json",
+      "sha256": "f0dfb9848210a0a45d246b6d35647f4b02f9221b88bb774a3f1ed2c749bd4a06"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "d7b4d801dd7553ac751d8dc95a24c3fdc7b48625b7a8bc3f964f9a3999645fe8"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "fcb54217c4fd91f6d878a5c600a5e16cb27c6e619161e14dfc114b1839168195"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "e250fe33d5703fa988f2a8164db4bca473285e9551b7c770466a5503568d1ef3"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "eb16099dc3266674d16b15092c22caff96ea1c311fef1f7a6a7201178a495d1d"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "0b1f60eb8fd51b1d8bf150fd9a821745eaf57e530b2bf424bbdaaced50823ea8"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for PRECISION DRILLING Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "PRECISION DRILLING Corp — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Energy Transfer LP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "1b2196fae78086f62479df5a2fd3f99eb6278b9f99a6e4364bc9961bc241c594",
+    "CP-1.md": "e1f728d8ef2389dd86a9731e74ebfa406b4f14ddfa5f40add9ef875434607923",
+    "CP-1A.md": "d60945a38b019c3f662c040f9814e52772a5d5839683a7c4acb2eb49f93eaa5c",
+    "CP-2.md": "4a55234569dea26ef83b657d06c824d781ad9698228cf02ac03924e686341407",
+    "CP-5.md": "16291784315d67e81f2de9af1b816fd8ed86c76f875a7ba14273c5661832d907",
+    "view.json": "7f6a5963e5a812ca0297c58840f91d8615d621ff9d6cd2927a17f19167926e24",
+    "report-view.json": "9e04cdd1aea7ec34dc63d1ad6cda29364c48ec2ce404c939cd1722ba6117fb0a",
+    "report.html": "8a5875b1907376afa55651f9edc80205e894ee20e22c9773eecc81b83ba2e749"
+  }
+}

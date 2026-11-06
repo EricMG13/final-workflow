@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Carnival Corp Ltd. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "81f58a8d0f2ad55a3b1e80b1f1daf6e29ce8a917e87841c474eb01e0d80a4f24",
+    "CP-1.md": "464c9de32de8fce38eb134451b0f942c49ff86e27b5659c99e70bd137a32ea7a",
+    "CP-1A.md": "e6bdf4e8a0bd7f9bc2074387f01e5f1005e099ab84dc85660b5d32b8e2059665",
+    "CP-2.md": "35934a3f93672a733a2dbf1e43d797b19d2e1726a301f906c69499c99ef7d2bc",
+    "CP-5.md": "681e34204d39cd0cc5df61f15bd9e1e0e0f0f86383538a84593509c64060ab8d",
+    "view.json": "81cea627eea9df372b16368e3591e1fa0bcd65a922c7fb4d36260201e26ff4e2",
+    "report-view.json": "8c6e1252be84fc2f8632993db33c0cd4c8533bf64d9d652c2f979e0f5ee8c062",
+    "report.html": "40a7eb38324355e1275b4533c441264b881b55f5f30967d6cbc2080003a76154"
+  }
+}

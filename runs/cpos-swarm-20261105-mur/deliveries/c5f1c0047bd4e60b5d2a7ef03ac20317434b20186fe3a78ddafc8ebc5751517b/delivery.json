@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for MURPHY OIL CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "403edb4227a4b11394670d0864302fb8b9a59504dd78e89f0fe1d69a345893bb",
+    "CP-1.md": "4d5950c4064f287f2e32c5d0c0406bc21b674c599f97781d7194c385f998c5b5",
+    "CP-1A.md": "7945a44700eadeabed9be261a818aba8aaa8237d27c6ae8595ee9fe98ab9b034",
+    "CP-2.md": "b9e56c398c0e4180b34b788c842874dc783616d0c440934e37bb24a843cb15bc",
+    "CP-5.md": "f010af9bef458f1cf024a4670c3a665ead85a8b1676312e137b38904dd0d7da1",
+    "view.json": "09af6975cfae8ce5b311d17127c05f15026dea4153187250a71b802c4bfaf9b2",
+    "report-view.json": "8c31eca941bd941f08b07a506756277cb2f039241568a6269bdce39e0a2f9358",
+    "report.html": "b8cf4a09002961c886558651c9e9e390e0d962224970b6e94ea27141ada51054"
+  }
+}

@@ -1,0 +1,218 @@
+# CP-1A business and transaction context: MILLICOM INTERNATIONAL CELLULAR SA
+
+## Request
+
+Issuer: MILLICOM INTERNATIONAL CELLULAR SA (Millicom, Luxembourg société anonyme, Nasdaq ticker TIGO), consolidated group. As-of date: 2026-11-05 (cutoff 2026-11-05). Pathway: credit_snapshot. Reporting currency USD millions; current period Q3 2026 and nine months 2026, prior period FY2025. Scope: the creditor-relevant business, ownership, transaction, operating-model, governance and timeline facts, and what they mean for CP-2 and CP-5. Perspective: creditor. This handoff gives no peer ranking, instrument recommendation or recovery conclusion.
+
+## Sources
+
+### Issuer sources relied on
+
+| Source file (exact name) | sha256 | Used for |
+| --- | --- | --- |
+| 20-F_2025-12-31_tigo-20251231.htm.jsonl | 13be2a8c900b103376e04c45e18282d28f2b1aac3516bfaed99fc02cc0e15f37 | Business description, ownership, governance, history, tower deals, ratings |
+| 6-K_2026-05-12_dp246578_6k.htm.jsonl | e31fa18185d3ceef7ba9e0133efc952dd4f43ccbd999e9a5f5b5af04d8dbf712 | Q1 2026 context |
+| 6-K_2026-08-06_dp251442_6k.htm.jsonl | 76b47ade3b6a5a2f060db2592b816c6ed584aa9ed405d036c0be893943dc1c51 | H1 2026 report, guidance and dividend press release |
+| 6-K_2026-11-05_dp256407_6k.htm.jsonl | 6ab7c7e5e635829f16eb15a89301463e6131db3f5c0e68ee118ba6350801f894 | Transactions, segments, operating review and subsequent events to the as-of date |
+
+The context file (sha256 34621752733871aa051ccd652227feabad1bb02852c10250971aa402ac335e7e) names no sponsor, borrower, parent or guarantor and attaches no transaction or legal documents; it is not issuer evidence.
+
+### Supplied handoffs
+
+| Module | sha256 | Use |
+| --- | --- | --- |
+| CP-0 | 30231e20dd79cfa35c582673e23e65e617ff0d8fef136e9bbfd8bd339ed7d1e8 | Source readiness, conflicts and gaps |
+| CP-1 | 77360cbd8368dd54f4044c63fc9a5d94cd9bb6b03d46733b7253d1eb3eb1429c | Financial base: leverage, liquidity, debt, claims; referred to by name where figures are used |
+
+### Locator convention
+
+`source:page:N` with N the numbered text chunk of the pinned file. Source labels: 20-F, 6-K-May, 6-K-Aug, 6-K-Nov. Category tags: Documentary Fact, Management Language, Analyst Interpretation, Insufficient Information. Evidence quality: High (primary, dated, issuer-specific), Medium, Low, Insufficient.
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| Millicom is a widely held Latin American telecom operator with a 44.1% family shareholder. Acquisitions in 2025 and 2026 added Coltel in Colombia, Ecuador and Uruguay while debt rose and dividends were raised. | Medium | No transaction agreements, debt documents or sponsor-level support terms are supplied, so creditor protections cannot be read. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| Colombia now combines Tigo Colombia and Coltel after Millicom bought out the minority holders of both, though EPM remains a partner in certain Colombian operations. | Cash flow and debt are more concentrated in Colombia, where integration costs and a loss-making Coltel weigh on earnings. | Medium |
+| The Niel family group holds 44.1% of the shares and the company says no person controls it. | A large holder with board influence could support the company, but no support commitment is documented. | Medium |
+| Dividends were raised again for 2027 while management targets leverage below 2.5x and the group's net debt is higher after the acquisitions. | Distributions compete with deleveraging; recent equity free cash flow covered them, but the margin depends on 2026 delivery. | Medium |
+| Tower sales to SBA left leasebacks of 15 years, adding lease liabilities and financing costs instead of owned infrastructure. | Fixed lease obligations rank alongside debt service and reduce flexibility. | Medium |
+| Currency appreciation in Colombia, Paraguay and Bolivia lifted reported growth. | Part of the reported earnings growth could reverse if local currencies weaken against the dollar. | Medium |
+
+### Business and transaction view
+
+Millicom is a Latin American mobile and fixed-line operator that has just bought its way into a larger, more Colombia-heavy and more leveraged shape. In 2025 and 2026 it added Uruguay and Ecuador, bought out EPM's remaining shares in Tigo Colombia, bought the controlling stake in Coltel from Telefónica and then the remaining Coltel shares formerly held by La Nación, and entered Chile through a joint vehicle with NJJ. Gross debt, lease liabilities and capital-expenditure payables all rose over the period (CP-1), and Coltel contributed a net loss of 168 to date with heavy severance costs. The strongest support for creditors is a diversified country footprint, a large and growing postpaid base and cash generation that covered dividends in 2025 and in the first nine months of 2026. The weakest points are the speed of the debt-funded change, a shareholder remuneration policy that keeps raising payouts while leverage is above the target, local-currency tailwinds that flatter reported growth, and the absence of any document that shows what lenders can enforce. What decides the credit story is whether the integration of Coltel and the 2026 cash flow target of around 1.1 billion are met before the debt falling due within two years (872 in the first year and 986 in the second, per CP-1) and the revolving facility date in October 2027 arrive. Evidence on ownership and business is primary and dated; evidence on transaction agreements and creditor protections is missing.
+
+### Company and operating model
+
+| Item | Fact | Category | Evidence quality | Quote or figure | Locator |
+| --- | --- | --- | --- | --- | --- |
+| Business | Millicom is a Luxembourg société anonyme providing mobile and fixed services in Latin America under the Tigo brand; sector per context: radiotelephone communications | Documentary Fact | High | We are a leading provider of fixed and mobile services dedicated to emerging markets | 20-F:page:77 |
+| Footprint | Eleven countries at year-end 2025; twelve with Chile in 2026 | Documentary Fact | High | in eleven countries in Latin America | 20-F:page:77, 6-K-Nov:page:16 |
+| Customers | Mobile customers at December 31, 2025 | Documentary Fact | High | we provided services to 49.3 million mobile customers | 20-F:page:78 |
+| Customers and postpaid base | Mobile customers and postpaid base at September 30, 2026, including Coltel | Documentary Fact | High | Coltel alone contributed 8.3 million mobile customers, including 5.5 million postpaid subscribers | 6-K-Nov:page:33 |
+| Revenue mix | Revenue is service revenue (mobile 3,668; fixed and other services 2,283; other 94 for nine months 2026) plus telephone and equipment sales of 395 | Documentary Fact | High | Telephone and equipment Point in time 395 262 131 83 | 6-K-Nov:page:19 |
+| Strategy language | Company strategy language | Management Language | Medium | Our Double-E strategy is working | 6-K-Nov:page:28 |
+| Tower strategy | Passive tower ownership was judged non-core and sold | Management Language | Medium | owning passive infrastructure, such as mobile telecommunications towers, no longer confers a competitive advantage in our markets | 20-F:page:90 |
+| Revenue mix | Mobile 3,668, fixed and other 2,283, other 94 of service revenue 6,045 in nine months 2026 | Documentary Fact | High | Service Revenue 6,045 3,888 2,145 1,332 | 6-K-Nov:page:19 |
+| Pricing | Management describes more-for-more pricing and prepaid-to-postpaid migration | Management Language | Medium | We are also executing a clear more-for-more pricing strategy | 6-K-Nov:page:29 |
+| Volume drivers | Postpaid subscribers 17,194 thousand at Q3 2026 against 8,896 thousand a year earlier, mostly Coltel; excluding acquisitions the postpaid base rose 0.9 million | Documentary Fact | High | Excluding the impact of M&A, the postpaid customer base increased by 0.9 million customers year-on-year | 6-K-Nov:page:33 |
+| Fixed broadband | Excluding acquisitions HFC/FTTH revenue-generating units fell | Documentary Fact | High | Excluding M&A, HFC/ FTTH RGUs would have declined by 434,000 for the year | 6-K-Nov:page:33 |
+| Cost structure | Direct costs 1,555 and operating expenses 1,928 against revenue 6,440 for nine months 2026; one-off items above Adjusted EBITDA of 149, of which Colombia 116 | Documentary Fact | High | Total (31) (149) | 6-K-Nov:page:41 |
+| Capital spending | Capex excluding spectrum 669 and spectrum paid 207 in nine months 2026; capital commitments 384 | Documentary Fact | High | fixed commitments to purchase network equipment, other fixed assets and intangible assets of $384 million | 6-K-Nov:page:27 |
+| Working capital | Total changes in working capital were an inflow of 19 in nine months 2026 (an outflow of 74 a year earlier) | Documentary Fact | High | Total changes in working capital 19 (74) | 6-K-Nov:page:4 |
+| Currency effect | Reported growth benefited from stronger local currencies | Documentary Fact | High | Colombian Peso, Paraguayan Guarani and Bolivian Boliviano appreciating year over year 25.4%, 22.7% and 17.1% respectively against the U.S. Dollar | 6-K-Nov:page:33 |
+| Country weight | By Adjusted EBITDA in nine months 2026 Guatemala (737) is the largest single segment, ahead of Tigo Colombia (550) and Coltel (409); the two Colombian segments together (550 and 409) exceed Guatemala | Analyst Interpretation | Medium | Adjusted EBITDA (ii) 737 550 409 280 292 170 248 209 590 3,485 (527) 2,958 | 6-K-Nov:page:17 |
+| Honduras and Chile | Honduras (248) and Chile (209) Adjusted EBITDA are shown at 100% and eliminated from the group total; Millicom's cash benefit from them is through repatriated dividends | Analyst Interpretation | Medium | Honduras joint venture and Chile associate are equity-accounted investees | 6-K-Nov:page:18 |
+| Pricing and revenue visibility | Customer contract terms, churn and the prepaid/postpaid revenue split are not disclosed in the text read | Insufficient Information | Insufficient | Not supplied: churn and contract length; matters for revenue visibility | 6-K-Nov:page:33 |
+
+### Company profile
+
+| Item | Fact | Category | Evidence quality | Quote or figure | Locator |
+| --- | --- | --- | --- | --- | --- |
+| Legal entity | Millicom International Cellular S.A., Luxembourg société anonyme established June 16, 1992; formed as a group in December 1990; Tigo brand in all countries | Documentary Fact | High | MIC S.A. is a public limited liability company (société anonyme), organized and established under the laws of the Grand Duchy of Luxembourg on June 16, 1992 | 20-F:page:76 |
+| Listing and sector | Nasdaq ticker TIGO; sector per context radiotelephone communications | Documentary Fact | High | Common Shares, par value $1.50 per share TIGO The Nasdaq Stock Market LLC | 20-F:page:1 |
+| Largest holder | The Niel Family Group is the only holder above 5%, with 44.1% on the 13D basis, which includes 3,350,000 shares Atlas Investissement expected to buy under equity derivatives by June 30, 2026 | Documentary Fact | High | Niel Family Group (1) 73,820,018 44.1 % | 20-F:page:157 |
+| Control statement | The company says no person controls it | Documentary Fact | High | it is neither directly nor indirectly owned or controlled by another corporation, any government, or any other person | 20-F:page:157 |
+| Atlas holding | Atlas held 70,470,018 shares, 42.2% of outstanding shares, at December 31, 2025 | Documentary Fact | High | 70,470,018 shares held by Atlas (representing 42.2% of the outstanding share capital as of such date) | 20-F:page:158 |
+| Voting rights | Voting rights are equal for all holders | Documentary Fact | High | The holders have the same voting rights as all other holders of MIC S.A. common shares | 20-F:page:158 |
+| Listing history | SDR listing on Nasdaq Stockholm ended; board nomination moved inside the board | Documentary Fact | High | until March 17, 2025 | 20-F:page:122 |
+| Honduras joint venture | Honduras: 66.67% interest but joint control with equal board seats, so equity-accounted | Documentary Fact | High | the board of directors is composed of equal numbers of directors from Millicom and from our respective partners | 20-F:page:96 |
+| Colombia partner | Colombia: the 50% partner stake was acquired on January 29, 2026, but a non-controlling partner remains in certain Colombian operations | Documentary Fact | High | As of September 30, 2026 EPM is still a non-controlling partner in certain operations in Colombia. | 6-K-Nov:page:5 |
+| Current holdings | Niel family group's holding after June 30, 2026, and any support or standstill arrangement, is not supplied | Insufficient Information | Insufficient | Not supplied: the 20-F is the latest ownership table and it ends at March 13, 2026; missing datapoint is current holdings and any sponsor support, which matters because control and support affect willingness to inject equity | 20-F:page:157 |
+| Sponsor | Sponsor: none named in context; no private-equity sponsor is documented | Insufficient Information | Insufficient | Not supplied: context sponsor field is blank | Context |
+| Prior ownership | Prior ownership and dividend recapitalisation history before 2025 | Insufficient Information | Insufficient | Not supplied: the sources start the dividend history in November 2024 | 6-K-Nov:page:20 |
+
+### Transaction register
+
+| Transaction | Terms and status | Category | Quote | Locator |
+| --- | --- | --- | --- | --- |
+| Tigo Uruguay (Telefónica Móviles del Uruguay) | Completed October 7, 2025; enterprise value 440; purchase consideration 301; goodwill 109 after finalisation | Documentary Fact | for an enterprise value of $440 million | 6-K-Nov:page:13 |
+| Tigo Ecuador (Otecel) | Completed October 30, 2025; enterprise value 380; accounting still provisional for PP&E and right-of-use items | Documentary Fact | for an enterprise value of $380 million | 6-K-Nov:page:14 |
+| Colombia: EPM remaining shares in Tigo Colombia | Won at auction January 27, 2026, closed January 29, 2026, about COP 2.1 trillion (about 571), booked as an equity transaction | Documentary Fact | total consideration of approximately COP 2.1 trillion (approximately $571 million) | 6-K-Nov:page:8 |
+| Colombia: Coltel 67.5% stake from Telefónica | Closed February 6, 2026 at about 214.4, of which 169 was paid at acquisition date; provisional goodwill 101; Coltel assumed other debt and financing of 1,424 and lease liabilities of 515 | Documentary Fact | at a price of approximately $214.4 million (out of which $169 million were paid as of acquisition date) | 6-K-Nov:page:9 |
+| Colombia: remaining 32.5% of Coltel from La Nación | Completed April 27, 2026; equity transaction reducing equity by 219 | Documentary Fact | Millicom completed the acquisition of the remaining 32.5% equity stake in Coltel | 6-K-Nov:page:9 |
+| Chile: joint vehicle Celtel Chile with NJJ | Closed February 10, 2026; Millicom 49%, NJJ 51%; closing consideration 50 in cash; earn-outs without recourse to Millicom; call option windows after the fifth and sixth anniversaries; equity-accounted, with 41 of unrecognised losses at Millicom's share | Documentary Fact | The SPA provided for contingent consideration in the form of two earn-outs, up to $490 million | 6-K-Nov:page:11 |
+| Paraguay mobile finance (MFS) sale | SPA January 5, 2026; base price 10 plus potential 7 earn-out; regulatory approvals gathered March and October 2026; held for sale and discontinued | Documentary Fact | to sell its Mobile Finance business | 6-K-Nov:page:12 |
+| Lati tower sale to SBA | Agreed October 28, 2024; more than 7,000 towers; 15-year leaseback; build-to-suit of up to 2,500 sites; gain 741 recognised in 2025 | Documentary Fact | Millicom agreed to sell Lati International, S.A. and other assets encompassing a portfolio of more than 7,000 towers in Central America to SBA Communications Corp. | 20-F:page:90 |
+| Guatemala ground-lease amendment with SBA | January 22, 2026; 15-year term; about 13 annual lease; right-of-use asset and lease liability of 118 | Documentary Fact | Tigo Guatemala signed a Master Lease Agreement amendment for the use of ground space on January 22, 2026 | 6-K-Nov:page:15 |
+| Colombian tower sale and leaseback | January 24, 2024; 1,132 towers to Towernex, a KKR company; consideration 77 | Documentary Fact | sell and lease back, under a long-term lease agreement, 1,132 telecommunication towers to Towernex Colombia S.A.S. | 20-F:page:91 |
+| Use of proceeds, debt raised and liquidity effect by transaction | Funding is described in aggregate only (notes on debt movements); acquisition cash outflow of 924 in nine months 2026 is not itemised by deal, and the cash flow statement does not show where the equity buyouts of EPM and La Nación were paid | Insufficient Information | Not supplied: itemised sources and uses per transaction; matters because debt-funded buyouts drive leverage | 6-K-Nov:page:4 |
+| Transaction agreements and definitive documents | None attached (context says legal documents none) | Insufficient Information | Not supplied: share purchase and call option agreements are not in the pack | Context |
+
+### Transaction summary and new debt issues
+
+Between October 2025 and April 2026 Millicom closed six ownership transactions that changed its perimeter. It bought Telefónica's Uruguayan and Ecuadorian businesses for enterprise values of 440 and 380 (6-K-Nov:page:13, 6-K-Nov:page:14), bought out EPM's remaining shares in Tigo Colombia for about COP 2.1 trillion, or about 571 (6-K-Nov:page:8), closed the purchase of Telefónica's 67.5% of Coltel at about 214.4 and then the remaining 32.5% from La Nación for a reduction in equity of 219 (6-K-Nov:page:9), and formed the Celtel Chile joint vehicle with NJJ, which is equity-accounted with earn-outs of up to 490 that are without recourse to Millicom (6-K-Nov:page:11). It also agreed to sell its Paraguay mobile finance business for a base price of 10 and, earlier, sold its towers to SBA with 15-year leasebacks (6-K-Nov:page:12, 20-F:page:90). Sources and uses by deal are not supplied, so the effect of each purchase on liquidity can only be seen in aggregate through the debt movements in CP-1.
+
+New debt issued in 2026 is listed in note 11 of the November interim statements (6-K-Nov:page:23 to 25) and is not a complete schedule. At holding-company level Millicom placed an 8-year COP-USD linked private bond for COP 370,000 million with the Inter-American Development Bank and Proparco on March 27, 2026, and on April 14, 2026 reopened its 7.375% Senior Notes due 2032 for 87.5 in a Regulation S private placement to Banco General. At operating level Tigo Colombia signed a four-year variable term loan of COP 220,000 million, Coltel arranged a one-year 100 bridge facility from Santander and, in June and August 2026, three-year loans of about 49, 237, 77 and 17 from Colombian banks, Tigo Guatemala signed two variable loans of GTQ 400 million each, Tigo Panama replaced a 75 loan with a six-year 75 loan, and Tigo Bolivia issued two seven-year 9.8% bonds and took local bank loans. Repayments in the period include the 5.875% Senior Notes due 2027 of Tigo Paraguay, redeemed at par for about 139.7 on April 29, 2026. After the period, on October 15, 2026, Coltel took a COP 40,000 million loan and prepaid 12.5 of a Santander loan (6-K-Nov:page:28). Terms such as security, guarantors and covenants for the new issues are not supplied.
+
+### Timeline
+
+| Date | Event | Category | Locator |
+| --- | --- | --- | --- |
+| December 1990 and June 16, 1992 | Company formed; Luxembourg société anonyme established | Documentary Fact | 20-F:page:76 |
+| February 6, 2024 | Moody's moved Millicom from Ba1 to Ba2 on quantitative metrics below the Ba1 ranges | Documentary Fact | 20-F:page:273 |
+| October 28, 2024 | Agreement to sell Lati and other towers to SBA | Documentary Fact | 20-F:page:90 |
+| January 14, 2025 | New shareholder remuneration policy announced | Documentary Fact | 6-K-Nov:page:20 |
+| March 12, 2025 | Definitive agreement for Telefónica's 67.5% of Coltel | Documentary Fact | 6-K-Nov:page:8 |
+| March 17, 2025 | Last day of the SDR listing on Nasdaq Stockholm | Documentary Fact | 20-F:page:122 |
+| June 3, 2025 | Lati Paraguay sold to Atis Group | Documentary Fact | 6-K-Nov:page:14 |
+| October 7 and October 30, 2025 | Uruguay and Ecuador acquisitions completed | Documentary Fact | 6-K-Nov:page:13, 6-K-Nov:page:14 |
+| October 21, 2025 | Moody's affirmed Ba2 with a stable outlook; Fitch BB+ at year-end | Documentary Fact | 20-F:page:273 |
+| December 31, 2025 | Fiscal year-end; Lati Operations sale closed in the year | Documentary Fact | 20-F:page:91 |
+| January 27 to April 27, 2026 | Colombian minority buyouts (EPM, Coltel stake, La Nación) | Documentary Fact | 6-K-Nov:page:8, 6-K-Nov:page:9 |
+| February 10, 2026 | Chile joint vehicle with NJJ | Documentary Fact | 6-K-Nov:page:11 |
+| May 20, 2026 | Annual meeting approved a dividend of 3.00 per share in four installments | Documentary Fact | 6-K-Nov:page:20 |
+| August 5 to 6, 2026 | Interim dividend of 1.50 per share declared; 2026 equity free cash flow guidance raised to around 1.1 billion and year-end leverage target lowered to below 2.5x | Documentary Fact | 6-K-Aug:page:5, 6-K-Aug:page:6 |
+| October 2026 | Additional senior management incentive plan communicated; Coltel loan and prepayment on October 15, 2026 (subsequent events) | Documentary Fact | 6-K-Nov:page:28 |
+| November 4 and 5, 2026 | Board authorised the interim statements; third-quarter release furnished | Documentary Fact | 6-K-Nov:page:6, 6-K-Nov:page:28 |
+
+Events after September 30, 2026 are subsequent events and are not folded into the September 30, 2026 facts: the Coltel loan and prepayment, the incentive plan and the earthquakes in Colombia and Panama described in the November release (6-K-Nov:page:29) with no financial estimate.
+
+### Governance and sponsor behaviour
+
+Assessment is at issuer level and uses documented actions only.
+
+| Behaviour | Category | Documented action | Legal capacity, willingness and feasibility | Evidence quality | Dimension informed |
+| --- | --- | --- | --- | --- | --- |
+| Shareholder distributions | Neutral or Mixed | A policy to resume and grow cash dividends each year while keeping a prudent capital structure; dividends paid of 754 and buybacks of 119 in FY2025; dividends paid of 587 in nine months 2026 and no buybacks; for 2026 and early 2027 a 3.00 per share dividend plus a 1.50 per share interim dividend, with the January and April 2027 payments raised | Capacity: operating-level facilities carry restricted payment covenants and 757 of retained profits is not distributable, but holding-company limits are Not supplied. Willingness: a stated policy of growing payouts. Feasibility: equity free cash flow was 916 in FY2025 against 873 of dividends and buybacks, and 867 in nine months 2026 against 587 of dividends | High | Distribution policy |
+| Acquisition-led growth | Neutral or Mixed | Purchases of Uruguay, Ecuador, Coltel and minority stakes, with debt and leases assumed; gross debt rose from 6,886 at year-end 2025 to 8,648 at September 30, 2026 (CP-1) | Capacity: Not supplied (debt documents). Willingness: repeated buyouts to take 100% control. Feasibility: leverage 2.53x against a target below 2.5x | High | Capital allocation |
+| Asset monetisation | Neutral or Mixed | Sale of towers with 15-year leasebacks, turning owned assets into lease liabilities | Mechanics: sale proceeds (net 781 in 2025) reduced debt needs, while lease payments of 483 in nine months 2026 became a fixed charge | High | Capital allocation |
+| Management incentives | Analyst Interpretation | A plan of about 50 contingent on annual equity free cash flow of 2 billion, in the medium term; the metric is cash after debt service, not debt reduction | Willingness: aligns management with cash generation; does not directly reward leverage reduction | Medium | Alignment |
+| Litigation settlements | Documentary Fact | Settlement with four former Tigo Guatemala executives: expense of 99, 31 paid, 68 payable over seven years | Cash drain outside debt | High | Disclosure and legal risk |
+| Reporting transparency | Documentary Fact | Quarterly 6-K statements with release and reconciliations; half-year report reviewed by KPMG; purchase accounting updates disclosed | Supportive of monitoring; interim November and May statements carry no review report | Medium | Disclosure |
+| Priming, uptiering, drop-downs, non-pro-rata exchanges, collateral release | Insufficient Information | None documented in the sources read; indentures are not supplied so permissions cannot be tested | Not supplied: debt documents | Insufficient | Creditor control |
+
+### Capital allocation, acquisitions and disclosure
+
+- Leverage mechanics: debt assumed with Coltel (1,424), new bank and bond borrowings and a net debt movement from 5,357 to 7,983 raised management leverage to 2.53x against 2.17x at year-end 2025 (CP-1).
+- Cash flow mechanics: severance costs of about 71 at Coltel (6-K-Nov:page:10) and further Tigo Colombia and Coltel plans (6-K-Nov:page:27) reduce 2026 cash flow, while Coltel's net loss of 168 to date and 20 of restructuring in Q3 2026 sit above Adjusted EBITDA (6-K-Nov:page:30).
+- Liquidity and refinancing mechanics: cash of 848 against 872 due within one year, with 2,094 due after five years and heavy local-currency borrowing (CP-1); refinancing relies on local banks and development lenders.
+- Monitoring items the source set lacks, with severity:
+
+| Missing item | Severity | Why it matters |
+| --- | --- | --- |
+| Debt schedule by instrument after year-end 2025 | Medium | Needed to size maturities and guarantors |
+| Covenant certificate and levels | High | Headroom cannot be assessed |
+| Add-back bridge from management | Low | Adjusted EBITDA reconciliation is in the release (6-K-Nov:page:41), but pro forma leverage inputs are not |
+| Revolving facility status for 2026 | High | Liquidity sizing |
+| Transaction agreements | Medium | Call options, earn-outs and indemnities |
+
+### Credit translations
+
+| Topic | Evidence | Risk mechanic | Credit implication | Conflict that counters it |
+| --- | --- | --- | --- | --- |
+| Revenue durability | Postpaid subscribers rose to 17,194 thousand (mostly acquired) and organic service revenue grew 5.4% in Q3 2026 (6-K-Nov:page:33, 6-K-Nov:page:41) | A larger postpaid base lifts revenue visibility and lowers churn exposure, but the growth is mostly acquired and currency-driven: FX and other contributed 18.6% of service revenue growth against 5.4% organic | Debt service capacity is supported by recurring subscriptions, but a reversal of local-currency strength would cut dollar earnings against dollar debt | None logged |
+| Margin and cash-flow risk | Adjusted EBITDA margin fell to 48.0% from 49.0% in Q3 2026, with one-off costs of 31 in the quarter; Coltel loss-making (6-K-Nov:page:34, 6-K-Nov:page:41) | Integration costs and severance depress cash conversion until savings arrive | Near-term leverage improvement depends on cost delivery, not on revenue | None logged |
+| Concentration risk | The two Colombian segments together (550 plus 409, or 959) exceed Guatemala (737) in nine-month Adjusted EBITDA; 61% of debt in local currency or swapped (6-K-Nov:page:17, 6-K-Nov:page:32) | Exposure to Colombian regulation, peso and integration is larger than a year ago | Country risk and refinancing in pesos matter more for recovery of operating-company claims | None logged |
+| Sponsor alignment | Niel family group at 44.1%, a rising payout policy and a management plan tied to equity free cash flow (20-F:page:157, 6-K-Nov:page:28) | A large holder can support the company, but its interest is in equity returns; no commitment is documented | Willingness to support creditors is untested; assume none until documents show it | None logged |
+| Contingent exposures | Chile earn-outs up to 490 without recourse; call option windows after year five and six; Guatemala settlement 68 payable over seven years (6-K-Nov:page:11, 6-K-Nov:page:26) | Obligations sit outside group debt but could draw on cash or require funding | Limited recourse reduces direct debt impact, but the earn-out amount conflicts between filings | Chile earn-out conflict below |
+| Key uncertainties | Provisional Coltel accounting; Bolivian exchange regime change; tax exposure of 378; no covenant or instrument data | Balances and ratios may be revised and headroom is unknown | Treat leverage and cover as indicative until documents are supplied | None logged |
+
+### Conflicts logged
+
+| Conflict | Span A | Span B | Effect | Resolution |
+| --- | --- | --- | --- | --- |
+| Size of the Chile acquisition earn-out | The SPA also provides for contingent consideration in the form of earn-out up to $150 million (20-F:page:297) | The SPA provided for contingent consideration in the form of two earn-outs, up to $490 million (6-K-Nov:page:11) | CP-2 cannot size the contingent exposure; both are without recourse to Millicom | Logged, not reconciled |
+| Employees | approximately 15,000 employees, including our Honduras joint venture (20-F:page:78) | employed approximately 19,000 people (6-K-Nov:page:37) | Different perimeter (the November figure includes the Chile associate) and date; not a defect | Logged, perimeter difference noted |
+
+### Consumers
+
+| Module | Readiness | Take from this handoff | Why it matters | Gap | Required action |
+| --- | --- | --- | --- | --- | --- |
+| CP-2 credit synthesis | READY_WITH_LIMITATIONS | Ownership and control facts, transaction register, distribution behaviour, concentration in Colombia, contingent exposures and the Chile conflict | These shape willingness, leverage tolerance and refinancing risk | No transaction agreements, indentures, covenant data or current ownership beyond March 2026 | Use CP-1 figures for leverage and liquidity, treat support and creditor-protection terms as Insufficient Information, and keep the conflict visible |
+| CP-5 evidence trace | READY_WITH_LIMITATIONS | Locators and quotes in each table above, categories and evidence quality, conflict entry | The trace validates that each claim rests on named evidence | Table rows marked Insufficient Information cannot be traced | Check each quote against its page and confirm the Chile conflict |
+
+## Calculations
+
+Figures are printed inputs; the few combinations below are the only new calculations.
+
+| Calculation | Inputs | Result |
+| --- | --- | --- |
+| Combined Colombian Adjusted EBITDA, nine months 2026 | Tigo Colombia 550 + Coltel 409 (6-K-Nov:page:17) | 959, against Guatemala 737 |
+| FY2025 distributions | Dividends paid 754 + share repurchases 119 (20-F:page:197) | 873, against equity free cash flow of 916 (20-F:page:106) |
+| Nine-month 2026 distributions | Dividends paid 587 (6-K-Nov:page:4) against equity free cash flow 867 (6-K-Nov:page:31) | Cover of 280 in cash terms (867 less 587) |
+| Gross debt change | 8,648 - 6,886 (CP-1) | 1,762 |
+| Net debt change | 7,983 - 5,357 (CP-1) | 2,626 |
+| Lease payments, nine months 2026 | 216 interest + 267 principal (6-K-Nov:page:4) | 483, as printed in the release (6-K-Nov:page:31) |
+
+## Gaps
+
+| Gap | Severity | Consumers affected | Remediation |
+| --- | --- | --- | --- |
+| Transaction agreements (Coltel, Chile call option and earn-outs, SBA leaseback, Uruguay and Ecuador) are Not supplied | High | CP-2, CP-5 | Obtain the agreements or the filing exhibits |
+| Sponsor support, standstill or shareholder agreements and current holdings after June 30, 2026 are Not supplied | Medium | CP-2 | Obtain latest Schedule 13D and any agreements |
+| Itemised sources and uses of the 2026 acquisitions and where the minority buyouts sit in the cash flow statement are Not supplied | Medium | CP-2 | Reconcile the 924 acquisition outflow to the deals |
+| Chile earn-out amount conflicts between the 20-F and the November filing | Medium | CP-2 | Obtain the share purchase agreement |
+| Debt documents, covenant data and revolving facility status (see CP-1) | High | CP-2 | Obtain indentures and credit agreements |
+| Customer churn, contract terms and revenue visibility are not disclosed in the text read | Low | CP-2 | Check releases and the 20-F operating section |
+| Pro forma financials for Coltel, Ecuador and Uruguay are Not supplied | Medium | CP-2 | Request pro forma LTM figures |
+
+## Next module
+
+CP-2 should synthesise the credit view using CP-1 for leverage, liquidity, debt, claims and cover, and this handoff for ownership, transaction history, distribution behaviour and contingent exposures. It should keep the Chile earn-out conflict visible, treat creditor protections and sponsor support as Insufficient Information, and state which leverage definition it uses. CP-5 follows to trace every quote and figure to its locator.

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Block, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "fde3c57d263f194f36b012cf6dac47111bd001036fc4309d336b4e5a15f1d35b",
+    "CP-1.md": "b07cf296fcccfced7fc39b3d89643e1dbe0b2cad1f07c4c884c441e049fe5ca0",
+    "CP-1A.md": "eac7020cf732bc7699adb7a3f965221265625fc7f02820560122c035ea5844b3",
+    "CP-2.md": "24f6eec89ac5abc964ef259f3104d70c7d0e982619908dbc8141600b58fd888b",
+    "CP-5.md": "3025c951a156702895e1f010a1e3d7915737a737ca99ce0e60f8971ff6392598",
+    "view.json": "4cee0ac92313c015e1568396252412e562e3645389f98ac6dcf2698718653816",
+    "report-view.json": "a5822eb991dc4a498bd2298c7e743198287bba7950e4f26d70af477c09c56df8",
+    "report.html": "4830ffb8f84654282d7db87ac89912a03f7666798a46d82c371e3f5369311670"
+  }
+}

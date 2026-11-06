@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CoreWeave, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/79b4e4dc2acaa6a39e403b111620edf92e17101264eec8b7f2f2f2f9e8e194f9/1.response.md",
+    "CP-1": "requests/CP-1/31821b5437fe9afcbd4296146c0b6e9021aa5108f36e065a630b989426674f10/2.response.md",
+    "CP-1A": "requests/CP-1A/51a47cc72db0822cc2e7749eadbef502f49ad9710cd5f609c0aad03dc9fc41d4/1.response.md",
+    "CP-2": "requests/CP-2/b2e495b3cc889588cb30fe2cd6ccb31067acd92ad7b74293d371a7919cc38a00/1.response.md",
+    "CP-5": "requests/CP-5/57637f492104b84d869b2e47029d861cef2000fb7c2f0252f64cc6c59785441c/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "b4a7b3ac2c3f39843418531c427d1e00220f51941bb9f4dfd6f0e83f813d1deb",
+  "report_sha256": "c034c395ae7661db3f8d7733614cccb7137ddaff2a25cacd989eca12d8756904"
+}

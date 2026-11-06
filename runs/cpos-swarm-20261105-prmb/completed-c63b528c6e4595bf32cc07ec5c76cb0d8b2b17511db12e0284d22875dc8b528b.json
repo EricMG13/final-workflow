@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Primo Brands Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/842181246c888f9f6b843021f118aade0e5a77f4a7da7a822cf27335036eeacb/1.response.md",
+    "CP-1": "requests/CP-1/a762f33d34a541602c6a663b9651faaa5111164f8bf47041ef6a93af08513095/2.response.md",
+    "CP-1A": "requests/CP-1A/12f13dfed05e4d2ec71ea1491fad08cbe9b3dfc88029c8d36f76b5afaf628671/1.response.md",
+    "CP-2": "requests/CP-2/69593201f48c66e94a6c1fbd5ee52ca2263a345038ee090082beb82590606547/1.response.md",
+    "CP-5": "requests/CP-5/4afc32a9275d90684f2cd670d28a3f0080c9f8fedc3e53d99c972bfe3c3c47a2/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "5b2bb4f9c4ba548ece35be697ffa0ca4e63e52a2065797d5368c4c4db893f29e",
+  "report_sha256": "fb0797c9cda33b72d4825f8615d0f1b240df86f447730c6d1f5e79f4a9bcf48e"
+}

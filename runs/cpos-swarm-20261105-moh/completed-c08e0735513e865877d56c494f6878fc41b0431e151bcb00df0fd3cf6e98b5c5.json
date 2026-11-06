@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for MOLINA HEALTHCARE, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/0a15234339c9a69b6c9fc90b9815ea3bfab61eff4c3c99cec18df0f98b7e7a85/1.response.md",
+    "CP-1": "requests/CP-1/9595f8fa20a5af3a987043eb8189ef66de525c904dc9f65b920fa410c5128b20/1.response.md",
+    "CP-1A": "requests/CP-1A/ebe162ecce067891e39af7a73d3296b9bae603b1146f35c61471b3321eb7724b/1.response.md",
+    "CP-2": "requests/CP-2/21583e16d9f147012f0a255d18d3e106ff3ee0efafb3e866b7974c1375737979/1.response.md",
+    "CP-5": "requests/CP-5/9969e1ff358d96cb78ab0867ae677385a71aeb2df03807151fc6c7068c9618dd/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "c2b007cf7e252a38fdee8ebf5e7969e25de505156222346e0162e6e371b1dc50",
+  "report_sha256": "534c232f2361c99b6221e6620da1a479e4777cff85592a932b50895e1f18e0a6"
+}

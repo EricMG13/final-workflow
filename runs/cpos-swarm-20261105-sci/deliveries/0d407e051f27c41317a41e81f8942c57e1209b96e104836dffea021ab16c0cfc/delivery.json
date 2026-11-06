@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for SERVICE CORP INTERNATIONAL as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "a4424fa5ae507987bbabfc0ea081c1e6d0634859958366cc6d6a3e21db770495",
+    "CP-1.md": "b2929721b6dd1fe38c8e3fe6a91d3ab13c7f3197b5f3265b7ede5c6f6e3cdc9f",
+    "CP-1A.md": "b01abf4ad8bf7d83bda476fbd5b626e74996926a7ff4ea4e5b5602e926d1af16",
+    "CP-2.md": "dcd55d4835bd4138b4b4827282bd5b0bef71995e771217c1cfe1956c6511089c",
+    "CP-5.md": "8f4f3b240b0b011c785257506a3fb9c974af13f3f9ebdd0a945897d8f8be9d6f",
+    "view.json": "a91a564a7ad92be663a3daf86478c5c2a4071575b1cef4ce8cfa0b4c8e0ad01c",
+    "report-view.json": "8e0bb012ffbdbc451cf043dd3c896fdf9e45850534a0e0fc83cb60201ce400c2",
+    "report.html": "3b1c3a5c8632148ae54ac98c321e4cc1a3bbea984ad881d97e67ac7fd2d051a9"
+  }
+}

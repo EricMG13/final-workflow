@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for TENET HEALTHCARE CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/97a09eb09aa2523183ef62ff452b940d1983bc8362cbb22936649a72026210d5/1.response.md",
+    "CP-1": "requests/CP-1/50f06e90595b99821c152cd82a81fa74b6f211ffc9130309d5a0f1ed69e0538e/1.response.md",
+    "CP-1A": "requests/CP-1A/df340d91e966abb45e132bc85bda02b69151b1e75f25dd2185b86855f6dd3e18/1.response.md",
+    "CP-2": "requests/CP-2/c082db59cb3e3ec9e9811b911d0e9317ba9e3e022ce57ef78477b953b1a06127/1.response.md",
+    "CP-5": "requests/CP-5/f7cd7e4f98e33539b83fe17babaedd662cdc55cbed22140b2b13da5a0227b049/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "91f25938a567036760492eb16d5edca3ce027a64a17a07af5cd39e1f953288cf",
+  "report_sha256": "f0e459edc52d6ac49d5ac32be8f7f58c5ad49d6ce2f233e83710e9a1ccf38b50"
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Clear Channel Outdoor Holdings, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "c71e4b6220652757facb8cbe1e745147a9ea4d59240f1f57156457c376ee1b60",
+    "CP-1.md": "fca9d4b8c375c5150877961d771a19c3bb05bdf148b7d27b2dc87fc69f48ca80",
+    "CP-1A.md": "e856477b20f063796951e436fe80db366086d45d4647096c504e5378286eadf2",
+    "CP-2.md": "5649d186c5f31a78a89acbc6401a407f32af5d24c7818050c0ac8b22b38a06e5",
+    "CP-5.md": "a409b1e6144b8393497507cd7d4adceb3af503c8b9dc7e1cb8c32cd6f4848fad",
+    "view.json": "a213ea54c743cf85c16924c71d86c80145edc0f2a76a75a306b4ed7530a8f482",
+    "report-view.json": "22c5e92a93504c7830e090f1237fddfe97aec2dded095a8e7c5ca569970bb06c",
+    "report.html": "a03e6566bb0c81b317b2c1b93a1d21e630e77fa8ad4c544573e25ab725572704"
+  }
+}

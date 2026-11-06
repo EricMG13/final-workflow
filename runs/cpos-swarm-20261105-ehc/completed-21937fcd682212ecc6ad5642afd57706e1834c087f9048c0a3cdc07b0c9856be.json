@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Encompass Health Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/0f7ba755633a11bbf33944c5e6e35df6425463847829699c37b320a71242f6a7/1.response.md",
+    "CP-1": "requests/CP-1/0a29819db8cc9cd500f7e6bfe070e0aad2919189e0b584a1495a65799928c56a/1.response.md",
+    "CP-1A": "requests/CP-1A/5eaea2e39ff620d3e46a883d9c8e4e58ae3105d4ede70d1c5ef04342093ac16e/1.response.md",
+    "CP-2": "requests/CP-2/8fdf2c03835bdbfabdf73956e98652e73107fc9ca3c8fca035fdc3b5e07df1b5/1.response.md",
+    "CP-5": "requests/CP-5/3c2bf83d69833aac43acb82699396847c2d6932f947e2ba1a17626db5d75a134/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "0a76ace0235e719d5035958bbec2910fe715e2dbedfc37731fbe89504a3bda94",
+  "report_sha256": "4e81723ffae1600861a21f3295a332346e78ebbe3b9d7c722f9b501fcfca4483"
+}

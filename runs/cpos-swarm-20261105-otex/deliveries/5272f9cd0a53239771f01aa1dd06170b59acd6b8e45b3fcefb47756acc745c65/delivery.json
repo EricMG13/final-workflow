@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for OPEN TEXT CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "ae7b653c84c72f696d77e449940280b63c6a90d2bec9f8b7dc52fb0396bbbec0",
+    "CP-1.md": "fc72d6e76ea4ae4cd11643bc6d6394ce5f711c2810c1cccef5e45ddb67a3d113",
+    "CP-1A.md": "cca33eea8c36426026798a192e210e8371db56b8cf3e67589f7ae7738a743b74",
+    "CP-2.md": "6fb494866244976329de012d130d5f0494c0baf83752a1aac44c61b1eabde7cc",
+    "CP-5.md": "e3b62225f380558d36811694c25ebb4b3c10bbd1578e970a0bcc0e981c4b9f74",
+    "view.json": "24bef5f45af83102bb417b8c244bb3ca940e8f7d5fb6342ff1122ca90fe3e148",
+    "report-view.json": "4570c0dc59291b3d4e40fb13b82dd02e12695a349705ffdfbdd9812c8b5ed8ea",
+    "report.html": "418973e891dbf948cee2532afe0ae2404915aa267cee3cf8923158ca7a833d15"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CoreWeave, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "0a718ae2802587f76f44cc2a61e8815a4a88834928edca0479e39f7d34976401",
+    "CP-1.md": "df2a422a4928d9e15d084ff62a177ff909f3a1e751a2512de167ccad6229229c",
+    "CP-1A.md": "15e6d01a799b4eadec41d419b7f13d7008399c50166b31b64beabfb6f8b5e942",
+    "CP-2.md": "e290f8612163f220fc92ee22d1a4caacbd176382aaf577d8dac347f401f7ca08",
+    "CP-5.md": "49ed6eb7cc8118071483a7d7b7a45173ebb6421fe3f42e89180bca8b1562af06",
+    "view.json": "305420e3bbfdeed314d2b9c3fea1aa3985af2c4c9a90dbe28e3ab504bcc46f8a",
+    "report-view.json": "3396617661f7e8e611ccee19fe4cd9077651edaebe734200fdfd512cd86d33f0",
+    "report.html": "c034c395ae7661db3f8d7733614cccb7137ddaff2a25cacd989eca12d8756904"
+  }
+}

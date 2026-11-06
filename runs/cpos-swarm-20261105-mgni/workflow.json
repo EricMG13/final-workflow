@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "mgni-2026-11-05-credit_snapshot-host",
+    "issuer_id": "mgni",
+    "issuer_name": "MAGNITE, INC.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_mgni-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_mgni-20251231.htm.jsonl",
+      "sha256": "f96c3c8e001359e3762f2fdcdb5fec62dc8b34a692251ca50bc2b0320cbc2a0a"
+    },
+    "10-Q_2026-03-31_mgni-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_mgni-20260331.htm.jsonl",
+      "sha256": "a236956e4f58c23dd0c7e9814923ff8c58122f0f2ffc4593ab7dcd2ac0165adf"
+    },
+    "10-Q_2026-06-30_mgni-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_mgni-20260630.htm.jsonl",
+      "sha256": "796b488acb30e088707602178e4e306b131923e994381f8d88dd91dd9706c3bb"
+    },
+    "10-Q_2026-09-30_mgni-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_mgni-20260930.htm.jsonl",
+      "sha256": "c6922a9ebeac839059c55928b8190f39ac8376ff2e5306b6695aa910a9515bb4"
+    },
+    "EX-99.1_2026-05-06_a991-earningsq12026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-06_a991-earningsq12026.htm.jsonl",
+      "sha256": "1a65026a829ea6d3398cf84619845f6c5e542133314c7959aef5563816dda9a4"
+    },
+    "EX-99.1_2026-08-05_a991-earningsq22026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_a991-earningsq22026.htm.jsonl",
+      "sha256": "7a22ad7a167049f41876318b3adec058b3521559a35265d5009853f0eba7f49d"
+    },
+    "EX-99.1_2026-11-04_a991-earningsq32026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-04_a991-earningsq32026.htm.jsonl",
+      "sha256": "9404d81beccd30783613c5d17e44e7f768a511dbf6b00a1825d39fa611f52e22"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1595974-magnite-inc-mgni.json",
+      "sha256": "add9e4e5fe29cabeba543552138279256276897be557a9b8ceef018e156869fc"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "28f0a8fe62138ab364e155a7fd46abbcca9c2bcc406386db6f8ca09705199219"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "a887059ce400a9923d265c87be175d0d30e8a8fce5224480e9ef585d6738ffb1"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "30dacec5fb6dbe2ec5d8b0bff83d9c33707069b4e8ce95b1bcbd2475b86de4a8"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "a23055e942b28e2ca2bf1f841549d76e54f7b115766fcc1a9c167a79eeb5d73f"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "d73e7ca32f95b706f4db325fd6126f7d4ccb8932a20a6c88d08aae82382ec420"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for MAGNITE, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "MAGNITE, INC. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

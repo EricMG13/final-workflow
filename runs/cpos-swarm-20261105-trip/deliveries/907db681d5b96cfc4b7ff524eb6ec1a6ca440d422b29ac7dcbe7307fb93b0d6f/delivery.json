@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for TripAdvisor, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "11450ae719794e17a2469c6eb5fd603263c2713efb400c29bf944a61ffe15423",
+    "CP-1.md": "52dc3cd3371b0b989b27c5d8c2038a957dbe47bc633b57645cba56bfe8b410a1",
+    "CP-1A.md": "90268fe24a5e8556b4ec4598fb670803d14280bd3c48d425e5571a802456bf47",
+    "CP-2.md": "732246cf0aa78d6772a6de880751f85792ab8ebc08af374c06d9161ea899f19c",
+    "CP-5.md": "c397df8cb09f0cc5a5be4053562ec338cfb74f98b3c92f0ad906de65f7a936fe",
+    "view.json": "d46bfebfaf697d84662e4146e6094de3989aca4802666fefbfdb93402d094eb1",
+    "report-view.json": "7807114b941ee6a46ffbbecd4b29ed8c28d95ef989d5272a331f311f1d66b2ad",
+    "report.html": "83c620a93284543c423a8e20a046bcde920ccfc02fcec400c2b602aec09cd83d"
+  }
+}

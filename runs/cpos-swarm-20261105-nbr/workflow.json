@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "nbr-2026-11-05-credit_snapshot-host",
+    "issuer_id": "nbr",
+    "issuer_name": "NABORS INDUSTRIES LTD",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_nbr-20251231x10k.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_nbr-20251231x10k.htm.jsonl",
+      "sha256": "427cc2fc64bcd723a27a6c2478a12093e219dc045e02d41b40eab49061568751"
+    },
+    "10-Q_2026-03-31_nbr-20260331x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_nbr-20260331x10q.htm.jsonl",
+      "sha256": "11eb9a5886137a3201a1d5b34cd6e8ef50e247d641cd61ec9c9814adc458e187"
+    },
+    "10-Q_2026-06-30_nbr-20260630x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_nbr-20260630x10q.htm.jsonl",
+      "sha256": "6c2a6d1bdbcbd71ad95906094386639f0ffd409dc513dcadc487db645242cb3b"
+    },
+    "10-Q_2026-09-30_nbr-20260930x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_nbr-20260930x10q.htm.jsonl",
+      "sha256": "7e240e48875d03a0d84a20d6f741fc0c9988f286076c7c4d265721b0e0793ce2"
+    },
+    "EX-99.1_2026-04-28_tm2612942d1_ex99-1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-28_tm2612942d1_ex99-1.htm.jsonl",
+      "sha256": "811d6f2d82a109aad668cd621d65877dd4784a4f2a4d17ed4d8fd9b20e6f9b37"
+    },
+    "EX-99.1_2026-07-28_tm2621313d2_ex99-1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-28_tm2621313d2_ex99-1.htm.jsonl",
+      "sha256": "4fe99e5d4274f6274ec08f0c05beac58f1ab8c742acabe22ed57e9e2bd36a4e7"
+    },
+    "EX-99.1_2026-10-27_tm2628332d1_ex99-1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-27_tm2628332d1_ex99-1.htm.jsonl",
+      "sha256": "f9d4d37c25f2acc92f4bf176ff35ad6539e2f40b8c58a320a92c16c59d447e59"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1163739-nabors-industries-ltd-nbr.json",
+      "sha256": "2447d4a661e92334753a8e1c6e3f04df86843d3399afe1ed1f2ac26814412213"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "b2462c93ac635377f385764300464dd08584ec60ba39d753b2216a89f0b192d9"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "9915dbaedfcc8fdd8eebc76d3395e807d35a611553f3a8590fb0cfa51d95b8c1"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "948620080e5a57c6935799d64f2a75b2c88dc68a50aec2f8389295d277f38125"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "0857b6c433da04677375d9be8ca795154c74a1365c9848563604883a176a71e3"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "041e26a8d1757a7b29418106c04eec96daa8dce5e9b1c4b9e743ef4c17bcbb96"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for NABORS INDUSTRIES LTD as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "NABORS INDUSTRIES LTD — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

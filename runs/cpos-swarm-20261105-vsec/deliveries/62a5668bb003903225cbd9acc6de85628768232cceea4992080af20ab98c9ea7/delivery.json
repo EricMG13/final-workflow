@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for VSE CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "2cdcc9415abc8726a2bd6013cc3fc6053fad1900f1d23a6661cbe4e6c3b944c9",
+    "CP-1.md": "0ce2ba0d41587fd6984e42432ff1f87478ce6e2541bbe874409fd590811a2170",
+    "CP-1A.md": "bbe5dabc3d375b69ee76ab844cf013f38bda2f0326a4a2247d2db1ff3e9b86f4",
+    "CP-2.md": "a8a1ab8afd1514757a3bb5aa4b4cd16d01a6b93effbaf65a791adfe4044700b1",
+    "CP-5.md": "ae2a244a5f4869026b38a987367b481fbefece8eaf55b1254d31ab9b54fa912f",
+    "view.json": "506942b7bf19cb559ad0cc5af8da8d2a1602e12ab2179ce55d849d359604be3a",
+    "report-view.json": "f17b01df8dbce6192b46a82420a1304f8ae447beb438cd3dff8e81d305651868",
+    "report.html": "59281005191ed32fcebd8a7e9fe858d375e432bf02a112af14f41d526d007cfd"
+  }
+}

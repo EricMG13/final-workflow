@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Mativ Holdings, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "92a14b77ed2bb9def0944723f4f65aeedad508eab324c95320e6d76a3b3d4ee9",
+    "CP-1.md": "4592a648cae094f6158e4316f1530fee27bfdea9527de2676d0f914ffc2ab970",
+    "CP-1A.md": "72b704ec84c33eb840a037aebb90e6259df29db7cdc6498566f14704772c741e",
+    "CP-2.md": "a74131f4b7185b995359ee537ffb2750707da6137d687a7bf9a8742ab8cdd76a",
+    "CP-5.md": "ebdcd1e391c5d7978e29b487f3635cf400c3aec02de621cebcbe11e26326eaec",
+    "view.json": "63b240ac0e14a24d39afeca5a841bf2c36618d15c986399bf6069b126a5adf08",
+    "report-view.json": "986e7924b9b148c9bb9ccd84d365317440c0266c8b8f8442a15884dc625cce8d",
+    "report.html": "5db8c3ff8cb269907022605f655059eb4065733798065d66e8c86d8d6ac9f429"
+  }
+}

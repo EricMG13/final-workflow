@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "cc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "cc",
+    "issuer_name": "Chemours Co",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_cc-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_cc-20251231.htm.jsonl",
+      "sha256": "adf80f4588f501b9f797e1b55a5853888465c5d9b30aef8ff07b3cd4340b3957"
+    },
+    "10-Q_2026-03-31_cc-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_cc-20260331.htm.jsonl",
+      "sha256": "544e858f14516405499b0793277b117ab856893d213de4bfdfd312ae33ddb9fd"
+    },
+    "10-Q_2026-06-30_cc-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_cc-20260630.htm.jsonl",
+      "sha256": "5934bf743b44e940824956ac90d2979f28da0477a0f669044693e5e59c78b62f"
+    },
+    "10-Q_2026-09-30_cc-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_cc-20260930.htm.jsonl",
+      "sha256": "f23013a765ad5943b395240230ccfbe7a0cca417e186c8a1a82b34a215485de7"
+    },
+    "EX-99.1_2026-05-05_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-05_cc-ex99_1.htm.jsonl",
+      "sha256": "cf37012a81481ef001a376d207312af6444e1ec5683c9d45ff930f84bd36dd4e"
+    },
+    "EX-99.1_2026-08-04_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-04_cc-ex99_1.htm.jsonl",
+      "sha256": "5e0a77f0453e40d6a00670f0f971f2e2c0487e12a68a0222858c84133578166e"
+    },
+    "EX-99.1_2026-11-02_cc-ex99_1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-02_cc-ex99_1.htm.jsonl",
+      "sha256": "d716a94a423338ae97b02c515014fccad1457c8952131fe6a67cf2f82a22b1e0"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1627223-chemours-co-cc.json",
+      "sha256": "e4e3509e830ce866831093e05761a30c7677098a166e3ae01f6bf5702202686d"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "b8a735cc3e4f3f7d0fd77baeb8e0a19fca9e7f0bb4f1192beff7afa55c445222"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "ea93d7822b822b1e18a3dc17e119884d9d4eff143fa32dff996fb5b2b21913ef"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "0b61a3e73eac93792ce65d5e33fa0dfb5872b1d21e466bc5f5c575a89559de7a"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "369bdc01f6396fa5dbfe897581d90b9f3465f7025973f479c8fe033603f43ea4"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "73cf3085f104ec6b8f5c0c32b4207fc0c754f6c92a224897ca050acb875482e9"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Chemours Co as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Chemours Co — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

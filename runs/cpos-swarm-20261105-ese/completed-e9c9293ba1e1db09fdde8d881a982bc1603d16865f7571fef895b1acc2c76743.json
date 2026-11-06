@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for ESCO TECHNOLOGIES INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/e656a7548a37d2e4716f32431dcc97f1115028e80806682d32e4adf3538a8e88/1.response.md",
+    "CP-1": "requests/CP-1/edbe23f2e64a3c78e9f2e5da70b1e04c5b087f7739cc01cbdd822a477d272584/1.response.md",
+    "CP-1A": "requests/CP-1A/c75bb804ed3be3ecd5158c367fe67bf7910449719da4a5bbc69e6d119c3238be/1.response.md",
+    "CP-2": "requests/CP-2/3bfacf5dd80d52dbc2d6c4b2886afcf6bc5da8a5a3fdb50eb31c413fcf06b075/1.response.md",
+    "CP-5": "requests/CP-5/98d73f355e7114f67bbed1aa521433319564b25735084f74e6475110ab4cae0b/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "36d03fd8d561dbe0eca9743f4bcc1da7ba5a0a6889a3d71afe011bd2460f8a1b",
+  "report_sha256": "824f2ce9af6efa5227a9ae79ef46694028a0588e4d5908f68e509a942bd0397a"
+}

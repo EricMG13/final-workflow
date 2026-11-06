@@ -604,6 +604,242 @@ def test_unbalanced_parentheses_are_not_a_row_value(token: str) -> None:
     assert issues == (f"fx.fx_cash_effect: value_text {token} is not the last value of the row",)
 
 
+@pytest.mark.parametrize(
+    ("key", "page", "line", "short", "want"),
+    [
+        # S06-cp2-ade-A02: the FY 2025 cell of the flow row is dropped, so the last value 2.25 is
+        # the Q4 2025 quarter, not the FY 9.00; header `Period  Q1..Q4 2025  FY 2025` has 5
+        # columns, the row 4 values.
+        (
+            "fcf",
+            "page:3",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00",
+            "Levered free cash flow  2.25  2.25  2.25  2.25",
+            "earnings.fcf: the row has 4 values for the 5 header columns",
+        ),
+        # The balance row: header `Period end  Opening ..  FY 2025-12-31` has 6 columns, and the
+        # row lost its FY cell, so 50.00 is the Q4 balance read as the FY one.
+        (
+            "total_debt",
+            "page:4",
+            "Total debt  45  46.25  47.50  48.75  50.00  50.00",
+            "Total debt  45  46.25  47.50  48.75  50.00",
+            "earnings.total_debt: the row has 5 values for the 6 header columns",
+        ),
+        # One value too many is refused the same way: 6 values under 5 columns.
+        (
+            "fcf",
+            "page:3",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00  9.00",
+            "earnings.fcf: the row has 6 values for the 5 header columns",
+        ),
+    ],
+)
+def test_a02_row_must_fill_every_header_column(
+    key: str, page: str, line: str, short: str, want: str
+) -> None:
+    pages = dict(_pages("positive"))
+    assert line in pages[page]
+    pages[page] = pages[page].replace(line, short)
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["earnings"][key].update(quote=short, value_text=short.split()[-1])
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (want,)
+
+
+def _interest_printed(line: str) -> tuple[dict[str, Any], dict[str, str]]:
+    """The positive submission and pages with page 3's cash interest row printed as ``line``."""
+    old = "Cash interest paid  1.25  1.25  1.25  1.25  5.00"
+    pages = dict(_pages("positive"))
+    assert old in pages["page:3"]
+    pages["page:3"] = pages["page:3"].replace(old, line)
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["earnings"]["interest"].update(quote=line, value_text=line.split()[-1])
+    return sub, pages
+
+
+def test_a03_parenthesised_interest_outflow_is_the_amount_paid() -> None:
+    """S06-cp2-ade-A03/C01: the page prints the cash interest outflow in accounting parentheses.
+
+    Hand-derived from the pages: EBITDA 30.0, cash interest paid 5.00, floating balance 50, floor
+    0, shocks 100 and 200 bp. Coverage 30 / 5 = 6; added interest 50 x 1% = 0.5 and 50 x 2% = 1;
+    interest after 5.5 and 6; coverage after 30 / 5.5 and 30 / 6 = 5. Before the fix the operand
+    was -5.00: coverage n.m. "cash interest is negative" and interest after -4.5 and -4."""
+    sub, pages = _interest_printed("Cash interest paid  (1.25)  (1.25)  (1.25)  (1.25)  (5.00)")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == ()
+    inputs = cp2e.inputs_from_submission(sub, source_names=_names("positive"))
+    assert inputs.interest.value == Decimal("5.00")
+    assert inputs.interest.cite.quote.endswith("(5.00)")  # the cite keeps the printed row
+    result = cp2e.compute(inputs)
+    s = result.sensitivity
+    assert (s.cov_base.state, s.cov_base.amount) == ("known", Decimal(6))
+    assert [r.interest_after.amount for r in s.rate] == [Decimal("5.5"), Decimal(6)]
+    # 30 / 5.5 = 5.454545... at the composer's 38 digits, half-even: the 38th digit rounds up.
+    assert str(s.rate[0].cov_after.amount) == "5.4545454545454545454545454545454545455"
+    assert s.rate[1].cov_after.amount == Decimal(5)
+    cells = {c.fact_id: c for c in _cells(result)}
+    assert cells["T2F.1.r08.value"].amount == Decimal("5.00")
+    # Every figure outside the limitations table T2F.9 is the one the positive case gets from
+    # the unparenthesised row (the printed sign changes no amount, only the recorded limitation).
+    plain = {
+        c.fact_id: (c.status, c.amount)
+        for c in _cells(cp2e.compute(_inputs("positive")))
+        if not c.fact_id.startswith("T2F.9.")
+    }
+    figures = {k: (c.status, c.amount) for k, c in cells.items() if not k.startswith("T2F.9.")}
+    assert figures == plain
+    # The limitations are the positive case's plus the recorded sign, before the macro line.
+    want = list(EXPECTED["cases"]["positive"]["own_limitations"])
+    want.insert(len(want) - 1, cp2e.LIM_INTEREST_SIGN)
+    assert list(result.limitations) == want
+    _assert_prose_clean(result)
+
+
+def test_a03_parenthesised_zero_interest_is_zero_paid() -> None:
+    """(0.00) is a zero payment: the operand is 0.00, never -0.00, no sign is recorded (a zero
+    has none to reverse) and coverage is n.m. "cash interest is zero", as for a plain 0.00."""
+    sub, pages = _interest_printed("Cash interest paid  (0.00)  (0.00)  (0.00)  (0.00)  (0.00)")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == ()
+    inputs = cp2e.inputs_from_submission(sub, source_names=_names("positive"))
+    assert str(inputs.interest.value) == "0.00"
+    assert not inputs.interest_sign_normalised
+    s = cp2e.compute(inputs).sensitivity
+    assert (s.cov_base.state, s.cov_base.reason) == ("not_applicable", "cash interest is zero")
+
+
+def test_a03_unparenthesised_interest_records_no_sign() -> None:
+    inputs = _inputs("positive")
+    assert inputs.interest.value == Decimal("5.00") and not inputs.interest_sign_normalised
+    assert cp2e.LIM_INTEREST_SIGN not in cp2e.compute(inputs).limitations
+
+
+# --- S06-cp2-ade-A04: every MILLIONS operand's page must state its amounts in millions ------------
+def test_a04_pages_in_thousands_are_refused_for_every_millions_operand() -> None:
+    """The pack says "amounts in thousands" (pages 1-4) and "USD thousands" (page 5): every
+    quoted MILLIONS operand is refused, in validator order, instead of being stamped 1e6."""
+
+    def thousands(text: str) -> str:
+        return text.replace("amounts in millions", "amounts in thousands").replace(
+            "USD millions", "USD thousands"
+        )
+
+    pages = {k: thousands(v) for k, v in _pages("positive").items()}
+    sub = json.loads(thousands(json.dumps(SUBMISSIONS["positive"])))  # the quotes follow the page
+    assert sub["reporting_currency"]["quote"] == "Currency: USD; amounts in thousands."
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (
+        "rate_exposure.facility_balance: page:5 states amounts in thousands, not millions",
+        "earnings.ebitda: page:2 states amounts in thousands, not millions",
+        "earnings.interest: page:3 states amounts in thousands, not millions",
+        "earnings.fcf: page:3 states amounts in thousands, not millions",
+        "earnings.total_debt: page:4 states amounts in thousands, not millions",
+        "fx.fx_cash_effect: page:3 states amounts in thousands, not millions",
+    )
+
+
+def test_a04_one_statement_page_in_billions_refuses_only_its_rows() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:4"] = pages["page:4"].replace("amounts in millions", "amounts in billions")
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.total_debt: page:4 states amounts in billions, not millions",
+    )
+
+
+def test_a04_a_page_with_no_unit_statement_is_refused() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:3"] = pages["page:3"].replace("USD; amounts in millions; ", "USD; ")
+    assert "millions" not in pages["page:3"]
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.interest: page:3 does not state the unit of its amounts",
+        "earnings.fcf: page:3 does not state the unit of its amounts",
+        "fx.fx_cash_effect: page:3 does not state the unit of its amounts",
+    )
+
+
+def test_a04_conflicting_unit_statements_are_refused() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:2"] = pages["page:2"].replace("unaudited;", "unaudited; notes in thousands;")
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.ebitda: page:2 states amounts in millions, thousands, not millions",
+    )
+
+
+def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
+    """A share-count clause and a negated clause leave the page's "amounts in millions"."""
+    pages = dict(_pages("positive"))
+    pages["page:2"] = pages["page:2"].replace(
+        "unaudited;", "unaudited; shares in thousands; not in thousands;"
+    )
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == ()
+
+
+@pytest.mark.parametrize(
+    ("statement", "want"),
+    [
+        # Spellings of "millions" the page may use: none of them is refused.
+        ("USD millions;", ()),
+        ("$ in millions;", ()),
+        ("in $ millions;", ()),
+        ("millions of US dollars;", ()),
+        # A prose "thousands of" is no unit; a lower-case word before "millions" is no currency.
+        ("amounts in millions; thousands of customers;", ()),
+        ("amounts in millions; some of the millions;", ()),
+        # Abbreviations state no unit, and the row cannot be read: the page is refused, not guessed.
+        ("USDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("(not in millions);", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        # A second monetary unit on the page conflicts with the first.
+        (
+            "amounts in millions; weighted shares (in thousands);",
+            ("earnings.ebitda: page:2 states amounts in millions, thousands, not millions",),
+        ),
+        (
+            "in USD millions; EUR billions;",
+            ("earnings.ebitda: page:2 states amounts in billions, millions, not millions",),
+        ),
+    ],
+)
+def test_a04_unit_statement_spellings(statement: str, want: tuple[str, ...]) -> None:
+    """Page 2 (the EBITDA row) states its unit as ``statement`` in place of its own clause."""
+    pages = dict(_pages("positive"))
+    assert "amounts in millions;" in pages["page:2"]
+    pages["page:2"] = pages["page:2"].replace("amounts in millions;", statement)
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == want
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "Cash interest paid  -1.25  -1.25  -1.25  -1.25  -5.00",  # a leading minus is no row value
+        "Cash interest paid  (1.25  (1.25  (1.25  (1.25  (5.00",  # unbalanced parenthesis
+    ],
+)
+def test_a03_only_balanced_parentheses_mark_an_outflow(line: str) -> None:
+    sub, pages = _interest_printed(line)
+    token = line.split()[-1]
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (
+        f"earnings.interest: value_text {token} is not the last value of the row",
+    )
+
+
+def test_a03_a_parenthesised_fy_cell_alone_marks_the_outflow() -> None:
+    """Only the FY cell is the operand: quarter cells in parentheses are not read."""
+    sub, _ = _interest_printed("Cash interest paid  (1.25)  1.25  (1.25)  1.25  5.00")
+    inputs = cp2e.inputs_from_submission(sub, source_names=_names("positive"))
+    assert inputs.interest.value == Decimal("5.00") and not inputs.interest_sign_normalised
+
+
+def test_a02_cells_separated_by_wider_gaps_still_count_once() -> None:
+    """Aligned columns (three or more spaces) are the same cells; a collapsed blank is not one."""
+    wide = "Levered free cash flow   2.25    2.25  2.25   2.25     9.00"
+    pages = dict(_pages("positive"))
+    pages["page:3"] = pages["page:3"].replace(
+        "Levered free cash flow  2.25  2.25  2.25  2.25  9.00", wide
+    )
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["earnings"]["fcf"].update(quote=wide, value_text="9.00")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == ()
+
+
 def test_source_names_are_required() -> None:
     """No empty default: T2F.8 cannot be composed without the pack's source names."""
     (names,) = [f for f in dataclasses.fields(cp2e.MacroFxInputs) if f.name == "source_names"]

@@ -884,3 +884,78 @@ def test_release_failure_after_a_successful_run_keeps_the_result_and_warns(tmp_p
             rulings_root=root,
         )
     assert report == tmp_path / "report.html"
+
+
+def test_failed_response_write_leaves_no_torn_answer_and_never_redispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S01-A02/C02: a response write that fails (EIO/ENOSPC on sync) must leave no final
+    `1.response.md`. Before the fix `_put` wrote in place, so resume read the torn bytes as the
+    retained answer, skipped the executor and delivered them. Expected, by hand: CP-1's final
+    response is absent, no `.pending-*` temp remains, resume refuses with `cpos_interrupted`
+    without a single executor call, and no completion record exists."""
+    from typing import Any
+
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+    real_open = Path.open
+    armed = []
+
+    class HalfWrite:  # the disk fills after half the bytes of the next created file
+        def __init__(self, stream: Any) -> None:
+            self.stream = stream
+
+        def __enter__(self) -> Any:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            self.stream.close()
+
+        def write(self, raw: bytes) -> int:
+            self.stream.write(raw[: len(raw) // 2])
+            self.stream.flush()
+            raise OSError(28, "No space left on device")
+
+    def opening(self: Path, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        stream = real_open(self, mode, *args, **kwargs)
+        if mode == "xb" and armed:
+            armed.clear()
+            return HalfWrite(stream)
+        return stream
+
+    def execute(task: HandoffTask) -> bytes:
+        if task.module_id == "CP-1":
+            armed.append(True)  # the next created file is CP-1's response
+        return replay(task)
+
+    monkeypatch.setattr(Path, "open", opening)
+    with pytest.raises(OSError, match="No space left"):
+        run_handoffs(path, directory, execute=execute, check=checked)
+    monkeypatch.setattr(Path, "open", real_open)
+    folder = next(directory.glob("requests/CP-1/*"))
+    assert sorted(p.name for p in folder.iterdir()) == ["1.request.json"]
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="cpos_interrupted: response not retained for CP-1"):
+        run_handoffs(
+            path, directory, execute=lambda t: calls.append(t.module_id) or b"", check=checked
+        )
+    assert calls == []
+    assert not list(directory.glob("completed-*"))
+
+
+def test_put_publishes_whole_bytes_once_beside_a_stale_temp_file(tmp_path: Path) -> None:
+    """A temp file a killed writer left behind is neither read nor reused. Expected, by hand: the
+    target holds exactly b"complete answer\\n", the stale `.pending-` file is untouched (it is not
+    `_put`'s to remove), an identical rewrite is a no-op, a different one is `identity_mismatch`,
+    and no new temp file remains after either."""
+    from deploy_workflow.workflow import WorkflowError, _put
+
+    stale = tmp_path / ".pending-0123456789abcdef0123456789abcdef"
+    stale.write_bytes(b"compl")
+    target = tmp_path / "1.response.md"
+    _put(target, b"complete answer\n")
+    _put(target, b"complete answer\n")
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        _put(target, b"complete answer\nplus more\n")
+    assert target.read_bytes() == b"complete answer\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [stale.name, target.name]

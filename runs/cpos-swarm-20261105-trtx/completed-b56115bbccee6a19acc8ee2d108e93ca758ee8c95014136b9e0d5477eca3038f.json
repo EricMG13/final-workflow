@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for TPG RE Finance Trust, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/c9bffbba18bbcd0324e92cbb492a9e60af4275f72c99670d31c4aa73b0134685/1.response.md",
+    "CP-1": "requests/CP-1/ff9816f3b6df4c66293be05660da8f05a4682c746ab0eb9ed7ec63f78d3a8ef0/2.response.md",
+    "CP-1A": "requests/CP-1A/0d646fac281beb8700ae1cd6f1c8d265c53e13bb268ef2723912c2e03188bb3f/1.response.md",
+    "CP-2": "requests/CP-2/ea99c8103da7340de955d96013e9f7af8419d7bfd39fc749874b77aa29f8588f/1.response.md",
+    "CP-5": "requests/CP-5/1de139868a61719f796a8ab4a81462707114c01fe2633f5a9ad2bc0262b56416/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "f63938b6e07a913d913263b59d0a7549cab02c8521de3951527e4853b57ac4fd",
+  "report_sha256": "f4581762a0baf67203c4ce9a958e72dad367b54fe35f59805a84f06d126878e1"
+}

@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "tac-2026-11-05-credit_snapshot-host",
+    "issuer_id": "tac",
+    "issuer_name": "TRANSALTA CORP",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "40-F_2025-12-31_tac-20251231_d2.htm.jsonl": {
+      "path": "source-text/40-F_2025-12-31_tac-20251231_d2.htm.jsonl",
+      "sha256": "b63199bf5537d0e75a2ebecac96b19dc805f7429906c75e8842f8eebec31d328"
+    },
+    "6-K-EX-99.1_2026-05-06_q12026newsreleasecombined.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-05-06_q12026newsreleasecombined.htm.jsonl",
+      "sha256": "d77c128beb98e2437eea81e4016d41f6df7e8423fe8e2c62937d63154e11b8b4"
+    },
+    "6-K-EX-99.1_2026-07-31_q22026newsreleasecombined.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-07-31_q22026newsreleasecombined.htm.jsonl",
+      "sha256": "6517eb0175389824e2dbf8ed01f28c9ed380ca26fb5f07df6426985d4637070b"
+    },
+    "6-K-EX-99.1_2026-11-03_q32026newsreleasecombined.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-11-03_q32026newsreleasecombined.htm.jsonl",
+      "sha256": "4a5154cd49419e37e9331d492d10dca95a118322f6bfb6d110e3d5c77d11c75e"
+    },
+    "6-K-EX-99.2_2026-03-31_a20260331tacex992mda.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-03-31_a20260331tacex992mda.htm.jsonl",
+      "sha256": "825154ea09ce104089ded78858b6df4a99000ad1f2700c2f48ae4e03f8fb77c2"
+    },
+    "6-K-EX-99.2_2026-06-30_a20260630tacex992mda.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-06-30_a20260630tacex992mda.htm.jsonl",
+      "sha256": "485b1665b7c8e9772076589eaca23e22bc7e6e99c60259c137d99f66a46a0e8c"
+    },
+    "6-K-EX-99.2_2026-09-30_a20260930tacex992mda.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.2_2026-09-30_a20260930tacex992mda.htm.jsonl",
+      "sha256": "da5d3b9a14d1f4629b51ce9b284f3347ecb5867ab9fb86b1f0ad3a5f6a8c9267"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1144800-transalta-corp-tac-tsltf-trntf-tacpf.json",
+      "sha256": "178162ae8d9f49e1154d6d4d699e1a01b377d7894f6aad3df2cecb292677e5d8"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "dc658a13ea169da75e82f1df086cade09fe85f16a9510a2675cd6df9a93b274e"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "838b7573f0ae009fa2778603b0713f4670128729688d2c2bb5d0ebfdd1892126"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "bda2a87acb7b66989b07f70c73c40c8edd6a6b1d54a7e8a9c64da8df776d1a1a"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "788a9bc01cb3046d3a11d118a3f5f3026c6dd3c8dd712ac5c5054ff043cf28c1"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "ebda5c6625e575e7dbed3f4aa983183fd7cff0677d6fe5fd31cdbbe4573ef368"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for TRANSALTA CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "TRANSALTA CORP — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

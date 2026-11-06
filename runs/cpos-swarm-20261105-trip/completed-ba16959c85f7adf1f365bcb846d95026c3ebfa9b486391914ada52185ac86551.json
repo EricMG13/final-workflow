@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for TripAdvisor, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/8cdd1fd918c9e270df3a970553bfcef5348fe989eed2f3ae4e082c011c5dd301/1.response.md",
+    "CP-1": "requests/CP-1/4b6b4e01b781367243b2980c0f0856bb20263f8c9e718c1ba0d5bc0715f3e65a/2.response.md",
+    "CP-1A": "requests/CP-1A/f2ea59ac981fbb9179ada56915ce9e3a1622db78408a516cc1a0102c99aad742/1.response.md",
+    "CP-2": "requests/CP-2/2e66b91ecaa4c81024d08fff0154eae32cf8f439fd9e1153533c02d810bdb370/1.response.md",
+    "CP-5": "requests/CP-5/1f56e391bd5014f7830c29324902d48cd3c5131a3432738e9e3d54218400e289/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "227b9b11ccd9aab9cdb648facf3eeaa2e3785912a2188ac4ad0601d5f202038e",
+  "report_sha256": "83c620a93284543c423a8e20a046bcde920ccfc02fcec400c2b602aec09cd83d"
+}

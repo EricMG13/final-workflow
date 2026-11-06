@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Rocket Companies, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "b5fd40886eeedd24c855cc4c21dd662543a58c822d0fb2b19a168fce8c895924",
+    "CP-1.md": "54e4775b2f314e2c41568ee11caf51c8cfb55f59fdffa205fe2c46e2c7684901",
+    "CP-1A.md": "e6558750ba53fb9ab8d823530f1ce2e5fe08210dd9413d3fe50e52ac4c9c94b1",
+    "CP-2.md": "c817b6713942c713c9a51b2457da9f6f31cab633c7adc99e0b702b5e44aae072",
+    "CP-5.md": "ea49c57a489359c1b6699b4e74169180541e6b3e8711c919dcea357995141404",
+    "view.json": "972db4ecede69f6dc760e128378089cf3385197a9f5dc34cab440aa4c1d776fb",
+    "report-view.json": "3a930df1f3161b651cd44c4768e8a9f949e4b4b676f6e788ff5c6e69ddea9bf7",
+    "report.html": "6c1d3ee1acbcc2f6e3f35bb8ae1dd1aba586dc13853ec9587a416f1cc490336c"
+  }
+}

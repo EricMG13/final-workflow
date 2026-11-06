@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "stwd-2026-11-05-credit_snapshot-host",
+    "issuer_id": "stwd",
+    "issuer_name": "STARWOOD PROPERTY TRUST, INC.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_stwd-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_stwd-20251231.htm.jsonl",
+      "sha256": "5d034c0380b12617b5276d804970154e60e42e6a23c5bcee4ef0d6e26b8a55fd"
+    },
+    "10-Q_2025-09-30_stwd-20250930.htm.jsonl": {
+      "path": "source-text/10-Q_2025-09-30_stwd-20250930.htm.jsonl",
+      "sha256": "d42c4a9a27c9d73fda589e7dc56562d17c85018a2ea82a77ac4a395ea6aee3bc"
+    },
+    "10-Q_2026-03-31_stwd-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_stwd-20260331.htm.jsonl",
+      "sha256": "a981c1ff096bebb78573fc217060d2be7d932d6a1d88404218dd31da70ce8980"
+    },
+    "10-Q_2026-06-30_stwd-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_stwd-20260630.htm.jsonl",
+      "sha256": "e8c4bcc3fcec859b834e7d77d0075c7162cba6647a0dd89e45052bfa9c8b4b3a"
+    },
+    "EX-99.1_2026-02-25_stwd_pressrelease-ye2025.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-02-25_stwd_pressrelease-ye2025.htm.jsonl",
+      "sha256": "1f1cf65fe88590eb05e524e31bd92875cef8da770ee1cfa5cacc2e06538ebd9a"
+    },
+    "EX-99.1_2026-05-08_stwd_pressrelease-q12026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-08_stwd_pressrelease-q12026.htm.jsonl",
+      "sha256": "316bfad5efe7ce527d0308c8cc555686397e0897e2159e9321c558a9bbed50a7"
+    },
+    "EX-99.1_2026-08-06_stwd_pressrelease-q22026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-06_stwd_pressrelease-q22026.htm.jsonl",
+      "sha256": "b1942a46f485117f96015975cca8555da21dd98692e7e25a0fc84b19a0efbf22"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1465128-starwood-property-trust-inc-stwd.json",
+      "sha256": "bb1537683323815090e6da83a4ec1d608fc4d7c145051f90360ef72eab181e62"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "99acc3e6d5ffacea6db8e0aa2a6865f311102b8cb5c7acc6f2576506fe92027e"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "772a63e8f7d36b096e3994cdb0efa4e08cc878bfc4b0403856fd540b47c661f3"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "56c1d68b88f40c9046ad6e7a725a3e98e67be7c3969057d7b9822ed6afce4928"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "0e0afd738491b603d7e68fca7d7fef11b0188e3187252f6ae5be759787d7018b"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "45c387fec7a536b5b087b1914e455e613df75627f27ec959cc345ef662c2e60f"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for STARWOOD PROPERTY TRUST, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "STARWOOD PROPERTY TRUST, INC. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

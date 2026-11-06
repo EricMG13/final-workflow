@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "trtx-2026-11-05-credit_snapshot-host",
+    "issuer_id": "trtx",
+    "issuer_name": "TPG RE Finance Trust, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_trtx-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_trtx-20251231.htm.jsonl",
+      "sha256": "7b7b804dc956c7ba20b8c615f59942074ed4837f19257133ae8d92323027d7ec"
+    },
+    "10-Q_2026-03-31_trtx-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_trtx-20260331.htm.jsonl",
+      "sha256": "41f66a4a0f2f9734dca4554ee0dc2ef549772c06941cdfec976d06a5c1955d4c"
+    },
+    "10-Q_2026-06-30_trtx-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_trtx-20260630.htm.jsonl",
+      "sha256": "8f3da972b3575ac6703be3527817c87d3dc87cac2d5c8e1d4e7f81f5f78727e9"
+    },
+    "10-Q_2026-09-30_trtx-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_trtx-20260930.htm.jsonl",
+      "sha256": "4884d7a3b9e5f3a0f552349b7976aff0931070e9957fb8740966840f61145adc"
+    },
+    "EX-99.1_2026-04-28_trtx-20260428exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-28_trtx-20260428exhibit991.htm.jsonl",
+      "sha256": "1e95941ab9e70def087e8a13656b49994337a0e1c905b17c9ac6471bddea9d88"
+    },
+    "EX-99.1_2026-07-28_trtx-20260728exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-28_trtx-20260728exhibit991.htm.jsonl",
+      "sha256": "85e111cdb3f106d12964e884db844b225d24404d7815e760f617225c97335579"
+    },
+    "EX-99.1_2026-10-26_trtx-20261026exhibit991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-26_trtx-20261026exhibit991.htm.jsonl",
+      "sha256": "262caea8fdb587a93bfd4ce5d18d486a64c133d5eee9d2c7316a1e31375c2fe8"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1630472-tpg-re-finance-trust-inc-trtx-trtx-pc.json",
+      "sha256": "ef96ebbdf5dd00ebb7411d32513edde7f00e3900728e79b850efc1744349d270"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "9cf61e4aca4e3b1a7761b878501c4dab599c9c1b443369cc51daf66ddc780e9d"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "33de0254f12bdceb17d03b7d06bb5eba2aec95769f58f9705dbca2e6c148c9dd"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "952fc1f53434795c7c0506766589222259eda2f446e0a2d1bb742d72a9a7e0fe"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "54cc5e912a324d0e6397730fdbeb4bbd26ceb379c2ab9c6e46614a6bdbdf0625"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "835d82b7f4e4993de11feae910513f8565c42d90a458d5d729ec87043e24923d"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for TPG RE Finance Trust, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "TPG RE Finance Trust, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

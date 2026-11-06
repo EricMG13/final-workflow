@@ -1,0 +1,234 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "tigo-2026-11-05-credit_snapshot-host",
+    "issuer_id": "tigo",
+    "issuer_name": "MILLICOM INTERNATIONAL CELLULAR SA",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "20-F_2025-12-31_tigo-20251231.htm.jsonl": {
+      "path": "source-text/20-F_2025-12-31_tigo-20251231.htm.jsonl",
+      "sha256": "13be2a8c900b103376e04c45e18282d28f2b1aac3516bfaed99fc02cc0e15f37"
+    },
+    "6-K_2026-05-12_dp246578_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-05-12_dp246578_6k.htm.jsonl",
+      "sha256": "e31fa18185d3ceef7ba9e0133efc952dd4f43ccbd999e9a5f5b5af04d8dbf712"
+    },
+    "6-K_2026-08-06_dp251442_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-08-06_dp251442_6k.htm.jsonl",
+      "sha256": "76b47ade3b6a5a2f060db2592b816c6ed584aa9ed405d036c0be893943dc1c51"
+    },
+    "6-K_2026-11-05_dp256407_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-11-05_dp256407_6k.htm.jsonl",
+      "sha256": "6ab7c7e5e635829f16eb15a89301463e6131db3f5c0e68ee118ba6350801f894"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/912958-millicom-international-cellular-sa-tigo.json",
+      "sha256": "34621752733871aa051ccd652227feabad1bb02852c10250971aa402ac335e7e"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "60814a3f4c9404249cb4b8daee5256dc30541c3b3a6e21f23db53b4e2e6415e1"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "108d544ae4b07d67cde645834b95bb6c1675308c26a4f71dff30fef26e7c6d13"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "e091bd37650da664e22630fe8b8269dfbaeed3296f81a52ed316f8174b4c9102"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "be92140681ef268b57a7c1e7c87536039b6e9b8bc718abfddd76abf6e6b41b6e"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "3f91647b995fc14a722893fa73a0d9e6fbeb44d3ce7f577650f25555ab959624"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for MILLICOM INTERNATIONAL CELLULAR SA as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "MILLICOM INTERNATIONAL CELLULAR SA — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

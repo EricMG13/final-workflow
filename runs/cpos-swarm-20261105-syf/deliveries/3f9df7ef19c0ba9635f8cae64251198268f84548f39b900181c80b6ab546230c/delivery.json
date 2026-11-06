@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Synchrony Financial as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "a24d97e6ad4989187dee1bdfc73f1788c04f3ac901ef805ad06227bbfefe017f",
+    "CP-1.md": "c8b56ac2c101a114e896b6fe40c1d0fc166fb0aeb10b0a7468d29aa6d079f4d9",
+    "CP-1A.md": "7cc6fb1d431320443212f70fcb053fcdb584d9ad7c9ab9d7e8a5a9f1c75204b3",
+    "CP-2.md": "ffc2237580b33daf84bd6e84b58eb12f725417db1cb31e57eb97122fa7089861",
+    "CP-5.md": "3372ebb4f83eba44559fc2327d788e522da014397a06429f66a1ba1aaa26ad6d",
+    "view.json": "74fc85b063f80284102d14dbc1ddea0b16c580d3c318e53a83eb765d9f0a5c60",
+    "report-view.json": "65e559e7c185b779dcd1035112442c828eabc7419b2c8edc537bc27e2536fb1e",
+    "report.html": "b768ff3e84b4b67f873e91738387ab932e029a91e3b3dc27fd4d51bf1835153a"
+  }
+}

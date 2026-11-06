@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "sm-2026-11-05-credit_snapshot-host",
+    "issuer_id": "sm",
+    "issuer_name": "SM Energy Co",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_sm-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_sm-20251231.htm.jsonl",
+      "sha256": "e8932d9647a97ab4096dd543c01cda4006057a408b2bc3fa1755c23dc94ba27e"
+    },
+    "10-Q_2026-03-31_sm-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_sm-20260331.htm.jsonl",
+      "sha256": "45237f139ae59527446c46c29ce6b302442f1b1133c6a522f87376bfd87f4049"
+    },
+    "10-Q_2026-06-30_sm-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_sm-20260630.htm.jsonl",
+      "sha256": "6404fb70a5450d38bf3b3c16da403bf19b4d2205562c84a2c87afdc694f9126d"
+    },
+    "10-Q_2026-09-30_sm-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_sm-20260930.htm.jsonl",
+      "sha256": "354b7aaa1a83736b6232300aa038c2e407fc12a2943b257d38be5e15b857042f"
+    },
+    "EX-99.1_2026-05-06_exhibit99105062026er.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-06_exhibit99105062026er.htm.jsonl",
+      "sha256": "5913cf03f0dc7c1579e2da8f8a0720be2946682a7844315b0aa6198cf5e98607"
+    },
+    "EX-99.1_2026-08-05_exhibit99108052026er.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_exhibit99108052026er.htm.jsonl",
+      "sha256": "c611381a32ea896857849afba30a25e0af8ac568cabbb54d05c3d2eded519c0a"
+    },
+    "EX-99.1_2026-11-03_exhibit99111032026er.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-03_exhibit99111032026er.htm.jsonl",
+      "sha256": "4d33629074f8a450075efc018d0d5d57de50a9ccd6af427fe22e4ed725fe6f8a"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/893538-sm-energy-co-sm.json",
+      "sha256": "816e6f5709a9a2983bc6f7b0c91f473b414f35053a0b72e52f3a0a46de98a561"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "f172fa632e737f2190d8a71985254cd8a55b2bc90cbd5e323cf7401331051e78"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "8aa8ca279612a6eb1c728b0134770810325a00950182af1852b71f65cd895a8b"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "095146d445d255873d576242497e5b33bb9d72cfd0fd2a6bceb7348b3073c826"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "78bd3b0aaeeac90dbfffeaa37d5fe954a97d4dd6f93ebba9d6b5c13dcc047579"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "7aa161c58e738a231a27d1638784e08c1a602508a1da7c0a527832ba01040585"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for SM Energy Co as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "SM Energy Co — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

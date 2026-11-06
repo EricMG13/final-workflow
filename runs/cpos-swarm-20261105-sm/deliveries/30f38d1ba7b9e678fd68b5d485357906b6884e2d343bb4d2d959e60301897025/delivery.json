@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for SM Energy Co as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "fc101c86ccde93f2a57d756a90fbf2c3aab65966f545456eecdd1d22b4083695",
+    "CP-1.md": "7ca29b4c4f81e8515c77a8da88edb018795cd694a6bbb38845f2da0ad8cb8842",
+    "CP-1A.md": "a7477e24e791406a115dbbf9e96ea1cd151a2475e964729c66208fb6607b160e",
+    "CP-2.md": "a9a8ac48425611e2247c87fbe900f30f1e94af27ee00ea2077dfeb2b958ae2ba",
+    "CP-5.md": "06b8902fe23b589ea78d791454be25e1a1c5a001192f2f8b319d876893872bb5",
+    "view.json": "8068b0c87af43e10cdf75e324ef1a62657d5d8d5e1c082bd2824d0a68f98eb9f",
+    "report-view.json": "71186a14a28612361ecaf874e627f48b94bf298b7010931f57c0742c678ffb67",
+    "report.html": "3f2d6a559d359ebd87abe3b9856e868c448b990ab4d41d1dd1af4c52d82330d8"
+  }
+}

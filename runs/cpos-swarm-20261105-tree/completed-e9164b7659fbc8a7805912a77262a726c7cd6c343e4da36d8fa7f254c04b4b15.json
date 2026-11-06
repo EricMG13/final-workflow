@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for LendingTree, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/bbdd93f1c87f86de328aa99dfa6cfd8ce215bd294292849f55207a11b8e1e501/3.response.md",
+    "CP-1": "requests/CP-1/f88e47dddcbb0fa6ed1f0bce9d66dc93c87d9ce0ad5fbb665478c2c56b4049cc/1.response.md",
+    "CP-1A": "requests/CP-1A/b719ead8eba7100fdcd85311459b4a8e8057e6bf1c3f0392ca7fe254c73f36b2/1.response.md",
+    "CP-2": "requests/CP-2/a66996d7cadefbd6a5c80c4467da9e85df91cbf82d2128f4e9d3926814a64085/1.response.md",
+    "CP-5": "requests/CP-5/e9895c11b5cbad278c8c3ba59474069ac6f18ca269643dbb365fcb64d10f7eab/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "b27e8c8c116e84e8b8d97bd29fc1ab2a2dd39094b9029f46cca2aeadeada21ee",
+  "report_sha256": "e6305af9a46daa2a8abc57ae25026964ca8e568a16cbfe4e50e7a1b29aca2630"
+}

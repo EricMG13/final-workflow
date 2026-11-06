@@ -31,10 +31,28 @@ _CODE: Final = re.compile(r"(?<![A-Za-z])[A-Z]{3}(?![A-Z])")
 # A symbol names its code only where it is unambiguous; any other currency symbol stands for
 # itself, which no declared code equals.
 _SYMBOL_CODE: Final = {"€": "EUR", "£": "GBP"}
+# Currency names: a name the code list does not fix (a bare dollar, franc or crown) stands for
+# itself, so a line naming one never borrows a code from a Basis line.
+_NAME: Final = re.compile(
+    r"\b(?i:(US dollars?|euros?|pounds? sterling|sterling|yen|yuan|renminbi|"
+    r"dollars?|francs?|krona|krone|kronor|kroner|rupees?|pesos?|reais|real))\b"
+)
+_NAME_CODE: Final = {
+    "us dollar": "USD",
+    "us dollars": "USD",
+    "euro": "EUR",
+    "euros": "EUR",
+    "pound sterling": "GBP",
+    "pounds sterling": "GBP",
+    "sterling": "GBP",
+    "yen": "JPY",
+    "yuan": "CNY",
+    "renminbi": "CNY",
+}
 
 _SCALE: Final = re.compile(
     r"\b(?i:(thousands?|millions?|mn|billions?|bn|units))\b"
-    r"|(?:(?<![A-Za-z])[A-Z]{3}|[$€£¥])\s?(k|m|mn|bn)\b"
+    r"|(?:(?<![A-Za-z])[A-Z]{3}|[$€£¥]|(?<=[0-9]))\s?(k|m|mn|bn)\b"
 )
 _SCALE_OF: Final = {
     "thousand": "thousands",
@@ -59,7 +77,7 @@ _MONTHS: Final = re.compile(
 _TWELVE_TAG: Final = re.compile(r"\b(?:LTM|TTM)\b")
 _OTHER_PERIOD: Final = re.compile(
     r"\b(?i:quarter(?:ly|s)?|half[ -]year(?:ly)?|(?:first|second) half|interim|"
-    r"year[ -]to[ -]date|weeks?)\b|\b(?:YTD|Q[1-4]|[1-4]Q|H[12])\b"
+    r"year[ -]to[ -]date|weeks?)\b|\b(?:YTD|Q[1-4]|[1-4]Q|H[12]|[1-4]H|[369]M)(?:[0-9]{2})?\b"
 )
 
 _MONTH_NAMES: Final = (
@@ -86,9 +104,11 @@ _DAY_MONTH_YEAR: Final = re.compile(rf"\b([0-9]{{1,2}}) {_MONTH},? ([0-9]{{4}})\
 
 
 def currencies(text: str) -> frozenset[str]:
-    """The ISO 4217 codes the text names (``US$`` as USD) and any other currency symbol."""
+    """The ISO 4217 codes the text names (``US$`` as USD, ``€`` and euros as EUR, and so on) and
+    any other currency symbol or name, which stands for itself."""
     text = text.replace("US$", " USD ")
     found = {code for code in _CODE.findall(text) if code in ISO_4217}
+    found |= {_NAME_CODE.get(name.lower(), name.lower()) for name in _NAME.findall(text)}
     for char in text:
         if unicodedata.category(char) == "Sc":
             found.add(_SYMBOL_CODE.get(char, char))

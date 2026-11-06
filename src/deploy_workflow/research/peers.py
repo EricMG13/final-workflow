@@ -14,6 +14,7 @@ debt, a balance) twelve-month length to what the span, or its item's ``Basis:`` 
 functions that need ``review``, ``tables`` or ``owners.cp1c`` import them when called.
 """
 
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -180,18 +181,31 @@ def _cited(citation: Citation, sources: Sequence[Source]) -> tuple[str, list[str
     return None
 
 
+# A digit group of a number that prints its thousands with spaces (``1 200 000``), beside a quote.
+_THOUSANDS_AFTER: Final = re.compile(r"[0-9]{3}(?![0-9])")
+_THOUSANDS_BEFORE: Final = re.compile(r"(?:^| )[0-9]{1,3}$")
+
+
 def _cuts_figure(text: str, start: int, end: int) -> bool:
-    """Whether ``text[start:end]`` is not a whole figure token: a letter or digit touches it, a
+    """Whether ``text[start:end]`` is not a whole figure token: a letter or digit touches it; a
     sign, point, comma, slash or bracket precedes it (``-12`` of a date, ``12.3`` of ``(12.3)``),
-    or a dash, slash, bracket, percent sign, or a point or comma before a digit follows it."""
+    also across one space (``- 12.3``, ``( 12.3 )``); a dash, slash, bracket or percent sign
+    follows it, or a point or comma before a letter or digit; or a space-grouped thousands digit
+    group touches it across one space (``1 200.0``, ``200 000``)."""
     before = text[start - 1] if start > 0 else " "
     after = text[end] if end < len(text) else " "
+    lead = text[start - 2] if before == " " and start > 1 else ""
+    trail = text[end + 1 : end + 2] if after == " " else ""
     return (
         before.isalnum()
         or before in "-+.,/("
+        or (lead != "" and lead in "-+(")
         or after.isalnum()
         or after in "-/)%"
         or (after in ".," and text[end + 1 : end + 2].isalnum())
+        or trail == ")"
+        or (after == " " and _THOUSANDS_AFTER.match(text, end + 1) is not None)
+        or (before == " " and _THOUSANDS_BEFORE.search(text, 0, start - 1) is not None)
     )
 
 

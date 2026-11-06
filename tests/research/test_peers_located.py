@@ -63,9 +63,13 @@ def test_the_whole_figure_is_no_issue(case: Case) -> None:
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: (12.3)", "12.3"),
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: -12.3", "12.3"),
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 1,200.0", "200.0"),
-        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 200.0bn", "200.0"),
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 12.5%", "12.5"),
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 12/15", "12"),
+        # Confidence review: a sign or bracket one space away, and space-grouped thousands.
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: - 12.3", "12.3"),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: ( 12.3 )", "12.3"),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 200 000", "200"),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 1 200.0", "200.0"),
     ],
 )
 def test_a_sign_separator_unit_or_date_beside_the_quote_cuts_it(
@@ -75,6 +79,14 @@ def test_a_sign_separator_unit_or_date_beside_the_quote_cuts_it(
     drops the thousands; a scale suffix, a percent or a date part is not the figure."""
     got = _texts(case, _quoting(case, quote), _with_line(case, "line:11", line))
     assert got == [f"p01.revenue: {p.CUT_FIGURE}"]
+
+
+def test_a_scale_suffix_on_the_figure_cuts_it_and_states_its_scale(case: Case) -> None:
+    """``200.0bn``: the quote ``200.0`` is cut by the suffix, and the line states billions, not
+    the declared millions of the Basis line."""
+    line = "Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 200.0bn"
+    got = _texts(case, _quoting(case, "200.0"), _with_line(case, "line:11", line))
+    assert got == [f"p01.revenue: {p.CUT_FIGURE}", f"p01.revenue: {p.UNSTATED_SCALE}"]
 
 
 @pytest.mark.parametrize(
@@ -190,6 +202,16 @@ def test_a_currency_that_is_not_an_iso_code_is_refused(case: Case, currency: str
         ("Alder Ridge Holdings Q4 revenue to 2025-12-31: 200.0", "length"),
         ("Alder Ridge Holdings revenue for the nine months to 2025-12-31: 200.0", "length"),
         ("Alder Ridge Holdings half-year revenue to 2025-12-31: 200.0", "length"),
+        ("Alder Ridge Holdings 9M revenue to 2025-12-31: 200.0", "length"),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in euros: 200.0",
+            "currency",
+        ),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in dollars: 200.0",
+            "currency",
+        ),
+        ("Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 200.0 k", "scale"),
         ("Alder Ridge Holdings twelve months to 2025-12-31 (2024-12-31: 180.0): 200.0", "end"),
         ("Alder Ridge Holdings revenue for the twelve months to 2025-12-30: 200.0", "end"),
     ],
@@ -210,6 +232,7 @@ def test_the_cited_line_states_another_basis(case: Case, line: str, wrong: str) 
         "Alder Ridge Holdings LTM revenue to December 31, 2025: 200.0",
         "Alder Ridge Holdings revenue, 12-month period to 31 Dec 2025, US$ m: 200.0",
         "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in USD millions: 200.0",
+        "Alder Ridge Holdings revenue for the twelve months to 2025-12-31 in US dollars: 200.0 m",
     ],
 )
 def test_the_cited_line_states_the_declared_basis_in_other_words(case: Case, line: str) -> None:

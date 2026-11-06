@@ -1,0 +1,42 @@
+/* Chart renderers escape handoff values and output ids. Plain node (no jsdom): functions are lifted from the
+   real source files into a bare vm context. Synthetic markup only; no network or provider. */
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const read=name=>fs.readFileSync(path.join(__dirname,name),'utf8');
+const grab=(source,name)=>{const m=source.match(new RegExp(`^function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`,'m'));assert.ok(m,name);return m[0];};
+const line=(source,start)=>{const m=source.match(new RegExp(`^const ${start}.*$`,'m'));assert.ok(m,start);return m[0];};
+const screen=read('screen.js'),views=read('views.js');
+const sandbox=(...parts)=>{const context=vm.createContext({});vm.runInContext(parts.join('\n'),context);return context;};
+const basics=[line(screen,'esc '),line(screen,'plain '),line(screen,'rich ')];
+const MARK='<img src=q onerror=1>',ENTITY='&lt;5';
+
+test('the pinned CP-1 bar chart escapes the cell value, the period label and the evidence key',()=>{
+  const context=sandbox(...basics,grab(screen,'trendChart'),`
+    var data={'CP-1':{basis:{unit:'USD m'}}};
+    var findRow=()=>({table:{headers:['','${MARK}A','${MARK}B','${ENTITY}','']},row:{cells:['Net sales','${MARK}1','2','${ENTITY}','note']},key:'x"><b>:7'});
+    var sourceFooter=()=>'';`);
+  const html=vm.runInContext("trendChart('CP-1','Net sales')",context);
+  assert.ok(!html.includes('<img'),html);
+  assert.ok(!html.includes('"><b>'),html);
+  // An entity is shown as typed: the figure beside the exact table cell is the same text.
+  assert.match(html,/<span class="bar-value">&amp;lt;5<\/span>/);
+  assert.match(html,/<span class="bar-period">&amp;lt;5<\/span>/);
+});
+
+test('a chart row built on an output id with markup in its file name stays one attribute',()=>{
+  const id='shared-run/CP-1"><img src=x onerror=1>.md';
+  const context=sandbox(...basics,grab(views,'chartNumber'),grab(views,'chartIntro'),grab(views,'comparisonChart'),`
+    var sourceFooter=()=>'';
+    var table={headers:['Item','Value'],rows:[{line:9,cells:['Revenue','5']}]};
+    var fixtureTable=()=>table;
+    var data={};data[${JSON.stringify(id)}]={module:'CP-1'};`);
+  const html=vm.runInContext(`comparisonChart(${JSON.stringify(id)},{kind:'bars',title:'T',table:1,column:1})`,context);
+  assert.ok(!html.includes('<img'),html);
+  assert.match(html,/data-evidence="shared-run\/CP-1&quot;&gt;&lt;img src=x onerror=1&gt;\.md:9"/);
+});
+
+test('no web script writes an evidence key into an attribute without escaping it',()=>{
+  for(const name of ['screen.js','views.js','actions.js']){
+    const raw=[...read(name).matchAll(/data-evidence="\$\{(?!esc\()/g)];
+    assert.equal(raw.length,0,`${name} has ${raw.length} unescaped data-evidence`);
+  }
+});

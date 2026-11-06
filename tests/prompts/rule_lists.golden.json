@@ -683,7 +683,7 @@
    },
    {
     "id": "earnings_quality.2",
-    "statement": "Give a `Partly supported` assessment exactly one of `accepted_fraction` or `accepted_basis`: the fraction a decimal string above 0 and below 1 with at most two places, the basis a cited quote holding exactly one amount that is above 0 and below the add-back's proposed amount. For any other achievability both are null.",
+    "statement": "Give a `Partly supported` assessment exactly one of `accepted_fraction` or `accepted_basis`: the fraction a decimal string above 0 and below 1 with at most two places, the basis a cited quote holding exactly one amount that is above 0 and below the add-back's proposed amount and is written as a bare figure or in the bridge's currency and millions (not a percentage, count, basis-point figure, multiple, other scale or other currency, nor followed on the page by a word that gives it another unit). For any other achievability both are null.",
     "checks": [
      "oracle:cp1d:r03",
      "oracle:cp1d:r04",
@@ -2030,7 +2030,7 @@
    "src/deploy_workflow/owners/cp1a.py": "25e0918995eb887da6ea487a0d9463ccac3a29887c83f818ce038397cf9ee4b2",
    "src/deploy_workflow/owners/cp1b.py": "db6d9307bb2f39abab7809a1a1660db0a9b2ec01a3523936d912500dd78b982d",
    "src/deploy_workflow/owners/cp1c.py": "85e0b29bc0320f48ce724278b543f1d7425856b66b6f8bb4238cdc572a96cf33",
-   "src/deploy_workflow/owners/cp1d.py": "f9544b356fd0b7b54fe2d4230958b349092e462c0a3c581b32968b081ab783fb",
+   "src/deploy_workflow/owners/cp1d.py": "99be95d57f7328bbcadc922f9db17d2086a6c3ef7c2ea12132c61fddd4a00c49",
    "src/deploy_workflow/owners/cp2.py": "902dea0e690a9054b06e064d1b3636367a6a8c02ff75d5ae9c746bf4fdf085e2",
    "src/deploy_workflow/owners/cp2a.py": "b246e5bdcb4622511ac557d4bb3a5afd7aa2f22960f69e00ac4fba235a76b5fe",
    "src/deploy_workflow/owners/cp2d.py": "33efdce39210f5114abdbc629d69f21e3436e48dc2e5549406bb465fc4a0059a",

@@ -417,3 +417,35 @@ func TestRunListAndStatusCarryReviewAndProgress(t *testing.T) {
 	}
 	checkA(row)
 }
+
+// The splice point must be an offset into the original bytes: Unicode lower-casing
+// changes lengths (U+0130, Kelvin sign, U+023A, invalid UTF-8), so it must not be used.
+func TestReportPresentationSplicesBeforeTheFinalBodyTagInTheOriginalBytes(t *testing.T) {
+	tail := "<script>render()</script>\n<!-- font licence -->\n</BODY></html>"
+	invalid := append(append([]byte("<html><body><p>"), bytes.Repeat([]byte{0xff}, 40)...), []byte("</p>"+tail)...)
+	cases := map[string][]byte{
+		"ascii":        []byte("<html><body><p>Issuer</p>" + tail),
+		"turkish I":    []byte("<html><body><p>" + strings.Repeat("T\u00fcrkiye \u0130\u015f Bankas\u0131 ", 6) + "</p>" + tail),
+		"kelvin":       []byte("<html><body><p>300 \u212a</p>" + tail),
+		"U+023A":       []byte("<html><body><p>" + strings.Repeat("\u023a", 40) + "</p>" + tail),
+		"invalid utf8": invalid,
+		"mixed case":   []byte("<html><body><p>x</p></BoDy></html>"),
+		"early body":   []byte("</body><p>İİİİİ</p>"),
+		"no body":      []byte("<p>\u0130\u0130 \xff\xff plain fragment</p>"),
+	}
+	for label, original := range cases {
+		out := reportPresentation(original)
+		start := bytes.Index(out, []byte("<style data-library-presentation>"))
+		end := bytes.LastIndex(out, []byte("</script>")) + len("</script>")
+		want := len(original)
+		for i := len(original) - 7; i >= 0; i-- {
+			if strings.EqualFold(string(original[i:i+7]), "</body>") && original[i] == '<' {
+				want = i
+				break
+			}
+		}
+		if start != want || !bytes.Equal(out[:start], original[:want]) || !bytes.Equal(out[end:], original[want:]) {
+			t.Errorf("%s: block at %d, want %d; after block %q", label, start, want, out[end:min(end+20, len(out))])
+		}
+	}
+}

@@ -44,6 +44,7 @@ from deploy_workflow.handoff_delivery import (
     HEADINGS,
     HandoffInput,
     ModelDelivery,
+    heading_of,
     names_issuer,
     plain,
     table,
@@ -114,6 +115,10 @@ LABELS = {
     "net_carrying_multiple": "Mechanical net carrying borrowing / issuer EBITDA As Defined",
     "issuer_earnings_cash_interest": "Issuer EBITDA As Defined / reported cash interest",
 }
+
+
+DEFAULT_TABLE_TITLE = "Retained handoff table"
+BOLD_LABEL = re.compile(r"\*\*[^*]+\*\*:?")
 
 
 class ModelPublication(NamedTuple):
@@ -304,10 +309,14 @@ def _literal_tables(
     tables: list[ReportTable] = []
     bindings: list[Binding] = []
     i = 0
-    heading = "Retained handoff table"
+    heading = DEFAULT_TABLE_TITLE
     while i < len(lines):
-        if lines[i].startswith(("### ", "**")):
-            heading = plain(lines[i].lstrip("#").strip())
+        # Every heading line retitles what follows, so a later section never inherits an earlier
+        # one's title; a bold line names a table only when the whole line is the label.
+        if found := heading_of(lines[i]):
+            heading = plain(found[1]) or DEFAULT_TABLE_TITLE
+        elif BOLD_LABEL.fullmatch(lines[i].strip()):
+            heading = plain(lines[i].strip())
         if not (
             lines[i].startswith("|")
             and i + 1 < len(lines)

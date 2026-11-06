@@ -13,7 +13,8 @@ import pytest
 from deploy_vii.contracts import Run
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
-from deploy_workflow.markdown_delivery import markdown_files, require_issuer
+from deploy_workflow.markdown_delivery import literal_module, markdown_files, require_issuer
+from deploy_workflow.model_handoff_delivery import _literal_tables
 
 TAIL = "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
 
@@ -309,3 +310,140 @@ def test_issuer_name_or_alias_as_whole_words_is_accepted(aliases, title, body):
     lines = [title, "## Request", *body.splitlines()]
     run = ISSUER_RUN if aliases == () else ISSUER_RUN.model_copy(update={"issuer_name": "Other"})
     require_issuer(run, aliases, "CP-1B", lines)
+
+
+def prose_of(text: str, heading: str) -> list[tuple[str, list[str]]]:
+    """(text, cited line numbers) of every prose fact under `heading`, in handoff order."""
+    module, _, meta = literal_module("CP-1B", text.encode())
+    return [
+        (f.text, [int(c.locator.split()[-1]) for c in f.citations])
+        for f in module.facts
+        if meta.get(f.table_id) == (heading, "prose")
+    ]
+
+
+def test_list_items_are_one_fact_each_and_a_prefix_route_reaches_an_item(tmp_path):
+    # Hand-derived: line 7 is "### Watch", so its four items sit on lines 8 to 11, one fact each.
+    # plain() drops the backticks of line 9 only; the "- " and "1. " markers stay in the text.
+    findings = (
+        "### Watch\n- Track cash interest\n- Track `covenant` headroom\n1. First\n2. Second\n"
+    )
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Watch") == [
+        ("- Track cash interest", [8]),
+        ("- Track covenant headroom", [9]),
+        ("1. First", [10]),
+        ("2. Second", [11]),
+    ]
+    route = {"heading": "Watch", "kind": "prose", "prefix": "Track covenant"}
+    got = deliver(tmp_path, text, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["- Track covenant headroom"]]
+    route["prefix"] = "2. Sec"
+    got = deliver(tmp_path, text, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["2. Second"]]
+
+
+def test_fenced_block_is_one_fact_kept_as_written(tmp_path):
+    # Hand-derived: lines 8 "Before.", 9-11 the fence with its JSON line, 12 "After.". The fenced
+    # text keeps its backticks; the fences are part of the quoted lines.
+    findings = '### Cfg\nBefore.\n```json\n{"a": 1}\n```\nAfter.\n'
+    assert prose_of(handoff("Scope.", findings), "Cfg") == [
+        ("Before.", [8]),
+        ('```json {"a": 1} ```', [9, 10, 11]),
+        ("After.", [12]),
+    ]
+
+
+def test_pipe_lines_outside_a_table_are_kept_as_prose_not_dropped():
+    # Hand-derived: lines 8-10 have no |---| separator, so they form no table. Each stays a fact
+    # of its own with its line; the real table (lines 11-13) is a table, not prose.
+    findings = (
+        "### Covenants\n| Covenant | Headroom |\n| Net leverage 7.25x | ROW-ONE |\n"
+        "|Pipe-led caveat\n| Real | Value |\n|---|---|\n| A | 1 |\n"
+    )
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Covenants") == [
+        ("| Covenant | Headroom |", [8]),
+        ("| Net leverage 7.25x | ROW-ONE |", [9]),
+        ("|Pipe-led caveat", [10]),
+    ]
+    module, _, meta = literal_module("CP-1B", text.encode())
+    tables = [t for t in module.tables if meta[t.table_id] == ("Covenants", "table")]
+    assert [(t.row_header, [r.label for r in t.rows]) for t in tables] == [("Real", ["A"])]
+
+
+def test_hash_without_a_space_is_text_not_a_heading():
+    # Hand-derived: "#1 risk ..." (line 8) and "#NoSpace" (line 10) are paragraph text under
+    # "### Risks"; seven hashes is not a heading either. Lines 8-9 wrap into one paragraph.
+    findings = "### Risks\n#1 risk is the 2027 wall.\nSecond sentence.\n\n#NoSpace\n####### seven\n"
+    assert prose_of(handoff("Scope.", findings), "Risks") == [
+        ("#1 risk is the 2027 wall. Second sentence.", [8, 9]),
+        ("#NoSpace ####### seven", [11, 12]),
+    ]
+
+
+NOTES = (
+    "# CP-1B TransDigm Group Incorporated\n## Request\nScope.\n## Sources\nNone.\n"
+    "## Findings\n### Notes\nFindings note one.\n## Calculations\n### Notes\n"
+    "Calculation note two.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
+)
+
+
+def test_same_named_subsections_stay_apart_and_routes_address_the_path(tmp_path):
+    # Hand-derived: "### Notes" is on line 7 (under Findings) and line 10 (under Calculations).
+    module, _, meta = literal_module("CP-1B", NOTES.encode())
+    found = {
+        meta[t.table_id][0]: [f.text for f in module.facts if f.table_id == t.table_id]
+        for t in module.tables
+        if t.table_id.startswith("prose-")
+    }
+    assert found["Findings > Notes"] == ["Findings note one."]
+    assert found["Calculations > Notes"] == ["Calculation note two."]
+    assert "Notes" not in found
+    with pytest.raises(ValueError, match="markdown_selector"):
+        deliver(tmp_path, NOTES, [{"heading": "Notes", "kind": "prose"}])
+    route = {"heading": "Findings > Notes", "kind": "prose", "label": "Findings notes"}
+    got = deliver(tmp_path, NOTES, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["Findings note one."]]
+    assert got.note == "Findings notes"
+
+
+def test_a_repeated_heading_path_is_told_apart_by_its_line(tmp_path):
+    # Hand-derived: two "### Notes" under one "## Findings" (lines 7 and 9) share a path, so the
+    # label adds the first line of each group (8 and 10).
+    text = NOTES.replace("## Calculations\n### Notes\nCalculation", "### Notes\nCalculation")
+    text = text.replace("## Gaps", "## Calculations\nNone.\n## Gaps")
+    module, _, meta = literal_module("CP-1B", text.encode())
+    labels = [meta[t.table_id][0] for t in module.tables if "Notes" in meta[t.table_id][0]]
+    assert labels == ["Findings > Notes (line 8)", "Findings > Notes (line 10)"]
+
+
+def test_raw_table_titles_follow_the_nearest_heading_not_earlier_bold_prose():
+    # Hand-derived: each table is titled by the heading line before it (## resets the title);
+    # a bold lead-in that is only part of a line never becomes a title, a whole-line bold does.
+    raw = (
+        "# CP-2 TDG\n## Request\nTDG.\n## Sources\nNone.\n## Findings\n"
+        "**Assessment —** Leverage is high.\n| M | FY |\n|---|---|\n| R | 1 |\n"
+        "**Metrics**\n| N | FY |\n|---|---|\n| S | 2 |\n"
+        "## Calculations\n| C | V |\n|---|---|\n| X | 3 |\n"
+        "### Detail\n| D | V |\n|---|---|\n| Y | 4 |\n"
+        "## Gaps\nNone.\n## Next module\nDelivery.\n"
+    ).encode()
+    _, _, tables, _ = _literal_tables("current_synthesis", raw, hashlib.sha256(raw).hexdigest())
+    assert [t.title for t in tables] == [
+        "current_synthesis: Findings",
+        "current_synthesis: Metrics",
+        "current_synthesis: Calculations",
+        "current_synthesis: Detail",
+    ]
+
+
+def test_wrapped_list_item_stays_whole_and_an_unclosed_fence_ends_at_its_section():
+    # Hand-derived: line 8 starts an item that wraps onto line 9; line 10 is the next item.
+    # The fence opened on line 13 is never closed (its blank line 15 is not quoted); the
+    # "## Calculations" heading ends it, so Calculations still holds its own "None.".
+    findings = "### Watch\n- Track cash\n  interest.\n- Second.\n\n### Code\n```\nx = 1\n\ny = 2\n"
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Watch") == [("- Track cash interest.", [8, 9]), ("- Second.", [10])]
+    assert prose_of(text, "Code") == [("``` x = 1 y = 2", [13, 14, 16])]
+    assert [t for t, _ in prose_of(text, "Calculations")] == ["None."]

@@ -9,14 +9,15 @@ continues. No provider is called.
 
 The generic check here covers handoff structure, issuer/date/source/upstream anchors and report
 selectors. It has no independent expected values, so a passing run is not analytical review; every
-report says so in its scope. ponytail: report only. The HTML Model and charts need issuer-specific
-row selectors; add them when a run can derive those from CP-1's actual tables.
+report says so in its scope. CP-1 fills the chart strip from fixed tables. ponytail: the HTML Model
+needs issuer-specific row selectors; add it when a run can derive those from CP-1's actual tables.
 """
 
 import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import textwrap
@@ -39,13 +40,26 @@ from deploy_workflow.handoff_delivery import (
     section,
 )
 from deploy_workflow.html_text import convert_html
-from deploy_workflow.markdown_delivery import literal_module, markdown_files, require_issuer
+from deploy_workflow.markdown_delivery import (
+    STRIP_FIGURES,
+    literal_module,
+    markdown_files,
+    require_issuer,
+)
 from deploy_workflow.model.adapter import KEY_VARIABLES, LivePauseInForce, check_ruling
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.model.handoff import Check, _pages
 from deploy_workflow.model.pricing import price_of, request_reservation_usd
 from deploy_workflow.model_testing.configs import CONFIGS
 from deploy_workflow.owners.cpos import HandoffPlan, HandoffTask, run_handoffs, run_live_handoffs
+from deploy_workflow.reader_summary import (
+    BOTTOM_LINE_WORDS,
+    CONFIDENCE,
+    FINDING_WORDS,
+    LIMITATION_WORDS,
+    MAX_FINDINGS,
+    reader_issues,
+)
 from deploy_workflow.workflow import _put
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -159,17 +173,40 @@ BLOCK_OWNERS: dict[str, tuple[str, ...]] = {
 }
 # CP-8 owns this section and compares two completed deliveries; a single run has nothing to compare.
 SECOND_RUN_ONLY = "what-changed"
-# The H3 that opens a module's analysis, from Deploy V CANON_SHARED.md "Credit-research reading
-# order", so the reader meets the view before any table. One module at a time: add the next here.
+# The H3 that opens every module's `## Findings`: prose stating the module's view in plain English
+# before any table (owner ruling, 2026-11-05; Deploy V's M365 runs for VMO2 and Wood Mackenzie open
+# each module's analysis that way). "Credit view" (CP-1C, CP-2) and "Downside view" (CP-2A) are the
+# M365 headings. A module added to METHODS needs an entry here; a test fails otherwise.
 # This launcher route only: the owner route (`deploy_vii.cp2_synthesis`, Python-composed
 # Markdown) is unchanged.
-OPENING: dict[str, str] = {"CP-2": "Credit view"}
-# For each module in OPENING, what Deploy V's M365 runs had and the web app lacked: the user's
-# Microsoft 365 Copilot custom instruction (supplied 2026-11-05, every clause kept),
-# CANON_SHARED.md's reader-facing layer, and two habits of those runs' handoffs (VMO2 2026-09-20,
-# Wood Mackenzie 2026-08-27): units on amounts, the issuer as subject. ponytail: instructions
-# only; the checker enforces the opening, not the prose.
-READER_STANDARD = (
+OPENING: dict[str, str] = {
+    "CP-0": "Readiness view",
+    "CP-1": "Financial base view",
+    "CP-1A": "Business and transaction view",
+    "CP-1B": "Earnings delta view",
+    "CP-1C": "Credit view",
+    "CP-1D": "Earnings quality view",
+    "CP-2": "Credit view",
+    "CP-2A": "Downside view",
+    "CP-2D": "Liquidity view",
+    "CP-2E": "Macro and FX view",
+    "CP-2G": "Forward model view",
+    "CP-2H": "Ratings view",
+    "CP-3": "Relative value view",
+    "CP-3C": "Funding gap view",
+    "CP-3D": "Market-implied view",
+    "CP-4": "Covenant view",
+    "CP-4C": "Restructuring view",
+    "CP-5": "Evidence trace view",
+    "CP-6": "Challenge view",
+    "CP-DR": "Research view",
+}
+# Only CP-2 gets READER_STANDARD (owner ruling, 2026-11-05): M365 output did not follow the
+# CANON_SHARED rules, so they stay scoped to the one module that had them.
+READER_STANDARD_MODULES = frozenset({"CP-2"})
+# The user's Microsoft 365 Copilot custom instruction (supplied 2026-11-05, every clause kept):
+# a persona that applies to every module (owner ruling, 2026-11-05). ponytail: instructions only.
+READER_PERSONA = (
     "You are a senior credit research analyst at a leading credit fund, specialising in high "
     "yield credit and leveraged loans. Your research is used throughout the firm for key "
     "investment decisions; it is presented to senior credit committees and affects portfolio "
@@ -178,6 +215,11 @@ READER_STANDARD = (
     "unless it is tied to issuer-specific mechanics. Write in a detailed, structured style "
     "grounded in the provided data, and say when information is insufficient. State explicitly "
     "when information comes from external sources.\n\n"
+)
+# For READER_STANDARD_MODULES only: CANON_SHARED.md's reader-facing layer, and two habits of Deploy
+# V's M365 handoffs (VMO2 2026-09-20, Wood Mackenzie 2026-08-27): units on amounts, the issuer as
+# subject. The checker enforces the opening, not the prose.
+READER_STANDARD = (
     "Presentation rules, from the reader-facing standard of Deploy V's CANON_SHARED.md. They "
     "never remove a method duty, category tag, limitation or gap:\n"
     "- In the opening section, state the credit view in plain English in the first sentence. In "
@@ -277,6 +319,75 @@ def _issuer_files(
     return pinned, converted, tuple(ignored)
 
 
+# Fixed so any run's charts can be read without issuer-specific row selectors.
+CHART_TABLES: dict[str, tuple[str, tuple[str, ...], str]] = {
+    "S.1": ("Chart data: leverage", ("Total debt / EBITDA", "Net debt / EBITDA"), "x"),
+    "S.2": ("Chart data: interest cover", ("EBITDA / cash interest",), "x"),
+    "S.3": ("Chart data: liquidity", ("Cash", "Undrawn committed facilities"), "US$m"),
+    "S.4": ("Chart data: debt maturities", ("Debt maturing",), "US$m"),
+}
+CHART_BLOCKS = frozenset(STRIP_FIGURES) - {"yield-against-maturity"}
+NOT_SUPPLIED = "Not supplied:"
+PLAIN_NUMBER = re.compile(r"-?\d[\d,]*(?:\.\d+)?")
+
+
+def _chart_route(block_id: str, figure: str) -> MarkdownRoute:
+    heading, columns, unit = CHART_TABLES[figure]
+    return MarkdownRoute(
+        module_id="CP-1",
+        heading=heading,
+        kind="chart",
+        block_id=block_id,
+        figure_id=figure,
+        value_columns=columns,
+        orientation="period-rows",
+        chart_unit=unit,
+    )
+
+
+def _chart_header(route: MarkdownRoute) -> list[str]:
+    return ["Period", *route.value_columns, "Reporting unit", "Basis and limitation"]
+
+
+def chart_issues(text: str, route: MarkdownRoute) -> tuple[str, ...]:
+    """A chart table's cells reach the report as they are, so each must already be chart-ready."""
+    heading = f"### {route.heading}"
+    lines = text.splitlines()
+    if heading not in lines:
+        return (f"Add `{heading}` inside ## Findings, with its table.",)
+    rows = []
+    for line in lines[lines.index(heading) + 1 :]:
+        if line.startswith("#"):
+            break
+        if line.startswith("|"):
+            rows.append([cell.strip() for cell in line.strip().strip("|").split("|")])
+    header = _chart_header(route)
+    if not rows or rows[0] != header:
+        return (f"`{heading}` needs the table headed `| {' | '.join(header)} |`.",)
+    issues = []
+    for row in rows[2:]:
+        if len(row) != len(header):
+            issues.append(f"`{heading}` row needs {len(header)} cells: {' | '.join(row)}")
+            continue
+        period, *values, unit, basis = row
+        if not basis:
+            issues.append(f"`{heading}` {period}: Basis and limitation is blank.")
+        for value in values:
+            if value.startswith(NOT_SUPPLIED) and value.removeprefix(NOT_SUPPLIED).strip():
+                continue
+            if not PLAIN_NUMBER.fullmatch(value):
+                issues.append(
+                    f"`{heading}` {period}: `{value} |` must be a plain number "
+                    "or `Not supplied: <reason>`."
+                )
+            elif unit != route.chart_unit:
+                issues.append(
+                    f"`{heading}` {period}: a number in {unit} cannot be charted as "
+                    f"{route.chart_unit}; write `Not supplied: reported in {unit}`."
+                )
+    return tuple(issues)
+
+
 def _layout(
     run: Run, ordered: tuple[str, ...], aliases: tuple[str, ...], config: str
 ) -> tuple[MarkdownLayout, tuple[str, ...]]:
@@ -287,6 +398,9 @@ def _layout(
         spec = _spec_of(block_id)
         owners = BLOCK_OWNERS.get(block_id, spec.producers)
         owner = next((m for m in owners if m in ordered), None)
+        if owner == "CP-1" and block_id in CHART_BLOCKS:
+            routes += [_chart_route(block_id, figure) for figure in STRIP_FIGURES[block_id]]
+            continue
         if owner is None or spec.kind == "chart" or block_id == SECOND_RUN_ONLY:
             omitted.append(block_id)
             continue
@@ -307,17 +421,46 @@ def _layout(
         f"User-launched {preset.title} run for {run.issuer_name} as of {run.as_of}, using {executor} "
         "on the selected issuer folder. Automated checks cover handoff structure, issuer and date "
         "anchors, source and upstream references and report selectors; analytical accuracy has "
-        "not been independently reviewed. The HTML Model, charts and calculation JSON are not "
-        f"published by this launcher. Sections not produced: {', '.join(omitted) or 'none'}."
+        "not been independently reviewed. The HTML Model and calculation JSON are not published "
+        f"by this launcher. Sections not produced: {', '.join(omitted) or 'none'}."
     )
     layout = MarkdownLayout(
-        blocks=tuple(r.block_id for r in routes),
+        blocks=tuple(dict.fromkeys(r.block_id for r in routes)),
         routes=tuple(routes),
         scope=scope,
         title=f"{run.issuer_name} — {preset.title}",
         issuer_aliases=aliases,
     )
     return layout, tuple(omitted)
+
+
+READER_SECTION_RULES = (
+    "Write `### Reader summary` after the analysis is finished and place it first under "
+    "`## Findings`. It restates conclusions already in this handoff in plain language for a "
+    "credit analyst: add no new fact, figure or conclusion. Use no module codes, table IDs or "
+    "hashes. Every number must match the handoff exactly. Use these two tables, one row in the "
+    f"first (bottom line at most {BOTTOM_LINE_WORDS} words, main limitation at most "
+    f"{LIMITATION_WORDS}) and 1 to {MAX_FINDINGS} rows in the second (each finding and creditor "
+    f"impact at most {FINDING_WORDS} words). Confidence is one of {', '.join(CONFIDENCE)}.\n\n"
+    "| Bottom line | Confidence | Main limitation |\n| --- | --- | --- |\n\n"
+    "| Finding | Creditor impact | Confidence |\n| --- | --- | --- |\n\n"
+)
+
+
+def _selector(route: MarkdownRoute) -> str:
+    if route.kind == "chart":
+        return (
+            f"- `### {route.heading}`: exactly one Markdown table headed "
+            f"`| {' | '.join(_chart_header(route))} |`, one row per period. Value cells are plain "
+            f"numbers in {route.chart_unit}, with that as the Reporting unit, or "
+            "`Not supplied: <reason>`. An issuer reporting in another currency or scale writes "
+            "`Not supplied: reported in <unit>` in monetary cells. Basis and limitation is never "
+            "blank."
+        )
+    what = (
+        "exactly one populated Markdown table under it." if route.kind == "table" else "prose only."
+    )
+    return f"- `### {route.heading}`: {what}"
 
 
 def _instructions(run: Run, module: str, routes: Sequence[MarkdownRoute], host: bool) -> bytes:
@@ -340,12 +483,7 @@ def _instructions(run: Run, module: str, routes: Sequence[MarkdownRoute], host: 
         "Use calculate for all new arithmetic. Keep exact amounts, units, currencies, periods, "
         "source locators and limitations. Absent evidence stays an explicit gap.\n\n"
     )
-    selectors = "\n".join(
-        f"- `### {r.heading}`: "
-        + ("exactly one populated Markdown table under it." if r.kind == "table" else "prose only.")
-        for r in routes
-        if r.module_id == module
-    )
+    selectors = "\n".join(_selector(r) for r in routes if r.module_id == module)
     sections = [(path, (ROOT / path).read_text(encoding="utf-8")) for path in METHODS[module]]
     if module == "CP-1":
         sections += [(f"STEP_CONTRACTS[{step}]", STEP_CONTRACTS[step]) for step in CP1_STEPS]
@@ -367,11 +505,14 @@ def _instructions(run: Run, module: str, routes: Sequence[MarkdownRoute], host: 
         "- list each issuer source it relied on in `## Sources`, with its exact name and sha256;\n"
         "- list each supplied handoff in `## Sources`, with its module and exact sha256"
         + (
-            f";\n- open `## Findings` with `### {opening}`, once: prose that states the view, "
-            "before any table.\n\n" + READER_STANDARD
+            f";\n- place `### {opening}` directly after `### Reader summary`, once: prose that "
+            "states the view, before any table.\n\n"
             if opening
             else ".\n\n"
         )
+        + READER_SECTION_RULES
+        + READER_PERSONA
+        + (READER_STANDARD if module in READER_STANDARD_MODULES else "")
         + (
             "Report selectors, each exactly once inside `## Findings`, using these exact "
             f"headings. They place content in the report and are not analytical completion:\n"
@@ -476,17 +617,21 @@ def checker(layout: MarkdownLayout) -> Check:
         evidence = {_sha(v) for k, v in task.sources.items() if k != CONTEXT_SOURCE_ID}
         if not any(digest in text for digest in evidence):
             issues.append("List each issuer source relied on with its exact name and sha256.")
+        issues += reader_issues(text)
         opening = OPENING.get(task.module_id)
         if opening and not _opens_with(text.splitlines(), opening):
             issues.append(
-                f"Open ## Findings with ### {opening}, once: prose that states the view, "
-                "before any table."
+                f"Place ### {opening} directly after ### Reader summary, once: prose that "
+                "states the view, before any table."
             )
         routes = tuple(r for r in layout.routes if r.module_id == task.module_id)
         try:
             if routes:
                 own = layout.model_copy(
-                    update={"blocks": tuple(r.block_id for r in routes), "routes": routes}
+                    update={
+                        "blocks": tuple(dict.fromkeys(r.block_id for r in routes)),
+                        "routes": routes,
+                    }
                 )
                 with tempfile.TemporaryDirectory() as temporary:
                     (Path(temporary) / "answer.md").write_bytes(raw)
@@ -500,14 +645,18 @@ def checker(layout: MarkdownLayout) -> Check:
                 literal_module(task.module_id, raw)
         except ValueError as error:
             issues.append(f"The report adapter refused this handoff: {error}")
+        for route in routes:
+            if route.kind == "chart":
+                issues += chart_issues(text, route)
         return tuple(issues)
 
     return check
 
 
 def _opens_with(lines: list[str], heading: str) -> bool:
-    """`## Findings` starts with the one `### heading`, whose first content is a paragraph: a
-    line opening with a letter, a quote mark or bold, not a table, list, fence, comment or heading.
+    """`## Findings` starts with `### Reader summary`, then the one `### heading`, whose first
+    content is a paragraph: a line opening with a letter, a quote mark or bold, not a table, list,
+    fence, comment or heading.
     """
     try:
         findings = [line for _, line in section(lines, "Findings") if line.strip()]
@@ -515,8 +664,11 @@ def _opens_with(lines: list[str], heading: str) -> bool:
     except ValueError:  # Missing or repeated.
         return False
     first = body[0] if body else ""
-    return findings[:1] == [f"### {heading}"] and (
-        first[:1].isalpha() or first.startswith(("**", '"', "“"))
+    headings = [line for line in findings if line.startswith("### ")]
+    return (
+        findings[:1] == ["### Reader summary"]
+        and headings[1:2] == [f"### {heading}"]
+        and (first[:1].isalpha() or first.startswith(("**", '"', "“")))
     )
 
 

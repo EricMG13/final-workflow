@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for GENMAB A/S as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "c518aa6f06b65ffcd0e072d73cfda5aff3a009b2e75d7807c6be29ffdbca6911",
+    "CP-1.md": "470d2d1ddbdc4449f689b20b3d5a9b49f6d69c93c24a1bf1e1eda3c8703c07f5",
+    "CP-1A.md": "97ef47d35b1d1d1c1be5913dc3a9164537ae157cdc8b548f9cf30fdc89277154",
+    "CP-2.md": "ae4d70eb28b9e4892515c675bed78fcd5b226dd61bc55ab90256ab48ebad7952",
+    "CP-5.md": "b8ee74d460d3b06f2a36fe0daae534b35f63f15b77eaa41dbb064acbb07bc1fa",
+    "view.json": "30279ca119a6fcb061e45f63ec7b293dab0306024d581fd7417015142632e354",
+    "report-view.json": "3e8e39b260c27cbbacbf86775abb1d6bf74c3d8abd1b6ba761e98d0432cbd818",
+    "report.html": "b6db757172a0a2e1b4d3cbdec9a347e9080bbaecadd9a7e0dffffa52975980b7"
+  }
+}

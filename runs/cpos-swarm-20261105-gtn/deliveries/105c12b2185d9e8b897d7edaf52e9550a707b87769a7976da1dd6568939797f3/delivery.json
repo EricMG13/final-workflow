@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for GRAY MEDIA, INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "e77a699cb806587c5833b538af86a669d2f7b40e236fe396a25b387c082542af",
+    "CP-1.md": "a5ba76a02d9bf3a11ff3c18cbb17b33ee63a8d295903f868edffbbc7e544712a",
+    "CP-1A.md": "8f6aed0d9aef7292573fab42193a9c269238361033f8ea127bc6b36df2c75a02",
+    "CP-2.md": "1506103a7ec410c2f6206a76b3137cde546f490f8ed028d31fd403044ef1af5e",
+    "CP-5.md": "fd7e3b5515e9e45fe6edc5ffe8276e1c74efbb66abf72e5393306402540aa6e5",
+    "view.json": "6f138806b2057d4a671751590a164305d2306d58d6fa911025b80df65b914a9e",
+    "report-view.json": "d252eb4d2e7c6461b6bbbd187bf7af4364e55cc455deaf7bf84684826dfd5fef",
+    "report.html": "0604967c0e2c9c6e2a62fc18343103650b8bf06f8a5efa30b5fb08ee35eaab87"
+  }
+}

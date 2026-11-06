@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Hudbay Minerals Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "e9dbd2ab9d4365edb1c5ad19429b023878f8b986a46fedd1e14735a884877657",
+    "CP-1.md": "da8f8dbede6b46939301242ef9c6bcc579e27714e531f445631581d70f3523ab",
+    "CP-1A.md": "77f18427d7183f493b28a7833bd301e13f46ac3f9e2d8bdfc3348905ae80e888",
+    "CP-2.md": "c6af3dd0ff01e0553ca8ad1fb61faacc803fa9ae66cad4752d8bd860fa2f0320",
+    "CP-5.md": "1dab2b929cf5c5bb782551b11872229f48dca34133731efa43f8e76c7104c958",
+    "view.json": "38b1405f6b9c2d5680b179008c718497b87b88cd421a0e1ba848e8a8a92d18bb",
+    "report-view.json": "45c7afcd719ee7d42e3ea3e04a4c45de69a7babf09de395de5f80f384c88d705",
+    "report.html": "6f110c84ae72fce80751a0a431f49be8bf28ff9d0a543905d98f3c4d2c1065ae"
+  }
+}

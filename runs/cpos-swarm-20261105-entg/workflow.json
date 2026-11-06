@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "entg-2026-11-05-credit_snapshot-host",
+    "issuer_id": "entg",
+    "issuer_name": "ENTEGRIS INC",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_entg-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_entg-20251231.htm.jsonl",
+      "sha256": "260dc4cc98d7ad114dcfe1b4d9e49beac9ed9f7c97f27f59e6df3a75c0628528"
+    },
+    "10-Q_2026-03-28_entg-20260328.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-28_entg-20260328.htm.jsonl",
+      "sha256": "3b83d32b0eaaaa1280f7799359a8f16448b715b610a83c1edceec0d49387802a"
+    },
+    "10-Q_2026-06-27_entg-20260627.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-27_entg-20260627.htm.jsonl",
+      "sha256": "5d06fd99ce42692b479a85d0b3d96bd08dbc1bdd295141cd5adf69b1988058ed"
+    },
+    "10-Q_2026-09-26_entg-20260926.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-26_entg-20260926.htm.jsonl",
+      "sha256": "7b5685a1d8fe745548fe7c65968e18c36857c1e4dd7f2b8045f8166b689f4db9"
+    },
+    "EX-99.1_2026-04-30_entgq12026ex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-30_entgq12026ex991.htm.jsonl",
+      "sha256": "0e10b62e7e542aab19ae90b6d94252e94c7183b272237a1b5ecd040e7a3bb9d7"
+    },
+    "EX-99.1_2026-08-04_entgq22026ex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-04_entgq22026ex991.htm.jsonl",
+      "sha256": "729b6288fa7f91f06fa1d1330da9031db0436138ba5a59730b16535055ac78c0"
+    },
+    "EX-99.1_2026-10-29_entgq32026ex991.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-29_entgq32026ex991.htm.jsonl",
+      "sha256": "e35116403bbcb30c3a986093aa969493d265b238a073d77c0b1aa4aec9296a99"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1101302-entegris-inc-entg.json",
+      "sha256": "a75dcef49bab6da60dc1054c04d1bf4409ccb60667119c9ab2f0bfc98a4c262f"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "5b331f7a99c47e6f180d6043ef8d778844e9e4746f5e4e5c2a3be5dcd0e32698"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "dcedfb712ad76fccc8a5242080d7098fcff5f9e89c7c22b7304d739e0556371f"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "72a462f5e7b6f0f873b88eff75968990106dc6e7b99b4bbd10f0f46a62215fb3"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "f4b2f021589dc0c33fba4bad2f9dd0fe1c1c2c91bba8baceb6c8f7afdd912130"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "4f30a1f3c9ac4f17978cfc9a39d7850629b7ad8dcde7a47b5d8a5a7d65d296fe"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for ENTEGRIS INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "ENTEGRIS INC — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

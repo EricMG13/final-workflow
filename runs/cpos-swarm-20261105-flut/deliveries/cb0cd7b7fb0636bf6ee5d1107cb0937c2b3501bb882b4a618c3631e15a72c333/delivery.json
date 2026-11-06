@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Flutter Entertainment plc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "6f50887cad81d339bbf86e29e4ef6f91bcf17a0cb9e2b4e94873f1133c5fcfda",
+    "CP-1.md": "66391e220a2b7cec03d544f3a1d1fc0013df4fc46ecfb1bf241b39dae37b49a9",
+    "CP-1A.md": "91311c8b6645e8dc8bd29a154f2af8fa983f77b3bf20bcf44139fcb121915d25",
+    "CP-2.md": "690e79dd9d4371144c01b11085ae3dc404130560e29389759e7f51e2f9509384",
+    "CP-5.md": "36f2e7c1c39607db59cbc260e0a15f2982311493500163e2e22254cb1b88fd7b",
+    "view.json": "6d3c914805cf4953f44dfb9f09cdb5e484d4cc7ceac3e725377b32dec7060cf5",
+    "report-view.json": "1e51daec125952b7c4fe25ab2196e4512db0f27494d62ed819b90b0c5966749a",
+    "report.html": "9df739d8888df2037744662853bec9dab4d4e7ff127bc48e1f0a91a20d5ac449"
+  }
+}

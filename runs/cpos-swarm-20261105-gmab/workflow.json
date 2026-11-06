@@ -1,0 +1,234 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "gmab-2026-11-05-credit_snapshot-host",
+    "issuer_id": "gmab",
+    "issuer_name": "GENMAB A/S",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "20-F_2025-12-31_gmab-20251231_d2.htm.jsonl": {
+      "path": "source-text/20-F_2025-12-31_gmab-20251231_d2.htm.jsonl",
+      "sha256": "041104aadf76e2dd3c99b07f2a5c8ca0092780880cc53f8276cda7db55a72e43"
+    },
+    "6-K-EX-99.1_2025-11-06_genmabinterimreportq32025.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2025-11-06_genmabinterimreportq32025.htm.jsonl",
+      "sha256": "06978ddb790610f6f32c0187b617be9da7c780d7403fa742ff98ba9049d5f051"
+    },
+    "6-K-EX-99.1_2026-05-07_genmabinterimreportq12026.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-05-07_genmabinterimreportq12026.htm.jsonl",
+      "sha256": "4ecbe1ab5be0468827b42bbf43fa8fbdbec0fdd369b4737a86f629cb84e67e45"
+    },
+    "6-K-EX-99.1_2026-11-05_genmabinterimreportq32026.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-11-05_genmabinterimreportq32026.htm.jsonl",
+      "sha256": "864b19bf237a4d5a6460638b8680b6339157a3234e843d8e76bb977e4dc1d4f8"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1434265-genmab-a-s-gmab-gnmsf.json",
+      "sha256": "f11f6ebfef20e70f4d6999b74c1449c3a4d8535f2ef28448cb9cbb9dc6331b4f"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "8fcec60a630972d76f6433682cb2915e5b93fdcf87119e41181ed20a1bb22251"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "1b6ccdaf787db95f3bc1a7dafeb39eab7e73b320c58df77aa087a6259dccbb24"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "46aee9c45c422576fb7ef367f964614691192795dbb9a294efd5e623572256cb"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "5f23d49401ac95ab5641a6d0c5b70e94590f90cfbe77fce3d61f2c3746352230"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "008098744940f0af6ca397ab8c505c92fe630fcf75c57931ed40c8c4db67bf6b"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for GENMAB A/S as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "GENMAB A/S — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

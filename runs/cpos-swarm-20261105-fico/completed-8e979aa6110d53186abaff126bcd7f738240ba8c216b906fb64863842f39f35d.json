@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for FAIR ISAAC CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/60e458e6e666f085c0e8ab96794e6131b21cf13374a995680595563e2a3b3278/1.response.md",
+    "CP-1": "requests/CP-1/33ee3e58041bdb0c6cdeba0bfe9ee239931ba49da844e1946a9a31d767c8175d/1.response.md",
+    "CP-1A": "requests/CP-1A/b2ad209b945a804f91438dc63d4d8ec3db7743ef0c8fb6ee8d0a2aa3b27d4751/1.response.md",
+    "CP-2": "requests/CP-2/0ac5029ea40e06e4e666866b8718ce21173a07a071f5aebfd28796486720b03a/1.response.md",
+    "CP-5": "requests/CP-5/59dd04d4795bd71e452e50d49e2adfe757a8481ae8967b7dc7ed4f800ecb07f2/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "02a7b7173ee4e5d71e2498ffde9c7ecdc5c8c4aa0651cec4627d0d266a4787cb",
+  "report_sha256": "38e5c6f007e07fd678781545a09c7c2e691201c52614ea823f2e9b2fafc10c59"
+}

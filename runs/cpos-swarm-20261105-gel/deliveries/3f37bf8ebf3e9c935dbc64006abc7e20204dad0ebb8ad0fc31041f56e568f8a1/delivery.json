@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for GENESIS ENERGY LP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "4b65b01575675a608bc6fc6997ea8b40b64b585c6caafd62892d7c3a4a40acae",
+    "CP-1.md": "d462428272340cea7077b0e2cc754aeebca5b246e4bdf0b36a518466a8dd78f4",
+    "CP-1A.md": "48e419f82e8a5058691338a6ba98e693561b90e965ff21533e48a0e1d9ca1c11",
+    "CP-2.md": "cbd45124daa9a5fc6b1ffc7a3da6c1b411a52a253009372e85aae8b6b34e2f3e",
+    "CP-5.md": "34fc8436062d88baa4768ed92b3f9e69d3fe76632058797152c7e4e5a7f35447",
+    "view.json": "a0c8d212a4b59ac3cab2424841e3b6a47bf28b6f054db9620421d656bc29c032",
+    "report-view.json": "236fa0985fc4e97e816bde29deef91bf95f621ac2f6b0974edae3a461ddd6cd7",
+    "report.html": "daf3f869315b3c28d32ee3a82fb62f441ffa9c361879324595dc6a0c9721038a"
+  }
+}

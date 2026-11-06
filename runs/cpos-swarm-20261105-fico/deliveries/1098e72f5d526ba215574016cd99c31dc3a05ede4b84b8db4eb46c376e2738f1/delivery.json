@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for FAIR ISAAC CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "bf1dc2c14187a6208c7ecc4cc4dcd1ace42a402c8c8aa295e5e74d0134c7d3d4",
+    "CP-1.md": "1a096021c0f3adbc74479c24fc532da87239b821a5817bc5b560d7c9fa7efb1f",
+    "CP-1A.md": "c0363d0389df16dda0832d378a73aa091a19e25a0b568900229c1c8a1dbf0f0d",
+    "CP-2.md": "7e3b9a436be389d8c7e85fcdedf6bfb068c349171b11a220c93823f1079692fd",
+    "CP-5.md": "a369c94343d6db2e387edbf41d6a868e7f3797b3124eee2626aefb59fe4d6bba",
+    "view.json": "851c96c17256ab9472688c201d1d29cae2dde69d764fea70069c2d5e86bbdff5",
+    "report-view.json": "0d77904d1285c7ec2d49c7fec0e10eb50e281ba39ee881d8493ad874a274450a",
+    "report.html": "38e5c6f007e07fd678781545a09c7c2e691201c52614ea823f2e9b2fafc10c59"
+  }
+}

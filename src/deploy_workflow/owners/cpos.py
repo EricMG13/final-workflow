@@ -625,6 +625,28 @@ def _comparison_bundle(base: Path, spec: HandoffInput) -> tuple[View, dict[str, 
     return view, {**files, "delivery.json": receipt_raw}
 
 
+def _check_comparison_pair(request: ComparisonPlan, prior: View, current: View) -> None:
+    """Both deliveries are the selected issuer's, the current one has the selected date, and they
+    are a prior delivery and a later-or-same-dated current one: CP-8 compares a prior run's
+    deliverables with the current run's (AGENTS.md), never a delivery with itself."""
+    for view in (prior, current):
+        if (view.run.issuer_id, view.run.issuer_name) != (
+            request.run.issuer_id,
+            request.run.issuer_name,
+        ):
+            raise ValueError("cp8_issuer: both deliveries must identify the selected issuer")
+    if current.run.as_of != request.run.as_of:
+        raise ValueError(
+            "cp8_as_of: comparison uses the selected current delivery's financial date"
+        )
+    if request.prior.sha256 == request.current.sha256:
+        raise ValueError("cp8_same_delivery: prior and current pin the same delivery receipt")
+    if prior.run.as_of > current.run.as_of:
+        raise ValueError(
+            "cp8_order: the prior delivery's financial date is after the current delivery's"
+        )
+
+
 def run_comparison(
     manifest: Path,
     directory: Path,
@@ -657,16 +679,7 @@ def run_comparison(
         raise ValueError("cp8_scope: select CP-8 deliverable comparison on the snapshot shell")
     prior_view, prior = _comparison_bundle(manifest.parent, request.prior)
     current_view, current = _comparison_bundle(manifest.parent, request.current)
-    for view in (prior_view, current_view):
-        if (view.run.issuer_id, view.run.issuer_name) != (
-            request.run.issuer_id,
-            request.run.issuer_name,
-        ):
-            raise ValueError("cp8_issuer: both deliveries must identify the selected issuer")
-    if current_view.run.as_of != request.run.as_of:
-        raise ValueError(
-            "cp8_as_of: comparison uses the selected current delivery's financial date"
-        )
+    _check_comparison_pair(request, prior_view, current_view)
     instructions = _pinned_inputs(manifest.parent, {"CP-8": request.instructions})["CP-8"]
     instructions.decode("utf-8")
     sources = {
@@ -720,7 +733,8 @@ def run_comparison(
         completion = {
             "kind": "cpos-deliverable-comparison/1",
             "execution": request.execution,
-            "scope": "Checked CP-8 comparison of selected delivery bundles; not decision calibration or full pathway acceptance",
+            "scope": "Checked CP-8 comparison of selected delivery bundles; "
+            "not decision calibration or full pathway acceptance",
             "provider_cap_usd": str(request.provider_cap_usd) if live else 0,
             "response": response_path,
             "response_sha256": _sha(response),

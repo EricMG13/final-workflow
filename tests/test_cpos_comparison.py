@@ -151,6 +151,53 @@ def test_bad_comparison_inputs_refuse_before_dispatch(tmp_path: Path, fault: str
     assert not (tmp_path / "state").exists()
 
 
+def test_same_delivery_as_prior_and_current_refuses_before_dispatch(tmp_path: Path):
+    # S01-A03: before the fix the same delivery.json pinned as prior and current published a
+    # "checked" self-comparison. A copy of it elsewhere has the same receipt bytes, so it is the
+    # same delivery too. Expected, by hand: cp8_same_delivery, no dispatch, no state written.
+    path = job(tmp_path, copies=True)
+    data = json.loads(path.read_bytes())
+    data["prior"] = pin(tmp_path / "current" / "delivery.json")
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="cp8_same_delivery"):
+        cpos.run_comparison(
+            path, tmp_path / "state", execute=lambda t: pytest.fail("dispatched"), check=check
+        )
+    assert not (tmp_path / "state").exists()
+
+
+def test_prior_delivery_dated_after_the_current_one_refuses_before_dispatch(tmp_path: Path):
+    # S01-A03: the prior bundle's View is re-dated 2025-03-31 (re-rendered and re-pinned, so it
+    # is a consistent bundle), after the current bundle's 2024-09-30. Expected, by hand:
+    # cp8_order, no dispatch, no state written.
+    from datetime import date
+
+    from deploy_vii.contracts import View
+    from deploy_vii.render import render
+    from deploy_vii.report_view import ReportView
+
+    path = job(tmp_path, copies=True)
+    folder = tmp_path / "prior"
+    view = View.model_validate_json((folder / "view.json").read_bytes())
+    later = {"as_of": date(2025, 3, 31)}
+    view = view.model_copy(update={"run": view.run.model_copy(update=later)})
+    report = ReportView.model_validate_json((folder / "report-view.json").read_bytes())
+    (folder / "view.json").write_text(view.model_dump_json(indent=2))
+    (folder / "report.html").write_text(render(view, report))
+    receipt = json.loads((folder / "delivery.json").read_bytes())
+    for name in receipt["files"]:
+        receipt["files"][name] = hashlib.sha256((folder / name).read_bytes()).hexdigest()
+    (folder / "delivery.json").write_text(json.dumps(receipt))
+    data = json.loads(path.read_bytes())
+    data["prior"] = pin(folder / "delivery.json")
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="cp8_order"):
+        cpos.run_comparison(
+            path, tmp_path / "state", execute=lambda t: pytest.fail("dispatched"), check=check
+        )
+    assert not (tmp_path / "state").exists()
+
+
 def test_forged_receipt_does_not_bind_foreign_html_to_views(tmp_path: Path):
     path = job(tmp_path, copies=True)
     (tmp_path / "current/report.html").write_bytes((PRIOR / "report.html").read_bytes())

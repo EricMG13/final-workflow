@@ -421,6 +421,16 @@ def _yield_observations(
     return updated, tuple(dict.fromkeys(p.series for p in points)), tuple(points)
 
 
+def _token_decimals(token: str, chart_unit: str | None) -> int:
+    """Places to show a copied source token: as many as it was written to, at most six.
+
+    A `%` chart reads the token as a fraction (0.0725 is 7.25%), so two of its places are the
+    percent scaling. A gap has no digits to show and keeps the class default.
+    """
+    written = len(found[1]) if (found := re.search(r"\.(\d+)", token)) else 0
+    return min(6, max(0, written - 2) if chart_unit == "%" else written)
+
+
 def _numeric_observations(
     module: ModuleView, table: ReportTable, route: MarkdownRoute
 ) -> tuple[ModuleView, tuple[str, ...], tuple[_ChartPoint, ...]]:
@@ -475,7 +485,8 @@ def _numeric_observations(
                         token,
                     ):
                         raise ValueError(
-                            "markdown_chart: selected value must be an exact finite number or explicit gap"
+                            "markdown_chart: selected value must be an exact finite number "
+                            "or explicit gap"
                         )
                     amount = Decimal(token.replace(",", "").replace("(", "-").replace(")", ""))
             series, category = (
@@ -504,7 +515,7 @@ def _numeric_observations(
                     period=category,
                     decimals=source.decimals
                     if source.amount is not None
-                    else (4 if route.chart_unit == "%" else 2),
+                    else _token_decimals(source.text or "", route.chart_unit),
                     citations=source.citations,
                     limitation=(source.limitation or source.text or "Missing source observation")
                     if missing

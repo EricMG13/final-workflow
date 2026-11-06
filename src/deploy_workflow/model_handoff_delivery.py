@@ -380,6 +380,22 @@ def _literal_tables(
     return source, facts, tables, bindings
 
 
+def _written_decimals(cell: Cell) -> int:
+    """Places to show a Model amount: the most the source cells it came from were written to."""
+    written = (
+        len(found[1]) for ref in cell.sources if (found := re.search(r"\.(\d+)", ref.cell_text))
+    )
+    return min(6, max(written, default=0))
+
+
+def _ratio_decimals(value: Decimal | None) -> int:
+    """Two places, and more only where two would show a nonzero ratio as zero."""
+    places = 2
+    while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
+        places += 1
+    return places
+
+
 def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 statements at base)
     run: Run,
     inputs: Mapping[str, HandoffInput],
@@ -478,7 +494,9 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
                         limitation=cell.note
                         if cell.value is not None
                         else (cell.note or cell.reason or "Missing source input"),
-                        decimals=2 if tid == "ratios" else 0,
+                        decimals=_ratio_decimals(cell.value)
+                        if tid == "ratios"
+                        else _written_decimals(cell),
                     )
                 )
             layouts.append(

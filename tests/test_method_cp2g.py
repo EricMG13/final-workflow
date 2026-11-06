@@ -1999,3 +1999,46 @@ def test_property_break_decline_round_trip(
     else:
         num = Fraction(d) if kind == "total_leverage" else Fraction(d) - Fraction(c)
         assert num / stressed == Fraction(level)
+
+
+# --- S07-cp2-gh-A01/A02 -------------------------------------------------------------------------
+_LIMITATION_FIELDS = (
+    ("base_drivers", "revenue_growth"),
+    ("base_drivers", "dividends"),
+    ("downside", None),
+    ("assessment", None),
+)
+
+
+def _set_limitation(payload: dict[str, Any], group: str, name: str | None, text: str) -> None:
+    node = payload[group] if name is None else payload[group][name]
+    node["limitation"] = text
+
+
+@pytest.mark.parametrize(("group", "name"), _LIMITATION_FIELDS)
+def test_a02_limitation_text_is_validated_like_a_rationale(group: str, name: str | None) -> None:
+    """A02. 'Management guided FY2026 EBITDA of 41.7 million; the probability-weighted expected
+    value ...' holds the bare figure 41.7 and the phrases 'probability-weighted' and 'expected
+    value': exactly the three issues a rationale gets, at the limitation's own path."""
+    payload = _bind_all(_payload("positive"))
+    text = "Management guided FY2026 EBITDA of 41.7 million; probability-weighted expected value."
+    _set_limitation(payload, group, name, text)
+    path = f"{group}.{name}.limitation" if name else f"{group}.limitation"
+    prob = "prohibited conclusion (probability weighting)"
+    assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == (
+        f"{path}: Bare figure: 41.7",
+        f'{path}: {prob}: "probability-weighted"',
+        f'{path}: {prob}: "expected value"',
+    )
+
+
+def test_a02_limitation_reference_is_refused_and_plain_text_is_accepted() -> None:
+    """A02: a limitation is plain text, so a `{ref|unit}` reference (which resolves nowhere in
+    it) is refused, while plain prose without figures is accepted."""
+    payload = _bind_all(_payload("positive"))
+    payload["downside"]["limitation"] = "Management gave no guidance for the year."
+    assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == ()
+    payload["downside"]["limitation"] = "Revenue was {x|EUR} in the base year."
+    assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == (
+        "downside.limitation: Unresolved reference: x",
+    )

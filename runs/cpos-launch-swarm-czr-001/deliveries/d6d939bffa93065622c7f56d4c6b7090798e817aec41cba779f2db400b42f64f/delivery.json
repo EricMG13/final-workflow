@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Caesars Entertainment, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "68c2aa991decb0a068a7686c52c5f7ef75f0c9f53a26c05730a18c0d745ad39e",
+    "CP-1.md": "1a889d763322a3d7a993560cc65df8d979c3250d3ba9d61c9ce016e27017149d",
+    "CP-1A.md": "444ebf6a12ce445fb9e8f6aaf636bc6ab76d1bfdecbf19d9ade29feddbcd482f",
+    "CP-2.md": "2412d34653d3797010fe7258d63582ec0743a568a7b192052d31a61a365bef3d",
+    "CP-5.md": "93eebeaf3b58e99d58c386eee75a9d276dc72a6f3b838b6b0033a56c0c498d90",
+    "view.json": "10b8a0b635c0f70f90303b2cd32ec529fa5705e715086f627eba9db47de38605",
+    "report-view.json": "b4886ef1e3185c44ecda7b8f7a02728d0095f934515f46456e2c9e79b8058155",
+    "report.html": "f05bde8588f7010f13cf8cb76fa13edb7f2c05a2cafbfb60c1d145974c3d2f0d"
+  }
+}

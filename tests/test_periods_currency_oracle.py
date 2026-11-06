@@ -214,8 +214,20 @@ PATTERN = re.compile(r'LTM Q4 25|q4-2025|FY2026, FY2027|"USD"')
 OWNERS = ROOT / "src" / "deploy_workflow" / "owners"
 DEFAULT_CURRENCY = "the no-context default currency; the frozen USD default of the run basis"
 PARSER_DOC = "docstring of a CP-1 fact-label parser reading vii's own `LTM Q4 25: a to b` format"
+CURRENCY_VOCABULARY = (
+    "currency vocabulary that detects a figure stated in another currency (S05-A01); "
+    "not a run currency"
+)
 # (file, stripped source line) -> reason. `period_basis.py` is allowed whole (the one basis).
 ALLOWED: dict[tuple[str, str], str] = {
+    (
+        "cp1d.py",
+        '_CURRENCY_SYMBOLS = {"USD": ("$", "US$"), "EUR": ("\\u20ac",), "GBP": ("\\u00a3",)}',
+    ): CURRENCY_VOCABULARY,
+    (
+        "cp1d.py",
+        '*("USD", "EUR", "GBP", "CHF", "JPY", "CNY", "CAD", "AUD", "NZD", "SEK", "NOK", "DKK"),',
+    ): CURRENCY_VOCABULARY,
     (
         "cp1b.py",
         'view: ModuleView, submission: EarningsDeltaOwnerReview, *, currency: str = "USD"',

@@ -78,6 +78,7 @@ from deploy_workflow.owners.period_basis import (
     run_currency,
 )
 from deploy_workflow.owners.pins import pin_issues, pinned_line, pins_of
+from deploy_workflow.trailing_period import states_trailing_period
 
 MODULE_ID = "CP-2A"
 STEP_ID = "downside_pathway"
@@ -186,6 +187,19 @@ def _column(period: str) -> str:
     return f"{head} ({span})"
 
 
+def _in_period(fact: Fact, period: str, metric: str) -> bool:
+    """Whether a `<column> · metric` fact of the base `period` states that period. A reported
+    ratio in a quarter column is calculated from the twelve months ending that quarter (P1-W),
+    so CP-1 states that rolling period on it: `LTM <quarter label>: start to <quarter end>` (the
+    start `null` while the window is incomplete)."""
+    if fact.period == period:
+        return True
+    if metric not in REPORTED.values() or period_kind(period) != "quarter":
+        return False
+    head, _, span = period.partition(": ")
+    return states_trailing_period(fact.period, span.rpartition(" to ")[2], head)
+
+
 @dataclass(frozen=True)
 class BaseOperands:
     """The base period's operands (None where CP-1 has no known fact; never 0 for missing).
@@ -223,7 +237,7 @@ class BaseOperands:
             found = [
                 f
                 for f in facts
-                if f.table_id == CP1_TABLE and f.label == label and f.period == period
+                if f.table_id == CP1_TABLE and f.label == label and _in_period(f, period, metric)
             ]
             if len(found) != 1:
                 raise ValueError(
@@ -1552,7 +1566,8 @@ def offered_bases(cp1: Iterable[Fact], currency: str = "USD") -> tuple[OfferedBa
 
     A period is offered only if its label parses (`period_kind`, `_column`) and CP-1 holds exactly
     one T4.10 fact per operand and reported-ratio metric for it (`BaseOperands.from_cp1` raises
-    otherwise), and every known operand is in `currency` millions (Stage 2 round 5 item 1). Any other period is not offered, so the analyst cannot choose it and no core call
+    otherwise), and every known operand is in `currency` millions (Stage 2 round 5 item 1). Any
+    other period is not offered, so the analyst cannot choose it and no core call
     can raise on it (fail closed; CP-1 head integrity is not this module's to repair). One
     derivation feeds the view's `kind` and the core's `offered_periods` (round 5-6 L6)."""
     facts = tuple(f for f in cp1 if f.table_id == CP1_TABLE)
@@ -1566,7 +1581,11 @@ def offered_bases(cp1: Iterable[Fact], currency: str = "USD") -> tuple[OfferedBa
             continue
         chosen: list[Fact] = []
         for metric in metrics:
-            found = [f for f in facts if f.label == f"{column} · {metric}" and f.period == period]
+            found = [
+                f
+                for f in facts
+                if f.label == f"{column} · {metric}" and _in_period(f, period, metric)
+            ]
             if len(found) != 1:
                 break
             chosen.append(found[0])

@@ -355,7 +355,12 @@ KINDS: Mapping[str, tuple[tuple[str, ...], Row]] = {
     ),
     "kpi": (
         ("key", "period", *VALUE_COLUMNS),
-        lambda d, labels: [d["key"], _label(labels, d["display_basis_id"]), *_value(d)],
+        # The operands' basis: a trailing ratio in a quarter column is a rolling-LTM figure.
+        lambda d, labels: [
+            d["key"],
+            _label(labels, d["period_basis_id" if "period_basis_id" in d else "display_basis_id"]),
+            *_value(d),
+        ],
     ),
     "computation": (
         ("operation", "amount", "status"),

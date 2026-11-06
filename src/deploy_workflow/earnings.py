@@ -14,6 +14,7 @@ from decimal import ROUND_HALF_EVEN, Context, Decimal, DecimalException, localco
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
+from deploy_workflow.trailing_period import states_trailing_period
 
 FactStatus = Literal["known", "missing", "conflicting", "not_applicable"]
 
@@ -239,12 +240,27 @@ def _selected(row: dict[str, Fact], period: _Period, measure: str, currency: str
     if fact.text is not None:
         raise ValueError("invalid_fact")
     expected = (*_dimensions(measure, currency), _SCOPE)
-    dates = f"{period.start.isoformat()} to {period.end.isoformat()}"
-    if (fact.unit, fact.currency, fact.scale, fact.basis) != expected or (
-        not isinstance(fact.period, str) or fact.period.rsplit(": ", 1)[-1] != dates
+    if (fact.unit, fact.currency, fact.scale, fact.basis) != expected or not _dated(
+        fact.period, period, expected[0]
     ):
         raise ValueError("incompatible_dimensions")
     return fact
+
+
+def _dated(stated: str | None, period: _Period, unit: str) -> bool:
+    """Whether the fact's period states the period's own dates (`<label>: start to end`). A
+    trailing ratio in a quarter column (unit MULTIPLE) is calculated from the four quarters
+    ending at the quarter, so CP-1 states that rolling period instead (`LTM <label>: start to
+    end`, the start `null` while the window is incomplete); its end is the quarter's end."""
+    if not isinstance(stated, str):
+        return False
+    if stated.rpartition(": ")[2] == f"{period.start.isoformat()} to {period.end.isoformat()}":
+        return True
+    return (
+        unit == "MULTIPLE"
+        and period.kind == "QUARTER"
+        and states_trailing_period(stated, period.end.isoformat())
+    )
 
 
 def _point(

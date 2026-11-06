@@ -744,3 +744,42 @@ def test_canonical_opening_period_end_is_indexed_but_not_a_duration_comparator(
         refusal(with_opening, error, prior, current)
     else:
         assert build(with_opening, prior, current) == build(module, prior, current)
+
+
+# S13 C01: CP-1 states the twelve months ending a quarter on the quarter column's trailing ratio
+# (`LTM Q4 25: 2025-01-01 to 2025-12-31`; a `null` start while the window is incomplete, so the
+# missing Q3 25 ratio reads `LTM Q3 25: null to 2025-09-30`). That period is the ratio's own, so
+# the delta still builds; any other measure, and a trailing period ending elsewhere, stay refused.
+def test_trailing_ratio_period_on_a_quarter_is_the_ratios_own():
+    module = change(
+        change(
+            fixture(),
+            "value.total_leverage_reported.q4-2025",
+            period="LTM Q4 25: 2025-01-01 to 2025-12-31",
+        ),
+        "value.net_leverage_reported.q3-2025",
+        period="LTM Q3 25: null to 2025-09-30",
+    )
+    report = build(module)
+    # Q4 25 total leverage 50 / 30 at 38 significant digits, half even; Q3 25 is missing in the
+    # fixture (no twelve months).
+    assert point(report, "total_leverage_reported").current_value == Decimal(
+        "1.6666666666666666666666666666666666667"
+    )
+    assert point(report, "net_leverage_reported").prior_status == "missing"
+
+
+@pytest.mark.parametrize(
+    "fact_id,period",
+    [
+        ("value.revenue.q4-2025", "LTM Q4 25: 2025-01-01 to 2025-12-31"),  # not a ratio
+        ("value.total_leverage_reported.q4-2025", "LTM Q3 25: 2024-10-01 to 2025-09-30"),
+        ("value.total_leverage_reported.q4-2025", "Q4 25: 2025-01-01 to 2025-12-31"),  # no LTM
+        (
+            "value.total_leverage_reported.q4-2025",
+            "LTM Q4 25: 2024-06-01 to 2025-12-31",
+        ),  # 579 days
+    ],
+)
+def test_trailing_period_elsewhere_still_refuses(fact_id, period):
+    refusal(change(fixture(), fact_id, period=period), "incompatible_dimensions")

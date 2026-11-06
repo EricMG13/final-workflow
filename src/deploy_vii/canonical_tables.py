@@ -19,6 +19,7 @@ from deploy_vii.downstream_readiness import (
     canonical_downstream_readiness,
 )
 from deploy_vii.financial_contracts import FinancialReview
+from deploy_vii.financial_model import ModelBasis
 from deploy_vii.financial_periods import PeriodValue, _id
 from deploy_vii.model_interface import (
     SCHEMAS,
@@ -508,8 +509,10 @@ def _calculations(
     values = {v.value_id: v for v in kpis.values}
     bases = {b.basis_id: b for b in kpis.bases}
     for metric_row in kpis.kpis:
-        basis = bases[metric_row.display_basis_id]
-        period = basis.label + f" ({basis.start_date} to {basis.end_date})"
+        # The operands' basis: a trailing ratio in a quarter column is a rolling four-quarter
+        # figure; an incomplete window has no start date (null), never the quarter's own.
+        basis = bases[metric_row.period_basis_id]
+        period = f"{basis.label} ({_span(basis)})"
         legs: list[_Cell] = []
         operand_refs: list[str] = []
         for leg in (metric_row.numerator, metric_row.denominator):
@@ -573,6 +576,11 @@ def _calculations(
         )
 
 
+def _span(basis: ModelBasis) -> str:
+    """`start to end` of a basis, a missing date as `null` (an incomplete trailing window)."""
+    return f"{basis.start_date or 'null'} to {basis.end_date or 'null'}"
+
+
 def _category(key: str) -> str:
     if key.endswith("_growth"):
         return "Growth"
@@ -600,6 +608,7 @@ def _dashboard(tables: _Tables, report: DownstreamReport) -> None:
     kpis = report.inputs.narrative.inputs.ledger.kpis
     if not kpis:
         return
+    by_id = {b.basis_id: b for b in kpis.bases}
     bases = tuple(b for b in kpis.bases if b.basis_id in {k.display_basis_id for k in kpis.kpis})
     tables.schemas["T4.10"] = (
         "KPI Dashboard",
@@ -611,6 +620,8 @@ def _dashboard(tables: _Tables, report: DownstreamReport) -> None:
         cells = []
         for basis in bases:
             metric = rows[basis.basis_id]
+            # A trailing ratio in a quarter column states its rolling four-quarter period.
+            period = by_id[metric.period_basis_id]
             cells.append(
                 replace(
                     _value(
@@ -622,7 +633,7 @@ def _dashboard(tables: _Tables, report: DownstreamReport) -> None:
                         metric.calculation_id,
                         metric.formula,
                     ),
-                    period=f"{basis.label}: {basis.start_date} to {basis.end_date}",
+                    period=f"{period.label}: {_span(period)}",
                 )
             )
         _row(

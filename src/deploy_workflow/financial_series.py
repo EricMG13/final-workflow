@@ -15,6 +15,7 @@ from decimal import Decimal
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
+from deploy_workflow.trailing_period import states_trailing_period
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,26 +157,24 @@ def _numeric(fact: Fact, money: bool) -> None:
         raise ValueError(f"Invalid chart gap: {fact.fact_id}")
 
 
-def _quarter_figures(
-    module: ModuleView, periods: tuple[_Period, ...]
-) -> tuple[FinancialFigureSeries, ...]:
-    quarters = tuple(p for p in periods if p.kind == "QUARTER")
-    reason = None
-    if len(quarters) != 4:
-        reason = "Charts require exactly four reported QUARTER periods; no periods were fabricated."
-    else:
-        year = _text(quarters[0].row["fiscal_year"])
-        previous_end = None
-        for number, period in zip(("1", "2", "3", "4"), quarters, strict=True):
-            start = date.fromisoformat(_text(period.row["start_date"]))
-            if (
-                _text(period.row["fiscal_year"]) != year
-                or _text(period.row["fiscal_quarter"]).removeprefix("Q") != number
-                or start > period.end
-                or (previous_end is not None and start != previous_end + timedelta(days=1))
-            ):
-                raise ValueError("Ambiguous or noncontiguous QUARTER identities")
-            previous_end = period.end
+def _check_quarters(quarters: tuple[_Period, ...]) -> None:
+    """Four quarters of one fiscal year, numbered 1 to 4 and contiguous; otherwise raise."""
+    year = _text(quarters[0].row["fiscal_year"])
+    previous_end = None
+    for number, period in zip(("1", "2", "3", "4"), quarters, strict=True):
+        start = date.fromisoformat(_text(period.row["start_date"]))
+        if (
+            _text(period.row["fiscal_year"]) != year
+            or _text(period.row["fiscal_quarter"]).removeprefix("Q") != number
+            or start > period.end
+            or (previous_end is not None and start != previous_end + timedelta(days=1))
+        ):
+            raise ValueError("Ambiguous or noncontiguous QUARTER identities")
+        previous_end = period.end
+
+
+def _kpi_metrics(module: ModuleView) -> dict[str, dict[str, Fact]]:
+    """The T4.10 rows by their `field_1` metric identity; a missing or repeated one raises."""
     metrics: dict[str, dict[str, Fact]] = {}
     for row in _rows(module, "T4.10"):
         if "field_1" not in row:
@@ -184,6 +183,19 @@ def _quarter_figures(
         if key in metrics:
             raise ValueError("Duplicate KPI metric identity")
         metrics[key] = row
+    return metrics
+
+
+def _quarter_figures(
+    module: ModuleView, periods: tuple[_Period, ...]
+) -> tuple[FinancialFigureSeries, ...]:
+    quarters = tuple(p for p in periods if p.kind == "QUARTER")
+    reason = None
+    if len(quarters) != 4:
+        reason = "Charts require exactly four reported QUARTER periods; no periods were fabricated."
+    else:
+        _check_quarters(quarters)
+    metrics = _kpi_metrics(module)
 
     coordinates = []
     if reason is None:
@@ -214,7 +226,7 @@ def _quarter_figures(
                         raise ValueError(f"Missing canonical QUARTER basis: {key}/{identity}")
                     fact = metric[field]
                     _numeric(fact, money)
-                    if fact.period is None or fact.period.rsplit(": ", 1)[-1] != dates:
+                    if not _states_dates(fact.period, dates, trailing=not money):
                         raise ValueError("Chart fact does not match its canonical QUARTER dates")
                     companions = (metric_id, *period_companions)
                     points.append(FinancialSeriesPoint(key, category, fact.fact_id, companions))
@@ -231,6 +243,16 @@ def _quarter_figures(
             )
         )
     return tuple(figures)
+
+
+def _states_dates(stated: str | None, dates: str, *, trailing: bool) -> bool:
+    """Whether a chart fact states its quarter's `start to end` dates. A quarter's leverage and
+    coverage (`trailing`) state the twelve months ending it instead (S13 C01)."""
+    if stated is None:
+        return False
+    return stated.rsplit(": ", 1)[-1] == dates or (
+        trailing and states_trailing_period(stated, dates.rpartition(" to ")[2])
+    )
 
 
 _FACILITY_FIELDS = (

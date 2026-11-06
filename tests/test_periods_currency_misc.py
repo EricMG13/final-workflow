@@ -742,7 +742,9 @@ def _l10_upstream(currency: str = "EUR") -> cpl10.Upstream:
             fact.model_copy(
                 update={
                     "label": f"{new.column} · {metric}",
-                    "period": new.period if fact.period == old_period[column] else fact.period,
+                    "period": new.period
+                    if fact.period == old_period[column]
+                    else _l10_shift(fact.period or "", currency),  # a ratio's trailing period
                     "currency": currency if fact.currency else None,
                 }
             )

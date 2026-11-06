@@ -206,6 +206,45 @@ and rewrite tournament), all pass.
 Not verified: the Playwright browser gate (selectors renamed, not executed here); validate.py quick/full
 modes as a whole; the 6s iframe failure path and Retry in Windows Edge; Windows rendering of the activity
 icon and the tokenised ramp; nothing committed.
+## 2026-11-06 — Sonnet swarm pilot, five issuers, independent review
+
+At the user's instruction ("use a workflow for the 5-issuer pilot"), workflow run `wf_ffe44974-253`
+ran one Sonnet analyst per issuer through `cpos_launch --config host --modules minimum` on its
+SECData pack (as of 2026-11-05). It then ran one independent Sonnet reviewer per run, which saw
+only the pack and the accepted handoffs. Each run folder's `review.json` holds both returns.
+
+| Run | Pack | Launches | Rejected attempts | Figures matching | Reviewer verdict |
+| --- | --- | ---: | --- | ---: | --- |
+| `cpos-launch-swarm-aal-001` | American Airlines, Inc., 10-K, three decks | 6 | none | 62 of 62 | usable with fixes |
+| `cpos-launch-swarm-czr-001` | Caesars, 10-K, releases | 9 | CP-2 (no `### Credit view` opening), CP-5 (seventh H2) | 36 of 38 | usable with fixes |
+| `cpos-launch-swarm-cc-001` | Chemours, 10-K, releases | 6 | none | 32 of 36 | usable with fixes |
+| `cpos-launch-swarm-gfl-001` | GFL, 40-F and 6-K | 6 | none | 42 of 42 | usable with fixes |
+| `cpos-launch-swarm-tigo-001` | Millicom, 20-F and 6-K documents | 7 | CP-2 (no `### Credit view` opening) | 58 of 62 | usable with fixes |
+
+All five reports published. The CP-OS checks caught only structure; every content defect below
+passed them. The reviewers found major defects in four runs:
+
+- American Airlines:
+  - CP-1A claims record revenue in all three quarters; the Q3 deck makes no such claim.
+  - Leverage and coverage use the parent's figures although the issuer's own statements are in
+    the 10-Q.
+- GFL:
+  - CP-2 calls the revolver "largely undrawn" while it is 868.0 drawn against 2,025.0.
+  - Liquidity is marked "Not calculable" although the 6-K notes print the letter-of-credit
+    split.
+  - Checked here: the Q2 note gives 424.3 of letters of credit in total, 145.4 of them under the
+    EDC facility.
+- Caesars: the VICI and GLPI lease payment schedule and escalators are omitted.
+- Chemours: the security package and guarantees of the secured facilities are omitted.
+
+In three runs CP-5 found these defects but could not correct them: an accepted answer cannot be
+replaced, so the published text keeps errors that its own QA lists. The swarm needs the
+independent review before acceptance, or a repair run per issuer. No reviewer found a cutoff
+breach. The workflow used 2.48 million subagent tokens in 43 minutes across 10 agents; host-mode
+usage per module is still not measured.
+
+Checks: Go `TestCurrentRetainedWorkspace` passes with the five new run folders.
+
 ## 2026-11-05 — minimum module set, Caesars pilot and ETF issuer universe
 
 `--modules minimum` selects CP-1, CP-1A, CP-2 and CP-5, with CP-0 as the dependency: the modules

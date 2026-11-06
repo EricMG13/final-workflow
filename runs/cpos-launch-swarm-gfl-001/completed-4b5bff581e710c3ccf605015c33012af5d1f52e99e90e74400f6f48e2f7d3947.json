@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for GFL Environmental Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/b6dfb3076868286f4b03a2d43900e341dc3353c63f0232145a0e76fde91f05e0/1.response.md",
+    "CP-1": "requests/CP-1/cf98d20263ab44675b3ed75b1feb1588bf4999338629ace0f802082010c2db82/1.response.md",
+    "CP-1A": "requests/CP-1A/c82e0f76c99135936f8620b7bbd93d86a3858f14b698dd440d119daaf18c273b/1.response.md",
+    "CP-2": "requests/CP-2/9bdfa3dcbd9bdb98fd7c149c3bea7471a43cb09fd7e06ea18c937f64ef470645/1.response.md",
+    "CP-5": "requests/CP-5/53e939fa3b8211b83a53065ee4e617081789561114dc08388eeaa9c51bdc772a/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "5bfa1b7417b4d17bb131f7a79f7f2b59a9c1e189045c9a8bff4545cee6538bec",
+  "report_sha256": "6f8c1fd1cb62a59dca5fae07c0e1a26ada715841b019cf4fd880ec1bc80f3d3b"
+}

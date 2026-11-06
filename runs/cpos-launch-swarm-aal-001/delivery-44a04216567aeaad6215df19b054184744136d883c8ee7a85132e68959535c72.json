@@ -1,0 +1,141 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "aal-2026-11-05-credit_snapshot-host",
+    "issuer_id": "aal",
+    "issuer_name": "American Airlines, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "handoffs": {
+    "CP-0": {
+      "path": "requests/CP-0/6f5558b1c913233a163530c5d875f2f5bb615770022f77051ae7b3c3b2c38bb7/1.response.md",
+      "sha256": "c9fc1ee51323e9485527b31166514f55845df1128f8859f71310606b529d8791"
+    },
+    "CP-1": {
+      "path": "requests/CP-1/9a9b815749c858a36f24b04c41b9460dc28d9d814f0673e1f53a5716f180fed9/1.response.md",
+      "sha256": "70223bba15c1520b15ac80c58f3e614e36c2f94213390621338d6bf3ca601fdc"
+    },
+    "CP-1A": {
+      "path": "requests/CP-1A/4d378dae5e2485416d104eb6d5539a54f1f206f21c50ac66c519350061eb15f8/1.response.md",
+      "sha256": "37a396f815173181e9565663399d31e78c068be0957106b32a758ab0fdbccd3b"
+    },
+    "CP-2": {
+      "path": "requests/CP-2/07bda0cdb7d838a79a477a039c4eb82ff7e2c3f455a598af8bb47592ed380e90/1.response.md",
+      "sha256": "a241bffd065e11d75c5e89391326f7272bb84b41c9e216b03cc596616d0ea8d5"
+    },
+    "CP-5": {
+      "path": "requests/CP-5/d651e1f9570dc12a7efc6b6bde2a9d52151d43cdc4a25cc9675a333b381aded7/1.response.md",
+      "sha256": "6fbd537e2dfdaf77cbb0893ded561ba00f728fd9a924b9c3eee556d739c5b396"
+    }
+  },
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for American Airlines, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "American Airlines, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  }
+}

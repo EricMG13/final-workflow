@@ -1,0 +1,167 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "tigo-2026-11-05-credit_snapshot-host",
+    "issuer_id": "tigo",
+    "issuer_name": "Millicom International Cellular S.A.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "20-F_2025-12-31_tigo-20251231.htm.jsonl": {
+      "path": "source-text/20-F_2025-12-31_tigo-20251231.htm.jsonl",
+      "sha256": "13be2a8c900b103376e04c45e18282d28f2b1aac3516bfaed99fc02cc0e15f37"
+    },
+    "6-K_2026-05-12_dp246578_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-05-12_dp246578_6k.htm.jsonl",
+      "sha256": "e31fa18185d3ceef7ba9e0133efc952dd4f43ccbd999e9a5f5b5af04d8dbf712"
+    },
+    "6-K_2026-08-06_dp251442_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-08-06_dp251442_6k.htm.jsonl",
+      "sha256": "76b47ade3b6a5a2f060db2592b816c6ed584aa9ed405d036c0be893943dc1c51"
+    },
+    "6-K_2026-11-05_dp256407_6k.htm.jsonl": {
+      "path": "source-text/6-K_2026-11-05_dp256407_6k.htm.jsonl",
+      "sha256": "6ab7c7e5e635829f16eb15a89301463e6131db3f5c0e68ee118ba6350801f894"
+    },
+    "context": {
+      "path": "../../../../../tmp/claude-0/-workspace/864e4cc3-ce42-59e5-a886-5e38c81a299d/scratchpad/pilot/tigo.json",
+      "sha256": "5b145622a49a1e38ec7885504ac944230be02601fefa1d2f3fb7d83ded83c956"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "66890a02827c22fd6464a0053e6ae34be762eac86d641b20515af410923afe4c"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "ce3eceb8a98325911bdc03dad23206934ee424e2173d6d42778ad47a4c17ea00"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "1ce35eb1402dcc1894cb89ce667bec0305e581fb9fe5d751164a4aec34fe76d6"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "9dd2d902b88b4c1d5f5793d18815d9d932edce5b1a73e4eaf616df75120ba094"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "480eacfdd101d1f50e5c898b5d69b6e673f35857b40e419e01711cbb8d39b3c0"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Millicom International Cellular S.A. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: model-chart-strip, capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Millicom International Cellular S.A. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -1058,6 +1058,48 @@ def _check_quoted_numeral(
     return Decimal(text)
 
 
+# The first rate unit printed after a figure, before the next digit or the end of its sentence.
+_RATE_UNIT = re.compile(
+    r"^[^0-9]*?(?:(?P<percent>%|(?<![A-Za-z])per ?cent\b)"
+    r"|(?P<bp>(?<![A-Za-z])(?:bps?|basis points?)\b))",
+    re.IGNORECASE,
+)
+_BASIS_POINTS = ("basis points", "bp")
+_PERCENT = ("percent", "percent")
+_SENTENCE_END = re.compile(r"[.!?](?: |$)")
+
+
+def _tails(value_text: str, quote: QuoteRef, page: str) -> list[str]:
+    """The text right after the figure: in the quote, or, where the figure ends the quote, on the
+    page right after each occurrence of the quote (in each reading)."""
+    tails: list[str] = []
+    for needle in _readings(quote.quote):
+        for m in _tokens(value_text, needle):
+            if needle[m.end() :].strip():
+                tails.append(needle[m.end() :])
+                continue
+            for text in _readings(page):
+                tails += [text[at + len(needle) :] for at in _occurrences(needle, text)]
+    return tails
+
+
+def _unit_of(tail: str) -> str | None:
+    """The first rate unit (`percent` or `bp`) in the tail after a figure, before the next digit
+    or the end of the sentence; None when there is none."""
+    end = _SENTENCE_END.search(tail)
+    m = _RATE_UNIT.match(tail[: end.start() if end else None])
+    return None if m is None else m.lastgroup
+
+
+def _unit_ok(subject: str, text: str, quote: QuoteRef, unit: tuple[str, str], out: _Issues) -> None:
+    """Records the issue unless the figure is printed in the field's unit (basis points for the
+    margin, percent for the reference level) wherever it is quoted; a missing unit is refused."""
+    page = out.context.pages[quote.source_id][quote.locator]
+    tails = _tails(text, quote, page)
+    if not tails or any(_unit_of(tail) != unit[1] for tail in tails):
+        out.add(f"{subject} {text} is not quoted in {unit[0]}")
+
+
 def _check_maturity(term: MaturityTerm, quotation: date | None, out: _Issues) -> None:
     if bool(term.date_text) == bool(term.absence):
         out.add("maturity: exactly one of date_text and absence is required")
@@ -1086,11 +1128,7 @@ def _check_terms(terms: Terms, quotation: date | None, out: _Issues) -> None:
         if term_absence is not None:
             out.analyst_text(f"{key}.absence.reason", term_absence.reason)
             out.analyst_text(f"{key}.absence.follow_up", term_absence.follow_up)
-    margin = terms.margin
-    if bool(margin.bps_text) == bool(margin.absence):
-        out.add("margin: exactly one of bps_text and absence is required")
-    elif margin.bps_text:
-        _check_quoted_numeral("margin", "bps_text", margin.bps_text, margin.quote, out)
+    _check_margin(terms.margin, out)
     amort = terms.amortisation
     if bool(amort.value_text) == bool(amort.absence):
         out.add("amortisation: exactly one of value_text and absence is required")
@@ -1100,7 +1138,19 @@ def _check_terms(terms: Terms, quotation: date | None, out: _Issues) -> None:
         )
         if value is not None and value != 0:
             out.add("amortisation: the simple margin convention requires zero amortisation")
-    rr = terms.reference_rate
+    _check_reference_rate(terms.reference_rate, out)
+
+
+def _check_margin(margin: MarginTerm, out: _Issues) -> None:
+    if bool(margin.bps_text) == bool(margin.absence):
+        out.add("margin: exactly one of bps_text and absence is required")
+    elif margin.bps_text:
+        bps = _check_quoted_numeral("margin", "bps_text", margin.bps_text, margin.quote, out)
+        if bps is not None and margin.quote is not None:  # 0 bp is a value: `is not None`
+            _unit_ok("margin: bps_text", margin.bps_text, margin.quote, _BASIS_POINTS, out)
+
+
+def _check_reference_rate(rr: ReferenceRate, out: _Issues) -> None:
     out.analyst_text("reference_rate.name", rr.name)  # ruling 6e item 3
     if out.ref_on_page(rr.quote, "reference_rate.quote") and not _name_occurs(
         rr.name, rr.quote.quote
@@ -1117,6 +1167,8 @@ def _check_terms(terms: Terms, quotation: date | None, out: _Issues) -> None:
             out.add(f"reference_rate: level percent_text {pt} {_NO_LEADING_ZERO}")
         elif not _NUMERAL.match(pt):
             out.add(f"reference_rate: level percent_text {pt} {_SHAPE}")
+        else:
+            _unit_ok("reference_rate: level percent_text", pt, q, _PERCENT, out)
     if rr.absence is not None:
         out.analyst_text("reference_rate.absence.reason", rr.absence.reason)
         out.analyst_text("reference_rate.absence.follow_up", rr.absence.follow_up)

@@ -2123,3 +2123,57 @@ def test_s08_a03_a_price_with_other_units_elsewhere_is_accepted(sentence: str) -
     """`98.50% of par` is a price; a spread or yield apart from the level is not its unit."""
     raw, ctx = _one_side_case(sentence, "98.50")
     assert _issues_of(raw, ctx) == ()
+
+
+_UNIT_PAGE = (
+    "Published January 10, 2026.\n"
+    "The term loan bears interest at SOFR plus a margin of 3.25% per annum.\n"
+    "The SOFR fixing was 430 bps.\n"
+    "The term loan bears interest at SOFR plus a margin of 325 basis points.\n"
+    "The SOFR fixing was 4.30 percent.\n"
+    "The margin is 325 over SOFR.\n"
+    "The SOFR fixing was 4.30, the margin 325 bps."
+)
+
+
+def _unit_edits(margin_line: int | None, margin: str, level_line: int | None, level: str) -> Any:
+    ctx = _with_page(_context("positive"), "financial", "page:9", _UNIT_PAGE)
+    lines = _UNIT_PAGE.split("\n")
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    if margin_line is not None:
+        ref = {"source_id": "financial", "locator": "page:9", "quote": lines[margin_line]}
+        raw["terms"]["margin"] = {"quote": ref, "bps_text": margin, "absence": None}
+    if level_line is not None:
+        ref = {"source_id": "financial", "locator": "page:9", "quote": lines[level_line]}
+        raw["terms"]["reference_rate"]["absence"] = None
+        raw["terms"]["reference_rate"]["level"] = {"quote": ref, "percent_text": level}
+    return _issues_of(raw, ctx)
+
+
+def test_s08_a04_a_margin_in_percent_and_a_fixing_in_bps_are_refused() -> None:
+    """S08-cp3-A04: 3.25% would be read as 3.25 bp (not 325) and 430 bps as 430% (not 4.30%)."""
+    assert _unit_edits(1, "3.25", 2, "430") == (
+        "margin: bps_text 3.25 is not quoted in basis points",
+        "reference_rate: level percent_text 430 is not quoted in percent",
+    )
+
+
+def test_s08_a04_a_figure_without_its_unit_is_refused() -> None:
+    """`325 over SOFR` states no unit; `4.30,` is followed by another figure before any unit."""
+    assert _unit_edits(5, "325", 6, "4.30") == (
+        "margin: bps_text 325 is not quoted in basis points",
+        "reference_rate: level percent_text 4.30 is not quoted in percent",
+    )
+
+
+def test_s08_a04_figures_in_their_own_units_validate() -> None:
+    assert _unit_edits(3, "325", 4, "4.30") == ()
+
+
+def test_s08_a04_the_unit_on_the_page_after_a_truncated_quote_counts() -> None:
+    """A quote that stops at the figure is read with the page text that follows it."""
+    ctx = _with_page(_context("positive"), "financial", "page:9", _UNIT_PAGE)
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    ref = {"source_id": "financial", "locator": "page:9", "quote": "a margin of 3.25"}
+    raw["terms"]["margin"] = {"quote": ref, "bps_text": "3.25", "absence": None}
+    assert _issues_of(raw, ctx) == ("margin: bps_text 3.25 is not quoted in basis points",)

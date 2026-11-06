@@ -8,6 +8,26 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
+
+Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,
+`tests/test_nightly_tests.py`, `tests/nightly-known-failures.txt`, a docs/QUALITY-GATE.md section,
+one AGENTS.md bullet, and a fix in `tools/quality_gate.py`. No analytical code changed.
+Decision (user): while working, fast targeted tests only; the full suite, slow tests included,
+runs nightly at 01:00 UTC in GitHub Actions (user chose Actions over a Claude cloud session and
+UTC). Six pytest shards balanced by file size, `live`/`browser` excluded, provider keys removed,
+300 minutes per shard; Go `vet` and `test -race`; a report job fails only on a failure missing
+from the known list or an unfinished shard. The known list is seeded with the 24 base failures
+documented in the review handoff; the first run will show any other pre-existing failure as new.
+Gate fix: two changed files with one module name (two `builder/build.py`) made mypy exit 2, and
+the gate raised before its per-file fallback; the fallback now runs first. Found by the S13 fix
+review. `tests/test_quality_gate.py` gains the case: it raises GateError on the old gate and
+passes on the new one.
+Checks: `tests/test_nightly_tests.py` 9 passed and `tests/test_quality_gate.py` 8 passed (fast,
+`timeout 300`); the workflow parses (jobs pytest, report, go; schedule `0 1 * * *`); the gate on
+this change exits 0. Not verified: the workflow has not run. Scheduled runs start once it is on
+`main`; its first run establishes the real known-failure list and duration.
+
 ## 2026-11-06 — Quality gate for changed code
 
 Scope: `tools/quality_gate.py`, `tools/ruff-gate.toml`, `tests/test_quality_gate.py`,

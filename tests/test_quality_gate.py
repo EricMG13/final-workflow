@@ -96,3 +96,17 @@ def test_main_exit_codes(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> 
     assert "0 finding(s) in 0 changed file(s)" in capsys.readouterr().out
     assert gate.main(["--root", str(root), "--base", "no-such-ref"]) == 2
     assert "could not run" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="git and tool paths are POSIX here")
+def test_two_changed_files_with_one_module_name_are_typed_one_by_one(tmp_path: Path) -> None:
+    """mypy stops with exit 2 on two `build.py` files; the gate checks each file alone."""
+    root = _repo(tmp_path, BASE)
+    for case in ("a", "b"):
+        (root / case / "builder").mkdir(parents=True)
+    (root / "a" / "builder" / "build.py").write_text("x: int = 1\n", encoding="utf-8")
+    (root / "b" / "builder" / "build.py").write_text('y: int = "no"\n', encoding="utf-8")
+    result = gate.run_gate(root, "HEAD")
+    assert result.files == ["a/builder/build.py", "b/builder/build.py"]
+    seen = {(f.path, f.line, f.tool, f.code) for f in result.findings}
+    assert seen == {("b/builder/build.py", 1, "mypy", "assignment")}, result.findings

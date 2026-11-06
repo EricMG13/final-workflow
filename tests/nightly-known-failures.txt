@@ -1,0 +1,33 @@
+# Failures the nightly full-suite run tolerates (tools/nightly_tests.py report --known).
+# One pytest node id (or a test file, for a collection error) per line; text after '#' is ignored.
+# Seeded 2026-11-06 from the base failures documented in the review handoff (docs/review-handoff/
+# FINAL-REPORT.md). The first nightly run lists any other existing failure as "new": confirm each is
+# pre-existing, then add it here with a reason. Remove a line once its test passes again.
+
+# Collection errors at base
+tests/product/test_inputs_portfolio.py  # no module named 'scripts'
+tests/product/test_inputs_portfolio_library_half.py  # no module named 'scripts'
+tests/test_owner_rendering.py  # docs/OWNER-RENDERING-LEASE.md missing
+
+# Failing at base
+tests/test_method_cp5.py::test_upstream_oracles_are_the_manifest_pins  # methodology.json pin drift
+tests/test_method_cp3c.py::test_oracle_files_match_the_lease_pins  # methodology.json pin drift
+tests/test_connect_cp2d.py::test_module_trace_lists_every_offered_cp1_fact  # "19 US$" vs "19 US$ m"
+tests/test_connect_cp2d.py::test_view_offers_a_missing_fact_with_its_status_and_a_gap_word  # same
+tests/research/test_contracts.py::test_decision_amendment_states_two_anchors  # docs/decisions/0007 missing
+tests/test_connect_cpl10.py::test_navigator_with_cp1_unrun_equals_the_oracle_state
+tests/test_connect_cp1d.py::test_no_reader_is_named_by_the_lease  # docs/CP1D-OWNER-LEASE.md missing
+tests/test_connect_cp3d.py::test_relative_value_composition_holds_the_one_block_and_can_take_more
+tests/test_cp1_absent_input.py::test_public_disagreeing_cash_check_still_blocks
+tests/test_czr_cash_scope.py::test_czr_cash_movement_agrees_with_the_declared_scope
+tests/test_financial_workflow.py::test_partial_publication_quarantined_repair_and_history
+tests/test_financial_workflow.py::test_finish_and_interrupt_failure_still_quarantines
+tests/test_financial_workflow.py::test_invalid_repair_cannot_disappear_from_sealed_audit
+tests/prompts/test_rules.py::test_every_content_refusal_is_covered[source_context]
+tests/prompts/test_rules.py::test_an_existing_step_carries_its_contract_rules_whole[financials]
+tests/prompts/test_rules.py::test_an_existing_step_carries_its_contract_rules_whole[relative_value]
+tests/prompts/test_rules.py::test_prompt_names_every_rule[financials]
+tests/prompts/test_rules.py::test_prompt_names_every_rule[relative_value]
+tests/prompts/test_rules.py::test_deleting_one_rules_text_from_the_contract_fails_the_prompt_check[financials]
+tests/prompts/test_rules.py::test_the_golden_file_pins_every_rule_id_check_and_statement
+tests/prompts/test_rules.py::test_the_golden_file_pins_the_sha256_of_each_core_and_oracle

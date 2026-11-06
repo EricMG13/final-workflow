@@ -1017,23 +1017,34 @@ def _check_facilities(sub: MarketImpliedSubmission, out: _Issues) -> None:
 
 
 _QUOTED_LEVEL = re.compile(r"\b(?:bid|offer)\s+[0-9]", re.IGNORECASE)
+_BID_LABEL = re.compile(r"\bbid\s+[0-9]", re.IGNORECASE)
+_OFFER_LABEL = re.compile(r"\boffer\s+[0-9]", re.IGNORECASE)
 UNBOUND = (
     "{path}: the {kind} quote is not bound to the instrument {name}: its sentence does not name "
     "it and it is not the only bid or offer quotation on the instrument's page"
 )
 
 
+def _one_quotation(sentence: str) -> bool:
+    """The sentence labels at most one bid and one offer level: one instrument's quotation."""
+    return len(_BID_LABEL.findall(sentence)) <= 1 and len(_OFFER_LABEL.findall(sentence)) <= 1
+
+
 def _bound(o: Observation, instrument: Instrument, page: str) -> bool:
-    """Whether a sheet bid or offer is the instrument's: its quote or the page sentence holding
-    it names the instrument, or it sits on the page of `instrument.quote` and its sentence is the
-    only one on that page that labels a bid or offer level (a single-instrument sheet)."""
-    sentences = _sentences(o.quote, page)
-    if any(_name_occurs(instrument.name, text) for text in (o.quote, *sentences)):
+    """Whether a sheet bid or offer is the instrument's, judged on the sentence that labels the
+    level (`<kind> <level>`), not on the whole quote: that sentence of the quote, or the page
+    sentence holding it, names the instrument; or the observation sits on the page of
+    `instrument.quote`, whose only sentence labelling a bid or offer level is one instrument's
+    quotation (`_one_quotation`: a single-instrument sheet)."""
+    label = re.compile(rf"\b{o.kind}\s+{re.escape(o.level_text)}(?![0-9])", re.IGNORECASE)
+    own = [x for x in _SENTENCE_BREAK.split(normalise(o.quote)) if label.search(x)]
+    held = [*own, *(text for x in own for text in _sentences(x, page))]
+    if any(_name_occurs(instrument.name, text) for text in held):
         return True
     if (o.source_id, o.locator) != (instrument.quote.source_id, instrument.quote.locator):
         return False
-    labelled = {x for x in _SENTENCE_BREAK.split(normalise(page)) if _QUOTED_LEVEL.search(x)}
-    return len(labelled) == 1 and all(_QUOTED_LEVEL.search(x) for x in sentences)
+    labelled = [x for x in _SENTENCE_BREAK.split(normalise(page)) if _QUOTED_LEVEL.search(x)]
+    return len(labelled) == 1 and _one_quotation(labelled[0])
 
 
 def _check_bound(sub: MarketImpliedSubmission, out: _Issues, valid: Collection[str]) -> None:

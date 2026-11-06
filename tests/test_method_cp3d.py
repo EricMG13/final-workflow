@@ -2228,3 +2228,31 @@ def test_s08_a02_an_unnamed_quotation_on_another_page_is_not_bound() -> None:
     for o in raw["observations"][:2]:
         o["quote"] = named.split("\n")[1]
     assert _issues_of(raw, ctx) == ()
+
+
+def test_s08_a02_two_instruments_quoted_in_one_sentence_bind_neither() -> None:
+    """Follow-up: the single-instrument fallback needs one bid and one offer label in the page's
+    only quoting sentence; a sentence quoting the loan and the Southgate Notes has two of each."""
+    sentence = (
+        "Dealer quotation on January 9, 2026: bid 98.50 and offer 99.25 for the loan, and bid "
+        "88.50 and offer 89.25 for the Southgate Notes due 2027."
+    )
+    raw, ctx = _sheet_case(sentence)
+    raw["observations"][0]["level_text"] = "88.50"
+    raw["observations"][1]["level_text"] = "89.25"
+    assert _issues_of(raw, ctx) == _unbound("Northbridge Term Loan")
+
+
+def test_s08_a02_a_quote_spanning_the_instrument_sentence_binds_by_the_level_sentence() -> None:
+    """Follow-up: the quote runs from the instrument sentence (naming the loan) into the
+    Southgate sentence that labels 88.50 and 89.25; binding is judged on the labelling sentence,
+    which names the notes, and the page has two quoting sentences."""
+    base = _context("positive")
+    page = base.pages["market"]["page:1"].replace(_SHEET_QUOTE, _SHEET_QUOTE + "\n" + _SOUTHGATE)
+    ctx = _with_page(base, "market", "page:1", page)
+    raw = copy.deepcopy(SUBMISSIONS["positive"])
+    instrument_sentence = raw["instrument"]["quote"]["quote"]
+    quote = f"{instrument_sentence} {_SHEET_QUOTE} {_SOUTHGATE}"
+    raw["observations"][0].update(quote=quote, level_text="88.50")
+    raw["observations"][1].update(quote=quote, level_text="89.25")
+    assert _issues_of(raw, ctx) == _unbound("Northbridge Term Loan")

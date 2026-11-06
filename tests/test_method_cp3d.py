@@ -2016,3 +2016,53 @@ def test_s08_a01_talk_in_another_sentence_of_the_page_does_not_refuse_a_firm_quo
     for o in raw["observations"][:2]:
         o["quote"] = _SHEET_QUOTE
     assert _issues_of(raw, ctx) == ()
+
+
+def _dated_case(when: str) -> tuple[dict[str, Any], cp3d.MarketContext]:
+    raw, ctx = _sheet_case(_SHEET_QUOTE.replace("January 9, 2026", when))
+    for o in raw["observations"][:2]:
+        o["as_of_text"] = when
+    return raw, ctx
+
+
+@pytest.mark.parametrize("when", ("January 11, 2026", "January 9, 2027"))
+def test_s08_a05_a_sheet_quote_dated_after_the_run_as_of_is_refused(when: str) -> None:
+    """S08-cp3-A05/C06: the positive run is as of 2026-01-10; a later quote is look-ahead."""
+    raw, ctx = _dated_case(when)
+    assert _issues_of(raw, ctx) == tuple(
+        f"observations[{i}]: as_of_text {when} is after the run as-of 2026-01-10" for i in (0, 1)
+    )
+
+
+@pytest.mark.parametrize(
+    ("when", "line"),
+    (
+        # 2026-01-10 - 2026-01-10 = 0 days; - 2025-12-11 = 21 + 9 = 30 days: not more than 30.
+        ("January 10, 2026", None),
+        ("December 11, 2025", None),
+        # 2025-12-10 -> 2026-01-10 = 31 days.
+        (
+            "December 10, 2025",
+            (
+                "Stale quote: Northbridge Term Loan quote dated 2025-12-10 is 31 days before the "
+                "run as-of 2026-01-10 (limit 30)"
+            ),
+        ),
+        # 2019-01-09 -> 2026-01-09 = 7 x 365 + 2 leap days (2020, 2024) = 2557; + 1 = 2558.
+        (
+            "January 9, 2019",
+            (
+                "Stale quote: Northbridge Term Loan quote dated 2019-01-09 is 2558 days before the "
+                "run as-of 2026-01-10 (limit 30)"
+            ),
+        ),
+    ),
+)
+def test_s08_a05_a_stale_sheet_quote_gets_the_stale_line(when: str, line: str | None) -> None:
+    """A sheet bid/offer more than STALE_DAYS (30) days old gets the context rows' stale line,
+    once for the pair; a quote within the limit gets none."""
+    raw, ctx = _dated_case(when)
+    sub = _submission(raw)
+    assert cp3d.submission_issues(submission=sub, context=ctx) == ()
+    stale = [x for x in cp3d.own_limitations(sub, ctx) if x.startswith("Stale quote")]
+    assert stale == ([] if line is None else [line])

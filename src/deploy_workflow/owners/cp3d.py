@@ -400,17 +400,30 @@ def _talk_label(submission: MarketImpliedSubmission, said: Sequence[str]) -> lis
     )
 
 
+def _quote_dated(
+    submission: MarketImpliedSubmission, o: Observation, context: MarketContext
+) -> tuple[str, date | None]:
+    """Whose quote the observation is and its date: a context row's CP-1 facility and listed
+    date, else (a sheet bid or offer) the instrument and its `as_of_text`; None when undated."""
+    row = o.context_row or ""
+    if row in context.context_dates:
+        return context.context_facilities[row], context.context_dates[row]
+    if o.context_row is None and o.kind in ("bid", "offer") and o.as_of_text:
+        return submission.instrument.name, parse_date(o.as_of_text)
+    return "", None
+
+
 def _stale_lines(submission: MarketImpliedSubmission, context: MarketContext | None) -> list[str]:
-    """One line per context quote more than `STALE_DAYS` whole days before the run as-of (Design 6)."""
+    """One line per bid, offer or context quote more than `STALE_DAYS` whole days before the run
+    as-of (Design 6), whether the context file or a pack sheet quotes it."""
     if context is None:
         return []
     lines: list[str] = []
     for o in submission.observations:
-        row = o.context_row or ""
-        when = context.context_dates.get(row)
+        whose, when = _quote_dated(submission, o, context)
         if when is not None and (days := (context.run_as_of - when).days) > STALE_DAYS:
             lines.append(
-                f"Stale quote: {context.context_facilities[row]} quote dated {when.isoformat()} "
+                f"Stale quote: {whose} quote dated {when.isoformat()} "
                 f"is {days} days before the run as-of {context.run_as_of.isoformat()} "
                 f"(limit {STALE_DAYS})"
             )
@@ -895,6 +908,12 @@ def _observation_date(o: Observation, path: str, out: _Issues) -> date | None:
     unlisted = o.context_row is None  # a listed row's date is Python's: not looked for in its quote
     if parsed is None or (unlisted and o.as_of_text not in normalise(o.quote)):
         out.add(f"{path}: as_of_text {o.as_of_text} does not occur in the quote")
+        return None
+    if parsed > out.context.run_as_of:  # look-ahead evidence: never a quote of this run
+        out.add(
+            f"{path}: as_of_text {o.as_of_text} is after the run as-of "
+            f"{out.context.run_as_of.isoformat()}"
+        )
         return None
     return parsed
 

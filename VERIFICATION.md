@@ -8,6 +8,27 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-06 — Feasibility: populating the Issuer Library from SECData
+
+Scope: an offline assessment; no provider call, no code change. SECData holds no deliverables, only
+filing packs, run contexts and a manifest. The deliverables are the 127 SECData run folders of draft PR
+#13 (`claude/swarm-run-20261105`, stacked on #5 and #11). They were loaded into a copy of `main`
+`a313b50`; the real server was started on it and opened in headless Chromium.
+
+- **Loads without code change:** `TestCurrentRetainedWorkspace` passes; 626 of 626 handoffs parse;
+  123 reports link and hash-check; the home screen shows 143 issuers, 171 runs, 145 reports in about
+  6.4 s; a Caesars run renders its reader summary and charts. `/api/workspace` goes from 2.7 MB and
+  0.45 s to 26 MB and 3.7 s.
+- **Source provenance:** all 827 converted source files of the 119 swarm runs carry the SHA-256 of
+  their original filing; each matches a file in SECData's restored packs (`claude/restore-filing-packs`,
+  `5120db9`), hashed from file bytes rather than the manifest. 0 mismatches.
+- **Gaps:** none of the runs has `library.json`, so all show "Sector not recorded" and no metrics;
+  51 runs carry all-caps EDGAR names, so issuer grouping splits some (for example American Airlines);
+  no independent review (the five-issuer pilot's reviewers found major defects in four of five);
+  17 of 118 CP-5 self-reviews are Low confidence; 47 of 118 CP-2 handoffs state "Not calculable" for
+  some figure. Merging #13 conflicts with `main` in `cpos_launch.py`, `tests/test_cpos_launch.py` and
+  `VERIFICATION.md`. The run folders total 1.25 GB.
+
 ## 2026-11-06 — GitHub Copilot SDK adapter
 
 Dependency decision: the standard library cannot speak the runtime's JSON-RPC in a few lines and

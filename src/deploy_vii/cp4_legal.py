@@ -59,6 +59,7 @@ from deploy_vii.contracts import (
     Module,
     ReportTable,
     Run,
+    Source,
     TableColumn,
     TableRow,
     Text,
@@ -299,12 +300,9 @@ def _decimal(text: str) -> Decimal:
     return Decimal(text.replace(",", ""))
 
 
-def parse_threshold(text: str, unit: str) -> tuple[Decimal | None, str | None]:
-    """The one threshold a quoted text states, as written (a ratio N to one is N, a multiple
-    N x is N, a percentage is its number: 12.5 for 12.5%), or None with the reason it cannot be
-    read. A ratio to anything but one is not read: Python would have to divide a number the
-    model never wrote. Only the multiple and percent forms are read."""
-    plain = normalise(text)
+def _threshold_values(plain: str, unit: str) -> tuple[list[Decimal], str | None]:
+    """Every multiple or percent threshold a normalised text writes, in order, and the reason
+    one of them cannot be read (a ratio to other than one, a fractional percentage)."""
     values: list[Decimal] = []
     issue: str | None = None
     if unit == "multiple":
@@ -320,10 +318,19 @@ def parse_threshold(text: str, unit: str) -> tuple[Decimal | None, str | None]:
         values += [_decimal(m[1]) for m in _TIMES.finditer(_RATIO.sub(" ", plain))]
     elif unit == "percent":
         if _FRACTION_PERCENT.search(plain):
-            return None, "a fractional percentage is not parsed; set threshold_unit to other"
+            issue = "a fractional percentage is not parsed; set threshold_unit to other"
         values = [_decimal(m[1]) for m in _PERCENT.finditer(plain)]
-    else:
+    return values, issue
+
+
+def parse_threshold(text: str, unit: str) -> tuple[Decimal | None, str | None]:
+    """The one threshold a quoted text states, as written (a ratio N to one is N, a multiple
+    N x is N, a percentage is its number: 12.5 for 12.5%), or None with the reason it cannot be
+    read. A ratio to anything but one is not read: Python would have to divide a number the
+    model never wrote. Only the multiple and percent forms are read."""
+    if unit not in ("multiple", "percent"):
         return None, f"a {unit} threshold is not parsed"
+    values, issue = _threshold_values(normalise(text), unit)
     if issue is not None:
         return None, issue
     if not values:
@@ -520,13 +527,78 @@ _CAP = re.compile(
 )
 
 
+def _threshold_quotes(row: Covenant) -> tuple[Quote, ...]:
+    """S09-A02: the row's quotes of its governing document (`document_id`) that hold
+    `threshold_text`; a threshold quoted from another document is not the covenant's."""
+    return tuple(
+        quote
+        for quote in row.citations
+        if quote.source_id == row.document_id and quoted(row.threshold_text, quote.quote)
+    )
+
+
+# A sentence ends at `.`, `!` or `?` before a space and a capital, an opening bracket or quote
+# mark, or the end of the span ("4.00x for" and "Inc. and" do not end one; "Section 4.09. The"
+# does, which only narrows the context read).
+_SENTENCE_END = re.compile(r"[.!?](?=\s+[A-Z(\"']|\s*$)")
+
+
+def _sentence_context(quote: Quote, sources: Sequence[Source]) -> str:
+    """The normalised sentences of the quote's span that the quote lies in, or the quote alone
+    when its span or its exact normalised text is not found there."""
+    plain = normalise(quote.quote)
+    spans = (
+        span.text
+        for source in sources
+        if source.source_id == quote.source_id
+        for span in source.spans
+        if span.locator == quote.locator
+    )
+    text = normalise(next(spans, ""))
+    at = text.find(plain) if plain else -1
+    if at < 0:
+        return plain
+    ends = [m.end() for m in _SENTENCE_END.finditer(text)]
+    start = max((end for end in ends if end <= at), default=0)
+    stop = min((end for end in ends if end >= at + len(plain)), default=len(text))
+    return text[start:stop]
+
+
+def _schedule_issues(
+    path: str, row: Covenant, parsed: Decimal, sources: Sequence[Source]
+) -> list[str]:
+    """S09-A03: the threshold tested is the one its governing quote states. The quote must
+    write `parsed` as a threshold of the unit (not inside a longer number), and neither the
+    quote nor the sentence it lies in may state another: a step-down schedule or several tests
+    in one sentence. Which step applies at the CP-1 metric's period is not read from the text
+    in this version, so such a row is an other threshold (Not calculable)."""
+    unit = row.threshold_unit
+    stating = [
+        quote
+        for quote in _threshold_quotes(row)
+        if parsed in _threshold_values(normalise(quote.quote), unit)[0]
+    ]
+    if not stating:
+        found = f"{path}: threshold_text {row.threshold_text!r} is not a {unit} threshold"
+        return [f"{found} its governing quote states"]
+    issues: list[str] = []
+    for quote in stating:
+        stated, _ = _threshold_values(_sentence_context(quote, sources), unit)
+        if len(set(stated)) > 1:
+            listed = ", ".join(str(value) for value in dict.fromkeys(stated))
+            issues.append(
+                f"{path}: the governing text around threshold_text states more than one {unit} "
+                f"threshold ({listed}: a step-down schedule or several tests); which one applies "
+                "at the CP-1 metric's period is not determined, so set threshold_unit to other"
+            )
+    return list(dict.fromkeys(issues))
+
+
 def _direction_issues(path: str, row: Covenant) -> list[str]:
     """A maximum comparison on a quote that names only a floor, or the reverse."""
     if row.comparison == "none":
         return []
-    wording = " ".join(
-        normalise(quote.quote) for quote in row.citations if quoted(row.threshold_text, quote.quote)
-    )
+    wording = " ".join(normalise(quote.quote) for quote in _threshold_quotes(row))
     floor, cap = bool(_FLOOR.search(wording)), bool(_CAP.search(wording))
     maximum = row.comparison in ("<=", "<")
     if (maximum and floor and not cap) or (not maximum and cap and not floor):
@@ -535,7 +607,7 @@ def _direction_issues(path: str, row: Covenant) -> list[str]:
     return []
 
 
-def _threshold_issues(path: str, row: Covenant) -> list[str]:
+def _threshold_issues(path: str, row: Covenant, sources: Sequence[Source]) -> list[str]:
     """Ruling 2: the stated value is the number Python reads from the quoted threshold."""
     unit = row.threshold_unit
     if unit == NOT_STATED:
@@ -547,6 +619,11 @@ def _threshold_issues(path: str, row: Covenant) -> list[str]:
     issues: list[str] = []
     if not any(quoted(row.threshold_text, quote.quote) for quote in row.citations):
         issues.append(f"{path}: threshold_text is not part of the row's quotes")
+    elif not _threshold_quotes(row):
+        issues.append(
+            f"{path}: threshold_text is not part of a quote of its governing document "
+            f"{row.document_id}"
+        )
     if unit == "other":
         if row.threshold_value is not None:
             issues.append(f"{path}: an other threshold is not parsed, so threshold_value is null")
@@ -565,13 +642,19 @@ def _threshold_issues(path: str, row: Covenant) -> list[str]:
         issues.append(f"{path}: threshold_text cannot be read: {reason}")
     elif not stated.is_finite() or stated != parsed:
         issues.append(f"{path}: threshold_value {row.threshold_value} differs from {parsed}")
+    else:
+        issues.extend(_schedule_issues(path, row, parsed, sources))
     return issues
 
 
 def _covenant_issues(
-    path: str, row: Covenant, upstream: Upstream, documents: frozenset[str]
+    path: str,
+    row: Covenant,
+    upstream: Upstream,
+    documents: frozenset[str],
+    sources: Sequence[Source],
 ) -> list[str]:
-    issues = _threshold_issues(path, row)
+    issues = _threshold_issues(path, row, sources)
     if row.document_id not in documents:
         issues.append(f"{path}: no documents row for {row.document_id}, its governing document")
     if not any(quote.source_id == row.document_id for quote in row.citations):
@@ -655,7 +738,7 @@ def validate_covenant_interpretation(
         issues.extend(f"{path}: {i}" for i in citation_issues(binding.of(row), pack.sources))
         issues.extend(_row_issues(path, row, upstream))
         if isinstance(row, Covenant):
-            issues.extend(_covenant_issues(path, row, upstream, documents))
+            issues.extend(_covenant_issues(path, row, upstream, documents, pack.sources))
         scope = tuple(dict.fromkeys(quote.source_id for quote in _quotes(row)))
         for name, text in _texts(row):
             where = f"{path}.{name}"

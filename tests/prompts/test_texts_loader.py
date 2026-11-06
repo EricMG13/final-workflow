@@ -20,6 +20,7 @@ from map_strip import undo_unit_maps
 from merge_strip import undo_merged_contract
 from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
+from s09_strip import undo_s09
 from prompt_support import CONTRACT_STEPS, EXISTING, request_for, steps_with_text
 from turns_strip import undo_turns
 
@@ -46,8 +47,9 @@ def texts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def undo_budgets(step: str, text: str) -> str:
     """Undo the turn budget and the 64-call pack-tools budget (``undo_turns``), the rule-5 finish
     text (``undo_finish``) and then the 32-call budget (``undo_invoke``): the message as it was
-    before the CP-1 hybrid wording and the invoke budget."""
-    return undo_invoke(step, undo_finish(step, undo_turns(step, text)))
+    before the CP-1 hybrid wording and the invoke budget; first the S09 CP-4 rule d sentence
+    (``undo_s09``)."""
+    return undo_invoke(step, undo_finish(step, undo_turns(step, undo_s09(step, text))))
 
 
 def system_of(pack: PreparedPack, step: str = NEW) -> str:
@@ -470,7 +472,9 @@ def test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message(
 ) -> None:
     messages = compose(request_for(step, pack))
     system, user = messages[0], messages[1]
-    text = undo_finish(step, undo_turns(step, undo_unit_maps(step, undo_absence(step, undo_coverage(step, system.text)))))
+    text = undo_s09(step, system.text)
+    text = undo_unit_maps(step, undo_absence(step, undo_coverage(step, text)))
+    text = undo_finish(step, undo_turns(step, text))
     body = json.dumps([[system.role, text], [user.role, user.text]])
     assert hashlib.sha256(body.encode()).hexdigest() == PRE_FINISH_FROZEN[step]
 

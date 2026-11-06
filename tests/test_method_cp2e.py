@@ -713,6 +713,65 @@ def test_a03_unparenthesised_interest_records_no_sign() -> None:
     assert cp2e.LIM_INTEREST_SIGN not in cp2e.compute(inputs).limitations
 
 
+# --- S06-cp2-ade-A04: every MILLIONS operand's page must state its amounts in millions ------------
+def test_a04_pages_in_thousands_are_refused_for_every_millions_operand() -> None:
+    """The pack says "amounts in thousands" (pages 1-4) and "USD thousands" (page 5): every
+    quoted MILLIONS operand is refused, in validator order, instead of being stamped 1e6."""
+
+    def thousands(text: str) -> str:
+        return text.replace("amounts in millions", "amounts in thousands").replace(
+            "USD millions", "USD thousands"
+        )
+
+    pages = {k: thousands(v) for k, v in _pages("positive").items()}
+    sub = json.loads(thousands(json.dumps(SUBMISSIONS["positive"])))  # the quotes follow the page
+    assert sub["reporting_currency"]["quote"] == "Currency: USD; amounts in thousands."
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (
+        "rate_exposure.facility_balance: page:5 states amounts in thousands, not millions",
+        "earnings.ebitda: page:2 states amounts in thousands, not millions",
+        "earnings.interest: page:3 states amounts in thousands, not millions",
+        "earnings.fcf: page:3 states amounts in thousands, not millions",
+        "earnings.total_debt: page:4 states amounts in thousands, not millions",
+        "fx.fx_cash_effect: page:3 states amounts in thousands, not millions",
+    )
+
+
+def test_a04_one_statement_page_in_billions_refuses_only_its_rows() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:4"] = pages["page:4"].replace("amounts in millions", "amounts in billions")
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.total_debt: page:4 states amounts in billions, not millions",
+    )
+
+
+def test_a04_a_page_with_no_unit_statement_is_refused() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:3"] = pages["page:3"].replace("USD; amounts in millions; ", "USD; ")
+    assert "millions" not in pages["page:3"]
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.interest: page:3 does not state the unit of its amounts",
+        "earnings.fcf: page:3 does not state the unit of its amounts",
+        "fx.fx_cash_effect: page:3 does not state the unit of its amounts",
+    )
+
+
+def test_a04_conflicting_unit_statements_are_refused() -> None:
+    pages = dict(_pages("positive"))
+    pages["page:2"] = pages["page:2"].replace("unaudited;", "unaudited; notes in thousands;")
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == (
+        "earnings.ebitda: page:2 states amounts in millions, thousands, not millions",
+    )
+
+
+def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
+    """A share-count clause and a negated clause leave the page's "amounts in millions"."""
+    pages = dict(_pages("positive"))
+    pages["page:2"] = pages["page:2"].replace(
+        "unaudited;", "unaudited; shares in thousands; not in thousands;"
+    )
+    assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == ()
+
+
 def test_source_names_are_required() -> None:
     """No empty default: T2F.8 cannot be composed without the pack's source names."""
     (names,) = [f for f in dataclasses.fields(cp2e.MacroFxInputs) if f.name == "source_names"]

@@ -624,6 +624,16 @@ _ROW_LABELS = {
 }
 _SENTENCE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,4})?")  # operand bound: at most 999.9999
 _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spaces
+# A page's unit statement: "amounts in millions", "in thousands", "USD millions", "millions of
+# dollars". A share-count clause ("shares in thousands") and a negated one ("not in millions")
+# state no monetary unit. Every MILLIONS operand is stamped at scale 1e6 of the reporting
+# currency, so its page must state exactly that unit (as the CP-1 adapters refuse other scales).
+_UNIT_WORDS = re.compile(
+    r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
+    r"|\b[A-Z]{3}\s+(thousands|millions|billions)\b"
+    r"|\b(thousands|millions|billions)\s+of\b",
+    re.IGNORECASE,
+)
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
 _HEDGE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,2})?")
 _RATE_PHRASE = re.compile(r"\b(floating|fixed)[\s-]+rate\b", re.IGNORECASE)
@@ -775,7 +785,8 @@ class _Check:
         return Decimal(v)
 
     def row(self, ref: Mapping[str, Any], key: str, path: str) -> Decimal | None:
-        """A statement row: a whole page line with its label, FY column last, value_text last."""
+        """A statement row: a whole page line with its label, FY column last, value_text last,
+        on a page that states its amounts in millions."""
         if not self.on_page(ref, path):
             return None
         issue = self._row_issue(ref, key)
@@ -783,6 +794,23 @@ class _Check:
             self.add(f"{path}: {issue}")
             return None
         return _row_decimal(ref["value_text"])
+
+    def unit_issue(self, locator: str) -> str | None:
+        """Why the page at ``locator`` (one of ``self.pages``) is not in millions, or None."""
+        matches = _UNIT_WORDS.finditer(self.pages[locator])
+        words = (next(g for g in m.groups() if g) for m in matches)
+        found = {word.lower() for word in words}
+        if not found:
+            return f"{locator} does not state the unit of its amounts"
+        if found != {"millions"}:
+            return f"{locator} states amounts in {', '.join(sorted(found))}, not millions"
+        return None
+
+    def millions(self, ref: Mapping[str, Any], path: str) -> None:
+        """A MILLIONS operand quoted from a page the ``on_page`` check accepted."""
+        issue = self.unit_issue(ref["locator"])
+        if issue is not None:
+            self.add(f"{path}: {issue}")
 
     def _row_issue(self, ref: Mapping[str, Any], key: str) -> str | None:
         """Why the quoted row is not the FY value of the ``key`` statement row, or None."""
@@ -793,8 +821,13 @@ class _Check:
         if not quote.startswith(_ROW_LABELS[key] + "  "):
             return f"the row is not {_ROW_LABELS[key]}"
         header = next((ln for ln in lines if ln.startswith("Period")), "")
-        if not self.header.search(header):
-            return "the page header does not end in the FY column"
+        page_issue = (
+            "the page header does not end in the FY column"
+            if not self.header.search(header)
+            else self.unit_issue(ref["locator"])
+        )
+        if page_issue is not None:
+            return page_issue
         # The last value is the FY value only when the row fills every column of the header: a
         # row with a blank or dropped FY cell would otherwise give its Q4 value as the FY value.
         values, columns = len(_CELLS.split(quote.strip())) - 1, len(_CELLS.split(header)) - 1
@@ -844,6 +877,8 @@ def _check_rate_exposure(chk: _Check, r: Mapping[str, Any]) -> Decimal | None:
     balance = chk.labelled(
         r["facility_balance"], "value_text", "balance of", "rate_exposure.facility_balance"
     )
+    if balance is not None:
+        chk.millions(r["facility_balance"], "rate_exposure.facility_balance")
     rb, path = r["rate_basis"], "rate_exposure.rate_basis"
     if chk.on_page(rb, path):
         quote = normalise(rb["quote"])  # the text the on_page match read

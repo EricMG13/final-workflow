@@ -353,13 +353,14 @@ def _q2_q3_register(currency: str) -> Module:
     return Module.model_validate_json(text).model_copy(update={"facts": tuple(facts)})
 
 
-def test_r5b_q3_base_cp1b_keeps_its_raw_day_refusal() -> None:
-    """R5b: a q3 base is not a currency refusal; CP-1B refuses `incompatible_periods` as today
-    (the 91-day prior q2-2026 against the 92-day current q3-2026, `earnings.py` raw-day check).
+def test_r5b_q3_base_cp1b_refuses_the_pair_it_does_not_support() -> None:
+    """R5b: a q3 base is not a currency refusal. The 91-day prior q2-2026 and the 92-day current
+    q3-2026 are both quarter-length, so the core accepts them (S11-A04: no raw-day comparison);
+    CP-1B then refuses `unsupported_pair`, since q2 -> q3 is neither its q3 -> q4 nor its FY pair.
     The pair is the oracle's, `runs/R5b` `prior_period` and `current_period`."""
     run = KEY["runs"]["R5b"]
     want = run["modules"]["CP-1B"]
-    assert want["outcome"] == "refused" and want["error"] == "incompatible_periods"
+    assert want["outcome"] == "refused" and want["error"] == "unsupported_pair"
     found = _compute(
         _q2_q3_register(run["pack_currency"]),
         run["prior_period"],

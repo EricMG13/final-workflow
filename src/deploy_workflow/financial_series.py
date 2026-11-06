@@ -57,6 +57,10 @@ _PERIOD_FIELDS = (
     "accounting_basis",
     "entity_perimeter",
 )
+# The T4.14 period types (financial_contracts.FinancialPeriod.period_type) the projection reads,
+# and the two it leaves out of the chart periods.
+_CHART_KINDS = frozenset({"QUARTER", "FY", "PERIOD_END"})
+_UNPLOTTED_KINDS = frozenset({"YTD", "LTM"})
 _SERIES = (
     ("S.1", "Leverage", ("total_leverage_reported", "net_leverage_reported")),
     ("S.2", "Interest cover", ("interest_coverage_reported",)),
@@ -91,8 +95,10 @@ def _rows(module: ModuleView, table: str) -> tuple[dict[str, Fact], ...]:
     return tuple(rows.values())
 
 
-def _periods(module: ModuleView) -> tuple[_Period, ...]:
+def _periods(module: ModuleView) -> tuple[tuple[_Period, ...], frozenset[str]]:
+    """The plotted T4.14 periods by date, and the ids of the YTD and LTM periods left out."""
     periods = []
+    unplotted = set()
     seen = set()
     for row in _rows(module, "T4.14"):
         if not set(_PERIOD_FIELDS) <= row.keys():
@@ -109,10 +115,16 @@ def _periods(module: ModuleView) -> tuple[_Period, ...]:
         if any(f.basis != "IFRS · consolidated group" for f in row.values()):
             raise ValueError("Inconsistent chart period perimeter")
         kind = _text(row["period_type"])
-        if kind not in {"QUARTER", "FY", "PERIOD_END"}:
+        if kind in _UNPLOTTED_KINDS:
+            # A YTD or LTM row is a valid register period the charts do not plot (only QUARTER
+            # rows are plotted; QUARTER and FY rows give the facility snapshot). It is checked
+            # above and left out here, never an exception out of the renderer.
+            unplotted.add(identity)
+            continue
+        if kind not in _CHART_KINDS:
             raise ValueError("Unsupported historical chart period type")
         periods.append(_Period(identity, kind, date.fromisoformat(_text(row["end_date"])), row))
-    return tuple(sorted(periods, key=lambda p: (p.end, p.identity)))
+    return tuple(sorted(periods, key=lambda p: (p.end, p.identity))), frozenset(unplotted)
 
 
 def _basis(identity: str) -> str:
@@ -221,7 +233,44 @@ def _quarter_figures(
     return tuple(figures)
 
 
-def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> FinancialFigureSeries:
+_FACILITY_FIELDS = (
+    "facility_id",
+    "facility_name",
+    "period_id",
+    "facility_type",
+    "principal",
+    "currency",
+    "maturity_date",
+    "annual_amortisation",
+    "lease_classification",
+)
+
+
+def _facility_rows(
+    rows: tuple[dict[str, Fact], ...],
+    period_ids: set[str] | frozenset[str],
+    unplotted: frozenset[str],
+) -> dict[tuple[str, str], dict[str, Fact]]:
+    """The T4.18 rows by (facility, period). Every row must be complete and dated at a T4.14
+    period; a row dated at a YTD or LTM period is checked and then left out, as the period is."""
+    indexed: dict[tuple[str, str], dict[str, Fact]] = {}
+    for row in rows:
+        if not frozenset(_FACILITY_FIELDS) <= row.keys():
+            raise ValueError("Incomplete facility chart coordinates")
+        fid, pid = _text(row["facility_id"]), _text(row["period_id"])
+        if pid not in period_ids or any(f.period != pid for f in row.values()):
+            raise ValueError("Foreign facility period")
+        if pid in unplotted:
+            continue
+        if (fid, pid) in indexed:
+            raise ValueError("Duplicate facility snapshot identity")
+        indexed[fid, pid] = row
+    return indexed
+
+
+def _maturity_figure(
+    module: ModuleView, periods: tuple[_Period, ...], unplotted: frozenset[str]
+) -> FinancialFigureSeries:
     rows = _rows(module, "T4.18")
     title = "Maturity wall"
     reason = "No complete current facility snapshot is supplied."
@@ -236,29 +285,7 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
             raise ValueError("Ambiguous current facility snapshot period")
         period = selected[0]
         title = f"Maturity wall — principal at {latest.isoformat()} (not a forecast)"
-        indexed: dict[tuple[str, str], dict[str, Fact]] = {}
-        required = (
-            "facility_id",
-            "facility_name",
-            "period_id",
-            "facility_type",
-            "principal",
-            "currency",
-            "maturity_date",
-            "annual_amortisation",
-            "lease_classification",
-        )
-        required_fields = frozenset(required)
-        period_ids = {p.identity for p in periods}
-        for row in rows:
-            if not required_fields <= row.keys():
-                raise ValueError("Incomplete facility chart coordinates")
-            fid, pid = _text(row["facility_id"]), _text(row["period_id"])
-            if pid not in period_ids or any(f.period != pid for f in row.values()):
-                raise ValueError("Foreign facility period")
-            if (fid, pid) in indexed:
-                raise ValueError("Duplicate facility snapshot identity")
-            indexed[fid, pid] = row
+        indexed = _facility_rows(rows, {p.identity for p in periods} | unplotted, unplotted)
         population = {fid for fid, _ in indexed}
         actual = {fid for fid, pid in indexed if pid == period.identity}
         if population and actual == population:
@@ -272,7 +299,7 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
                         raise ValueError("Incomplete same-date facility snapshot alias")
                     if other is row:
                         continue
-                    for key in required:
+                    for key in _FACILITY_FIELDS:
                         if key == "period_id":
                             continue
                         a, b = row[key], other[key]
@@ -297,9 +324,9 @@ def _maturity_figure(module: ModuleView, periods: tuple[_Period, ...]) -> Financ
                     break
                 maturity = date.fromisoformat(_text(row["maturity_date"]))
                 label = f"{_text(row['facility_name'])} ({fid})"
-                companions = tuple(row[k].fact_id for k in required if k != "principal") + tuple(
-                    period.row[k].fact_id for k in _PERIOD_FIELDS
-                )
+                companions = tuple(
+                    row[k].fact_id for k in _FACILITY_FIELDS if k != "principal"
+                ) + tuple(period.row[k].fact_id for k in _PERIOD_FIELDS)
                 series.append(label)
                 points.append(
                     FinancialSeriesPoint(
@@ -334,6 +361,6 @@ def cp1_chart_series(module: ModuleView) -> tuple[FinancialFigureSeries, ...]:
         raise ValueError("Settled CP1 chart facts require an artifact identity")
     if len({f.fact_id for f in module.facts}) != len(module.facts):
         raise ValueError("Duplicate chart fact identity")
-    periods = _periods(module)
+    periods, unplotted = _periods(module)
     *strip, period_figure = _quarter_figures(module, periods)
-    return (*strip, _maturity_figure(module, periods), period_figure)
+    return (*strip, _maturity_figure(module, periods, unplotted), period_figure)

@@ -175,6 +175,32 @@ def _check_period(period: _Period, currency: str = "USD") -> None:
         raise ValueError("invalid_fact")
 
 
+# Inclusive day-count windows of a period's length (financial_workflow._DAY_WINDOWS): a quarter
+# of 90 to 92 days or 13 or 14 weeks, a half year, nine months, a year of 365 or 366 days or 52 or
+# 53 weeks.
+_LENGTH_WINDOWS = ((84, 98), (175, 189), (266, 280), (357, 371))
+
+
+def _length_window(period: _Period) -> tuple[int, int] | None:
+    days = (period.end - period.start).days + 1
+    return next((w for w in _LENGTH_WINDOWS if w[0] <= days <= w[1]), None)
+
+
+def _comparable(prior: _Period, current: _Period) -> bool:
+    """A prior/current pair of one period type whose lengths fall in the same day-count window, the
+    current period starting after the prior ends. Exact day counts differ between calendar
+    quarters (Q1 90 or 91 days, Q2 91, Q3 and Q4 92) and across a leap year (365 against 366),
+    so they are not compared. Whether the type's own words match its row, and adjacency, are the
+    composer's rules (`unsupported_pair`), as before."""
+    window = _length_window(current)
+    return (
+        prior.kind == current.kind
+        and window is not None
+        and _length_window(prior) == window
+        and current.start > prior.end
+    )
+
+
 def _basis(period: _Period) -> str:
     # Adopt financial_model._basis_id / financial_periods._id exactly. Labels,
     # equal-date FY aliases and rolling bases never determine this join.
@@ -345,11 +371,7 @@ def build_earnings_delta_in(
             _check_period(current, currency)
             if prior is not None:
                 _check_period(prior, currency)
-                if (
-                    prior.kind != current.kind
-                    or prior.end - prior.start != current.end - current.start
-                    or current.start <= prior.end
-                ):
+                if not _comparable(prior, current):
                     raise ValueError("incompatible_periods")
 
             metrics = _metrics(module)

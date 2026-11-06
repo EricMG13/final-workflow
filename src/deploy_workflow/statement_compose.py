@@ -213,23 +213,54 @@ def resolve_typed_row(
 
 def _header_scale(context: str, shares: bool) -> str | None:
     """Resolve an explicit header's family-specific scale, refusing conflicting cues."""
-    share_clause = re.search(
-        r"\bshares?\s+(not\s+)?in\s+(thousands?|millions?|units?)\b", context
-    )
+    share_clause = re.search(r"\bshares?\s+(not\s+)?in\s+(thousands?|millions?|units?)\b", context)
     if shares and share_clause:
         return "UNITS" if share_clause[1] else share_clause[2].upper().rstrip("S") + "S"
-    if shares and re.search(r"\bexcept\s+(?:for\s+)?shares?\b", context):
-        return "UNITS"
+    if shares and (excepted := _shares_excepted(context)) is not None:
+        # an except clause that also scales them is ambiguous: refuse rather than guess
+        return "UNITS" if excepted else None
     # A per-share exception alone does not except share counts from the monetary scale.
-    text = context if share_clause is None else context[:share_clause.start()] + context[share_clause.end():]
+    text = (
+        context
+        if share_clause is None
+        else context[: share_clause.start()] + context[share_clause.end() :]
+    )
     scales = {
-        name for name, pattern in (
+        name
+        for name, pattern in (
             ("UNITS", r"\bunits?\b"),
             ("THOUSANDS", r"\bthousands?\b|\b000s\b"),
             ("MILLIONS", r"\bmillions?\b"),
-        ) if re.search(pattern, text)
+        )
+        if re.search(pattern, text)
     }
     return next(iter(scales)) if len(scales) == 1 else None
+
+
+_EXCEPT_CLAUSE = re.compile(r"\bexcept\s+(?:for\s+)?([^;()|]{0,80}?)(?=[;()|]|\s{2,}|$)")
+_PER_SHARE = re.compile(r"\bper[\s-]+(?:(?:common|ordinary)\s+)?shares?\b")
+_ITEM_GAP = re.compile(r"\s*(?:,|&|/|\band\b|\bor\b)\s*")
+# An item of an except clause that begins with a share count: "share data", "number of shares",
+# "share counts in millions". A share word that does not begin an item ("per share data shares
+# outstanding", the column heading joined after the clause) names no share count; neither do share
+# price, capital, premium and value.
+_SHARE_ITEM = re.compile(
+    r"(?:the\s+)?(?:(?:weighted[\s-]average|average|total|basic|diluted)\s+)*(?:number\s+of\s+)?"
+    r"(?:(?:common|ordinary)\s+)?shares?\b(?!\s+(?:price|capital|premium|value)\b)"
+)
+
+
+def _shares_excepted(context: str) -> bool | None:
+    """True when an "except ..." clause names share counts as one of its items ("except share
+    data", "except per share and share data", "... and number of shares", "... and share
+    counts"); False when that clause also names a scale ("... and share counts in millions");
+    else None, and share counts take the monetary scale. A per-share item alone names no share
+    count, and neither does a share word that is not an item of its own."""
+    for clause in _EXCEPT_CLAUSE.findall(context):
+        items = _ITEM_GAP.split(_PER_SHARE.sub(" ", clause).strip())
+        if any(_SHARE_ITEM.match(item) for item in items):
+            return re.search(r"thousand|million|billion|\b000s\b", clause) is None
+    return None
 
 
 def _currency_matches(book_currency: str, text: str) -> bool:

@@ -1054,6 +1054,34 @@ def test_a_fresh_run_creates_cap_json_once(killed: dict[str, Any]) -> None:
     assert json.loads((run_dir / "cap.json").read_text()) == recorded
 
 
+def test_a_killed_through_run_records_through_and_is_not_resumed_past_it(
+    args: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S01-C01: `through` was not recorded, and `through` with `resume` is refused, so the only
+    resume of a killed `through="CP-0"` run walked the whole remaining plan and published. Expected,
+    by hand: cap.json records {"cap_usd", "mode": "offline", "through": "CP-0"}; a plain resume is
+    ResumeRefused naming CP-0, before any model call or new record (calls.jsonl unchanged, no
+    run.json); restating `through` on the resume stays UnknownThrough."""
+    scripted_complete(monkeypatch, [read_s1()])
+    real = Budget.reserve
+    kill_at_reserve(monkeypatch, 2)
+    with pytest.raises(Kill):
+        run_pathway(**args, through="CP-0")
+    monkeypatch.setattr(Budget, "reserve", real)
+    run_dir: Path = args["run_dir"]
+    recorded = {"cap_usd": money_text(CAP), "mode": "offline", "through": "CP-0"}
+    assert json.loads((run_dir / "cap.json").read_text()) == recorded
+    calls = (run_dir / "calls.jsonl").read_bytes()
+    sent = scripted_complete(monkeypatch, [])
+    with pytest.raises(rp.ResumeRefused, match="begun to stop after CP-0"):
+        run_pathway(**args, resume=True)
+    with pytest.raises(rp.UnknownThrough):
+        run_pathway(**args, through="CP-0", resume=True)
+    assert sent == []
+    assert (run_dir / "calls.jsonl").read_bytes() == calls
+    assert not (run_dir / "run.json").exists()
+
+
 def test_resume_continues_call_index_and_digest_and_counts_the_spend_once(
     killed: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:

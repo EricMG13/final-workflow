@@ -180,14 +180,22 @@ def _single_writer(run_dir: Path) -> Iterator[None]:
 
 
 def _create_cap(
-    run_dir: Path, cap_usd: Decimal, mode: str, replayed_from_run: str | None = None
+    run_dir: Path,
+    cap_usd: Decimal,
+    mode: str,
+    replayed_from_run: str | None = None,
+    through: str | None = None,
 ) -> None:
     """Record the run's cap and mode, create-once (P2, R18): a resume can neither raise nor lower
     the cap, nor change from offline to live or back. A rerun after repair also records the earlier
-    run's id here, so a plain resume of it is refused (F1-R3); an ordinary run's file is unchanged."""
+    run's id here, so a plain resume of it is refused (F1-R3), and a run begun with ``through``
+    records that module, so a resume cannot drive past it (S01-C01); an ordinary run's file is
+    unchanged."""
     record: dict[str, str] = {"cap_usd": money_text(cap_usd), "mode": mode}
     if replayed_from_run is not None:
         record["replayed_from_run"] = replayed_from_run
+    if through is not None:
+        record["through"] = through
     data = (json.dumps(record) + "\n").encode()
     try:
         fd = os.open(
@@ -216,15 +224,23 @@ def _retained_identity(run_dir: Path) -> tuple[Decimal, str]:
     return cap, str(mode)
 
 
-def _refuse_rerun(run_dir: Path) -> None:
+def _refuse_unresumable(run_dir: Path) -> None:
     """A rerun after repair is not resumed as an ordinary run (it would drive the module it was to
-    replay live): ``cap.json`` names the earlier run it replays (F1-R3). Reads only."""
+    replay live): ``cap.json`` names the earlier run it replays (F1-R3). Nor is a run begun with
+    ``through``: a resume walks the whole remaining plan and publishes, paying for modules the run
+    was not asked to reach (S01-C01). Reads only."""
     try:
-        recorded = json.loads((run_dir / CAP_FILE).read_text()).get("replayed_from_run")
+        loaded = json.loads((run_dir / CAP_FILE).read_text())
+        recorded, through = loaded.get("replayed_from_run"), loaded.get("through")
     except (OSError, ValueError, AttributeError):
         return  # unreadable or absent: `_check_identity` refuses it with its own reason
     if recorded is not None:
         raise ResumeRefused(f"{run_dir} is a rerun after repair of {recorded}: it is not resumed")
+    if through is not None:
+        raise ResumeRefused(
+            f"{run_dir} was begun to stop after {through}: a resume would run the whole plan, "
+            "so it is not resumed"
+        )
 
 
 def _check_cap_and_mode(checked: CheckedRun, run_dir: Path) -> None:
@@ -1107,7 +1123,7 @@ def _stage(
     return _stop(run_dir, _Meta(checked, entries, live, redactor), failure, Decimal(0))
 
 
-def run_pathway(
+def run_pathway(  # noqa: PLR0913 - existing keyword-only entry point; each argument is public
     *,
     case_id: str,
     sources: Sequence[CaseSource],
@@ -1136,24 +1152,26 @@ def run_pathway(
     Any other exception propagates and leaves ``run_dir`` without ``run.json``, with one
     exception of O5's: a failure inside a model tool call is caught by the loop and stops the run
     as a named ``StepStopped``.
-    ``replay_from`` (an earlier run directory) with a non-empty ``repaired`` set of planned analytical
-    modules makes a rerun after repair (G4): ``repaired`` and the modules downstream of it run live,
-    every other analytical module is replayed from the earlier run's retained submissions (no model
-    request), and the deterministic publisher runs again. It needs a new ``run_id`` and the earlier
-    run's pack in everything but ``run_id``; every refusal comes before anything is written.
+    ``replay_from`` (an earlier run directory) with a non-empty ``repaired`` set of planned
+    analytical modules makes a rerun after repair (G4): ``repaired`` and the modules downstream of
+    it run live, every other analytical module is replayed from the earlier run's retained
+    submissions (no model request), and the deterministic publisher runs again. It needs a new
+    ``run_id`` and the earlier run's pack in everything but ``run_id``; every refusal comes before
+    anything is written.
     ``run.json.replayed_from_run`` is the earlier ``run_id``. A rerun is a fresh run: not a resume.
     ``delivery_scope`` is an optional trusted named selection; a resume or replay must repeat it
     explicitly, and the prepared module tuple remains the identity authority.
     ``through`` names a planned analytical module before the publisher, the only modules it
     accepts (``UnknownThrough`` otherwise, and with a resume; CP1H-R11a): the walk ends once it has
     settled, with no publication and no receipt, as a ``stopped`` run whose ``stopped_reason``
-    is ``through: <module>`` (CP1H-R11).
+    is ``through: <module>`` (CP1H-R11). ``cap.json`` records it, and a killed ``through`` run is
+    not resumed: the resume would walk the whole plan (S01-C01).
     ``cp_dr=True`` takes a ``research_manifest`` (and a manifest takes ``cp_dr=True``); intake runs
     in ``check_arguments``, so a refused manifest raises before anything is written, and the staged
     run holds ``research/evidence.json`` and ``research/rejected.json``. ``research_ruling`` (a user
     ruling lifting the pause for ``web-retrieval``) lets the manifest's url rows be fetched: it is
-    checked before anything resolves, the fetches are staged in ``research/fetches.json``, the ruling
-    in ``run.json``, and a resume refuses a changed fetch record or ruling."""
+    checked before anything resolves, the fetches are staged in ``research/fetches.json``, the
+    ruling in ``run.json``, and a resume refuses a changed fetch record or ruling."""
     if through is not None and resume:
         raise UnknownThrough(f"through {through!r} cannot be combined with a resume")
     redactor = Redactor()
@@ -1196,6 +1214,7 @@ def run_pathway(
                 checked.cap_usd,
                 _mode_of(adapter),
                 None if replay is None else replay.earlier_run_id,
+                through,
             )
             return _run_pathway(
                 checked,
@@ -1275,7 +1294,7 @@ def _resume_pathway(
     if not run_dir.is_dir():
         raise RunDirInvalid(f"{run_dir} is not an existing run directory")
     with _single_writer(run_dir):
-        _refuse_rerun(run_dir)
+        _refuse_unresumable(run_dir)
         _check_identity(checked, run_dir, redactor)
         return _run_pathway(
             checked,

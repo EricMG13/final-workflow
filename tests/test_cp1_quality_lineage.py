@@ -11,9 +11,9 @@ from decimal import Decimal
 
 import pytest
 
-from deploy_vii.cp1_quality import _lineage_basis
+from deploy_vii.cp1_quality import _lineage_basis, _module_status
 from deploy_vii.financial_reconciliation import Reconciliation, ReconciliationTerm
-from deploy_vii.narrative import EvidenceRecord
+from deploy_vii.narrative import EvidenceRecord, NarrativeReport
 
 H = hashlib.sha256(b"x").hexdigest()
 
@@ -74,3 +74,41 @@ def test_a_check_caps_at_calculated_only_when_it_computed_and_does_not_block(
     status: str, calculated: str | None, expected: str
 ) -> None:
     assert _lineage_basis(_check(status, calculated)) == expected
+
+
+# The four scope disclaimers canonical_narrative writes on every report (narrative.py), copied
+# by hand: they describe what structural binding cannot prove, not a finding of this module.
+DISCLAIMERS = (
+    (
+        "Structural evidence binding cannot prove issuer-specific meaning, materiality or "
+        "reasoning quality"
+    ),
+    "All numeric evidence is supplied by prior registers; prose still requires semantic review",
+    (
+        "Funding classification is an analyst synthesis over prior balance-sheet rows, "
+        "not new extraction"
+    ),
+    "No consumer readiness, analytical qualification or completed Module acceptance is inferred",
+)
+
+
+@pytest.mark.parametrize(
+    ("status", "gaps", "expected"),
+    [
+        # A clean narrative (no gaps of its own) with only the disclaimers is complete: QA may
+        # then pass on its score (decision 0007: only own findings restrict).
+        ("candidate", 0, "complete"),
+        # One own gap (e.g. a stated review limitation) restricts; a BLOCK gap blocks.
+        ("restricted", 1, "restricted"),
+        ("blocked", 1, "blocked"),
+        # Fail closed: a "candidate" status that still carries a gap is not complete.
+        ("candidate", 1, "restricted"),
+    ],
+)
+def test_module_status_follows_own_gaps_not_the_fixed_disclaimers(
+    status: str, gaps: int, expected: str
+) -> None:
+    report = NarrativeReport.model_construct(
+        status=status, gaps=(object(),) * gaps, limitations=DISCLAIMERS
+    )
+    assert _module_status(report) == expected

@@ -69,10 +69,15 @@ class CP1QualityReport(Contract):
 
 
 def _module_status(narrative: NarrativeReport) -> ModuleStatus:
-    """Own findings only (decision 0007): limitations inherited from inputs never restrict."""
+    """Own findings only (decision 0007): limitations inherited from inputs never restrict.
+
+    The narrative's gaps (its own and the review's stated limitations) are the findings; its
+    `limitations` are the fixed scope disclaimers `canonical_narrative` writes on every report,
+    not findings, so they do not restrict.
+    """
     if narrative.status == "blocked":
         return "blocked"
-    return "restricted" if narrative.limitations or narrative.status != "candidate" else "complete"
+    return "complete" if narrative.status == "candidate" and not narrative.gaps else "restricted"
 
 
 def _lineage_basis(record: EvidenceRecord) -> LineageBasis:

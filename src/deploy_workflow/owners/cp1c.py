@@ -128,6 +128,14 @@ ZERO_MEDIAN = "Not meaningful: the peer median is zero"
 NOT_COMPARED = "Not compared: one side is not available"  # ruling 1C2
 # O7-R47 Q6: the limitation of T1C.6's sheet and difference cells over a CP-DR pack sheet.
 NO_ISSUER_LINE = "the CP-DR peer pack carries no issuer line"
+# T1C.6 ties the issuer line to CP-1 only over one period: an issuer line dated other than CP-1's
+# LTM end is compared with nothing, and the module limitation says so.
+PERIOD_MISMATCH = "Not compared: the issuer line on the peer source ends {sheet}, not {cp1}"
+PERIOD_MISMATCH_LIMITATION = (
+    "Peer ratios use the definitions stated in the peer summary; the issuer line on the same "
+    "summary is for the twelve months to {sheet}, not CP-1's LTM period ending {cp1}, so it is "
+    "not tied to CP-1 in the definition alignment table."
+)
 # Round 6 B1: the issuer's own outlier cells when its CP-1 ratio is not known.
 ISSUER_NOT_STATED = "Not calculable: the issuer's CP-1 value is missing"
 ISSUER_NOT_MEANINGFUL = "Not meaningful: the issuer's CP-1 ratio is not meaningful"
@@ -562,6 +570,7 @@ def _fid(ref: Ref) -> str:
 class _Composer:
     def __init__(self, sheet: PeerSheet | None, absent: str, basis: PeriodBasis) -> None:
         self.mixed = mixed_period(basis)
+        self.ltm_end = basis.ltm_end
         self.items: list[PeerFact] = []
         self.rows: dict[str, list[TableRow]] = {table: [] for table in TABLES}
         self.sheet = sheet
@@ -1177,6 +1186,13 @@ def _issuer_period(sheet: PeerSheet | None) -> str | None:
     return None if sheet is None or sheet.issuer is None else sheet.issuer.period
 
 
+def _period_mismatch(sheet: PeerSheet | None, ltm_end: date) -> tuple[str, str] | None:
+    """The issuer line's period end and CP-1's LTM end when they differ, else None."""
+    if sheet is None or sheet.issuer is None or sheet.issuer.period_end == ltm_end.isoformat():
+        return None
+    return sheet.issuer.period_end, ltm_end.isoformat()
+
+
 def _tie_out_no_issuer(c: _Composer, cp1: Mapping[str, _Cp1Cell]) -> None:
     """O7-R47 Q6: a pack sheet has no issuer line, so nothing is recomputed or compared; the sheet
     and difference cells are `not_applicable` with the limitation and the CP-1 cell stays copied."""
@@ -1235,6 +1251,19 @@ def _tie_out(c: _Composer, sheet: PeerSheet | None, cp1: Mapping[str, _Cp1Cell])
             reason = c.absent if sheet is None else NOT_COMPARED
             unit = m.difference_unit
             c.unsettled(("T1C.6", k, "difference"), "Difference", reason, unit=unit, period=None)
+            c.text(("T1C.6", k, "result"), "Result", "Not compared")
+        elif (ends := _period_mismatch(sheet, c.ltm_end)) is not None:
+            # A02/C04: two periods are never tied out; nothing is compared or reconciled
+            reason = PERIOD_MISMATCH.format(sheet=ends[0], cp1=ends[1])
+            unit = m.difference_unit
+            c.unsettled(
+                ("T1C.6", k, "difference"),
+                "Difference",
+                reason,
+                unit=unit,
+                period=None,
+                status="not_applicable",
+            )
             c.text(("T1C.6", k, "result"), "Result", "Not compared")
         else:
             _tie_out_settled(c, m, line[0], *cell.value)
@@ -2423,6 +2452,10 @@ def _compose(inputs: PeerBenchmarkInputs, sheet: PeerSheet | None) -> _Composed:
     ev = _ev_compose(inputs)  # Phase 7: T1C.9-T1C.11 after the eight, only over a context
     pack = sheet is not None and sheet.issuer is None
     limitations = _limitations(present, pack, c.absent, cp1, peers, stats, inputs.submission.gaps)
+    if (ends := _period_mismatch(sheet, c.ltm_end)) is not None:  # A02/C04: not tied to CP-1
+        tied = SOURCE_LIMITATIONS[False][1]
+        line = PERIOD_MISMATCH_LIMITATION.format(sheet=ends[0], cp1=ends[1])
+        limitations = tuple(line if text == tied else text for text in limitations)
     if ev:  # Phase 7: the context's lines follow the frozen list, none repeated
         limitations += tuple(line for line in ev.limitations if line not in limitations)
     facts = _with_lineage(c.items) + (ev.facts if ev else ())

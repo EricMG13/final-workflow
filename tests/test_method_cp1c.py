@@ -568,6 +568,62 @@ def test_tie_out_differs_when_the_issuer_line_disagrees() -> None:
     assert facts["T1C.6.total_leverage_adjusted.result"].text == "Reconciled"
 
 
+# A02/C04: the issuer line dated 2023-12-31 while CP-1's LTM column is LTM Q4 25 (2025-01-01 to
+# 2025-12-31). The same figures would tie exactly (every result Reconciled on the frozen line),
+# but two periods are never tied out: every difference is not_applicable with the stated reason,
+# every result Not compared, and the sheet cell keeps its own period.
+STALE_ISSUER_LINE = ISSUER_LINE.replace("2025-12-31", "2023-12-31")
+STALE_REASON = "Not compared: the issuer line on the peer source ends 2023-12-31, not 2025-12-31"
+STALE_LIMITATION = (
+    "Peer ratios use the definitions stated in the peer summary; the issuer line on the same "
+    "summary is for the twelve months to 2023-12-31, not CP-1's LTM period ending 2025-12-31, so "
+    "it is not tied to CP-1 in the definition alignment table."
+)
+TIED_LIMITATION = (
+    "Peer ratios use the definitions stated in the peer summary; the issuer line on the same "
+    "summary is tied to CP-1 in the definition alignment table."
+)
+
+
+@pytest.mark.parametrize(
+    ("metric", "unit"),
+    [
+        ("adjusted_ebitda_margin", "pp"),
+        ("total_leverage_adjusted", "MULTIPLE"),
+        ("interest_coverage_adjusted", "MULTIPLE"),
+        ("ffo_to_debt", "pp"),
+    ],
+)
+def test_tie_out_across_two_periods_is_not_compared(metric: str, unit: str) -> None:
+    edited = _edited("positive", 1, ISSUER_LINE, STALE_ISSUER_LINE)
+    case = _with_sources("positive", edited)
+    assert cp1c.calculation_issues(case) == ()
+    found = cp1c.compute(case)
+    facts = _facts(found)
+    assert facts[f"T1C.6.{metric}.sheet"].status == "known"
+    assert facts[f"T1C.6.{metric}.sheet"].period == "Twelve months to 2023-12-31"
+    assert facts[f"T1C.6.{metric}.cp1"].period == "LTM Q4 25: 2025-01-01 to 2025-12-31"
+    difference = facts[f"T1C.6.{metric}.difference"]
+    assert (
+        difference.status,
+        difference.limitation,
+        difference.amount,
+        difference.unit,
+        difference.period,
+    ) == ("not_applicable", STALE_REASON, None, unit, None)
+    assert facts[f"T1C.6.{metric}.result"].text == "Not compared"
+    assert STALE_LIMITATION in found.limitations
+    assert TIED_LIMITATION not in found.limitations
+
+
+def test_tie_out_on_cp1s_period_end_still_reconciles() -> None:
+    """Control: the frozen issuer line (2025-12-31) still ties and keeps the tied limitation."""
+    found = cp1c.compute(_with_sources("positive", sources("positive")))
+    facts = _facts(found)
+    assert facts["T1C.6.total_leverage_adjusted.result"].text == "Reconciled"
+    assert TIED_LIMITATION in found.limitations
+
+
 def test_negative_denominator_is_not_meaningful_with_its_reason() -> None:
     """An excluded peer (Ellsworth) with negative EBITDA: the T1C.3 cell is not_applicable."""
     line = "Ellsworth Park Limited  2025-12-31  500.0  150.0  75.0  7.5  60.0"

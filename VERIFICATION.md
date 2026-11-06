@@ -206,6 +206,83 @@ and rewrite tournament), all pass.
 Not verified: the Playwright browser gate (selectors renamed, not executed here); validate.py quick/full
 modes as a whole; the 6s iframe failure path and Retry in Windows Edge; Windows rendering of the activity
 icon and the tokenised ramp; nothing committed.
+## 2026-11-05 — minimum module set, Caesars pilot and ETF issuer universe
+
+`--modules minimum` selects CP-1, CP-1A, CP-2 and CP-5, with CP-0 as the dependency: the modules
+that need only an issuer's own public filings. Names can be combined, for example `minimum CP-4`.
+
+**Pilot, host session, Caesars Entertainment as of 2026-10-02, explicit cutoff 2026-10-02.** This
+session answered all five modules from the retained FY2025 10-K, Q2 2026 10-Q and Q2 2026 release
+in [`runs/cpos-launch-host-czr-001`](runs/cpos-launch-host-czr-001/verification.json). CP-1A
+attempt 1 quoted source text with pipe characters inside a table cell; the report adapter refused
+it and attempt 2 was accepted. The report fills 6 of 6 selected sections. `verify.py` finds 23 of
+24 answer-key values from `cases/czr-2026q2-earnings-update/expected.json` in the handoffs; the
+missing one is the December 31, 2025 book value of debt, which CP-1 does not carry. It recomputes
+9 metric cells from the cited source lines with Fraction, and a relaunch writes nothing. CP-5,
+written by the same host, graded the run Passed with a Confidence Score of 47 (Low) from the
+method's script, and found four MINOR locator and restatement defects. The credit view rests on
+lease obligations larger than debt and on a pending take-private whose financing is not supplied.
+
+**Issuer universe.** The N-PORT universe builder first written here now lives with the corpus in
+the separate [SECData](https://github.com/EricMG13/SECData) project, which records its own checks.
+After the network policy was widened for `www.sec.gov`, `data.sec.gov` and `efts.sec.gov`, SECData
+built a 100-issuer corpus from eight high-yield and loan ETFs. Two of its packs, American
+Airlines and Caesars, were prepared here with `--config host --modules minimum`: every document
+was pinned and converted, and CP-OS issued the CP-0 request.
+
+Checks: launcher and app tests 90 passed, the paid test skipped.
+
+## 2026-11-05 — host-session launcher mode and TDG pilot
+
+`cpos_launch --config host` runs CP-OS with no provider. CP-OS stops at the first module request
+that has no answer (exit status 3) and prints the request, the answer path, the pinned sources
+and the upstream handoffs. The host writes the answer and runs the same command again.
+
+**Pilot, host session, historical TDG FY2024 as of 2024-09-30, CP-0 → CP-1 → CP-1A.** This
+session was the host, with the same context, issuer folder and modules as `cpos-launch-live-002`.
+[`runs/cpos-launch-host-001`](runs/cpos-launch-host-001) passed every automated check first time
+and published 4 of 4 sections. A comparison with the live answers then found three omissions,
+each confirmed on the 10-K pages: the covenant terms on pages 61, 62 and 70, the November 7, 2024
+publication date after the as-of date, and an overstated claim that the PDF reproduces the whole
+10-K. [`runs/cpos-launch-host-002`](runs/cpos-launch-host-002/verification.json) repairs them in a
+new run folder; attempt 1 is unchanged. Its `verify.py` checks both runs offline: 79 reported
+CP-1 rows (220 cells) against their cited pages, 18 metric cells recomputed with Fraction from
+source rows, consumption anchors, `verify_delivery`, and a relaunch that writes nothing. It
+refuses a changed figure, swapped years and a wrong ratio.
+
+Comparison with the paid sol-medium answers: every checked statement figure agrees. Leverage
+differs by basis: gross principal 6.01x (live) against carrying debt 5.96x (host). Only the live
+run found the springing revolver test and the publication-date boundary on its first pass. Only
+the host found the incremental-debt tests, the conflict between the two covenant descriptions
+(pages 62 and 70) and the 132 against 131 dividend-equivalent conflict. Neither single pass was
+complete. Host usage is not measured.
+
+Checks: `tests/test_cpos_launch.py` 72 passed, the paid test skipped. The new tests cover the
+answer-and-relaunch loop to a verified report, a relaunch with no answer, three rejections, a
+changed accepted answer, refused provider options, a second process on the same folder, and the
+unchanged live-002 request. Go `TestCurrentRetainedWorkspace` passes with the two new run folders.
+
+### Confidence review — host mode
+
+- A relaunch with no answer first skipped CP-OS. A test with an edited accepted answer then
+  crashed with `KeyError` instead of a stop. Cause: the skip also bypassed CP-OS's recheck of
+  earlier answers. Fixed: every launch runs CP-OS, and its `cpos_interrupted` refusal is the
+  wait. In host mode that refusal has no other cause: a request with no answer.
+- A second process on the same folder gets `RunDirBusy`, a `ValueError`: it stops with status 1
+  and writes nothing, and the first process keeps the wait (tested).
+- Live requests are unchanged: the launcher reproduces `cpos-launch-live-002`'s instructions and
+  layout byte for byte (tested). The provider-key check now runs only with `--live`, where it
+  was used before.
+- Not covered: Windows, the Issuer Library app (which still offers provider models only), and
+  host usage limits.
+
+### Post-edit rewrite tournament — `_host`
+
+Candidates: (a) run CP-OS on each launch and read `cpos_interrupted` as the wait; (b) skip CP-OS
+when a request is unanswered; (c) an executor that blocks until the answer file appears; (d) a new
+typed pending error in `cpos._handoff`. (b) failed the edited-answer test. (c) holds the run lock
+and a process for the whole time an agent works. (d) changes the shared core that the live loop
+uses for its never-resend rule. (a) is kept, with no change to `cpos.py`.
 
 ## 2026-11-05 — The M365 custom instruction applies to every module
 

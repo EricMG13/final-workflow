@@ -1,0 +1,101 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "tdg-2024-09-30-credit_snapshot-host",
+    "issuer_id": "tdg",
+    "issuer_name": "TransDigm Group Incorporated",
+    "as_of": "2024-09-30",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A"
+    ]
+  },
+  "handoffs": {
+    "CP-0": {
+      "path": "requests/CP-0/890ba0bf6bc17b2296d3e212deb1ca846fd0c40d21c758409801965cae6be3f3/1.response.md",
+      "sha256": "bf1d2cc15a7725607055c4773e4b852c698185e8c28692b2df7b63d6967e0a7e"
+    },
+    "CP-1": {
+      "path": "requests/CP-1/541e05dc32532acd902487677689534a1410d01c021428e3cd7459ba1451c30a/1.response.md",
+      "sha256": "15fd15b60491873c707d77556cdfa38cb73459e8244025882460aff07588c82b"
+    },
+    "CP-1A": {
+      "path": "requests/CP-1A/fe0ed82abe3e25412386b693b0cc15225c3d421ff3cc221b27e0f21f62e9c947/1.response.md",
+      "sha256": "329d30d429df33aea6e7439ce89a0ebcc62c1a3a158cc640fcc1226eff6f7938"
+    }
+  },
+  "model": null,
+  "layout": {
+    "blocks": [
+      "company-operating-model",
+      "financials-credit-metrics",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for TransDigm Group Incorporated as of 2024-09-30, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model, charts and calculation JSON are not published by this launcher. Sections not produced: key-findings, model-chart-strip, capital-structure, strengths-weaknesses, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "TransDigm Group Incorporated — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  }
+}

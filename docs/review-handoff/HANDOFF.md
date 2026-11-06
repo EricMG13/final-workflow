@@ -16,20 +16,20 @@ Base commit: `a313b50` (main). Read `AGENTS.md` first. Its rules still apply.
 5. Check quality gates (readability, maintainability, complexity) of similar projects.
    Use them for code changes. Use the standard library where possible.
 
-## State
+## State (updated 2026-11-06, second session)
 
 | Step | State |
 |---|---|
-| 1. Sections | Done. 18 sections, `SECTIONS.md`. Every `.py/.js/.html/.css/.ps1/.go` file under `src/`, `apps/`, plus root `workflow.py`, is in exactly one section. S18 (Go server) was added late. |
-| 2. Adversarial pass | 17 of 18 done. `SNN/adversarial.md` holds each report. S18 is **not done** (agent died on the limit). |
-| 3. `/code-review` pass | **Not done.** All 18 agents died on the limit. Their partial work is lost. Start again. |
-| 4. Fable review | **Not started.** |
-| 5. Quality gates | Research and baseline numbers done (below). No gate is implemented. |
-| Fixes | **None made.** No finding is fixed yet. The user has not asked for fixes. |
+| 1. Sections | Done. 18 sections, `SECTIONS.md`. |
+| 2. Adversarial pass | **Done, 18 of 18.** S18 (Go server) added this session: 9 findings. |
+| 3. `/code-review` pass | **Done, 18 of 18.** 5 or 6 agents at a time. See the independence caveat in `FINAL-REPORT.md`. |
+| 4. Fable review | **Done.** `FABLE-REVIEW.md`: 253 of 257 agreed, 47 of 47 critical/high repros re-run, 22 severities changed, 42 duplicate groups. |
+| 5. Quality gates | **Done.** `tools/quality_gate.py` on `claude/quality-gate`, draft PR #18, CI passed. |
+| Final report | **Done.** `FINAL-REPORT.md` (summary, claims, caveats, rulings, tables). |
+| Fixes | **In progress** on `claude/review-fixes`, by section, critical/high first. The user asked for the gate, then fixes. |
 
-Totals so far: 102 adversarial findings in `findings.json`
-(1 critical, 30 high, 45 medium, 26 low). Almost all are marked CONFIRMED with a
-repro script. Run `python3 collect.py` (set the review root, see below) to rebuild the index.
+Totals: 257 findings (`findings.json`); after the cross-review 4 critical, 49 high, 94 medium,
+106 low agreed. `python3 collect.py` rebuilds `ALL-FINDINGS.md` and the index.
 
 ## How to resume
 

@@ -27,6 +27,69 @@
   "location": "`src/deploy_workflow/owners/cpos.py:658-669` (`run_comparison`)"
  },
  {
+  "id": "S01-orchestration-C01",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/run_pathway.py:1143` (run_pathway), `:1255-1279` (_resume_pathway), `:978` (_walk)"
+ },
+ {
+  "id": "S01-orchestration-C02",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cpos.py:207-216` (_handoff) via `src/deploy_workflow/workflow.py:153-160` (_put)"
+ },
+ {
+  "id": "S01-orchestration-C03",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cpos_launch.py:299-312` (_issuer_files)"
+ },
+ {
+  "id": "S01-orchestration-C04",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/run_pathway.py:614-621` (_write_run_json)"
+ },
+ {
+  "id": "S01-orchestration-C05",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cpos.py:218-225` (_handoff)"
+ },
+ {
+  "id": "S01-orchestration-C06",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/cpos_handoffs.py:22-31,141-209`; `src/deploy_workflow/run_pathway.py:677-683` (_render)"
+ },
+ {
+  "id": "S01-orchestration-C07",
+  "section": "S01-orchestration",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/replay.py:614` (replay_module)"
+ },
+ {
   "id": "S02-module-framework-A01",
   "section": "S02-module-framework",
   "pass": "adversarial",
@@ -52,6 +115,51 @@
   "verdict": "PLAUSIBLE",
   "category": "prompt composition rule list incomplete",
   "location": "`src/deploy_workflow/prompts/compose.py:96-106` (`O1`, `O2`) together with `src/deploy_workflow/prompts/factory.py:128-129`"
+ },
+ {
+  "id": "S02-module-framework-C01",
+  "section": "S02-module-framework",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/prompts/compose.py:544-547` (compose, REPAIR block), and lines 538-543 (upstream SOURCE blocks)"
+ },
+ {
+  "id": "S02-module-framework-C02",
+  "section": "S02-module-framework",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owner_workflow.py:3769-3772` (serve_json_lines)"
+ },
+ {
+  "id": "S02-module-framework-C03",
+  "section": "S02-module-framework",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp0_attachments.py:86` (_legal_issue)"
+ },
+ {
+  "id": "S02-module-framework-C04",
+  "section": "S02-module-framework",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`src/deploy_workflow/prompts/fence.py:62-78` (_normalised / _refuse_markers)"
+ },
+ {
+  "id": "S02-module-framework-C05",
+  "section": "S02-module-framework",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owner_rendering.py:1209-1210` (render_owner_slice) together with `_verify_directory` (1144-1160)"
  },
  {
   "id": "S03-model-provider-A01",
@@ -88,6 +196,60 @@
   "verdict": "CONFIRMED",
   "category": "path leakage into records",
   "location": "`src/deploy_workflow/model/copilot.py:132-156` (`_session_error`), `src/deploy_workflow/model/copilot_adapter.py:851` (`_settle`, which stores `raw = redactor.bytes_(body)`), `src/deploy_workflow/model/handoff.py:500-511` (`_turn`, `message=self.redactor.exception(exc)`), `src/deploy_workflow/model/loop.py:654` (`_attempt`, `error=self._redactor.exception(...)`)"
+ },
+ {
+  "id": "S03-model-provider-C01",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "PLAUSIBLE",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/model/copilot_adapter.py:900-915` (`_boundary`), used by `_collect` at line 790"
+ },
+ {
+  "id": "S03-model-provider-C02",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/model/copilot_adapter.py:840-844` (`_settle`, refusal branch). Effect seen in `src/deploy_workflow/model/record.py:619-632` (`_error_response`)"
+ },
+ {
+  "id": "S03-model-provider-C03",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`src/deploy_workflow/model/copilot.py:138-143` (`_session_error`). Also `src/deploy_workflow/model/copilot_adapter.py:396-407` (`_paths_in`)"
+ },
+ {
+  "id": "S03-model-provider-C04",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/model/pricing.py:174-189` (`PRICES[\"copilot-sol-medium\"]`)"
+ },
+ {
+  "id": "S03-model-provider-C05",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/model/turn.py:132` (`ModelSpec.__post_init__`), `src/deploy_workflow/model/record.py:71` (`_PROVIDERS`), `src/deploy_workflow/model_testing/configs.py:13` (`Provider`)"
+ },
+ {
+  "id": "S03-model-provider-C06",
+  "section": "S03-model-provider",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/model/record.py:594-607` and `640-653` (`_error_response`, `_refuse_forged_error`), with the matching `adapter._reply_from_error_json`"
  },
  {
   "id": "S04-delivery-A01",
@@ -153,6 +315,105 @@
   "location": "`src/deploy_workflow/markdown_delivery.py:341-356` (_numeric_observations token path)"
  },
  {
+  "id": "S04-delivery-C01",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/markdown_delivery.py:590-604` (markdown_files, partial-selection bindings) with `:747-772` (table block assembly)"
+ },
+ {
+  "id": "S04-delivery-C02",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (content silently dropped)",
+  "location": "`src/deploy_workflow/markdown_delivery.py:86-95` (literal_module paragraph splitter) together with `model_handoff_delivery.py:309-316` (_literal_tables table detection)"
+ },
+ {
+  "id": "S04-delivery-C03",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/markdown_delivery.py:83-95` (literal_module: `paragraphs` keyed by heading text alone)"
+ },
+ {
+  "id": "S04-delivery-C04",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "security / source identity",
+  "location": "`src/deploy_workflow/markdown_delivery.py:429-446` (require_issuer); same pattern at `handoff_delivery.py:399` (prepare) and `model_handoff_delivery.py:400-405` (build_model, annual/current_synthesis)"
+ },
+ {
+  "id": "S04-delivery-C05",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (chart display)",
+  "location": "`src/deploy_vii/charts.py:88-89` (_tick_text), used by _axis_y (:233-251) and _bullet (:739-760)"
+ },
+ {
+  "id": "S04-delivery-C06",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (source attribution)",
+  "location": "`src/deploy_workflow/model_handoff_delivery.py:307-311` (_literal_tables heading tracking)"
+ },
+ {
+  "id": "S04-delivery-C07",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/markdown_delivery.py:86-95` (paragraph boundaries) and `:563-570` (prefix selection)"
+ },
+ {
+  "id": "S04-delivery-C08",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness (config accepted then ignored)",
+  "location": "`src/deploy_workflow/markdown_delivery.py:465-470` (route guard) and `:660-701` (strip-chart block branch)"
+ },
+ {
+  "id": "S04-delivery-C09",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness (display precision)",
+  "location": "`src/deploy_workflow/markdown_delivery.py:383-385` (_numeric_observations decimals)"
+ },
+ {
+  "id": "S04-delivery-C10",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness (inconsistent gap handling)",
+  "location": "`src/deploy_workflow/model_handoff_delivery.py:216-222` (_AnnualReader.read) compared with `markdown_delivery.py:345-350`"
+ },
+ {
+  "id": "S04-delivery-C11",
+  "section": "S04-delivery",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "simplification / UI correctness",
+  "location": "`src/deploy_workflow/markdown_delivery.py:797-801`, `handoff_delivery.py:478-482`, `model_handoff_delivery.py:637-649` (string patching of the rendered app.js DEST literal), and `src/deploy_vii/assets/app.js:704-707` (destOf)"
+ },
+ {
   "id": "S05-cp0-cp1-A01",
   "section": "S05-cp0-cp1",
   "pass": "adversarial",
@@ -205,6 +466,87 @@
   "verdict": "CONFIRMED",
   "category": "contradictory unit/currency basis accepted",
   "location": "`src/deploy_workflow/owners/cp1c.py:349` (`_basis`)"
+ },
+ {
+  "id": "S05-cp0-cp1-C01",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "critical",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp1d.py:501` (parse_bridge); amounts are stamped at `cp1d.py:1027` and onward"
+ },
+ {
+  "id": "S05-cp0-cp1-C02",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness (resume/idempotency)",
+  "location": "`src/deploy_workflow/owners/cp1b.py:482` (submit); the same pattern is in `cp1c.py:3288` and `cp1d.py:2546`"
+ },
+ {
+  "id": "S05-cp0-cp1-C03",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "security (integrity)",
+  "location": "`src/deploy_vii/cp1_workflow.py:626-635` (cp1_binding_issues)"
+ },
+ {
+  "id": "S05-cp0-cp1-C04",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (period invariant)",
+  "location": "`src/deploy_workflow/owners/cp1c.py:1206-1241` (_tie_out / _tie_out_settled)"
+ },
+ {
+  "id": "S05-cp0-cp1-C05",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp1_quality.py:69` (_module_status)"
+ },
+ {
+  "id": "S05-cp0-cp1-C06",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp1b.py:335-337` (_default_pairs)"
+ },
+ {
+  "id": "S05-cp0-cp1-C07",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/cp1_workflow.py:256-283` (_stage_registers)"
+ },
+ {
+  "id": "S05-cp0-cp1-C08",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp1c.py:2589-2629` and `2955-2987` (calculation_issues / compute / _checked)"
+ },
+ {
+  "id": "S05-cp0-cp1-C09",
+  "section": "S05-cp0-cp1",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/owners/cp1c.py:3251-3304`, `cp1d.py:2508-2562`, `cp1b.py:464-498`; `cp1c.py:1381`"
  },
  {
   "id": "S06-cp2-ade-A01",
@@ -270,6 +612,60 @@
   "location": "`src/deploy_workflow/owners/cp2e.py:739-746` (`_Check.code`) and `cp2e.py:2028-2033` (the context comparison runs only when a run context exists)."
  },
  {
+  "id": "S06-cp2-ade-C01",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp2e.py:233` (`_rate_shock`), operand read at `:502` (`_row_decimal`), `:548`, `:584` (`operands_of`)"
+ },
+ {
+  "id": "S06-cp2-ade-C02",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp2d.py:1712` (`_judgments`), schema at `:100-124`"
+ },
+ {
+  "id": "S06-cp2-ade-C03",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp2_synthesis.py:868` (`credit_synthesis`, claim `T2.1.assessment`)"
+ },
+ {
+  "id": "S06-cp2-ade-C04",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp2a.py:982-985` (`_Composer.tables`), with `_operands` at `:1037`"
+ },
+ {
+  "id": "S06-cp2-ade-C05",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/owners/cp2a.py:1631`, `src/deploy_workflow/owners/cp2d.py:2278`, `src/deploy_vii/cp2_synthesis.py:~395` (`_stale_issues`)"
+ },
+ {
+  "id": "S06-cp2-ade-C06",
+  "section": "S06-cp2-ade",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp2a.py:1735-1741` (`_validate_step`), `:1675` (`downside_report`), `:1425` (`compute`)"
+ },
+ {
   "id": "S07-cp2-gh-A01",
   "section": "S07-cp2-gh",
   "pass": "adversarial",
@@ -331,6 +727,33 @@
   "verdict": "CONFIRMED",
   "category": "outlook compared as raw text",
   "location": "`src/deploy_workflow/owners/cp2h.py:1442-1461` (`_outlook_match`)"
+ },
+ {
+  "id": "S07-cp2-gh-C01",
+  "section": "S07-cp2-gh",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp2g.py:3026` (_validate_step), `:2981` (forward_model), `:1320` (_resolve), `:3043` (_submit_step)"
+ },
+ {
+  "id": "S07-cp2-gh-C02",
+  "section": "S07-cp2-gh",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp2h.py:2723` (_validate_step), `:2494` (rating_triggers), `:2231` (compute), `:1969` (validate), `:2789` (submit)"
+ },
+ {
+  "id": "S07-cp2-gh-C03",
+  "section": "S07-cp2-gh",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/owners/cp2h.py:151` (SynthesisGap), `:1733-1747` (_RUN_TEXT/_run_text_issues), `:1855` (stale_issues)"
  },
  {
   "id": "S08-cp3-A01",
@@ -441,6 +864,96 @@
   "location": "`src/deploy_vii/inputs/rv_quotes.py:33` (`TEMPLATE`), used in FIX \"empty\"/\"header\"/\"sheet\""
  },
  {
+  "id": "S08-cp3-C01",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp3c.py:967` (check_currency), via `_millions_read` at :912-921"
+ },
+ {
+  "id": "S08-cp3-C02",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1057` (_market_row) and `:1543-1560` (_market, T3.3 \"As of\" cell)"
+ },
+ {
+  "id": "S08-cp3-C03",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1166-1175` (_cap_reasons) and `:1650-1657` (_evidence_limitations)"
+ },
+ {
+  "id": "S08-cp3-C04",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1099-1117` (_basis_issues)"
+ },
+ {
+  "id": "S08-cp3-C05",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp3c.py:1087` (compose_operands) together with `:825-849` (compose_refinancing)"
+ },
+ {
+  "id": "S08-cp3-C06",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp3d.py:852-862` (_observation_date) and `:402-416` (_stale_lines)"
+ },
+ {
+  "id": "S08-cp3-C07",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp3d.py:796-813` (_labelled/_label_ok)"
+ },
+ {
+  "id": "S08-cp3-C08",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp3c.py:847-848` (interest_cover via _ratio at :513)"
+ },
+ {
+  "id": "S08-cp3-C09",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1195-1207` (_preference_issues)"
+ },
+ {
+  "id": "S08-cp3-C10",
+  "section": "S08-cp3",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp3.py:81-84` (compute) together with `src/deploy_vii/cp3_relative_value.py:1667-1670` (relative_value) and `:1226-1236` (_risk_issues)"
+ },
+ {
   "id": "S09-cp4-cp5-A01",
   "section": "S09-cp4-cp5",
   "pass": "adversarial",
@@ -513,6 +1026,60 @@
   "location": "`src/deploy_workflow/owners/cp4.py:27` (`MARKERS`), `:65-76` (`semantic_issues`)"
  },
  {
+  "id": "S09-cp4-cp5-C01",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp5_integrity.py:107` (`REFERENCE_TABLES`), used by `identity_groups` at :400/:413 and `_Checker.identity` at :547. Producers: `src/deploy_vii/cp4_legal.py:1403` (`_referenced_table`, T4F.2) and `src/deploy_workflow/owners/cp4c.py:3071` (`_placed_references`)."
+ },
+ {
+  "id": "S09-cp4-cp5-C02",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/owners/cp4c.py:436-441` (`CP4_FACTS`), `:536` (`Cp4Head.fact`), `:2417` (`_references`, reached from `content_issues` via `_reference_facts` at :1003), `:1593` (`_check_cp4_head`), `:3252` (`_offered_block`)"
+ },
+ {
+  "id": "S09-cp4-cp5-C03",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp4_legal.py:1604-1609` (`context_block`, `cp1_facts_note`)"
+ },
+ {
+  "id": "S09-cp4-cp5-C04",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp4_legal.py:488` and `:494` (`_row_issues`)"
+ },
+ {
+  "id": "S09-cp4-cp5-C05",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/cp4_legal.py:1194-1200` (`_check_tables`, T4F.3 \"Result\")"
+ },
+ {
+  "id": "S09-cp4-cp5-C06",
+  "section": "S09-cp4-cp5",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/owners/cp5.py:79-83` (`compute`) and `:105-127` (`view_body`); `src/deploy_vii/cp5_integrity.py:1188-1194` (`integrity_review`) and `:1250-1261` (`_validate_step`)"
+ },
+ {
   "id": "S10-cp6-cp8-cpl10-A01",
   "section": "S10-cp6-cp8-cpl10",
   "pass": "adversarial",
@@ -556,6 +1123,60 @@
   "verdict": "CONFIRMED",
   "category": "Scope: a native CP-8 run executes the superseded post-mortem under the comparison title",
   "location": "`src/deploy_workflow/owners/cp8.py:1-15, 71-75` (module purpose, `DECISION_SOURCE=\"prior_case\"`), registered as the CP-8 owner in `src/deploy_workflow/owner_workflow.py:524-537`"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C01",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness (currency)",
+  "location": "`src/deploy_workflow/owners/cpl10.py:416-429` (`Upstream.__post_init__`), with the check only at `:441-449` (`RunUpstream.__post_init__`) and the branch at `:1392-1393` (`cpl10_upstream`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C02",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (unchecked analyst text in claims and limitations)",
+  "location": "`src/deploy_workflow/owners/cpl10.py:1191-1206` (`_text_issues`), `:1209-1224` (`_overall_issues`), `:1227-1248` (`_gap_issues`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C03",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (valid input refused)",
+  "location": "`src/deploy_workflow/owners/cp8.py:670` (`_Checker._decision_text`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C04",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness (unresolved reference in stored limitation)",
+  "location": "`src/deploy_vii/cp6_committee.py:1302-1320` (`committee_challenge`, the claims tuple)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C05",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/cp6_committee.py:1359-1366` (`_validate_step`) and `:1281-1283` (`committee_challenge`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-C06",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/owners/cp8.py:2294-2298` (`_bound`), `src/deploy_workflow/owners/cpl10.py:1342-1346` (`_bound`), `src/deploy_vii/cp6_committee.py:608-612` (`_bound_module`); also `cp6_module`, `cp8_module`, `cpl10_module`"
  },
  {
   "id": "S11-earnings-financial-A01",
@@ -612,6 +1233,96 @@
   "location": "`src/deploy_workflow/statement_compose.py:249-258` (`_currency_matches`)"
  },
  {
+  "id": "S11-earnings-financial-C01",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/financial_series.py:111-113` (_periods)"
+ },
+ {
+  "id": "S11-earnings-financial-C02",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/statement_lines.py:39,100-104` (_NUMTOK, respace)"
+ },
+ {
+  "id": "S11-earnings-financial-C03",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/financial_series.py:269-272` (_maturity_figure)"
+ },
+ {
+  "id": "S11-earnings-financial-C04",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/financial_series.py:157-165` (_quarter_figures)"
+ },
+ {
+  "id": "S11-earnings-financial-C05",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/statement_compose.py:616-641,689-703` (_sums / _checks)"
+ },
+ {
+  "id": "S11-earnings-financial-C06",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/earnings.py:260-266` (_point)"
+ },
+ {
+  "id": "S11-earnings-financial-C07",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/pdf_headers.py:22,184-189` (_MONTH_DAY, mapping_headers)"
+ },
+ {
+  "id": "S11-earnings-financial-C08",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/financial_series.py:104-108,134,215,290,314` (_periods, _numeric, figure units)"
+ },
+ {
+  "id": "S11-earnings-financial-C09",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_workflow/financial_workflow.py:981-1007` (expand_unit_maps.inputs), 1441-1458 (_other_statement_rows), 908-939; also _evidence_issues at 1085+"
+ },
+ {
+  "id": "S11-earnings-financial-C10",
+  "section": "S11-earnings-financial",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_workflow/pdf_headers.py:128-149, 154, 180, 287-296` (mapping_headers)"
+ },
+ {
   "id": "S12-vii-financial-engine-A01",
   "section": "S12-vii-financial-engine",
   "pass": "adversarial",
@@ -664,6 +1375,78 @@
   "verdict": "PLAUSIBLE",
   "category": "DR.2 rows grouped by display name",
   "location": "`src/deploy_vii/distressed_figures.py:88-100` (`_cp4c_figures`, DR.2 branch)"
+ },
+ {
+  "id": "S12-vii-financial-engine-C01",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/financial_reconciliation.py:302-367` (`_debt`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-C02",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/financial_adapter.py:203-224` (`_addbacks`), consumed by `src/deploy_vii/model/statements.py:173-179` (`excluded_addbacks`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-C03",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/model/statements.py:157-170` (`_stated`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-C04",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/statement_extract.py:394-401` (`_is_omitted_candidate`), with `_cells:257`"
+ },
+ {
+  "id": "S12-vii-financial-engine-C05",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/model/statements.py:476-508` (`pro_forma_column`), with `_PF_TARGETS:118` and `_PF_BLANK:127`"
+ },
+ {
+  "id": "S12-vii-financial-engine-C06",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/financial_reconciliation.py:194-215` (`_account`, `_balance`), `src/deploy_vii/statement_validation.py:401-408` (`account_outflow`); also called per period x metric in `financial_adapter._accounts:66-70` and per account and per line in `statement_issues:330,344`"
+ },
+ {
+  "id": "S12-vii-financial-engine-C07",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/financial_model.py:263-290` (`model_report`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-C08",
+  "section": "S12-vii-financial-engine",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "simplification",
+  "location": "`src/deploy_vii/statement_output.py:22-26` (`_SCALE_FACTORS`). The opening-day rule `start_date - 1 day if toordinal() > 1` appears at `financial_reconciliation.py:523-527` and `:618-622`, `period_reconciliation.py:279-283` and `cash_bridge.py:91`."
  },
  {
   "id": "S13-vii-canonical-context-A01",
@@ -747,6 +1530,105 @@
   "location": "`src/deploy_vii/inputs/portfolio.py:705-731` (load_table), `portfolio.py:845-860` (rating_rules)"
  },
  {
+  "id": "S13-vii-canonical-context-C01",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/canonical_kpis.py:311-342` (_kpi_rows); shown at `src/deploy_vii/canonical_tables.py:512` (T4.9 Period) and `:625` (T4.10 cell period)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C02",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/canonical_audit.py:493-526` (absent_input_limitation); used at `canonical_audit.py:630-640` and `canonical_gaps.py:255`"
+ },
+ {
+  "id": "S13-vii-canonical-context-C03",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/business_context.py:858-866` (governance_sponsor_score)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C04",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/canonical_kpis.py:198-206` (_canonical_frame)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C05",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`src/deploy_vii/quotes.py:110-123` (quoted)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C06",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/canonical_tables.py:322` (_constructed)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C07",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/prose.py:136-145` (\"coverage\" label) and `:93` (bare-year label)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C08",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/narrative_projection.py:120-121` (_passage, IssuerPart), used for Claim.text at `:160-170`"
+ },
+ {
+  "id": "S13-vii-canonical-context-C09",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/canonical_tables.py:806-824` (canonical_tables, projection-gap loop)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C10",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/business_context.py:721-728` (_shape_issues) and `:1765-1775` (register rule)"
+ },
+ {
+  "id": "S13-vii-canonical-context-C11",
+  "section": "S13-vii-canonical-context",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/canonical_gaps.py:426-451`; `src/deploy_vii/canonical_kpis.py:399-420`"
+ },
+ {
   "id": "S14-vii-live-runtime-A01",
   "section": "S14-vii-live-runtime",
   "pass": "adversarial",
@@ -763,6 +1645,60 @@
   "verdict": "CONFIRMED",
   "category": "read_pages byte cap bypass on line sources",
   "location": "`src/deploy_vii/live/tools.py:437-450` (`PackTools.read_pages`)"
+ },
+ {
+  "id": "S14-vii-live-runtime-C01",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness (resume/idempotency)",
+  "location": "`src/deploy_vii/execution.py:676` (Execution.begin), with `replace_pack` at `:912`"
+ },
+ {
+  "id": "S14-vii-live-runtime-C02",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/live/tools.py:578-585` (_line_table), shown by `extracted_body` at `:597-600`"
+ },
+ {
+  "id": "S14-vii-live-runtime-C03",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "security/robustness",
+  "location": "`src/deploy_vii/envelope.py:494-500` (_table_issues), capped only by `_MAX_ISSUES` at `:631-633` (envelope_issues)"
+ },
+ {
+  "id": "S14-vii-live-runtime-C04",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "security (prompt-injection hardening)",
+  "location": "`src/deploy_vii/live/prompts.py:1211-1229` (build: rule 2 and the REPAIR block)"
+ },
+ {
+  "id": "S14-vii-live-runtime-C05",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/live/submission.py:1062` and `:1101` (submit_model_payload), with `_with_rules` at `:1015-1021`"
+ },
+ {
+  "id": "S14-vii-live-runtime-C06",
+  "section": "S14-vii-live-runtime",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/live/context.py:90-139` (MODULE_CONTEXTS, _cp3_market_sources, declared_sources, readable_sources)"
  },
  {
   "id": "S15-vii-readiness-bindings-A01",
@@ -790,6 +1726,69 @@
   "verdict": "CONFIRMED",
   "category": "absence-claim guard gap",
   "location": "`src/deploy_vii/readiness.py:240-263` (_PAGE_RANGE / absent_page_ranges), used by coverage_issues/absence_issues"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C01",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/readiness.py:322-336` (coverage_issues), with `absence_issues` at :276-298"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C02",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/readiness.py:94-128` (shape_issues / _container_too_short / _echoed)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C03",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/model_interface.py:201-211` (_observed)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C04",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/preparation.py:338` (xlsx_content: `cell.attrib[\"r\"]`)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C05",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/preparation.py:95` (text_content)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C06",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_vii/preparation.py:395-405` (xlsx_content sheet coverage)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-C07",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`src/deploy_vii/readiness.py:147-170` (citation_issues), called per assessment, consumer, gap and claim in validate_review (:380-470)"
  },
  {
   "id": "S16-research-tools-A01",
@@ -844,6 +1843,96 @@
   "verdict": "CONFIRMED",
   "category": "Manifest path with NUL raises a raw ValueError, not IntakeError",
   "location": "`src/deploy_workflow/research/intake.py:190-195` (`_resolve`)"
+ },
+ {
+  "id": "S16-research-tools-C01",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/peers.py:295` (_amount_cell), with the only quote check at `peers.py:207` (_figure_issues -> citation_issues)"
+ },
+ {
+  "id": "S16-research-tools-C02",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/peers.py:298-308` (_amount_cell), `peers.py:90-96` (LocatedFigure), `peers.py:187-208` (_figure_issues)"
+ },
+ {
+  "id": "S16-research-tools-C03",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/peers.py:187-208` (_figure_issues), with the effect at `peers.py:428-434` (_cell_text) and `peers.py:449-475` (_figures)"
+ },
+ {
+  "id": "S16-research-tools-C04",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/webfetch.py:165-168` (resolve_public); webfetch.py:141 (check_url) accepts the host"
+ },
+ {
+  "id": "S16-research-tools-C05",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/webfetch.py:317-335` (locate_published), used at `src/deploy_workflow/research/intake.py:354-363` (_assess_web)"
+ },
+ {
+  "id": "S16-research-tools-C06",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/intake.py:428-440` (intake), with the effect in `src/deploy_workflow/research/review.py:175-189` (_family_issues)"
+ },
+ {
+  "id": "S16-research-tools-C07",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/review.py:182` (_family_issues)"
+ },
+ {
+  "id": "S16-research-tools-C08",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/intake.py:190-195` (_resolve)"
+ },
+ {
+  "id": "S16-research-tools-C09",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`src/deploy_workflow/research/tables.py:165` (_Table.add); only TDR.3 question ids are kept from using 'total' (`steps.py:113`, `tables.py:461`)"
+ },
+ {
+  "id": "S16-research-tools-C10",
+  "section": "S16-research-tools",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`src/deploy_workflow/research/webfetch.py:390` (_next_hop)"
  },
  {
   "id": "S17-issuer-library-A01",
@@ -916,5 +2005,311 @@
   "verdict": "CONFIRMED",
   "category": "packaging: a re-pinned runtime keeps stale wheels in the shipped ZIP",
   "location": "`apps/issuer-library/packaging/runtime.py:79-106` (bundle) together with `build.py:16-36` (the target is reused and every file is zipped)"
+ },
+ {
+  "id": "S17-issuer-library-C01",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/engine/store.py:17-18` (OUTPUT_SKIP / INPUT_NAME), used at `:380` (handoff_files) and `:401` (collect_runs)"
+ },
+ {
+  "id": "S17-issuer-library-C02",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/engine/store.py:551` (catalogue_reports -> built_from at `:493-494`)"
+ },
+ {
+  "id": "S17-issuer-library-C03",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`apps/issuer-library/web/views.js:121` (comparisonChart `data-evidence=\"${module}:${p.row.line}\"`; the same raw pattern is at `:142`, `:151`, `:158`)"
+ },
+ {
+  "id": "S17-issuer-library-C04",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/engine/store.py:232-237` (output_label)"
+ },
+ {
+  "id": "S17-issuer-library-C05",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/engine/store.py:360` (structured)"
+ },
+ {
+  "id": "S17-issuer-library-C06",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/web/boot.js:20` (reload); also `web/actions.js:225` (Settings save/refresh)"
+ },
+ {
+  "id": "S17-issuer-library-C07",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/web/views.js:102-106,121` (chartNumber / comparisonChart)"
+ },
+ {
+  "id": "S17-issuer-library-C08",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "security",
+  "location": "`apps/issuer-library/validate.py:20` (KEYS / clean_env); same hard-coded list in `designs/browser_check.py:42` and `packaging/smoke_test.py:50`"
+ },
+ {
+  "id": "S17-issuer-library-C09",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "test-coverage",
+  "location": "`apps/issuer-library/designs/browser_check.py:355` (new_run)"
+ },
+ {
+  "id": "S17-issuer-library-C10",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/web/screen.css:95` (`.ref`)"
+ },
+ {
+  "id": "S17-issuer-library-C11",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`apps/issuer-library/engine/store.py:383,385,405,419,420` (handoff_files / collect_runs)"
+ },
+ {
+  "id": "S17-issuer-library-C12",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "correctness",
+  "location": "`apps/issuer-library/packaging/runtime.py:124-149` (bundle)"
+ },
+ {
+  "id": "S17-issuer-library-C13",
+  "section": "S17-issuer-library",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "simplification",
+  "location": "`apps/issuer-library/web/report-adapter.js:64` (MODULE_NAMES)"
+ },
+ {
+  "id": "S18-issuer-library-server-A01",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "timeouts / lost review response",
+  "location": "`apps/issuer-library/main.go:85` (run: `http.Server{... WriteTimeout: 180 * time.Second}`) versus `apps/issuer-library/jobs.go:73` (Engine.review: 10-minute timeout, commented \"a large one takes minutes\")"
+ },
+ {
+  "id": "S18-issuer-library-server-A02",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "HTML injection offset / handler panic",
+  "location": "`apps/issuer-library/server.go:237` (reportPresentation)"
+ },
+ {
+  "id": "S18-issuer-library-server-A03",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "numbers: sign/scale lost in the \"value present in source excerpt\" guard",
+  "location": "`apps/issuer-library/discovery.go:17` (numericToken) and `:90-96` (admitRun)"
+ },
+ {
+  "id": "S18-issuer-library-server-A04",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "job listing hides the active run",
+  "location": "`apps/issuer-library/jobs.go:148-160` (serveRunAPI `/api/runs/list`)"
+ },
+ {
+  "id": "S18-issuer-library-server-A05",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "PLAUSIBLE",
+  "category": "Windows managed-policy trust (ProgramData squatting)",
+  "location": "`apps/issuer-library/settings.go:316-338` (loadConfig) and `apps/issuer-library/platform_windows.go:456` (Policy path under FOLDERID_ProgramData)"
+ },
+ {
+  "id": "S18-issuer-library-server-A06",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "identity: run-internal delivery not matched to its run",
+  "location": "`apps/issuer-library/discovery.go:375-386` (discover, run `deliveries/` loop)"
+ },
+ {
+  "id": "S18-issuer-library-server-A07",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "job lifecycle: a dead \"running\" job is never reconciled",
+  "location": "`apps/issuer-library/jobs.go:395,411-423` (startRun worker on `context.Background()`, reconciliation only in the in-process goroutine) and `apps/issuer-library/server.go:271-296` (newApplication)"
+ },
+ {
+  "id": "S18-issuer-library-server-A08",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "false refusal message after a failed spawn",
+  "location": "`apps/issuer-library/jobs.go:385-406` (startRun)"
+ },
+ {
+  "id": "S18-issuer-library-server-A09",
+  "section": "S18-issuer-library-server",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "settings parsing: BOM-prefixed managed policy blocks startup",
+  "location": "`apps/issuer-library/settings.go:332` (loadConfig)"
+ },
+ {
+  "id": "S18-issuer-library-server-C01",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/main.go:85` (run, http.Server WriteTimeout 180s), together with `apps/issuer-library/jobs.go:73` (Engine.review, 10-minute timeout) and `jobs.go:338-350` (reviewRun)"
+ },
+ {
+  "id": "S18-issuer-library-server-C02",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/jobs.go:385-406` (startRun)"
+ },
+ {
+  "id": "S18-issuer-library-server-C03",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "PLAUSIBLE",
+  "category": "security",
+  "location": "`apps/issuer-library/server.go:58-62` (ServeHTTP), `main.go:47-55` (predictable per-user port)"
+ },
+ {
+  "id": "S18-issuer-library-server-C04",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/discovery.go:374-386` (discover, runs/<id>/deliveries loop)"
+ },
+ {
+  "id": "S18-issuer-library-server-C05",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/jobs.go:147-158` (serveRunAPI, /api/runs/list)"
+ },
+ {
+  "id": "S18-issuer-library-server-C06",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/server.go:237` (reportPresentation)"
+ },
+ {
+  "id": "S18-issuer-library-server-C07",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/server.go:169-170,230` (serveFile) together with `main.go:103-105` (refresh ticker)"
+ },
+ {
+  "id": "S18-issuer-library-server-C08",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/server.go:122-126` (post /api/settings) with `jobs.go:248-250` (reviewRun takes the workspace once)"
+ },
+ {
+  "id": "S18-issuer-library-server-C09",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/discovery.go:368-386` (discover)"
+ },
+ {
+  "id": "S18-issuer-library-server-C10",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "correctness",
+  "location": "`apps/issuer-library/main.go:45-46,128` (run/main)"
+ },
+ {
+  "id": "S18-issuer-library-server-C11",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`apps/issuer-library/main.go:95-107` and `server.go:36-44` (refreshLocked)"
+ },
+ {
+  "id": "S18-issuer-library-server-C12",
+  "section": "S18-issuer-library-server",
+  "pass": "code-review",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "efficiency",
+  "location": "`apps/issuer-library/jobs.go:297-319` (reviewRun upload loop)"
  }
 ]

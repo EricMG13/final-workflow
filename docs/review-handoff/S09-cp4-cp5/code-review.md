@@ -1,0 +1,56 @@
+SECTION: S09-cp4-cp5   PASS: code-review
+COVERAGE: read fully: src/deploy_workflow/owners/cp4.py, src/deploy_workflow/owners/cp5.py (and the code-review skill's forked reviewer read all five files in full) / skimmed: src/deploy_vii/cp4_legal.py, src/deploy_vii/cp5_integrity.py, src/deploy_workflow/owners/cp4c.py (I read the regions behind each finding plus the callers and callees involved) / not read: none
+
+Independence note: I ran the code-review skill at high effort on all five files, without --fix or --comment. Its output did not mention adversarial findings. I did not read adversarial.md, the repro/ files or docs/review-handoff/**. All my scratch scripts are in /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/.
+
+### S09-cp4-cp5-C01  [high] [CONFIRMED]  correctness
+- Location: `src/deploy_vii/cp5_integrity.py:107` (`REFERENCE_TABLES`), used by `identity_groups` at :400/:413 and `_Checker.identity` at :547. Producers: `src/deploy_vii/cp4_legal.py:1403` (`_referenced_table`, T4F.2) and `src/deploy_workflow/owners/cp4c.py:3071` (`_placed_references`).
+- Defect: CP-5 exempts only tables named `cp1_references` from the same-fact-id placement check. CP-4's T4F.2 copies of CP-1 figures keep the CP-1 `fact_id`, and so do CP-4C's `cp2g_references`/`cp2a_references` copies of upstream figures, so every such copy is reported as a cross-module figure disagreement.
+- Failure scenario: CP-4 names a CP-1 figure as a test metric or a `{ref|unit}`, which the positive CP-4 case always does (`net_leverage_reported`). CP-5 then records a false `figure_identity` finding ("differs in table_id, row_id between CP-1, CP-4"). `_Checker.identity` flags the fact in both CP-1 and CP-4, so every claim that names that figure is marked, and a `supported` verdict on it is refused. CP-5 always settles `restricted` with a fabricated limitation. CP-4C does the same against CP-2G (T2H.4 EBITDA) and CP-2A (T2B.1 shocks). Any other module's differently named copy table (e.g. cp2h's `cp2g_references`) triggers it too, because the root cause is this one constant.
+- Evidence: `PYTHONPATH=src:. .venv/bin/python /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/c01_t4f2_identity.py` prints `figure_identity fact_id net_leverage_reported | differs in table_id, row_id between CP-1, CP-4`. `PYTHONPATH=src:.:tests ... /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/c01b_cp4c_refs_identity.py` prints `cp2g_references ... findings: 2` (`fact_id T2H.4.b26.ebitda | differs in table_id, row_id, field between CP-2G, CP-4C`) and `cp2a_references ... findings: 2`. The CP-5 tests never bind a CP-4 or CP-4C head (`grep CP-4 tests/test_method_cp5.py`), so nothing catches this.
+- Fix direction: Treat every composer-assigned verbatim copy table (T4F.2, `cp2g_references`, `cp2a_references`, `cp4_references`, and the other modules' copy tables) as a reference table. Better, derive the set from the bindings registry's "copied" tables instead of a single-name constant. Keep the value, unit, currency and period comparison.
+
+### S09-cp4-cp5-C02  [medium] [CONFIRMED]  correctness
+- Location: `src/deploy_workflow/owners/cp4c.py:436-441` (`CP4_FACTS`), `:536` (`Cp4Head.fact`), `:2417` (`_references`, reached from `content_issues` via `_reference_facts` at :1003), `:1593` (`_check_cp4_head`), `:3252` (`_offered_block`)
+- Defect: CP-4C reads fixed positional CP-4 facts (`T4C.11.r01.*`, `T4.10.r02.*`, `T4.13.rating.rating`) and pinned text. When the CP-4 head has a different shape, the step validator and the view raise ValueError instead of returning an issue.
+- Failure scenario: (a) CP-4 settles with fewer than two capacity baskets, or with no covenant naming a facility. Then `content_issues` raises `ValueError: CP-4C needs exactly one CP-4 fact T4.10.r02.permits` out of `_validate_step`, and the view raises the same way, so the attempt crashes rather than being rejected or repaired. (b) The CP-4 model lists the same baskets in a different order. Validation passes, then `compute` raises in `_check_cp4_head` because "T4.10.r02" is now the other basket. Whether CP-4C can run at all depends on the order the CP-4 model listed its baskets in.
+- Evidence: `PYTHONPATH=src:.:tests .venv/bin/python /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/c02_cp4c_positional.py` prints `baseline issues: ()`, then `content_issues RAISED ValueError CP-4C needs exactly one CP-4 fact T4.10.r02.permits`, then for swapped baskets `swapped issues: ()` followed by `swapped RAISED ValueError CP-4C: the CP-4 additional-debt conditions differ ... fail closed`. Failing closed on a non-frozen rating is documented ("round 8 A-2 #4"). Raising out of the validator, and selecting by position, are not.
+- Fix direction: Select the CP-4 basket and facility by content (basket kind or facility id) rather than by row number. Return a validator issue, which leads to a rejected or blocked settlement, when the required CP-4 fact is absent or not the pinned one, instead of raising.
+
+### S09-cp4-cp5-C03  [low] [CONFIRMED]  correctness
+- Location: `src/deploy_vii/cp4_legal.py:1604-1609` (`context_block`, `cp1_facts_note`)
+- Defect: When the bound CP-1 offers no referencable T4.10/T4.17 figure, the note tells the model to "name no metric_ref and no facility". The T4.18 facility list in the same block is built independently and may be non-empty, and the validator accepts those facility ids.
+- Failure scenario: A restricted CP-1 has a T4.18 facility register but no settled KPI figures. The model follows the note and leaves `facility_ids` empty, so T4C.11 is empty and T4C.12 says "No covenant names this facility" for every facility. The covenant-to-facility mapping is lost, and CP-4C (C02) then cannot find `T4C.11.r01.*`.
+- Evidence: `PYTHONPATH=src:. .venv/bin/python /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/c03_cp4_context_note.py` prints `facilities: [{'facility_id': 'term-loan', ...}]` and `cp1_facts_note: No CP-1 figure is offered: write no figure, name no metric_ref and no facility.`
+- Fix direction: Mention facilities in the note only when `upstream.facilities` is empty (for example when CP-1 is blocked), and key the figure clause on `upstream.facts` alone.
+
+### S09-cp4-cp5-C04  [low] [CONFIRMED]  correctness
+- Location: `src/deploy_vii/cp4_legal.py:488` and `:494` (`_row_issues`)
+- Defect: The refusal text says a source "is not an executed or filed source", but `LEGAL_AUTHORITIES` (:91) also admits `draft`. The `LegalDocument` variant at :494 also leaves out the "or the source is not ready" clause.
+- Failure scenario: A draft legal source is refused only because it is not `ready`, and the message reads "is not an executed or filed source". In the repair turn the model drops admitted draft sources (and the covenants they govern) instead of fixing the readiness or citation problem.
+- Evidence: Confirmed by reading the code: `LEGAL_AUTHORITIES = frozenset({"executed", "filed", "draft"})` at :91, the message strings at :488 and :494, and `cp4_upstream` admitting draft at :240. I wrote no runtime repro because this is a static string mismatch.
+- Fix direction: Word the issue as "not a citable (executed, filed or draft) ready source" in both places, keeping any frozen refusal pins in step.
+
+### S09-cp4-cp5-C05  [low] [CONFIRMED]  correctness
+- Location: `src/deploy_vii/cp4_legal.py:1194-1200` (`_check_tables`, T4F.3 "Result")
+- Defect: The headroom trace prints `str(t.result.amount)` with no unit. For a percent test that number is a raw decimal fraction, while T4.9 (`_test_cells`, :983-985) shows the same headroom x100 in percentage points.
+- Failure scenario: A "not less than 12.5%" covenant against a 0.15 CP-1 metric shows `2.5 pp` in T4.9 but `0.025` in T4F.3. The deliverable's provenance table then disagrees on its face with the figure it traces, and gives no unit.
+- Evidence: I checked this by reading the code. `headroom(Decimal("0.125"), ">=", Decimal("0.15")).amount` is `0.025`, T4F.3 renders that value with `str()`, and T4.9 multiplies by 100 and labels it `POINTS`.
+- Fix direction: Render T4F.3's Result in the same unit as T4.9 (x100 pp for percent tests, with the unit shown), or label the fraction explicitly.
+
+### S09-cp4-cp5-C06  [low] [CONFIRMED]  efficiency
+- Location: `src/deploy_workflow/owners/cp5.py:79-83` (`compute`) and `:105-127` (`view_body`); `src/deploy_vii/cp5_integrity.py:1188-1194` (`integrity_review`) and `:1250-1261` (`_validate_step`)
+- Defect: The full `python_checks` pass (citation checks over every fact of every head, plus cross-module identity pooling) runs 3 times per CP-5 compute, view and step validation. The cause is that `integrity_review` re-runs `validate_integrity` and then `python_checks`, and `view_body` gets it from `integrity_projection`, from `context_block` and again itself. `cp4.compute` and `cp4_legal._validate_step` likewise validate and then call `covenant_interpretation`, which validates again.
+- Failure scenario: With a promoted CP-1 head of tens of thousands of facts (as the module comments say), each CP-5 view, validator replay and probe does three times the necessary work.
+- Evidence: `PYTHONPATH=src:.:tests .venv/bin/python /tmp/claude-0/-home-user/ca174d89-4735-5f2e-9387-3daad8bafeb2/scratchpad/review/S09-cp4-cp5/cr/c05_python_checks_count.py` prints `compute: python_checks calls = 3` and `view_body: python_checks calls = 3`.
+- Fix direction: Compute `PythonChecks` once and pass it to the projection, the block and the composer, or call the composer alone since it already raises on issues. Keep the validation itself.
+
+### Out of scope (one line each, optional)
+- The C01 root cause also hits copy tables composed outside this section (cp2h `cp2g_references`, cp2g `cp2a_references`). The fix belongs in `cp5_integrity.REFERENCE_TABLES`, which is in scope.
+
+### Checked and sound (short bullets: what you attacked that held)
+- The `Same definition` semantic gate (`cp4.py`) scans the whole text of each cited page, so a marker anywhere on the page refuses it. That is the documented design (lease ruling Q1 = A). A false refusal is possible but it fails safe, and narrowing it would weaken a guard, so I did not report it.
+- `cp4.precheck` parses with `model_validate_json(stored)` on the raw text. The step validator (`cp4_legal._validate_step`) reads the same raw payload the same way, so the gate and the validator agree. The gate runs both at submit and in the verifier (`owner_workflow._gate`).
+- CP-4C plan-fit `value == 1` (rounded at 38 digits) versus `paid < group`: a mismatch needs a relative shortfall under 5e-39, which claim and EV precision cannot produce on realistic amounts. Refuted as a practical defect.
+- CP-4 headroom: strict versus non-strict comparisons at the threshold, a zero threshold giving no share, a missing operand giving "not calculable" and never zero, and percent thresholds converted to decimal fractions against PERCENT/decimal_fraction CP-1 units all held.
+- The CP-5 owner view strips citation quotes and cuts per-claim findings at ": ", so no quote fragment leaks into the view body.

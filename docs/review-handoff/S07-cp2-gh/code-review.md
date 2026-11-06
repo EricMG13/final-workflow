@@ -1,0 +1,39 @@
+SECTION: S07-cp2-gh   PASS: code-review
+COVERAGE: 0 files read line by line by me (the code-review skill's forked reviewer reviewed both files whole) / 2 files skimmed (src/deploy_workflow/owners/cp2g.py: I read lines 1-1760, 1975-2180 and 2690-3340; src/deploy_workflow/owners/cp2h.py: I read lines 1-1660, 1733-2000 and 2700-2811) / 0 files not read
+
+Independence note: the code-review skill ran as a fork with the reviewer constraint stated first. Its output does not mention any adversarial finding. I did not read adversarial.md, any repro file under the review root, or docs/review-handoff/**.
+
+Result summary: the skill reported 10 candidates. The 4 correctness and lineage candidates are behaviour the frozen independent oracle specifies, so I dropped them; the "Checked and sound" section lists them with the evidence. The 2 simplification nits were too minor to report. That leaves 3 low-severity confirmed findings, all efficiency or simplification. No correctness or security defect was confirmed in this section.
+
+### S07-cp2-gh-C01  [low] [CONFIRMED]  efficiency
+- Location: `src/deploy_workflow/owners/cp2g.py:3026` (_validate_step), `:2981` (forward_model), `:1320` (_resolve), `:3043` (_submit_step)
+- Defect: one CP-2G submit runs the full content validation (`content_issues`: Operands.from_cp1, select_cp1, prose.bind and the prose checks) 6 times and the whole forecast and composition (`compute`) twice. The chain is: `_validate_step` -> `validate_forward` (#1) -> `forward_model` -> `validate_forward` (#2) -> `compute` -> `_resolve` -> `content_issues` (#3). `_submit_step` then runs `_validate_step` again as a trusted re-check.
+- Failure scenario: every valid submit, and every probe or verifier replay that calls `_validate_step`, repeats the same deterministic work. The result is correct; only the work is repeated. The trusted re-check after `store.submit_step` is a deliberate guard and should stay. The repeat inside one `_validate_step` is the waste.
+- Evidence: `cd /home/user/final-workflow && PYTHONPATH=src:.:tests .venv/bin/python <section>/cr/c01_cp2g_validation_count.py` printed `{'_validate_step': 2, 'cp2g_upstream': 2, 'validate_forward': 4, '_basis_of': 6, 'content_issues': 6, 'forward_model': 2, 'compute': 2} submit 90 ms`. The positive oracle case was used, seeded through the fast connect fixtures. Separately, `cr/c_timing_cp2g.py` measured `content_issues` at 4.0 ms and `compute` at 10.5 ms.
+- Fix direction: inside `_validate_step`, call `validate_forward` once and then compose through a helper that skips the second `validate_forward`, letting `_resolve` take the already-validated inputs. Keep the outer trusted re-validation in `_submit_step`.
+
+### S07-cp2-gh-C02  [low] [CONFIRMED]  efficiency
+- Location: `src/deploy_workflow/owners/cp2h.py:2723` (_validate_step), `:2494` (rating_triggers), `:2231` (compute), `:1969` (validate), `:2789` (submit)
+- Defect: one CP-2H step validation calls `validate` three times and then calls `register_source`/`_compose` once more. The chain is: `validate_triggers` -> `validate` (#1), `rating_triggers` -> `validate_triggers` (#2), `compute` -> `validate` (#3) plus its own `register_source` + `_compose` (#4). Each `validate` re-parses the agency pages and composes the whole table book. `submit` then repeats the full `_validate_step`, and `_current` calls `select_cp1` once per trigger.
+- Failure scenario: every submit, probe or replay parses the ratings source and composes the book 8 times and calls `select_cp1` 66 times. The output is correct; the work is repeated.
+- Evidence: `cd /home/user/final-workflow && PYTHONPATH=src:.:tests .venv/bin/python <section>/cr/c02_cp2h_validation_count.py` printed `{'_validate_step': 2, 'cp2h_upstream': 2, 'select_cp1': 66, 'validate': 6, 'register_source': 8, 'parse_ratings': 8, '_compose': 8, 'compute': 2} submit 93 ms`. Separately, `cr/c_timing_cp2h.py` measured `validate` at 7.0 ms and `compute` at 11.6 ms.
+- Fix direction: have `_validate_step` call `validate` once, then a compute path that does not validate again; select the CP-1 ratios once per compose. Keep the trusted re-check in `submit`.
+
+### S07-cp2-gh-C03  [low] [CONFIRMED]  simplification
+- Location: `src/deploy_workflow/owners/cp2h.py:151` (SynthesisGap), `:1733-1747` (_RUN_TEXT/_run_text_issues), `:1855` (stale_issues)
+- Defect: cp2h already imports from `deploy_workflow.owners.cp2g`, yet it redefines `SynthesisGap`, `_run_text_issues` and `stale_issues`. Ignoring docstrings, the bodies are identical to cp2g's; cp4c holds a third copy.
+- Failure scenario: a fix to the staleness frame or to the RunText check must be made in each copy. If one copy is missed, the modules drift apart and report different refusal text for the same condition.
+- Evidence: `cd /home/user/final-workflow && PYTHONPATH=src:. .venv/bin/python <section>/cr/c03_duplicates.py` printed `stale_issues cp2g==cp2h: True cp2g==cp4c: True`, `_run_text_issues ... True True` and `SynthesisGap ... True True`. The script compares the function bodies as ASTs with docstrings removed.
+- Fix direction: import these three from cp2g, or move them to a shared owner helper module, and keep one definition.
+
+### Out of scope (one line each, optional)
+- None found.
+
+### Checked and sound (short bullets: what you attacked that held)
+- The skill's top candidate: when EBITDA <= 0, debt is fully repaid or cash interest is 0, the leverage, coverage and FCF-to-debt ratios become "Not calculable", and so do the break first-year results that depend on them (cp2g.py:535-538, first_result). The frozen independent oracle defines the same rule: cases/cp2g-owner/builder/build.py:701-703 (NC_E/NC_I/NC_D) and :884-893 (first_result). Tests pin it too (tests/test_method_cp2g.py G-8 tests). This matches the "missing is never 0" invariant, so I dropped it as intended behaviour.
+- T2H.7 base_first/down_first derive only from `cp2a:T2B.6.<row>.level` (cp2g.py:2111). The oracle's `lineage_rule` in cases/cp2g-owner/expected.json states this exactly, and the oracle's facts[279] carries `['cp2a:T2B.6.b01.level']`. Dropped.
+- A known T2R.6 first-year text derives from all three CP-2G year facts, including unsettled later years (cp2h.py:1431). The oracle builder (cases/cp2h-owner/builder/build.py:1066-1070) and expected.json's d4_edges ("the T2R.6 first-year texts list the cp2g facts of their three rows") specify this. The known-from-unsettled guard in `_Book.lineage` applies only to own facts, as its docstring says. Dropped.
+- CP-2H `submit` has no resubmit path after a crash between a valid step and `store.finish`, unlike cp2g, cp2a and cp4c. cp3d, cp1b, cp1c, cp2e and cp8 follow the same pattern as cp2h. `OwnerWorkflow.open` (owner_workflow.py around lines 1595-1610) treats "a step already validated but unrecorded" as torn, so this fails closed. It never settles wrong output. Dropped as a design difference rather than a defect in this file.
+- Arithmetic held: 38-digit exact context with the Inexact trap, a single rounded division per ratio, the cumulative debt_repayment <= opening debt check, the multiplicative CP-2A shocks (same as cp2a.py:334), outflow sign reversal for the CP-1 interest, taxes, wc and capex inputs, and the CP-1 millions/currency/scale guard.
+- CP-2H CP-2G metric intake checks the 28 fact ids, their order, units and periods against the run basis (Cp2gMetrics.__post_init__). Percent thresholds use an exact exponent shift. Headroom is a single subtraction, then scaleb(2) for percent. The reached test is strict and the not-reached test inclusive, as documented.
+- CP-2H page parse: blocks breach on a wrong width or on later rows, duplicate agency or position or symbol is refused, and a trigger agency without a rated register row is refused. Context register: duplicate agency and off-scale ratings are refused, and refusal text is control-character escaped.

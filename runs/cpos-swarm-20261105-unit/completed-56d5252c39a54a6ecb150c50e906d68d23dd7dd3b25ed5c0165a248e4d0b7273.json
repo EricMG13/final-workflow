@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Uniti Group Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/4cf47f7ceb10c3ca0df21019529014f7e03949a9c22035b687ea60b82595faf6/1.response.md",
+    "CP-1": "requests/CP-1/19577b9c73ef4b80db9541a68b88a324cfd2858ca397e497e44352ca1d079a44/1.response.md",
+    "CP-1A": "requests/CP-1A/0311eeef0d08f7b69450216b1a904d998c925980950803b89b7bcd8fcfac4655/1.response.md",
+    "CP-2": "requests/CP-2/250446bc490b4ef02b90b7628a953582c0e896cdf41a13a452b23fc499f23b3c/2.response.md",
+    "CP-5": "requests/CP-5/f6c6f462c955188d0c9b28ad9fc0698adbdf40d9328133239a77ddf46044983c/2.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "2a936b2fd01363eb6e7a0eb3d0972fe9e4a2d5f418889fa1ca9f4ae8944fba6b",
+  "report_sha256": "9b8afcd55c7bd273f4710676d80e735f617d4452bac5a81436ea13d5c52b92e9"
+}

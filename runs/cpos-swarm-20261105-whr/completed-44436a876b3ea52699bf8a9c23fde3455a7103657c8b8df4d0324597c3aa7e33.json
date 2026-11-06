@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for WHIRLPOOL CORP /DE/ as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/c275e473daf6d73fe3adaba848221ceafd5ae4ecebbdcb090d9feb4833e86511/1.response.md",
+    "CP-1": "requests/CP-1/d68b76fd42ef04d3b86b1d704692d51d665d6ae07463f91555b91f64e112ad51/2.response.md",
+    "CP-1A": "requests/CP-1A/305601bad9c96b91b5f9d559c36bd61be3e5e310306a4ada1abb898e41965e4e/1.response.md",
+    "CP-2": "requests/CP-2/2444f0c0c8a2e5ff807e32ede623046e1caf7432d9966fbef51c07747ad26f56/2.response.md",
+    "CP-5": "requests/CP-5/017992da67021cbd312861ca75b0f758516c8f4f94639bf81b5e5a58ca3ce650/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "97b0f8cebc63f992499d0b853be12fdd3667928ef96b761964d4a0e207c3b34d",
+  "report_sha256": "3a09a8de05820d7a357036e9dbbe8fff1617db1551c82ec7575664029d4730e1"
+}

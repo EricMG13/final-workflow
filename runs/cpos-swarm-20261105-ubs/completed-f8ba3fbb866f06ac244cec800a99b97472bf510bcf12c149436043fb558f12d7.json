@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for UBS Group AG as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/37481cf70d087ae0214dde6a5ffbcf9d1162e8d5b038b3afa559122276cc4e4a/1.response.md",
+    "CP-1": "requests/CP-1/d8732c206825f11db9a834399978c746d8caa40fbe7370647e3711db8599bc1a/1.response.md",
+    "CP-1A": "requests/CP-1A/4748f1e26d83a6de10abff7e354d82fb4988b2979d90075e37f628f603f556d8/1.response.md",
+    "CP-2": "requests/CP-2/f29703667ea0e9c0597c7a2960a3007a28d1a4b065fd48d66668114038f13617/1.response.md",
+    "CP-5": "requests/CP-5/95482e3d2a3e7f7bc64a73ae6b30e1a5e6b28ca53fa3bb8c15e5690b636a8849/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "e5af69a1731e840dd865aacc0faef500c33153cb89e19dd4bc8eba86eacc3f7f",
+  "report_sha256": "b0dab56a580b56f542ff5abdf08488368f309477096084c2737694d2cf486ed7"
+}

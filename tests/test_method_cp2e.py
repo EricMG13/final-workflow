@@ -604,6 +604,49 @@ def test_unbalanced_parentheses_are_not_a_row_value(token: str) -> None:
     assert issues == (f"fx.fx_cash_effect: value_text {token} is not the last value of the row",)
 
 
+@pytest.mark.parametrize(
+    ("key", "page", "line", "short", "want"),
+    [
+        # S06-cp2-ade-A02: the FY 2025 cell of the flow row is dropped, so the last value 2.25 is
+        # the Q4 2025 quarter, not the FY 9.00; header `Period  Q1..Q4 2025  FY 2025` has 5
+        # columns, the row 4 values.
+        (
+            "fcf",
+            "page:3",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00",
+            "Levered free cash flow  2.25  2.25  2.25  2.25",
+            "earnings.fcf: the row has 4 values for the 5 header columns",
+        ),
+        # The balance row: header `Period end  Opening ..  FY 2025-12-31` has 6 columns, and the
+        # row lost its FY cell, so 50.00 is the Q4 balance read as the FY one.
+        (
+            "total_debt",
+            "page:4",
+            "Total debt  45  46.25  47.50  48.75  50.00  50.00",
+            "Total debt  45  46.25  47.50  48.75  50.00",
+            "earnings.total_debt: the row has 5 values for the 6 header columns",
+        ),
+        # One value too many is refused the same way: 6 values under 5 columns.
+        (
+            "fcf",
+            "page:3",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00",
+            "Levered free cash flow  2.25  2.25  2.25  2.25  9.00  9.00",
+            "earnings.fcf: the row has 6 values for the 5 header columns",
+        ),
+    ],
+)
+def test_a02_row_must_fill_every_header_column(
+    key: str, page: str, line: str, short: str, want: str
+) -> None:
+    pages = dict(_pages("positive"))
+    assert line in pages[page]
+    pages[page] = pages[page].replace(line, short)
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["earnings"][key].update(quote=short, value_text=short.split()[-1])
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (want,)
+
+
 def test_source_names_are_required() -> None:
     """No empty default: T2F.8 cannot be composed without the pack's source names."""
     (names,) = [f for f in dataclasses.fields(cp2e.MacroFxInputs) if f.name == "source_names"]

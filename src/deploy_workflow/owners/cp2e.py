@@ -612,6 +612,7 @@ _ROW_LABELS = {
     "fx_cash_effect": "FX effect on cash",
 }
 _SENTENCE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,4})?")  # operand bound: at most 999.9999
+_CELLS = re.compile(r"  +")  # statement cells are separated by two or more spaces
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
 _HEDGE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,2})?")
 _RATE_PHRASE = re.compile(r"\b(floating|fixed)[\s-]+rate\b", re.IGNORECASE)
@@ -766,23 +767,32 @@ class _Check:
         """A statement row: a whole page line with its label, FY column last, value_text last."""
         if not self.on_page(ref, path):
             return None
+        issue = self._row_issue(ref, key)
+        if issue is not None:
+            self.add(f"{path}: {issue}")
+            return None
+        return _row_decimal(ref["value_text"])
+
+    def _row_issue(self, ref: Mapping[str, Any], key: str) -> str | None:
+        """Why the quoted row is not the FY value of the ``key`` statement row, or None."""
         lines = [ln.strip() for ln in self.pages[ref["locator"]].split("\n")]
         quote = ref["quote"]
         if quote.strip() not in lines:
-            self.add(f"{path}: quote is not a whole page line")
-            return None
+            return "quote is not a whole page line"
         if not quote.startswith(_ROW_LABELS[key] + "  "):
-            self.add(f"{path}: the row is not {_ROW_LABELS[key]}")
-            return None
+            return f"the row is not {_ROW_LABELS[key]}"
         header = next((ln for ln in lines if ln.startswith("Period")), "")
         if not self.header.search(header):
-            self.add(f"{path}: the page header does not end in the FY column")
-            return None
+            return "the page header does not end in the FY column"
+        # The last value is the FY value only when the row fills every column of the header: a
+        # row with a blank or dropped FY cell would otherwise give its Q4 value as the FY value.
+        values, columns = len(_CELLS.split(quote.strip())) - 1, len(_CELLS.split(header)) - 1
+        if values != columns:
+            return f"the row has {values} values for the {columns} header columns"
         v = ref["value_text"]
         if not _ROW_NUM.fullmatch(v) or v != quote.split()[-1]:
-            self.add(f"{path}: value_text {v} is not the last value of the row")
-            return None
-        return _row_decimal(v)
+            return f"value_text {v} is not the last value of the row"
+        return None
 
     def exactly_one(self, a: object, b: object, path: str, names: tuple[str, str]) -> bool:
         if bool(a) == bool(b):

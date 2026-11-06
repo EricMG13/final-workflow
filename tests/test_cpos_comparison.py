@@ -5,6 +5,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -470,3 +471,35 @@ def test_cli_comparison_replay_requires_explicit_mode_and_pinned_answer(
     assert Path(capsys.readouterr().out.strip()).is_file()
     (completion,) = state.glob("completed-*.json")
     assert json.loads(completion.read_bytes())["execution"] == "retained-response-replay"
+
+
+def test_comparison_pair_rules_by_hand() -> None:
+    """Review of S01-A03. Expected, by hand: two different deliveries dated the same day or prior
+    earlier pass; the same receipt hash is cp8_same_delivery; a prior dated after the current is
+    cp8_order; a foreign issuer is cp8_issuer before either; a current date other than the
+    requested one is cp8_as_of."""
+    from datetime import date
+    from types import SimpleNamespace as NS
+
+    def view(as_of: date, issuer: str = "tdg") -> Any:
+        return NS(run=NS(issuer_id=issuer, issuer_name="TDG", as_of=as_of))
+
+    def plan(prior: str, current: str) -> Any:
+        return NS(
+            run=NS(issuer_id="tdg", issuer_name="TDG", as_of=date(2024, 9, 30)),
+            prior=NS(sha256=prior),
+            current=NS(sha256=current),
+        )
+
+    day, earlier, later = date(2024, 9, 30), date(2024, 6, 30), date(2025, 3, 31)
+    check_pair = cpos._check_comparison_pair
+    assert check_pair(plan("a", "b"), view(day), view(day)) is None
+    assert check_pair(plan("a", "b"), view(earlier), view(day)) is None
+    with pytest.raises(ValueError, match="cp8_same_delivery"):
+        check_pair(plan("a", "a"), view(day), view(day))
+    with pytest.raises(ValueError, match="cp8_order"):
+        check_pair(plan("a", "b"), view(later), view(day))
+    with pytest.raises(ValueError, match="cp8_issuer"):
+        check_pair(plan("a", "a"), view(day, "other"), view(day))
+    with pytest.raises(ValueError, match="cp8_as_of"):
+        check_pair(plan("a", "b"), view(earlier), view(earlier))

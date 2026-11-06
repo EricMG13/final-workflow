@@ -1968,3 +1968,45 @@ def test_through_cp1_settles_cp0_and_cp1_and_a_rerun_freezes_cp0(tmp_path: Path)
     statuses = {h.module_id: h.status for h in Execution(run_dir2 / "execution").read().heads}
     assert statuses == {"CP-0": "restricted", "CP-1": "blocked"}
     assert seen and "submit_source_readiness" not in seen  # CP-0 sent no request
+
+
+@pytest.mark.parametrize(
+    ("recorded", "refused"),
+    [
+        ({"cap_usd": "5", "mode": "offline"}, None),  # an older or ordinary file: resumable
+        ({"cap_usd": "5", "mode": "live", "through": "CP-1"}, "begun to stop after CP-1"),
+        ({"cap_usd": "5", "mode": "live", "replayed_from_run": "r0"}, "rerun after repair of r0"),
+        (
+            {"cap_usd": "5", "mode": "live", "through": "CP-1", "replayed_from_run": "r0"},
+            "rerun after repair of r0",
+        ),
+    ],
+)
+def test_resume_refusal_reads_both_cap_json_keys(
+    tmp_path: Path, recorded: dict[str, str], refused: str | None
+) -> None:
+    """Review of S01-C01. Expected, by hand: only a file naming `replayed_from_run` or `through`
+    is refused (the rerun's reason first); one with neither, as every older file, passes; an
+    unreadable file is left to `_check_identity`."""
+    (tmp_path / "cap.json").write_text(json.dumps(recorded))
+    if refused is None:
+        rp._refuse_unresumable(tmp_path)
+    else:
+        with pytest.raises(rp.ResumeRefused, match=refused):
+            rp._refuse_unresumable(tmp_path)
+    (tmp_path / "cap.json").write_text("[1")
+    rp._refuse_unresumable(tmp_path)
+
+
+def test_a_planted_run_json_tmp_link_is_replaced_not_followed(tmp_path: Path) -> None:
+    """Review of S01-C04. `run.json.tmp` is a link to a file outside the run. Expected, by hand: the
+    outside file keeps its bytes, `run.json` holds the new bytes, and no temp remains."""
+    outside = tmp_path / "outside"
+    outside.write_bytes(b"precious")
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    (run_dir / "run.json.tmp").symlink_to(outside)
+    rp._replace_run_json(run_dir, b"{}\n")
+    assert outside.read_bytes() == b"precious"
+    assert (run_dir / "run.json").read_bytes() == b"{}\n"
+    assert sorted(p.name for p in run_dir.iterdir()) == ["run.json"]

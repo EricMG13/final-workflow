@@ -1027,3 +1027,77 @@ def test_a_changed_recheck_verdict_cannot_reuse_the_next_attempts_answer(tmp_pat
         )
     assert calls == []
     assert len(list(directory.glob("completed-*.json"))) == 1  # the first run's only
+
+
+def test_put_failures_leave_a_complete_target_or_none_and_no_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review of S01-A02/C02. Expected, by hand: a filesystem without hard links (`os.link` refused)
+    publishes nothing and leaves no temp file; a directory sync that fails after the link leaves the
+    complete target, no temp file, and an identical retry succeeds."""
+    from deploy_workflow import workflow
+
+    target = tmp_path / "a" / "1.response.md"
+    with monkeypatch.context() as patch:
+        patch.setattr(workflow.os, "link", lambda *_: (_ for _ in ()).throw(OSError(1, "no links")))
+        with pytest.raises(OSError, match="no links"):
+            workflow._put(target, b"whole\n")
+    assert list(target.parent.iterdir()) == []
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            workflow, "fsync_directory", lambda *_: (_ for _ in ()).throw(OSError(5, "EIO"))
+        )
+        with pytest.raises(OSError, match="EIO"):
+            workflow._put(target, b"whole\n")
+    assert [p.name for p in target.parent.iterdir()] == [target.name]
+    assert target.read_bytes() == b"whole\n"
+    workflow._put(target, b"whole\n")
+    assert [p.name for p in target.parent.iterdir()] == [target.name]
+
+
+def test_review_revisions_are_kept_once_per_distinct_verdict(tmp_path: Path) -> None:
+    """Review of S01-C05. Verdicts A, B, A, C, B arrive for one attempt. Expected, by hand: the
+    first stays in `1.review.json`; B and C are each kept once as
+    `1.review-<sha256 of its bytes>.json`; returning to A or B writes nothing: three files, the
+    original unchanged."""
+    from deploy_workflow.owners.cpos import _retain_review
+
+    def verdict(issue: str) -> bytes:
+        return json.dumps({"issues": [issue], "response_sha256": "r"}, sort_keys=True).encode()
+
+    base = tmp_path / "1.review.json"
+    for issue in ("A", "B", "A", "C", "B"):
+        _retain_review(base, verdict(issue))
+    names = sorted(p.name for p in tmp_path.iterdir())
+    expected = sorted(
+        ["1.review.json"]
+        + [f"1.review-{hashlib.sha256(verdict(i)).hexdigest()}.json" for i in ("B", "C")]
+    )
+    assert names == expected
+    assert base.read_bytes() == verdict("A")
+
+
+def test_a_fixed_checker_accepting_the_first_attempt_selects_it_without_execution(
+    tmp_path: Path,
+) -> None:
+    """Review of S01-C05, two attempts. A checker falsely rejects CP-1 attempt 1; attempt 2 is
+    accepted. Rerun with a checker accepting attempt 1. Expected, by hand: no executor call (the
+    request for attempt 2 is never reached), CP-1's selected response is `1.response.md`, and the
+    retained verdict for attempt 2 stays untouched."""
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+
+    def buggy(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+        if task.module_id == "CP-1" and task.attempt == 1:
+            return ("false rejection",)
+        return checked(task, response)
+
+    run_handoffs(path, directory, execute=replay, check=buggy)
+    folder = next(directory.glob("requests/CP-1/*"))
+    second = (folder / "2.review.json").read_bytes()
+    calls: list[str] = []
+    run_handoffs(path, directory, execute=lambda t: calls.append(t.module_id) or b"", check=checked)
+    assert calls == []
+    assert (folder / "2.review.json").read_bytes() == second
+    modules = [json.loads(p.read_bytes())["modules"]["CP-1"] for p in directory.glob("completed-*")]
+    assert sorted(m.rsplit("/", 1)[1] for m in modules) == ["1.response.md", "2.response.md"]

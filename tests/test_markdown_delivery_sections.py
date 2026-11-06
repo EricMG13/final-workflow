@@ -168,3 +168,97 @@ def test_two_routes_on_one_table_with_one_label_share_a_register_in_route_order(
     got = deliver(tmp_path, text, routes)["block"]
     assert got.tabs == ()
     assert [r.cells[0].text for r in got.rows] == ["Gamma one.", "Alpha one.", "Alpha two."]
+
+
+# Second-model review adversarial cases. Expected values are written out from the handoff text.
+
+
+def test_two_tables_in_one_section_carry_its_sentences_once(tmp_path):
+    # Both registers sit under one "### Financials": its two paragraphs appear once, in handoff
+    # order, after the route labels; nothing is repeated per tab.
+    findings = (
+        "### Financials\nAmounts in USD millions.\n\n"
+        + TABLE
+        + "\nRatios are historical.\n\n| Item | FY2024 |\n|---|---:|\n| Cover | 2.5x |\n"
+    )
+    routes = [
+        {"heading": "Financials", "kind": "table", "table_header": "Metric", "label": "P"},
+        {"heading": "Financials", "kind": "table", "table_header": "Item", "label": "Q"},
+    ]
+    got = deliver(tmp_path, handoff("Scope.", findings), routes)["block"]
+    assert got.tab_label == "P" and [t.label for t in got.tabs] == ["Q"]
+    assert got.note == "P · Q · Amounts in USD millions. Ratios are historical."
+    assert [[c.text for c in r.cells] for r in got.tabs[0].rows] == [["2.5x"]]
+
+
+def test_tables_from_two_sections_keep_route_order_in_the_note(tmp_path):
+    findings = (
+        "### Financials\nAmounts in USD millions.\n\n"
+        + TABLE
+        + "\n### Cover\nCover uses cash interest.\n\n"
+        + "| Item | FY2024 |\n|---|---:|\n| Cover | 2.5x |\n"
+    )
+    routes = [
+        {"heading": "Cover", "kind": "table", "table_header": "Item", "label": "Q"},
+        {"heading": "Financials", "kind": "table", "table_header": "Metric", "label": "P"},
+    ]
+    got = deliver(tmp_path, handoff("Scope.", findings), routes)["block"]
+    assert got.tab_label == "Q" and [t.label for t in got.tabs] == ["P"]
+    # Each section's sentences are one note element; elements are joined by " · ".
+    assert got.note == "Q · P · Cover uses cash interest. · Amounts in USD millions."
+
+
+def test_subsection_after_the_table_is_its_own_section(tmp_path):
+    # "#### Other" starts a new section: its line is not in the note and stays cited in Evidence.
+    findings = "### Financials\n**USD millions.**\n\n" + TABLE + "\n#### Other\nUnrelated line.\n"
+    out = deliver(tmp_path, handoff("Scope.", findings), [ROUTE])
+    assert out["block"].note == "Financials · USD millions."
+    view = json.loads(out["files"]["view.json"])
+    facts = [f for m in view["modules"] for f in m["facts"]]
+    texts = [f["text"] for f in facts if f["table_id"].startswith("prose-")]
+    assert "Unrelated line." in texts and "USD millions." in texts
+
+
+def test_merged_register_rows_keep_their_own_citations(tmp_path):
+    # Request lines: 3 Alpha one, 5 Beta one, 7 Gamma one, 9 Alpha two, 11 Omega.
+    # Routes Alpha->X, Beta->Y, Gamma->X: X holds Alpha one, Alpha two, Gamma one (route order);
+    # Y holds Beta one. Each cell cites its own paragraph line.
+    request = "Alpha one.\n\nBeta one.\n\nGamma one.\n\nAlpha two.\n\nOmega.\n"
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "X"},
+        {"heading": "Request", "kind": "prose", "prefix": "Beta", "label": "Y"},
+        {"heading": "Request", "kind": "prose", "prefix": "Gamma", "label": "X"},
+    ]
+    out = deliver(tmp_path, handoff(request, "### Financials\n" + TABLE), routes)
+    got = out["block"]
+    assert got.tab_label == "X" and [t.label for t in got.tabs] == ["Y"]
+    assert got.note == "X · Y"
+    report = json.loads(out["files"]["report-view.json"])
+    fact_of = {ref: e["coord"]["fact_id"] for e in report["index"]["facts"] for ref in e["ref_ids"]}
+    view = json.loads(out["files"]["view.json"])
+    line_of = {
+        f["fact_id"]: [c["locator"] for c in f["citations"]]
+        for m in view["modules"]
+        for f in m["facts"]
+    }
+
+    def shown(rows):
+        return [(r.cells[0].text, line_of[fact_of[r.cells[0].ref_id]]) for r in rows]
+
+    assert shown(got.rows) == [
+        ("Alpha one.", ["line 3"]),
+        ("Alpha two.", ["line 9"]),
+        ("Gamma one.", ["line 7"]),
+    ]
+    assert shown(got.tabs[0].rows) == [("Beta one.", ["line 5"])]
+
+
+def test_one_label_on_two_different_tables_still_refuses(tmp_path):
+    # The merge is per table: the same label on registers of two tables is a real clash.
+    findings = "### Financials\nAlpha f.\n\nOther f.\n\n" + TABLE
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "X"},
+        {"heading": "Financials", "kind": "prose", "prefix": "Alpha", "label": "X"},
+    ]
+    with pytest.raises(ValueError, match="Tab labels are distinct"):
+        deliver(tmp_path, handoff("Alpha r.\n\nBeta r.\n", findings), routes)

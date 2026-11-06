@@ -495,7 +495,7 @@ def _registers(
     return slots
 
 
-def markdown_files(  # noqa: C901, PLR0912, PLR0915 - existing function, only its block note changes
+def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C901 40 at base)
     request: DeliveryRequest, base: Path
 ) -> dict[str, bytes]:
     """Select literal source sections into the existing requested pathway design."""

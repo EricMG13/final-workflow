@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "sci-2026-11-05-credit_snapshot-host",
+    "issuer_id": "sci",
+    "issuer_name": "SERVICE CORP INTERNATIONAL",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_sci-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_sci-20251231.htm.jsonl",
+      "sha256": "36f224c032003fbd2390907d9603b5b257c583b876df570b13d8b342fe4f5f00"
+    },
+    "10-Q_2026-03-31_sci-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_sci-20260331.htm.jsonl",
+      "sha256": "e6b5e437aefdd3d93a7df7ee4a72da856eb2c3e8d8864dff282c77ac49311d26"
+    },
+    "10-Q_2026-06-30_sci-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_sci-20260630.htm.jsonl",
+      "sha256": "3f4554fa1a62f231e9dd455be55fe862d78b2b61391019d236799268dd70b592"
+    },
+    "10-Q_2026-09-30_sci-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_sci-20260930.htm.jsonl",
+      "sha256": "236742c90fb88a0fc6e3b830a1a819da8579c8436891d794242d5625f7bae113"
+    },
+    "EX-99.1_2026-04-29_exhibit991q126earningsrele.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-29_exhibit991q126earningsrele.htm.jsonl",
+      "sha256": "dc7d39675688d257986d7838f6da2271b0d5a328325d0081a47485a7f2412e53"
+    },
+    "EX-99.1_2026-07-29_exhibit991q226earningsrele.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-29_exhibit991q226earningsrele.htm.jsonl",
+      "sha256": "8ffbca4fd985e89d67fcf44643913b74684aa9a27e65aeca772948faf99925ff"
+    },
+    "EX-99.1_2026-10-28_exhibit991q326earningsrele.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-28_exhibit991q326earningsrele.htm.jsonl",
+      "sha256": "d5fe76c2497f82e8e53c22501a405cf8fb7df74cae0b9bd5b7f0b933f384c2b3"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/89089-service-corp-international-sci.json",
+      "sha256": "65d65475c254be68b493ea4436b1695cdda5a813079114b87a550c9ce00dd797"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "9260857f54a6370a1211f66c42ae763e9ac0592477671739ffeb62ccd4d120fd"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "2427694f96d8bd111572f77cb043ac10ce7dbb27e0280807700626da33611c28"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "ef4f33e74ad114b1522d6903786ef81fcf511df02fa0fa402e29c76d729571e9"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "e5b74143229dac78c7ed2666ea60f0c0840e3012a2a0c57464eba01d438712a8"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "68f9cd45f96b77ee1688650a6d94933d8f27666d345e245ece9c1216132c0f04"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for SERVICE CORP INTERNATIONAL as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "SERVICE CORP INTERNATIONAL — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

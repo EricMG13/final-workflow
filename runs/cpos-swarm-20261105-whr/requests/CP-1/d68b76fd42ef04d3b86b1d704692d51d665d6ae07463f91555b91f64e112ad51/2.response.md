@@ -1,0 +1,247 @@
+## Request
+
+Issuer: WHIRLPOOL CORP /DE/ (issuer id whr; registrant WHIRLPOOL CORPORATION, ticker WHR). As-of date and evidence cutoff: 2026-11-05. Pathway: credit snapshot. Scope of this module: the financial base for the credit view, being reported statements, the definition review, leverage, interest cover, liquidity, debt maturities and cash flow, for FY2024, FY2025, nine months 2025, nine months 2026 and the twelve months to September 30, 2026 (LTM Q3 2026). Reporting currency USD, in millions as the filings print it; no other currency is used for any statement figure (euro-denominated notes are carried in USD in the filings). Perimeter: Whirlpool Corporation and consolidated subsidiaries; there is no subsidiary issuer or combined filing to separate.
+
+## Sources
+
+Issuer sources relied on (pinned text conversions; sha256 of the pinned files):
+
+| Source (exact name) | sha256 |
+| --- | --- |
+| 10-K_2025-12-31_whr-20251231.htm.jsonl | 27a098d2b931085348926af17c6e4538b36a73e089a481d6d925c0a5bd60adf0 |
+| 10-Q_2026-03-31_whr-20260331.htm.jsonl | 5783ae95bc8319fbfb22c4f191362ef3346933b47250adc51350041a7d65eb25 |
+| 10-Q_2026-06-30_whr-20260630.htm.jsonl | 57ab0abdc8f8e7c0a637cefd99b1b301f38a688a23665ab4b79706c0322aee79 |
+| 10-Q_2026-09-30_whr-20260930.htm.jsonl | fcb812ee3d689deda5b3b52e3e59247b14c895af1012121c618ce6f8160cb6a6 |
+| EX-99.1_2026-05-06_exhibit991pressrelease0331.htm.jsonl | 95b2ef1bae0716bbeb58c9c34ddb215005331537ecf7f29431fb7a2c2c9fd7ca |
+| EX-99.1_2026-08-03_exhibit991pressrelease0630.htm.jsonl | b491ad294927787c02725c1a866e27f9e64402f8ea8aae9c4fd1904e04af4f8b |
+| EX-99.1_2026-10-26_exhibit991pressrelease0930.htm.jsonl | c58aa3164f5692dfdb8e88300126ff35ac0e51e9ac5dd75d63c08d88b2ba7c69 |
+
+Run settings (not issuer evidence): `context` sha256 584c197fbf255cc4fcd3a144aa71822e32a12b1a0036ed5924f197ae8dd98251 (as-of date, cutoff, periods, USD).
+
+Supplied handoff: CP-0 (source readiness), sha256 57c8443c6c648363633bdf1bf18dc588ac6f20998e98976e8abae94edbb6ab9f. This module opened it and carries forward its gaps G1 (interim cash interest and taxes not printed), G2 (instrument-level debt only at 2025-12-31), G5 (India in prior-year comparatives), G6 (Q4 2025 is not a filed three-month statement) and G7 (ABL availability not printed). It also uses its definition-difference caution between reported and ongoing EBIT. Nothing in CP-0 is corrected by this module.
+
+Locators use `file page:N`, the pinned source chunk, not the printed page. Abbreviations: 10-K = FY2025 annual report; 10-Q Q1, Q2, Q3 = the 2026 quarterly reports; Release Q1, Q2, Q3 = the earnings releases of May 6, August 3 and October 26, 2026.
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| Leverage on company ongoing earnings plus depreciation rose to 9.52x total debt for the twelve months to Q3 2026 from 6.11x in FY2025, with debt of 6,852 million. The June refinancing cleared 2026 and 2027 maturities. | Medium | Interim cash interest is not printed, and EBITDA is built by the analyst from company ongoing EBIT plus cash flow depreciation, so ratios depend on that definition. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| Ongoing EBITDA for the latest twelve months is 720 million against 1,067 million in FY2025, while total debt moved little. | Leverage and interest cover weakened because earnings fell, not because debt rose. | Medium |
+| The June 2026 refinancing replaced unsecured bank debt and the 2026 and 2027 euro notes with second lien notes and a secured asset-based facility. | Near-term maturities are cleared, but existing unsecured creditors now rank behind secured debt. | Medium |
+| Nine-month cash from operations was negative 826 million, and year-end net debt guidance relies on a large fourth-quarter inflow. | Deleveraging depends on working capital release rather than earnings. | Medium |
+| Cash was 1,103 million and undrawn committed facilities were 2,193 million at September 30, 2026. | Headline liquidity looks adequate, but usable asset-based availability depends on a borrowing base that is not disclosed. | Medium |
+| Cash paid for interest is printed only for full years. | Cash interest cover for the latest period cannot be read directly from the sources. | High |
+
+### Financial base view
+
+Whirlpool entered the latest quarter with weaker earnings and a much longer, more secured debt stack than a year earlier. On the company's own ongoing EBIT plus cash flow depreciation and amortization, EBITDA for the twelve months to September 30, 2026 is 720 million, down from 1,067 million in FY2025 and 1,220 million in FY2024. Total debt (notes payable, current maturities and long-term debt) was 6,852 million at September 30, 2026 against 6,520 million at December 31, 2025, so total debt over ongoing EBITDA is 9.52x against 6.11x, and net debt over ongoing EBITDA is 7.98x against 5.48x. Using the reported operating profit basis instead, the same ratios are 8.46x and 7.10x for the latest twelve months, and the direction is the same. Reported earnings were also hit in the third quarter by a 124 million impairment of the Whirlpool India equity stake and a 54 million trade customer bankruptcy charge, and flattered in earlier periods by disposal gains. The June 2026 refinancing, funded with 2,000 million of second lien notes and a 2,000 million asset-based facility that was undrawn at quarter end, removed the 2026 and 2027 euro note maturities; the sources do not print a post-refinancing maturity table, so the maturity chart below is derived. Cash from operations was negative 826 million for nine months 2026, and management's own guidance for year-end net debt requires a very large fourth-quarter working capital inflow. These conclusions are about the financial base only; interim cash interest, borrowing base availability and covenant definitions are not supplied, and every ratio here depends on the stated EBITDA definition.
+
+### Chart data: leverage
+
+| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2024 | 5.43 | 4.39 | x | Ongoing EBITDA 1,220 (ongoing EBIT 887 plus D&A 333); total debt 6,626 and cash 1,275 at 2024-12-31. Analyst-built; perimeter then included MDA Europe in Q1 2024 and Whirlpool India. |
+| FY2025 | 6.11 | 5.48 | x | Ongoing EBITDA 1,067 (ongoing EBIT 729 plus D&A 338); total debt 6,520 and cash 669 at 2025-12-31. Includes Whirlpool India to its deconsolidation on December 1, 2025. |
+| LTM Q3 2026 | 9.52 | 7.98 | x | Ongoing EBITDA 720 (ongoing EBIT 338 plus D&A 382); total debt 6,852 and cash 1,103 at 2026-09-30. LTM includes India for October and November 2025 only. Company net debt leverage is defined in the releases but not printed. |
+
+### Chart data: interest cover
+
+| Period | EBITDA / cash interest | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2024 | 3.47 | x | Ongoing EBITDA 1,220 over cash paid for interest 352 (10-K page:77). Analyst-built EBITDA. |
+| FY2025 | 3.05 | x | Ongoing EBITDA 1,067 over cash paid for interest 350 (10-K page:77). Analyst-built EBITDA. |
+| LTM Q3 2026 | Not supplied: cash paid for interest is not printed in the 2026 quarterly reports or releases | x | Interest expense is printed; ongoing EBITDA 720 over interest expense 326 is 2.21x, shown in the metrics table as an expense-based substitute, not cash cover. |
+
+### Chart data: liquidity
+
+| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| Dec 31, 2025 | 669 | 3,432 | US$m | Cash as reported. Undrawn is the 3,500 Amended Long-Term Facility less 250 drawn, plus 182 Brazil facilities (10-K page:104). Letters of credit and covenant limits not supplied. |
+| Mar 31, 2026 | 626 | 3,402 | US$m | Cash as reported. Undrawn is 3,500 less 290 outstanding, plus 192 Brazil (10-Q Q1 page:17). Commitment was cut to 2,250 in May 2026, after this date. |
+| Jun 30, 2026 | 1,027 | 2,193 | US$m | Cash is 1,239 reported less 212 restricted for the July 1, 2026 debt payment (10-Q Q2 page:7). Undrawn is the 2,000 ABL, nothing drawn, plus 193 Brazil (10-Q Q2 page:21). ABL borrowing base not supplied. |
+| Sep 30, 2026 | 1,103 | 2,193 | US$m | Cash as reported. Undrawn is the 2,000 ABL, nothing drawn, plus 193 Brazil (10-Q Q3 page:21). Nominal commitment; usable availability depends on a borrowing base that is not printed. |
+
+### Chart data: debt maturities
+
+| Period | Debt maturing | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| Next 12 months to Sep 2027 | 14 | US$m | Printed: 14 of debt maturing in the next twelve months, mainly an Argentina note (10-Q Q3 pages:53, 55). No other 2027 maturity is identified after the 1.100% euro notes due 2027 were repaid; a Q4 2027 amount is not printed. |
+| 2028 | 585 | US$m | From the 2025-12-31 schedule (10-K page:101); mainly the 0.50% euro notes due 2028. Euro carrying value not remeasured to 2026-09-30. |
+| 2029 | 695 | US$m | From the 2025-12-31 schedule (10-K page:101); net of discounts. |
+| 2030 | 592 | US$m | From the 2025-12-31 schedule (10-K page:101); mainly the 6.125% notes due 2030. |
+| 2031 and later | 5,008 | US$m | Derived: 3,008 thereafter at 2025-12-31 plus 2,000 of Secured Notes issued June 16, 2026 at principal (10-K page:101; 10-Q Q3 page:17). Issue discount and costs not printed. |
+
+### Financials and credit metrics
+
+| Metric (USD millions unless stated) | FY2024 | FY2025 | 9M 2025 | 9M 2026 | LTM Q3 2026 | Source and basis |
+| --- | --- | --- | --- | --- | --- | --- |
+| Net sales | 16,607 | 15,524 | 11,426 | 10,467 | 14,565 | 10-K page:75; 10-Q Q3 page:5. LTM is FY2025 less 9M 2025 plus 9M 2026. |
+| Gross margin | 2,581 | 2,386 | 1,811 | 1,330 | 1,905 | Same pages. LTM computed. |
+| Operating profit | 143 | 838 | 595 | 185 | 428 | Same pages. FY2025 includes a 280 gain on sale and disposal of businesses and 106 impairment. |
+| Total EBIT, company definition (reported) | 63 | 824 | 590 | 34 | 268 | 10-K page:133; 10-Q Q3 page:44. Includes equity method results and interest and sundry. LTM computed. |
+| Ongoing EBIT (company non-GAAP) | 887 | 729 | 594 | 203 | 338 | Release Q3 pages:11-18. Nine-month figures are the sum of the quarterly reconciliations. |
+| Depreciation and amortization | 333 | 338 | 246 | 290 | 382 | 10-K page:77; 10-Q Q3 page:7. LTM computed. |
+| Ongoing EBITDA (ongoing EBIT plus D&A, analyst-built) | 1,220 | 1,067 | 840 | 493 | 720 | Sum of the two rows above. Not a company-printed figure. |
+| EBITDA, operating profit basis (operating profit plus D&A) | 476 | 1,176 | 841 | 475 | 810 | Sum of operating profit and D&A. Not a company-printed figure. |
+| Interest expense | 358 | 341 | 256 | 241 | 326 | 10-K page:75; 10-Q Q3 page:5. LTM computed. |
+| Cash paid for interest | 352 | 350 | Not supplied | Not supplied | Not supplied | 10-K page:77 only; no interim figure printed. |
+| Cash paid for income taxes | 181 | 136 | Not supplied | Not supplied | Not supplied | 10-K page:77 only. |
+| Net earnings (loss) available to Whirlpool | (323) | 318 | 210 | (231) | (123) | 10-K page:75; 10-Q Q3 page:5. LTM computed. |
+| Cash provided by (used in) operating activities | 835 | 470 | (669) | (826) | 313 | 10-K page:77; 10-Q Q3 page:7. LTM computed. |
+| Capital expenditures | 451 | 389 | 239 | 255 | 405 | Same pages. LTM computed. |
+| Operating cash flow less capital expenditures (analyst-defined) | 384 | 81 | (908) | (1,081) | (92) | Company free cash flow in Release Q3 page:1 is (1,081) for 9M 2026 and (907) for 9M 2025; the 1 difference in 9M 2025 is not explained. |
+| Dividends paid | 384 | 300 | 248 | 81 | 133 | 10-K page:77; 10-Q Q3 page:7. LTM computed. Common dividend suspended in Q2 2026 (10-Q Q3 page:57). |
+| Cash and cash equivalents (period end) | 1,275 | 669 | Not supplied | 1,103 | 1,103 | 10-K page:76; 10-Q Q3 page:6. The 2025-09-30 balance sheet is not in the pack. |
+| Total debt (notes payable plus current maturities plus long-term debt) | 6,626 | 6,520 | Not supplied | 6,852 | 6,852 | Same pages: 18 + 1,850 + 4,758; 351 + 586 + 5,583; 14 + 0 + 6,838. |
+| Net debt (total debt less cash) | 5,351 | 5,851 | Not supplied | 5,749 | 5,749 | Company definition of net debt uses these components (Release Q3 page:9). |
+| Whirlpool stockholders' equity (period end) | 2,683 | 2,726 | Not supplied | 3,726 | 3,726 | 10-K page:76; 10-Q Q3 page:6. Includes the mandatory convertible preferred (liquidation preference 575). |
+| Total debt / ongoing EBITDA (x) | 5.43 | 6.11 | Not calculable | Not calculable | 9.52 | Nine-month flows are not annual; balance sheet for 9M 2025 not supplied. |
+| Net debt / ongoing EBITDA (x) | 4.39 | 5.48 | Not calculable | Not calculable | 7.98 | As above. |
+| Total debt / EBITDA, operating profit basis (x) | 13.92 | 5.54 | Not calculable | Not calculable | 8.46 | FY2024 operating profit was depressed by a 381 impairment and a 264 disposal loss. |
+| Net debt / EBITDA, operating profit basis (x) | 11.24 | 4.98 | Not calculable | Not calculable | 7.10 | As above. |
+| Ongoing EBITDA / cash interest (x) | 3.47 | 3.05 | Not supplied | Not supplied | Not supplied | Cash interest not printed for interim periods. |
+| Ongoing EBITDA / interest expense (x) | 3.41 | 3.13 | 3.28 | 2.05 | 2.21 | Expense basis, not cash. |
+
+### Quarterly path
+
+| Item (USD millions) | Q4 2025 | Q1 2026 | Q2 2026 | Q3 2026 | Source and basis |
+| --- | --- | --- | --- | --- | --- |
+| Net sales | 4,098 | 3,273 | 3,517 | 3,677 | Release Q3 pages:11-14. Q4 2025 equals FY2025 less 9M 2025. |
+| Total EBIT, company definition | 234 | 9 | 154 | (128) | Release Q3 pages:11-14. |
+| Ongoing EBIT | 135 | 44 | 62 | 97 | Release Q3 pages:11-14. |
+| Interest expense | 85 | 77 | 63 | 102 | 10-Q Q1 page:5; Q2 page:5; Q3 page:5; Q4 2025 is FY2025 less 9M 2025. |
+| Cash, period end | 669 | 626 | 1,239 | 1,103 | Balance sheets; Q2 includes 212 restricted for the July 1, 2026 debt payment. |
+| Total debt, period end | 6,520 | 6,453 | 7,068 | 6,852 | Notes payable plus current maturities plus long-term debt on each balance sheet. |
+
+### Segment detail
+
+| Segment (USD millions) | Q3 2026 net sales | Q3 2026 EBIT | Q3 2025 net sales | Q3 2025 EBIT | 9M 2026 net sales | 9M 2026 EBIT | 9M 2025 net sales | 9M 2025 EBIT |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| MDA North America | 2,495 | 74 | 2,722 | 134 | 7,141 | 144 | 7,586 | 428 |
+| MDA Latin America | 858 | 18 | 802 | 45 | 2,500 | 90 | 2,345 | 142 |
+| SDA Global | 286 | 53 | 288 | 47 | 710 | 124 | 685 | 119 |
+| Other (corporate, restructuring, impairments, former MDA Asia) | 38 | (273) | 222 | (28) | 116 | (324) | 810 | (98) |
+| Total Whirlpool | 3,677 | (128) | 4,033 | 200 | 10,467 | 34 | 11,426 | 590 |
+
+Source: 10-Q Q3 pages:43-44. Segment EBIT excludes restructuring, impairments and certain other items, which sit in Other. The "Other" column includes the former MDA Asia business, so the 2025 comparatives include Whirlpool India.
+
+### Debt stack and bridge
+
+| Instrument (carrying value, USD millions) | At 2025-12-31 | Status after the June 2026 refinancing | Source |
+| --- | --- | --- | --- |
+| 1.25% Senior Notes due 2026 (euro) | 587 | Repaid on or before July 1, 2026 | 10-K page:100; 10-Q Q3 page:18 |
+| 1.10% Senior Notes due 2027 (euro) | 703 | Repaid on or before July 1, 2026 | 10-K page:100; 10-Q Q3 page:18 |
+| 0.50% Senior Notes due 2028 (euro) | 586 | Outstanding per the schedule; 2026-09-30 amount not printed | 10-K page:100 |
+| 4.75% Senior Notes due 2029 | 697 | Outstanding per the schedule | 10-K page:100 |
+| 6.125% Senior Notes due 2030 | 600 | Outstanding | 10-K page:101 |
+| 2.40% Senior Notes due 2031 | 300 | Outstanding per the schedule | 10-K page:101 |
+| 4.75% Senior Notes due 2032 | 298 | Outstanding per the schedule | 10-K page:101 |
+| 5.50% Senior Notes due 2033 | 300 | Outstanding per the schedule | 10-K page:101 |
+| 6.50% Senior Notes due 2033 | 600 | Outstanding | 10-K page:101 |
+| 5.75% Senior Notes due 2034 | 299 | Outstanding per the schedule | 10-K page:101 |
+| 5.15% Senior Notes due 2043 | 249 | Outstanding per the schedule | 10-K page:101 |
+| 4.50% Senior Notes due 2046 | 497 | Outstanding per the schedule | 10-K page:101 |
+| 4.60% Senior Notes due 2050 | 493 | Outstanding per the schedule | 10-K page:101 |
+| Other, net | (39) | Not updated | 10-K page:101 |
+| Long-term debt including current maturities | 6,169 | Balance sheet at 2026-09-30: long-term debt 6,838 and current maturities nil | 10-K page:101; 10-Q Q3 page:6 |
+| 7.500% Senior Secured Second Lien Notes due 2031 | Not applicable | 1,000 principal issued June 16, 2026 | 10-Q Q3 page:17 |
+| 7.875% Senior Secured Second Lien Notes due 2034 | Not applicable | 1,000 principal issued June 16, 2026 | 10-Q Q3 page:17 |
+| ABL Credit Facility (up to 2,000, borrowing base) | Not applicable | Nothing drawn at 2026-09-30 | 10-Q Q3 pages:20-21 |
+| Brazil committed facilities (about 193) | 182 committed at 2025-12-31 | Nothing drawn at 2026-09-30; tranches mature through 2027 and 2028 | 10-Q Q3 page:21 |
+| Notes payable | 351 | 14 at 2026-09-30 | 10-K page:104; 10-Q Q3 page:22 |
+
+The table prints no guarantor, co-issuer or lien detail for the pre-2026 notes beyond the 10-K statement that notes issued by wholly owned subsidiaries are fully and unconditionally guaranteed by the Company (10-K page:101). The Secured Notes and the ABL are guaranteed by domestic and Canadian subsidiaries that are ABL obligors, with the ABL first-lien and the Secured Notes second-lien on the same collateral pool (10-Q Q3 page:22). The 2026 and 2027 euro notes are described as issued by the Company's wholly owned subsidiary (10-Q Q3 page:18).
+
+### Source context
+
+All seven issuer sources describe one registrant on one consolidated perimeter, in USD millions, on a US GAAP basis (10-Q Q3 page:8). The 10-K is audited (Ernst & Young LLP opinion dated February 11, 2026, 10-K page:155); the 10-Qs are unaudited. FY2024 and FY2025 statements come from the 10-K; the 2026 interim statements from the three 10-Qs; ongoing (non-GAAP) EBIT by quarter from the Release Q3 reconciliations, which are management measures and sit below the filings in authority. Comparatives were reclassified by the issuer: for example "Prepaid and other current assets" of 654 at 2025-12-31 in the 10-K (page:76) is shown in the 10-Q Q3 as 535 plus 119 of "Other receivables" (page:6). No restatement of a reported total was found in the comparisons made.
+
+### Definition review
+
+- Total debt is notes payable, current maturities of long-term debt and long-term debt, which is how the releases define net debt before deducting cash (Release Q3 page:9). It excludes lease liabilities (noncurrent 863 at 2026-09-30, 10-Q Q3 page:6), pensions and retiree medical (83 and 91 on the same page), the 575 mandatory convertible preferred, supply chain finance of 650 recorded in accounts payable (10-Q Q3 page:12) and 157 of transferred receivables still serviced by the Company (10-Q Q3 page:23).
+- EBITDA is not a printed figure. The releases define ongoing EBITDA and net debt leverage but print no value (Release Q3 page:9), and searches of all sources found no printed ratio. This module builds ongoing EBITDA as company ongoing EBIT plus cash flow D&A. The D&A may include accelerated depreciation that the ongoing measure already adds back inside restructuring (the Supsa plan includes accelerated depreciation, 10-Q Q3 page:41), so the figure could modestly overstate ongoing EBITDA. The amount is not printed.
+- Total EBIT in the 10-K and 10-Q segment notes is the company definition: operating profit less interest and sundry (income) expense plus equity method results (10-K page:133; 10-Q Q3 page:44). It is not an operating measure and was (128) in Q3 2026 after the 124 India impairment.
+- Ongoing EBIT excludes restructuring (35 in Q3 2026), the equity method impairment (124), M&A transaction items (13) and the trade customer bankruptcy charge (54) (Release Q3 page:11). It does not exclude the 2026 sale-leaseback gains booked in cost of products sold (about 21 in Q2 and 28 in Q3 per 10-Q Q3 pages:11-12) or the DIFAL and labor tax gains of about 35, 8 and 27 (10-Q Q3 pages:25-26); whether these sit inside ongoing EBIT is not stated.
+- The covenant definitions that matter to lenders are not supplied (CP-0 gap G3). Management's ratios and the ABL fixed charge coverage test will not equal anything computed here.
+
+### Narrative review by dimension
+
+- Leverage. Total debt rose by 332 from December 31, 2025 to September 30, 2026 (6,520 to 6,852) while ongoing EBITDA fell, so the ratio worsened on both terms. Net debt of 5,749 compares with the company's year-end expectation of "Net debt below $4.5 billion at year end" (Release Q3 page:2); closing that distance in one quarter is about 1,249, a derived figure that rests entirely on management guidance.
+- Coverage. Ongoing EBITDA over interest expense fell from 3.13x in FY2025 to 2.21x over the latest twelve months. The Q3 2026 interest expense of 102 is the highest quarter in the series shown and comes after the June issue of the 7.500% and 7.875% secured notes and the repayment of the euro notes and bank debt; the sources do not print the run-rate effect or attribute the increase. The 10-K facility required interest coverage of at least 3.0 (10-K page:104), and a May 2026 amendment excluded the March 31, 2026 quarter from that test (10-Q Q1 page:17). The new ABL has a springing fixed charge coverage ratio of not less than 1.00 to 1.00, tested only if Availability falls below the greater of 10% of the Line Cap and 135 (10-Q Q3 pages:20-21); the level and headroom cannot be computed from the sources.
+- Cash flow quality. Cash used in operations was 826 for nine months 2026 against 669 used in nine months 2025, with accounts payable (306), accrued advertising and promotions (318) and other (168) among the larger movements (10-Q Q3 page:7). Management guides full-year cash from operations of about 700 and free cash flow of about 300 (Release Q3 page:2), which implies a fourth-quarter operating inflow of about 1,526 (700 less the nine-month outflow of 826 as a negative); this is derived from guidance, not reported.
+- Liquidity. Cash of 1,103 and 2,193 of undrawn committed facilities total 3,296, down from 4,101 at December 31, 2025 (669 plus 3,432). The nominal undrawn amount overstates usable liquidity because the ABL is limited by a borrowing base and by the springing covenant, and because letters of credit that may use the ABL are not printed. The 14 of debt due within twelve months is small against cash.
+- Data quality. Figures are from filed statements and notes except ongoing EBIT, which is a management reconciliation. The 9M 2025 free cash flow difference (908 computed against 907 printed) and quarterly rounding (Q1 to Q3 2026 EBIT sums to 35 against 34 printed for nine months) are rounding-sized.
+- Definition risks. See Definition review. The most material are the EBITDA construction, the exclusion of leases, supply chain finance and the preferred from debt, and the India perimeter.
+- Key gaps. See Gaps.
+
+Off-balance-sheet and contingent claims noted for the credit view, none included in total debt: supply chain finance of 650 (772 at 2025-12-31), synthetic lease residual value guarantees of up to about 96 (504 at 2025-12-31) with letters of credit of 147, guarantees of indebtedness and lines of credit for subsidiaries of about 1.2 billion (3.3 billion at 2025-12-31), bank guarantees, letters of credit and surety bonds of about 578, and Brazil tax assessments of about 545 (BEFIEX), 88 (PIS/COFINS), 61 (IPI Amnesty) and 112 unreserved (DIFAL), where the BEFIEX and PIS/COFINS amounts are stated as not accrued, DIFAL is accrued in some states and unreserved in others, and the IPI Amnesty accrual is not stated (10-Q Q3 pages:10, 12, 24-25, 28, 58). These amounts are as printed and are not added together.
+
+### Downstream readiness
+
+| Consumer | Status | Reason |
+| --- | --- | --- |
+| Business and transaction (CP-1A) | READY_WITH_LIMITATIONS | The reported statements, segment tables and debt activity above suffice for the business and transaction narrative; executed deal documents and a presentation are not supplied. |
+| Credit view (CP-2) | READY_WITH_LIMITATIONS | Leverage, coverage, liquidity and maturities are built, with the EBITDA definition, missing cash interest and undisclosed ABL availability carried as limits. |
+| Evidence trace (CP-5) | READY_WITH_LIMITATIONS | Every figure has a page locator; derived rows are labelled with their inputs in the calculations. |
+
+### Quality review
+
+| Claim | Lineage | Basis |
+| --- | --- | --- |
+| Statement figures (net sales, operating profit, debt lines, cash, cash flow) | Directly Sourced | Printed in the cited statements. |
+| Ongoing EBIT by period | Directly Sourced | Printed in the management reconciliations; a non-GAAP measure. |
+| LTM figures, ratios, free cash flow, maturity chart rows for 2031 and later | Calculated | Shown with inputs in the calculations. |
+| Usable liquidity and the post-refinancing maturity profile | Analyst Inference | The sources print commitments and amounts drawn but no borrowing base or post-refinancing schedule. |
+| Fourth-quarter inflow implied by guidance | Assumption-Based | Depends on management guidance being met. |
+
+No open critical finding. Material findings: ABL availability not printed; interim cash interest not printed; EBITDA not company-printed.
+
+## Calculations
+
+All figures are USD millions from the cited pages. LTM Q3 2026 means FY2025 less nine months 2025 plus nine months 2026.
+
+1. Net sales LTM: 15,524 - 11,426 + 10,467 = 14,565.
+2. Gross margin LTM: 2,386 - 1,811 + 1,330 = 1,905.
+3. Operating profit LTM: 838 - 595 + 185 = 428. Nine months 2025 and 2026 come from 10-Q Q3 page:5.
+4. Total EBIT LTM: 824 - 590 + 34 = 268. The quarterly sum 234 + 9 + 154 - 128 = 269; the difference of 1 is rounding in the printed quarters.
+5. Ongoing EBIT: nine months 2025 = 214 + 200 + 180 = 594 (Release Q3 pages:15-16); nine months 2026 = 44 + 62 + 97 = 203; FY2025 = 214 + 200 + 180 + 135 = 729, equal to the printed 729 (page:17). LTM = 135 + 44 + 62 + 97 = 338, also 729 - 594 + 203 = 338.
+6. D&A LTM: 338 - 246 + 290 = 382.
+7. Ongoing EBITDA: FY2024 887 + 333 = 1,220; FY2025 729 + 338 = 1,067; nine months 2025 594 + 246 = 840; nine months 2026 203 + 290 = 493; LTM 338 + 382 = 720 (also 1,067 - 840 + 493 = 720).
+8. Operating profit basis EBITDA: FY2024 143 + 333 = 476; FY2025 838 + 338 = 1,176; nine months 2025 595 + 246 = 841; nine months 2026 185 + 290 = 475; LTM 428 + 382 = 810.
+9. Interest expense LTM: 341 - 256 + 241 = 326.
+10. Total debt: 2024-12-31 18 + 1,850 + 4,758 = 6,626; 2025-12-31 351 + 586 + 5,583 = 6,520; 2026-03-31 312 + 577 + 5,564 = 6,453; 2026-06-30 16 + 212 + 6,840 = 7,068; 2026-09-30 14 + 0 + 6,838 = 6,852.
+11. Net debt: 6,626 - 1,275 = 5,351; 6,520 - 669 = 5,851; 6,453 - 626 = 5,827; 7,068 - 1,239 = 5,829; 6,852 - 1,103 = 5,749.
+12. Leverage on ongoing EBITDA: FY2024 6,626 / 1,220 = 5.43x and 5,351 / 1,220 = 4.39x; FY2025 6,520 / 1,067 = 6.11x and 5,851 / 1,067 = 5.48x; LTM 6,852 / 720 = 9.52x and 5,749 / 720 = 7.98x.
+13. Leverage on operating profit basis: FY2024 6,626 / 476 = 13.92x and 5,351 / 476 = 11.24x; FY2025 6,520 / 1,176 = 5.54x and 5,851 / 1,176 = 4.98x; LTM 6,852 / 810 = 8.46x and 5,749 / 810 = 7.10x.
+14. Cover on cash interest: FY2024 1,220 / 352 = 3.47x; FY2025 1,067 / 350 = 3.05x. Cover on interest expense: FY2024 1,220 / 358 = 3.41x; FY2025 1,067 / 341 = 3.13x; nine months 2025 840 / 256 = 3.28x; nine months 2026 493 / 241 = 2.05x; LTM 720 / 326 = 2.21x.
+15. Cash flow: LTM cash from operations 470 + 669 - 826 = 313; LTM capital expenditures 389 - 239 + 255 = 405; LTM operating cash flow less capital expenditures 313 - 405 = (92). Nine months 2025: (669) - 239 = (908); nine months 2026: (826) - 255 = (1,081). Dividends LTM 300 - 248 + 81 = 133.
+16. Net earnings available to Whirlpool LTM: 318 - 210 - 231 = (123).
+17. Liquidity: 2025-12-31 undrawn 3,500 - 250 + 182 = 3,432; 2026-03-31 3,500 - 290 + 192 = 3,402; 2026-06-30 and 2026-09-30 2,000 - 0 + 193 = 2,193. Cash and undrawn at 2026-09-30: 1,103 + 2,193 = 3,296; at 2025-12-31: 669 + 3,432 = 4,101. Unrestricted cash at 2026-06-30: 1,239 - 212 = 1,027.
+18. Maturity chart: 2031 and later = 3,008 + 1,000 + 1,000 = 5,008. Cross-check to the balance sheet: 14 + 585 + 695 + 592 + 5,008 = 6,894 against total debt of 6,852, a difference of 42 that the sources do not explain (issue discount and costs on the new notes, euro remeasurement and other items are not printed). Debt bridge: 6,169 - 587 - 703 + 2,000 = 6,879 against 6,838 long-term debt including current maturities at 2026-09-30, a difference of 41, treated the same way.
+19. Change in debt and guidance gap: 6,852 - 6,520 = 332 increase in total debt; 5,749 - 4,500 = 1,249 net debt reduction implied by the guidance of net debt below 4,500 (derived, ceiling not target); implied fourth-quarter operating inflow 700 - (-826) = 1,526.
+
+## Gaps
+
+| Ref | Gap | Effect and handling |
+| --- | --- | --- |
+| G1 | Cash paid for interest and taxes are printed only for full years (10-K page:77); none for the 2026 interim periods. | Interest cover in the chart is Not supplied for LTM Q3 2026; the expense-based cover is shown instead and labelled. |
+| G2 | No instrument-level debt table after the June 2026 refinancing; the amounts of the 2028 to 2050 notes at 2026-09-30 and the euro remeasurement are not printed. | The debt stack and maturity chart are rebuilt from the 2025-12-31 table plus the Note 5 text; a 41 to 42 unexplained difference to the balance sheet remains. |
+| G3 | ABL borrowing base, Availability, Line Cap and letters of credit drawn on the ABL are not printed. | Undrawn committed facilities are nominal commitments less amounts drawn; usable liquidity is not calculable. |
+| G4 | EBITDA, net debt leverage and company interest cover are defined but not printed. | EBITDA is analyst-built on two stated bases; neither equals a covenant definition. |
+| G5 | The 2025-09-30 balance sheet is not in the pack. | Nine months 2025 balance sheet items and nine-month leverage are Not supplied or Not calculable. |
+| G6 | Prior-year comparatives include Whirlpool India (ongoing EBIT of about 41 and sales of about 0.8 billion in FY2025, with ongoing EBIT of about 688 and sales of about 14.7 billion like-for-like, Release Q3 page:24). The LTM includes India only for October and November 2025. | Year-on-year comparisons are not like-for-like; no adjusted EBITDA or leverage is computed. |
+| G7 | Executed financing documents, covenant definitions, ratings reports and market data are not supplied. | No covenant headroom, recovery or market-based metric is computed. |
+| G8 | Quarterly D&A is not a consistent series: the segment tables and the cash flow statements differ by a small amount (Q2 2026 segment D&A 84, 10-Q Q2 page:41, against 86 implied by the cash flow statements). | Only annual, nine-month and LTM D&A are used, all from cash flow statements. |
+| G9 | Whether disposal and tax gains booked in cost of products sold in 2026 are inside company ongoing EBIT is not stated. | Ongoing EBITDA may be overstated by an amount the sources do not print. |
+
+Subsequent events: nothing is reported after September 30, 2026 in the 10-Q Q3 beyond signing on October 27, 2026 (10-Q Q3 page:68, "ITEM 5. OTHER INFORMATION None."). The October 26, 2026 release adds guidance, Q4 price increases and the net debt expectation; all are management statements dated before the cutoff.
+
+## Next module
+
+The business and transaction module should use the segment table, the debt stack and bridge, and the 2026 events (equity issuance in February, the June refinancing, the Beko Europe stake sale and Russia agreement termination, sale-leasebacks, the Supsa plant closure and the Casas Bahia charge), carrying gaps G2, G3 and G6. The credit view should use the leverage, cover and liquidity rows with the two EBITDA bases, treat the maturity chart as derived, and keep the nominal undrawn amount separate from usable ABL availability. The evidence trace should open the 10-K pages 75-77, 100-101 and 104, the 10-Q Q3 pages 5-7, 17-22 and 43-44, and the Release Q3 pages 11-18 before relying on any row.

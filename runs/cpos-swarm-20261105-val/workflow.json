@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "val-2026-11-05-credit_snapshot-host",
+    "issuer_id": "val",
+    "issuer_name": "Valaris Ltd",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_val-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_val-20251231.htm.jsonl",
+      "sha256": "b0f40796936a513fe6362c5f87d6a2a2819cd2f6e423112bfcf4a7c94647ac50"
+    },
+    "10-Q_2026-03-31_val-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_val-20260331.htm.jsonl",
+      "sha256": "856b19f20ceb9a456e4cf71dc5d1f96d12072575504148e1684cf5301164037f"
+    },
+    "10-Q_2026-06-30_val-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_val-20260630.htm.jsonl",
+      "sha256": "d045ec4aa0f0c5450f1ffc05520139072532c8f88ec1804bd561ac63d9d380b7"
+    },
+    "10-Q_2026-09-30_val-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_val-20260930.htm.jsonl",
+      "sha256": "73a1a96ecd1c9340e41638f2528ea86ae030d4c896022c1e422144610c8461ec"
+    },
+    "EX-99.1_2026-05-04_a03312026ex991pressrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-04_a03312026ex991pressrelease.htm.jsonl",
+      "sha256": "fb13914842f3e3a58a0b5ccdbd3cb04d0eb99161ae6d4b18bdfd3afa295e84b5"
+    },
+    "EX-99.1_2026-08-05_a06302026ex991pressrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-05_a06302026ex991pressrelease.htm.jsonl",
+      "sha256": "21077052c215c76afaa6a29e3ea89e20e01ee6140be558608fa94290eaa87b1f"
+    },
+    "EX-99.1_2026-11-02_a09302026ex991pressrelease.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-02_a09302026ex991pressrelease.htm.jsonl",
+      "sha256": "649e9df09c58fc28e42170873dd9e204e4698e7b6a16ba8868ab909251dcc271"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/314808-valaris-ltd-val-val-wt.json",
+      "sha256": "630c8480b8c6896f51051152fc8ca75c81e04a78fc5ea8aebca9a62a14a6fd8f"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "b860b470b3a4b6175daa397f059cb7525a3e2f9e8849aeb43530eaffed57ba07"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "656d9d65ff93fc1d2c0493ed0f4b73408bee7e36082e7be0e7c2e9ba4551cf7c"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "6b23f5752947dfc3d042847830c9e094f12a556232f9300bb2035d51ac022a87"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "e76ed19e3c36455e26fbe3710ad2c95eae46f88aac026da5f4bc7c496251ff1f"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "999497f7072bd1e176ec24439259f096ab0babfcddd595354d67333bd799c7c3"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Valaris Ltd as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Valaris Ltd — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

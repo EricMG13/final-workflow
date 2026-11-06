@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for AdaptHealth Corp. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/af0d493864ce91e20d8c28aaeb6fc9aa76a5bcde52a83bd02dd8fff87500f7d4/1.response.md",
+    "CP-1": "requests/CP-1/6750aee7ae83cf6c23039b24b0bfeb798ff08dfc142dd3f9b4c605052d214e36/2.response.md",
+    "CP-1A": "requests/CP-1A/161862f6c9d5e0556707ce457e20d6c707492e64483851a4c0fca8046485e294/1.response.md",
+    "CP-2": "requests/CP-2/7fbc553bc022b29a5f1055fcebec5f1631de2416c7996178c02260d791c97992/1.response.md",
+    "CP-5": "requests/CP-5/a1165a70b7c2d842c1952662b9ed734ae53f9724ddc6991781de03ae099f1f5f/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "c7fdca5dd87009ca7767cf9264dc9e5f0e8ee45b0693ec9919066ed7ef253d04",
+  "report_sha256": "4e7e1675342f57f6e19c74d542823cebaeeee3202d499d6d21d1371f69d6b039"
+}

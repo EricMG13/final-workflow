@@ -1,0 +1,8 @@
+{
+  "issues": [
+    "Reader summary finding has 31 words; the limit is 30",
+    "Reader summary number 75.0 does not appear in the handoff",
+    "Reader summary number 2030 does not appear in the handoff"
+  ],
+  "response_sha256": "ffb19508b2502ca73a068f5661e7d946d57617743c2bea347c4091acb50f09c6"
+}

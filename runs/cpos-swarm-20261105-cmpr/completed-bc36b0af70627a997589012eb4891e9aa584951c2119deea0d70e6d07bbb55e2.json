@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CIMPRESS plc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/e6356e7822bcfc44e2bd505ce1cef48c1044dfd120cec5b5d4761abf5a97b016/1.response.md",
+    "CP-1": "requests/CP-1/ec28b52c2a49bf1cc896fdbf04219194dd3b7caf6aff70fae66d3f4eda2a2d16/1.response.md",
+    "CP-1A": "requests/CP-1A/0c637e20646cac302ed8ff2f9fba87999ffa21eaaa1aca07d1f146362dc2b300/1.response.md",
+    "CP-2": "requests/CP-2/2121517fbb70be765b3fe8b43b4a3421378ac8efa42c799f28731e781e64d347/1.response.md",
+    "CP-5": "requests/CP-5/6866386160c1cecb14a4aa9cedda6db1ecb5825d6f7fe896d3f5304d3c4c1b19/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "1a4a53a6d889267f6db78374a6f48803f96ac260a38a6204146f9d088d1100a0",
+  "report_sha256": "578784fec6a7169dad3b2f8b8ed95b9e3299f257c6d990166a4fd5cfae037dfc"
+}

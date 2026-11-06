@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for DXP ENTERPRISES INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/e003ccfa2ed71669699fc8e941ea8eec794ca1dcf9177a69eb7cf1b1c88e8a48/1.response.md",
+    "CP-1": "requests/CP-1/38c770792041a94e6a78b5e9c9287701547d7dc94eb94559848ee78159eca6f3/1.response.md",
+    "CP-1A": "requests/CP-1A/1044a668f9b3f9ed4f8f2d74b1cab8442e87d491698fc170c6f5e9ad2bf895c8/1.response.md",
+    "CP-2": "requests/CP-2/dad88da880380534c1591d072f3e8c4379eb9d88ecd3b123d5830ae4b9dbc149/1.response.md",
+    "CP-5": "requests/CP-5/0dea046044ab477d71f39920f24f2d0756dbf7b9d1da7bd5ad3d712b14bdd32a/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "8293c71e89127b0daad572f840c34f5f070a8f334ac4cce689cc0127502306d9",
+  "report_sha256": "2996d5b49ec60dc0bc896130dd64c37aec90a712dbb2e25cb94f16adc96e937a"
+}

@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "hbm-2026-11-05-credit_snapshot-host",
+    "issuer_id": "hbm",
+    "issuer_name": "Hudbay Minerals Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "40-F_2025-12-31_form40f.htm.jsonl": {
+      "path": "source-text/40-F_2025-12-31_form40f.htm.jsonl",
+      "sha256": "2e155789735b2bff45a2bcbe054290dc180366fb4697dc24f2f2d4f1c7050c41"
+    },
+    "6-K-EX-99.1_2025-09-30_exhibit99-1.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2025-09-30_exhibit99-1.htm.jsonl",
+      "sha256": "55a93575304a5e2b953260f4e274c5a39ae30021f2c92b99af4427f537390e4f"
+    },
+    "6-K-EX-99.1_2026-03-31_exhibit99-1.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-03-31_exhibit99-1.htm.jsonl",
+      "sha256": "532cee6ac6a8650d6600327aa510e9427055b8d19ea466fcd1e56834f9e80c49"
+    },
+    "6-K-EX-99.1_2026-06-30_exhibit99-1.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.1_2026-06-30_exhibit99-1.htm.jsonl",
+      "sha256": "12a37c8778b0cbc30486cf54048199e1b52e4f3eeea4aa98f015138ba6c8b8ca"
+    },
+    "6-K-EX-99.3_2025-12-31_exhibit99-3.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.3_2025-12-31_exhibit99-3.htm.jsonl",
+      "sha256": "99f49739a1f92152e3b1a86a18c1ee2162a4da0c2cc8d427da3a3335818d9569"
+    },
+    "6-K-EX-99.3_2026-03-31_exhibit99-3.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.3_2026-03-31_exhibit99-3.htm.jsonl",
+      "sha256": "ada0c26b16ac32d6f2b222633c4110e11a601b22fd66b81f76af348b97d3b4a8"
+    },
+    "6-K-EX-99.3_2026-06-30_exhibit99-3.htm.jsonl": {
+      "path": "source-text/6-K-EX-99.3_2026-06-30_exhibit99-3.htm.jsonl",
+      "sha256": "5519d54c6ee343772d1472890091915c574ee3b20549bcd2dd8544703027a844"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1322422-hudbay-minerals-inc-hbm.json",
+      "sha256": "021d8bac1e30ca507d1d237248f47111a88bf0caf21c22980b85e1e72c6ea47c"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "189754c33c9c4be1164dec81f25548389eba92c2f599c8b3004dc6ee9fbdd753"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "5e52067323fd1f96b6c8042c70ca7d739b6479aeb90ea095d62e12432d29f9fb"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "75687c1763134369790fa9c7ad6391a7d5b21db16529d490e0c4437f47ef4871"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "fa3f56d7b0b5a683ef3c7da47e88e78bdf10c02197bf808f5d20b527eb4a77db"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "99d53f0f2c0690b6ac951f9f756068b3c598d6b0114837afc9b13987738a6caf"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Hudbay Minerals Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Hudbay Minerals Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

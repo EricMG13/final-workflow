@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Skeena Resources Ltd as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "23917a29a2f37939f380db919ecc804a68465820c252ef088859ee05682dfc5a",
+    "CP-1.md": "81f6fbb67ffc3fdf01f441f276479ccfd8ce0be4414eded3bba5ffb0e9160c98",
+    "CP-1A.md": "7c45285b40762715505ab8a872cc2d6782315fe07d681b77c6ec0ad4575f7d38",
+    "CP-2.md": "bba670be5b127590436f54de4369f673e88abef2f4f33942bfef1880e37daca4",
+    "CP-5.md": "1a4886c628dcb1e36356cb84522059cf0a02be3b56c8cacfa50f711025b30fd5",
+    "view.json": "f3f4d3276fd50907d9101485fe9104e5ea21d6382167b5acfa28603fb41160e4",
+    "report-view.json": "f00b7f4aa6854c1b1c1465971f70245fe0f52fca21372745f55faa2f42f93bbf",
+    "report.html": "edf0a805051dbb676f972c3142e9e9ce8dba2a2dc0ed93da2c7f8b7a6c32567d"
+  }
+}

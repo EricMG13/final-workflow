@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for TRANSALTA CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/ef91e30d8801aae99fdd55706a43a6c08b803975e8bd1c6789f29f6afe5de784/1.response.md",
+    "CP-1": "requests/CP-1/bc43a93e3bcaa9f7cd5ba594da538c48a89530bf811da53f9b30dbbe7c026b07/1.response.md",
+    "CP-1A": "requests/CP-1A/6756172cbf36b7212d5807333caffe209fc2e90e808ab8a5506978e0dec00187/1.response.md",
+    "CP-2": "requests/CP-2/08d7160f0155359cfce77e98bf9f6e07e626a5a0c598258bcf33f279bab80959/1.response.md",
+    "CP-5": "requests/CP-5/59d965efba7597a15e93e47dd9776ff35eb275864016f73282c9003fac2d3207/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "c8b722d4451f16aa31d9d6886c2b99bf6577af324002f044c54f97873ca0fcc7",
+  "report_sha256": "a987f38580594ea1c225763c93c58fa9ed0e95fdbeffc50521ccb48ffad0c13c"
+}

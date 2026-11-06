@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for WHIRLPOOL CORP /DE/ as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "57c8443c6c648363633bdf1bf18dc588ac6f20998e98976e8abae94edbb6ab9f",
+    "CP-1.md": "7fe5db14c86f462c1616290a0d889a11d8753a40945d90327ecf223fcaa814d6",
+    "CP-1A.md": "742365d2be576f9d9c7e15906a9181a669e85729010195f850b2b4d4bacef63c",
+    "CP-2.md": "54f7d6097db13a1bbb14764512d75101ae7c15de422a85d8c1e938b1da8180bf",
+    "CP-5.md": "db31485702b3bb98d89fe691a1e9941db529daaeffd936f74ba838c628add31d",
+    "view.json": "a671b31c4ce7504a44adf1fb54791869218b8c72f4122b18e43a158ff420957f",
+    "report-view.json": "65f5100b687de2d78e2e5889a1b6f34cdd87ee9a4f4cc13174b638b11cc6b38b",
+    "report.html": "3a09a8de05820d7a357036e9dbbe8fff1617db1551c82ec7575664029d4730e1"
+  }
+}

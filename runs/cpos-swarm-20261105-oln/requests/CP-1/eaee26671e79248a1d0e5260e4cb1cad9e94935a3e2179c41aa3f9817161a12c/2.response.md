@@ -1,0 +1,205 @@
+## Request
+
+Financial base and credit metrics for OLIN Corp (Olin Corporation and consolidated subsidiaries, NYSE: OLN), as of 2026-11-05, pathway credit_snapshot, current period Q3 2026 (quarter ended September 30, 2026) against FY2025, reporting currency USD millions unless stated. The scope is reported statements, debt and capital structure, liquidity, covenants as printed, claims outside debt, the latest quarter and subsequent events to the 2026-11-05 cutoff, and the four chart tables the report needs.
+
+## Sources
+
+### Issuer sources relied on
+
+| Source name | Use in this module | sha256 |
+| --- | --- | --- |
+| 10-K_2025-12-31_oln-20251231.htm.jsonl | FY2025 statements, debt note, maturities, pension, commitments, segments | 4c4aa24234dd70c75f25e45010299b0359519fd53db6b33485bc189c79880655 |
+| 10-Q_2026-03-31_oln-20260331.htm.jsonl | Q1 2026 balance sheet, revolver and receivables availability, cash interest, ratings actions | b7b2893c43ac8c80dd177251279128741771bfa43d75cbf90bad3645179170d6 |
+| 10-Q_2026-06-30_oln-20260630.htm.jsonl | Q2 2026 balance sheet, six month cash flows, revolver and receivables availability | 31cc1696caa1e392e8267ebed3744e51e1777dcbf99f80668497471e88c3bcb0 |
+| 10-Q_2026-09-30_oln-20260930.htm.jsonl | Controlling source: Q3 2026 and nine month statements, debt note, liquidity, merger, legal | fcb130292ef752affbb45743362d92ca38d4b7b812532fc678ec7413956a3cd3 |
+| EX-99.1_2026-05-07_exhibit991q12026earningspr.htm.jsonl | Q1 2026 adjusted EBITDA, trailing twelve month figure (management claim) | 9f1321ffd9728e7b42deb60dc916ea8598957e5a719c0c9054fc2f70430134aa |
+| EX-99.1_2026-07-30_exhibit991q22026earningspr.htm.jsonl | Q2 2026 adjusted EBITDA, trailing twelve month figure (management claim) | 08a70fcc145c266c21d73e09e50eda1490a6994f07dbbc111206ffd51445010c |
+| EX-99.1_2026-10-29_exhibit991q32026earningspr.htm.jsonl | Q3 2026 adjusted EBITDA reconciliation, net debt table, guidance (management claim) | 27ebe9b3524b1cfc010f76a20b291e6a4f5bd41b4c9d2abf5a2ffd63c041424f |
+
+The settings source `context` (sha256 09d8a3ab70b39856c937eb920b788157e416ce636cea1515d7a99dd15e9d89b1) holds user settings only and is not issuer evidence.
+
+### Supplied handoffs
+
+| Module | sha256 |
+| --- | --- |
+| CP-0 | 728efd77512ff127e878c235404a8f40fc8f81833ce6d2ce37a46e77c06dd33e |
+
+Correction to the CP-0 handoff: it says credit ratings are printed only as of September 30, 2026. The 10-K (page:68) prints ratings as of February 19, 2026, and the 10-Q for Q1 2026 (page:42, page:43) prints the February 2026 downgrades. The handoff's other readiness conclusions stand.
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| OLIN Corp is more leveraged than at FY2025. Net debt to company adjusted EBITDA rose from 4.08x at FY2025 to 5.21x at Q3 2026 as trailing earnings fell. Liquidity of USD 1,244.4 million is adequate near term. | Medium | Covenant levels are not printed, so headroom cannot be tested, and adjusted EBITDA is a management non-GAAP measure. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| Trailing adjusted EBITDA fell from USD 651.8 million at FY2025 to USD 536.6 million at Q3 2026 while reported total debt rose from USD 2,827.3 million to USD 3,013.1 million. | Debt to EBITDA rose from 4.34x to 5.62x; cash interest cover fell from 3.66x to 3.15x. | High |
+| Cash and undrawn revolver total USD 1,244.4 million, and no facility matures until November 2027. | Near-term liquidity is sound, but the USD 465.0 million receivables facility must be extended or refinanced. | Medium |
+| Nine month operating cash flow was USD 69.7 million against capital spending of USD 106.6 million and dividends of USD 68.3 million. | Free cash flow after dividends was negative, so borrowings funded the gap. | High |
+| Covenant relief ends no later than September 30, 2027, and the numeric covenant levels are not printed. | Compliance is reported, but headroom and the post-relief position cannot be tested. | Medium |
+
+### Financial base view
+
+OLIN Corp, a vertically integrated chlor alkali, epoxy and ammunition manufacturer, ends Q3 2026 with weaker credit metrics than at FY2025, while liquidity remains adequate and the debt stack has no maturity before the receivables facility in November 2027. The strongest support is liquidity: cash of USD 214.8 million plus USD 1,029.6 million undrawn on the revolver, and a revolver and term loan maturity of March 14, 2030 (10-Q Q3 page:13). The weakest point is earnings: company-defined trailing twelve month adjusted EBITDA is USD 536.6 million against USD 651.8 million at FY2025 (EX-99.1 Q3 page:11), so reported total debt of USD 3,013.1 million equals 5.62x and net debt equals 5.21x, up from 4.34x and 4.08x. What decides the outcome is fourth quarter 2026 delivery against guidance of USD 80 million to USD 100 million adjusted EBITDA (EX-99.1 Q3 page:2), the covenant relief that ends by September 30, 2027, and whether the Huntsman merger closes in the first quarter of 2027 with the new USD 2,500.0 million facility (10-Q Q3 page:8). Nine month 2026 free cash flow before dividends was negative, and every ratio below uses the company's non-GAAP adjusted EBITDA unless stated.
+
+### Chart data: leverage
+
+| Period | Total debt / EBITDA | Net debt / EBITDA | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2025 | 4.34 | 4.08 | x | Reported total debt (net of deferred issuance costs) at December 31, 2025 over company adjusted EBITDA for FY2025 (non-GAAP, shown only in the releases; EX-99.1 Q3 page:11); not the covenant ratio |
+| Q1 2026 | 5.42 | 5.08 | x | Total debt at March 31, 2026 over trailing twelve month adjusted EBITDA to March 31, 2026 (EX-99.1 Q1 page:9); management measure, not the covenant ratio |
+| Q2 2026 | 5.34 | 5.02 | x | Total debt at June 30, 2026 over trailing twelve month adjusted EBITDA to June 30, 2026 (EX-99.1 Q2 page:11); management measure, not the covenant ratio |
+| Q3 2026 | 5.62 | 5.21 | x | Total debt at September 30, 2026 over trailing twelve month adjusted EBITDA to September 30, 2026 (EX-99.1 Q3 page:11); management measure, not the covenant ratio |
+
+### Chart data: interest cover
+
+| Period | EBITDA / cash interest | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| FY2025 | 3.66 | x | FY2025 adjusted EBITDA over cash interest paid, net of USD 177.9 million (10-K page:83); non-GAAP numerator, not the covenant coverage ratio |
+| Q1 2026 | 3.44 | x | Trailing twelve month adjusted EBITDA over trailing cash interest paid of USD 160.7 million built from three month, FY2025 and prior-year three month amounts |
+| Q2 2026 | 3.32 | x | Trailing twelve month adjusted EBITDA over trailing cash interest paid of USD 171.1 million built from six month, FY2025 and prior-year six month amounts |
+| Q3 2026 | 3.15 | x | Trailing twelve month adjusted EBITDA over trailing cash interest paid of USD 170.2 million built from nine month, FY2025 and prior-year nine month amounts |
+
+### Chart data: liquidity
+
+| Period | Cash | Undrawn committed facilities | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- | --- |
+| FY2025 | 167.6 | 1199.6 | US$m | Undrawn is the USD 1,200.0 million revolver less nil drawn and USD 0.4 million letters of credit (derived); the filing states covenant-limited additional borrowing of only USD 825.3 million across revolver and receivables (10-K page:65) |
+| Q1 2026 | 192.2 | 1039.6 | US$m | Revolver undrawn commitments as printed (10-Q Q1 page:11); excludes USD 40.0 million receivables facility capacity; no covenant restriction on borrowing stated |
+| Q2 2026 | 177.4 | 989.6 | US$m | Revolver undrawn commitments as printed (10-Q Q2 page:12); excludes USD 50.6 million receivables facility capacity; no covenant restriction on borrowing stated |
+| Q3 2026 | 214.8 | 1029.6 | US$m | Revolver undrawn commitments as printed (10-Q Q3 page:13); excludes USD 34.0 million receivables facility capacity limited by borrowing base; no covenant restriction on borrowing stated |
+
+### Chart data: debt maturities
+
+| Period | Debt maturing | Reporting unit | Basis and limitation |
+| --- | --- | --- | --- |
+| 2026 | 0.0 | US$m | Principal at September 30, 2026; current installments of long-term debt are nil (10-Q Q3 page:2); schedule built from stated maturities, the 10-Q has no maturity table |
+| 2027 | 465.0 | US$m | Receivables financing drawn, facility matures November 19, 2027 (10-Q Q3 page:14); contractual maturity of a revolving receivables facility |
+| 2028 | 0.0 | US$m | No instrument is stated to mature in 2028; the 10-K schedule also shows nil (10-K page:108) |
+| 2029 | 669.3 | US$m | 5.625% senior notes due 2029 (10-Q Q3 page:12) |
+| 2030 | 1213.4 | US$m | Term loan 528.1 and revolver 170.0 mature March 14, 2030 (10-Q Q3 page:13) plus 5.00% senior notes 515.3 due 2030 |
+| 2031+ | 683.0 | US$m | 6.625% senior notes due April 1, 2033 of 600.0 plus recovery zone bonds of 83.0 placed after 2030 by the 10-K schedule (10-K page:108); before USD 17.6 million deferred issuance costs |
+
+### Financials and credit metrics
+
+| Metric | Q3 2026 | Q3 2025 | 9M 2026 | 9M 2025 | FY2025 | LTM Q3 2026 | Basis and locator |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Sales | 1,747.7 | 1,713.2 | 5,072.6 | 5,115.7 | 6,780.8 | 6,737.7 | USD m; 10-Q Q3 page:3; 10-K page:81; LTM derived |
+| Gross margin (sales less cost of goods sold) | 172.7 | 183.4 | 418.7 | 470.2 | 501.5 | 450.0 | USD m; 10-Q Q3 page:36; 10-K page:129; LTM derived |
+| Operating income | 59.2 | 82.8 | 27.4 | 161.8 | 5.3 | (129.1) | USD m; 10-Q Q3 page:3; 10-K page:81; LTM derived |
+| Net income (loss) attributable to Olin | 14.4 | 42.8 | (81.9) | 42.9 | (100.5) | (225.3) | USD m; 10-Q Q3 page:3; 10-K page:81; LTM derived |
+| EBITDA before add-backs (company definition) | 176.0 | 220.5 | 387.2 | 570.8 | 544.4 | 360.8 | USD m; EX-99.1 Q3 page:10; FY2025 derived from 10-K lines in Calculations; LTM derived |
+| Adjusted EBITDA (company, non-GAAP) | 191.4 | 222.4 | 468.9 | 584.1 | 651.8 | 536.6 | USD m; EX-99.1 Q3 page:10, page:11; FY2025 and LTM as printed in releases |
+| Adjusted EBITDA margin on sales | 10.95% | 12.98% | 9.24% | 11.42% | 9.61% | 7.96% | Percent of sales; derived |
+| Depreciation and amortization | 114.4 | 133.8 | 353.7 | 395.9 | 521.6 | 479.4 | USD m; 10-Q Q3 page:4; 10-K page:82; LTM derived |
+| Interest expense, net | 44.5 | 45.2 | 130.9 | 138.1 | 183.9 | 176.7 | USD m; 10-Q Q3 page:3; FY2025 is interest expense 188.3 less interest income 4.4 (10-K page:81); LTM derived |
+| Cash interest paid, net | 50.3 | 51.2 | 129.4 | 137.1 | 177.9 | 170.2 | USD m; 10-Q Q3 page:5; 10-Q Q2 page:5; 10-K page:83; Q3 stand-alone is nine month less six month |
+| Net operating cash flow | 110.4 | 26.7 | 69.7 | 153.0 | 474.2 | 390.9 | USD m; 10-Q Q3 page:4; 10-Q Q2 page:4; 10-K page:82; Q3 stand-alone is nine month less six month |
+| Capital expenditures | 33.9 | 71.1 | 106.6 | 163.5 | 226.3 | 169.4 | USD m; 10-Q Q3 page:4; 10-K page:82; Q3 stand-alone ties to segment capital spending (10-Q Q3 page:23) |
+| Free cash flow before dividends (operating cash flow less capital expenditures) | 76.5 | (44.4) | (36.9) | (10.5) | 247.9 | 221.5 | USD m; derived; FY2025 investing also includes 31.0 of payments under other long-term supply contracts not deducted here (10-K page:82) |
+| Dividends paid | 22.7 | 22.8 | 68.3 | 68.8 | 91.6 | 91.1 | USD m; 10-Q Q3 page:4; 10-K page:82; LTM derived |
+| Total debt at period end | 3,013.1 | 2,993.4 | 3,013.1 | 2,993.4 | 2,827.3 | 3,013.1 | USD m, net of deferred issuance costs; 10-Q Q3 page:12 |
+| Cash at period end | 214.8 | 140.3 | 214.8 | 140.3 | 167.6 | 214.8 | USD m; 10-Q Q3 page:2 |
+| Net debt | 2,798.3 | 2,853.1 | 2,798.3 | 2,853.1 | 2,659.7 | 2,798.3 | USD m; EX-99.1 Q3 page:11 |
+| Net debt / adjusted EBITDA | 5.21x | 3.67x | 5.21x | 3.67x | 4.08x | 5.21x | Derived on trailing twelve month adjusted EBITDA; the release prints 5.2, 3.7 and 4.1 |
+
+### Debt and capital structure at September 30, 2026
+
+| Instrument | Issuer and obligors | Amount USD m | Rate | Maturity | Security and guarantors as printed |
+| --- | --- | --- | --- | --- | --- |
+| 5.625% senior notes | Olin Corporation | 669.3 | 5.625% fixed | 2029 (month Not supplied) | Security and guarantors Not supplied: indenture not in pack (10-Q Q3 page:12) |
+| 5.00% senior notes | Olin Corporation | 515.3 | 5.00% fixed | 2030 (month Not supplied) | Security and guarantors Not supplied |
+| 6.625% senior notes (2033 Notes) | Olin Corporation | 600.0 | 6.625% fixed, interest April 1 and October 1 | April 1, 2033 | Issued in a private offering; security and guarantors Not supplied (10-Q Q3 page:14) |
+| Term loan (Secured Term Loan Facility) | Olin Corporation | 528.1 | Floating, pricing grid on net leverage; rate Not supplied for 2026 (10-K showed 5.438% at December 31, 2025, page:104) | March 14, 2030; remaining amortization prepaid February 19, 2026 | Guaranteed by certain domestic subsidiaries (not named); liens on substantially all personal property of Olin and guarantors; guarantees and liens released at the earlier of September 30, 2027 or Olin election (10-Q Q3 page:13) |
+| Revolver (Senior Secured Revolving Credit Facility, commitment 1,200.0) | Olin Corporation | 170.0 drawn; 0.4 letters of credit; 1,029.6 undrawn | Floating, pricing grid | March 14, 2030 | Same guarantee and lien package as the term loan |
+| 2024 Receivables Financing Agreement (commitment 500.0) | Olin Corporation as borrower; any receivables subsidiary Not supplied | 465.0 drawn; 34.0 further capacity limited by borrowing base | Floating; rate Not supplied | November 19, 2027 | Secured by trade receivables, 662.2 pledged; carries the same net leverage covenant (10-Q Q3 page:14, page:15) |
+| Recovery zone bonds | Not supplied | 83.0 | Floating (4.938% at December 31, 2025, 10-K page:104) | Not supplied; placed in the 10-K schedule after 2030 | Not supplied |
+| Deferred debt issuance costs | Not applicable | (17.6) | Not applicable | Not applicable | Deducted in arriving at total debt of 3,013.1 |
+
+Stack check: the instruments sum to 3,030.7 before deferred costs and 3,013.1 after, matching the balance sheet (10-Q Q3 page:12). Variable-rate debt is 1,246.1, equal to 528.1 plus 170.0 plus 465.0 plus 83.0 and to the figure in the 10-Q (page:52). Under the October 27, 2026 second amendment, the term loan commitment becomes USD 750.0 million and the revolver USD 1,750.0 million on the merger Closing Date, five year maturity, secured first priority and guaranteed by certain Olin and Huntsman subsidiaries; this is conditional on merger closing and is not yet a debt obligation (10-Q Q3 page:8, page:9).
+
+### Claims outside reported debt
+
+| Claim | Amount and date | Inside or outside the debt figure | Locator and note |
+| --- | --- | --- | --- |
+| Operating lease liabilities | 72.7 current plus 315.1 long-term, USD m, September 30, 2026 | Outside | 10-Q Q3 page:2; undiscounted commitments at December 31, 2025 were 386.3 (10-K page:69); finance lease expense and finance lease financing cash flows were nil in 2025 and 2024 (10-K page:134) and no finance lease line is in the debt table |
+| Pension and retiree medical | Accrued pension liability 196.5; pension assets 132.9 within other assets; at December 31, 2025 funded status was a surplus of 103.0 on U.S. plans and a deficit of 204.2 on foreign plans, with retiree medical unfunded at 30.5 | Outside | 10-Q Q3 page:2, page:11; 10-K page:110, page:116; no domestic contribution expected in 2026 (10-Q Q3 page:45); a change-of-control clause can lift benefits to absorb surplus (10-Q Q3 page:16) |
+| Environmental reserve | 156.8 (current 30.0, long-term 126.8) | Outside | 10-Q Q3 page:24; spending of about 30 expected in 2026 (10-Q Q3 page:46) |
+| Shintech litigation | 75.0 charged Q4 2025 and 11.1 charged Q1 2026; about 114 paid in the nine months of 2026 including earlier accruals; final judgment entered September 11, 2026; no further material 2026 payment expected; appeal timing could defer any future payment | Outside; cash already paid | 10-Q Q3 page:25, page:45; remaining unpaid balance Not supplied after search of all sources |
+| State of Texas action against Blue Cube | Civil penalties sought, amount Not supplied | Outside | Filed April 9, 2026 (10-Q Q3 page:58) |
+| Letters of credit | 168.2 total, of which 0.4 under the revolver | Outside, contingent | 10-Q Q3 page:51; the issuing facility for the other 167.8 is Not supplied |
+| Purchase commitments | Raw materials and utilities 5,559.4 and capital expenditures 6.6, December 31, 2025 | Outside | 10-K page:69; not updated in the 10-Q, which reports no material change (10-Q Q3 page:53) |
+| Merger termination fee | 121 payable by Olin under specified circumstances | Outside, contingent | 10-Q Q3 page:58 |
+| Receivables facility | 465.0 drawn | Inside the debt figure, and excluded from covenant debt up to 425.0 | 10-Q Q3 page:14 |
+| Factoring and supply chain finance | The former factoring programs were terminated with the November 2024 receivables agreement and the ending balance was nil; no supply chain finance or reverse factoring programme was found | Outside | 10-K page:107; searched factoring, supply chain financing and supplier financing |
+
+### Liquidity
+
+Liquidity at September 30, 2026 is cash of USD 214.8 million (10-Q Q3 page:2) plus revolver undrawn commitments of USD 1,029.6 million, which are net of USD 170.0 million drawn and USD 0.4 million of letters of credit on a USD 1,200.0 million facility (10-Q Q3 page:13), giving USD 1,244.4 million. The 2024 Receivables Financing Agreement adds USD 34.0 million of borrowing-base-limited capacity (10-Q Q3 page:15), giving USD 1,278.4 million, consistent with the release's approximately USD 1.3 billion (EX-99.1 Q3 page:3). No covenant limited borrowing at September 30, 2026 (10-Q Q3 page:14). At December 31, 2025 the leverage covenant limited additional borrowings to USD 825.3 million (10-K page:65). No facility expires within twelve months of September 30, 2026; the receivables facility matures November 19, 2027, so the USD 465.0 million drawn would fall within twelve months of the December 31, 2026 balance sheet date and could then be classified as current unless extended; the filings do not state the classification.
+
+### Covenants
+
+The Senior Secured Credit Facility has a maximum net leverage ratio (consolidated total debt net of unrestricted cash over EBITDA, excluding receivables financing borrowings up to USD 425.0 million) and a minimum coverage ratio (EBITDA to interest expense) (10-Q Q3 page:14). The February 19, 2026 amendment relaxed both and adjusted the EBITDA and debt definitions for the covenant relief period, which ends on the earlier of September 30, 2027 and Olin's election, when guarantees and liens fall away (10-K page:140, page:141; 10-Q Q3 page:13). The numeric levels, step-downs and the covenant EBITDA are Not supplied after search of all seven sources, so headroom is Not calculable. Olin states it was in compliance with all covenants at September 30, 2026 (10-Q Q3 page:14). The filings word the leverage test differently: the 10-K describes secured debt (10-K page:106) while the 10-Q describes consolidated total debt, net of unrestricted cash; the executed agreement would settle this. The company ratio of 5.2x (net debt to adjusted EBITDA, all debt) is not the covenant ratio, because the covenant nets only unrestricted cash and excludes up to USD 425.0 million of receivables financing. An illustrative figure on that definition, using reported debt and company adjusted EBITDA (not the covenant EBITDA), is 4.42x (Calculations). The incoming OlinHuntsman Credit Facility will carry a secured debt to EBITDA and a coverage covenant (10-Q Q3 page:8, page:9); levels Not supplied.
+
+### Latest quarter and subsequent events
+
+- Q3 2026 sales were USD 1,747.7 million against USD 1,713.2 million in Q3 2025; adjusted EBITDA was USD 191.4 million against USD 222.4 million (EX-99.1 Q3 page:1). Chlor Alkali Products and Vinyls segment income fell to USD 71.3 million from USD 127.6 million, including USD 32.1 million from the Freeport, TX vinyl chloride monomer plant operating issues and a 45V tax credit benefit of USD 5.0 million against USD 32.0 million (10-Q Q3 page:41; EX-99.1 Q3 page:2). Epoxy returned to USD 0.6 million from a USD 32.2 million loss and Winchester rose to USD 33.8 million from USD 19.3 million (10-Q Q3 page:40).
+- Merger: Olin entered into the Huntsman all-stock merger agreement on June 15, 2026; shareholders of both approved on August 25, 2026; the Hart-Scott-Rodino waiting period expired; closing is expected in the first quarter of 2027, previously the first half of 2027 (10-Q Q3 page:7, page:8; EX-99.1 Q2 page:3). Acquisition-related costs were USD 13.7 million in Q3 2026 and USD 24.3 million in the nine months; USD 35 million to USD 40 million is expected for 2026 (10-Q Q3 page:45).
+- Financing: second amendment dated October 27, 2026 to the credit agreement, and a Fifteenth Amendment to the PNC-agented funding agreement of the same date (10-Q Q3 page:34, page:60). Both are subsequent events to the September 30, 2026 balance sheet and are filed by reference only.
+- Ratings at September 30, 2026: Fitch BB+ on Rating Watch Positive, Moody's Ba2 Negative, S&P BB on Credit Watch Developing (10-Q Q3 page:52, page:53). In February 2026 Fitch downgraded to BB+ from BBB-, Moody's to Ba2 from Ba1 and S&P to BB from BB+ (10-Q Q1 page:43).
+- Fourth quarter 2026 adjusted EBITDA guidance is USD 80 million to USD 100 million, with lower results expected from elevated customer destocking, higher feedstock costs, Asian export pressure and planned turnarounds (EX-99.1 Q3 page:2; 10-Q Q3 page:45). Full year 2026 capital spending is about USD 200 million and depreciation and amortization about USD 470 million (10-Q Q3 page:45).
+- No share repurchases in 2026; USD 1,948.9 million remained authorized (10-Q Q3 page:59). The quarterly dividend stayed at USD 0.20 per share (10-Q Q3 page:4).
+
+### Segment results
+
+| Segment | Q3 2026 sales | Q3 2026 segment income | 9M 2026 sales | 9M 2026 segment income | FY2025 sales | FY2025 segment income |
+| --- | --- | --- | --- | --- | --- | --- |
+| Chlor Alkali Products and Vinyls | 850.8 | 71.3 | 2,427.2 | 80.2 | 3,684.4 | 181.1 |
+| Epoxy | 412.2 | 0.6 | 1,189.9 | 13.7 | 1,371.8 | (103.5) |
+| Winchester | 484.7 | 33.8 | 1,455.5 | 77.1 | 1,724.6 | 67.7 |
+| Total sales and corporate adjustments excluded | 1,747.7 | Not applicable: corporate costs sit outside segments | 5,072.6 | Not applicable | 6,780.8 | Not applicable |
+
+Segment income is income before interest, other operating income, non-operating pension income and taxes, and includes affiliates (10-Q Q3 page:22; 10-K page:129). Locators: 10-Q Q3 page:23, page:40; 10-K page:129.
+
+## Calculations
+
+Trailing twelve month (LTM) amounts equal nine month 2026 plus FY2025 less nine month 2025 unless stated; the same pattern holds at Q1 and Q2.
+
+- LTM sales: 5,072.6 + 6,780.8 - 5,115.7 = 6,737.7. LTM gross margin: 418.7 + 501.5 - 470.2 = 450.0. LTM operating income: 27.4 + 5.3 - 161.8 = -129.1. LTM net income attributable: -81.9 + -100.5 - 42.9 = -225.3. LTM depreciation and amortization: 353.7 + 521.6 - 395.9 = 479.4. LTM interest expense, net: 130.9 + 183.9 - 138.1 = 176.7.
+- FY2025 interest expense, net: 188.3 - 4.4 = 183.9 (10-K page:81).
+- FY2025 EBITDA before add-backs, on the release definition (net income plus interest, taxes, D&A): -101.1 + 183.9 + (-60.0) + 521.6 = 544.4. Cross-check to the printed FY2025 adjusted EBITDA: 544.4 + restructuring 33.4 + Shintech charge 75.0 - environmental recovery 1.0 = 651.8, equal to the figure in the releases (EX-99.1 Q3 page:11; restructuring from 10-K page:81, the Shintech charge from 10-Q Q3 page:25, the recovery from EX-99.1 Q3 page:10, where it is shown for the nine months of 2025). The exact tie suggests these were the only FY2025 add-backs, but the FY2025 add-back schedule itself is not in the pack.
+- LTM EBITDA before add-backs: 387.2 + 544.4 - 570.8 = 360.8.
+- LTM adjusted EBITDA: Q3 2026: 468.9 + 651.8 - 584.1 = 536.6; Q2: 277.5 + 651.8 - 361.7 = 567.6; Q1: 86.2 + 651.8 - 185.6 = 552.4; all equal the printed figures.
+- Adjusted EBITDA margin: Q3 2026 191.4 / 1,747.7 = 10.95%; Q3 2025 222.4 / 1,713.2 = 12.98%; nine months 2026 468.9 / 5,072.6 = 9.24%; nine months 2025 584.1 / 5,115.7 = 11.42%; FY2025 651.8 / 6,780.8 = 9.61%; LTM 536.6 / 6,737.7 = 7.96%.
+- Leverage: total debt / LTM adjusted EBITDA: FY2025 2,827.3 / 651.8 = 4.34x; Q1 2,996.1 / 552.4 = 5.42x; Q2 3,029.1 / 567.6 = 5.34x; Q3 3,013.1 / 536.6 = 5.62x. Net debt / LTM adjusted EBITDA: FY2025 (2,827.3 - 167.6) / 651.8 = 2,659.7 / 651.8 = 4.08x; Q1 (2,996.1 - 192.2) / 552.4 = 2,803.9 / 552.4 = 5.08x; Q2 (3,029.1 - 177.4) / 567.6 = 2,851.7 / 567.6 = 5.02x; Q3 (3,013.1 - 214.8) / 536.6 = 2,798.3 / 536.6 = 5.21x. Q3 2025: (2,993.4 - 140.3) / 777.5 = 2,853.1 / 777.5 = 3.67x (10-Q Q3 page:2, page:12; EX-99.1 Q3 page:11).
+- Cash interest, trailing: FY2025 177.9. Q1: 48.1 + 177.9 - 65.3 = 160.7. Q2: 79.1 + 177.9 - 85.9 = 171.1. Q3: 129.4 + 177.9 - 137.1 = 170.2. Q3 stand-alone: 129.4 - 79.1 = 50.3; Q3 2025: 137.1 - 85.9 = 51.2 (10-Q Q1 page:4; 10-Q Q2 page:5; 10-Q Q3 page:5).
+- Interest cover (adjusted EBITDA / cash interest): FY2025 651.8 / 177.9 = 3.66x; Q1 552.4 / 160.7 = 3.44x; Q2 567.6 / 171.1 = 3.32x; Q3 536.6 / 170.2 = 3.15x. Using interest expense, net rather than cash interest, Q3 LTM cover is 536.6 / 176.7 = 3.04x.
+- Cash flow: Q3 stand-alone operating cash flow 69.7 - (-40.7) = 110.4; Q3 2025 153.0 - 126.3 = 26.7 (10-Q Q2 page:4). Q3 stand-alone capital expenditures 106.6 - 72.7 = 33.9; Q3 2025 163.5 - 92.4 = 71.1. Free cash flow before dividends: Q3 2026 110.4 - 33.9 = 76.5; Q3 2025 26.7 - 71.1 = -44.4; nine months 2026 69.7 - 106.6 = -36.9; nine months 2025 153.0 - 163.5 = -10.5; FY2025 474.2 - 226.3 = 247.9; LTM operating cash flow 69.7 + 474.2 - 153.0 = 390.9, LTM capital expenditures 106.6 + 226.3 - 163.5 = 169.4, LTM free cash flow 390.9 - 169.4 = 221.5. LTM dividends: 68.3 + 91.6 - 68.8 = 91.1. Nine month free cash flow after dividends: -36.9 - 68.3 = -105.2.
+- Liquidity: Q3 214.8 + 1,029.6 = 1,244.4; plus receivables capacity 34.0 = 1,278.4. Q1 192.2 + 1,039.6 = 1,231.8. Q2 177.4 + 989.6 = 1,167.0. FY2025 undrawn revolver 1,200.0 - 0.0 - 0.4 = 1,199.6, so cash plus undrawn 167.6 + 1,199.6 = 1,367.2, against the covenant-limited additional borrowing of 825.3. Revolver check at Q3: 1,200.0 - 170.0 - 0.4 = 1,029.6, equal to the printed figure.
+- Maturity profile at September 30, 2026: 2027 465.0; 2029 669.3; 2030 528.1 + 170.0 + 515.3 = 1,213.4; 2031 and later 600.0 + 83.0 = 683.0; total 465.0 + 669.3 + 1,213.4 + 683.0 = 3,030.7, and 3,030.7 - 17.6 = 3,013.1.
+- Illustrative covenant-style leverage: (3,013.1 - 214.8 - 425.0) / 536.6 = 2,373.3 / 536.6 = 4.42x, using reported debt net of deferred costs, all cash as unrestricted, the full 425.0 receivables exclusion (the drawn 465.0 exceeds the cap) and company adjusted EBITDA. This is not the covenant calculation.
+- Guidance-implied FY2026 adjusted EBITDA: 468.9 + 80 = 548.9 to 468.9 + 100 = 568.9, a forward figure that depends on meeting guidance.
+- Implied Q4 2025 adjusted EBITDA: 651.8 - 584.1 = 67.7.
+- Operating lease liabilities: 72.7 + 315.1 = 387.8 at September 30, 2026.
+
+## Gaps
+
+| Gap | Effect | Remediation |
+| --- | --- | --- |
+| Numeric covenant levels, step-downs and covenant EBITDA are not printed (searched covenant, leverage, coverage, relief across all seven sources). | Headroom is Not calculable; the illustrative 4.42x cannot be compared with a limit. | Supply the executed credit agreement and the February 19, 2026 and October 27, 2026 amendments. |
+| Security, guarantors and maturity months of the 5.625% and 5.00% notes and the identity of the recovery zone bond obligors are not stated. | Priority ranking between secured bank debt and the notes cannot be set from the pack. | Supply indentures and bond documents. |
+| Adjusted EBITDA is a management non-GAAP measure; FY2025 adjusted EBITDA is shown only in the releases, and the FY2025 release is not in the pack. | Leverage and cover rest on a measure the company defines; the FY2025 figure was reproduced from 10-K lines but not from an issued FY2025 reconciliation. | Treat the ratios as management-basis; supply the Q4 2025 release if a published reconciliation is needed. |
+| Interest rates on floating debt in 2026 are not stated in the 10-Qs. | Interest cost cannot be rebuilt from instruments; the 100 basis point sensitivity is USD 12.5 million (10-Q Q3 page:54). | Supply the credit agreement pricing grid. |
+| Unpaid Shintech balance after the nine months of 2026 and any bond or appeal arrangement are not stated. | Residual cash call from the judgment is Not calculable. | Read the Form 8-K and litigation filings. |
+| Issuing facility for 167.8 of letters of credit is not identified. | Whether other facilities add to or reduce liquidity is unknown. | Supply the relevant agreements. |
+| Cash held abroad or restricted: searched restricted cash, trapped and repatriation across all sources; only a risk factor on repatriation was found (10-K page:29) and no balance is stated. | Net debt may overstate usable cash. | Management inquiry. |
+| Pro forma OlinHuntsman capital structure cannot be built: Huntsman statements and debt are not supplied. | Post-merger leverage is Not calculable. | Supply Huntsman filings and the joint proxy. |
+
+All amounts are USD millions as reported by Olin, which reports in USD. Q3 2026 and nine month figures are unaudited. No source dated after 2026-11-05 is used.
+
+## Next module
+
+Proceed to CP-1A with this handoff: carry forward that adjusted EBITDA is management non-GAAP, that covenant levels are not supplied, the February 2026 rating downgrades and September 2026 watch status, the November 19, 2027 receivables maturity, and the conditional OlinHuntsman facility. Business and merger terms should be read from 10-Q Q3 page:7 to page:9 and page:58. The later synthesis should use net debt to adjusted EBITDA of 5.21x and cash interest cover of 3.15x as stated here, and treat the 4.42x figure as illustrative only.

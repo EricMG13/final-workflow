@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Hudbay Minerals Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/67c21a8ae25953c7dfb50d20e302112d47bd24ea3759d39909fcf0f9bffcb982/1.response.md",
+    "CP-1": "requests/CP-1/e1a2b2a95185bd2456d7d351fc2b51b53b3a0c06669106ab206e529a5c9c6c64/1.response.md",
+    "CP-1A": "requests/CP-1A/5a337f2c48214e701b79f3a2b7550b4fd170846eca6bb4bb4a88bea9f2c45d4e/1.response.md",
+    "CP-2": "requests/CP-2/2c16455703169bff6b4d55a8550b0d022819fdcf98224969b1638d909e7c7b8b/2.response.md",
+    "CP-5": "requests/CP-5/7cd0f1c0e8ef9c9675fa6f67329cdd8ff965c64f33dcece7a400892365ca14a2/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "cf9b2574bf8d61d7b12254110b937c9ae51cc08b62c117b37a8412f4e805a2d5",
+  "report_sha256": "6f110c84ae72fce80751a0a431f49be8bf28ff9d0a543905d98f3c4d2c1065ae"
+}

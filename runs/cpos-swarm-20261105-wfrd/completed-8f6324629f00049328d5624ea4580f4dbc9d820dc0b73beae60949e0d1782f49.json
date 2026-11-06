@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Weatherford International plc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/4b15538b540ec0a4c576895901935d9065122bd55cfeac3790a64a2b3db9feac/2.response.md",
+    "CP-1": "requests/CP-1/8bb76b7ba3148ac919ace9eb13a0b47d8a46bfe3b1ee29d35e459e6f775ac821/1.response.md",
+    "CP-1A": "requests/CP-1A/bf9b75a359049dfca4eeefcb4d5aed94cb9f31a08cca7424f7dc6c6af0755474/1.response.md",
+    "CP-2": "requests/CP-2/af659c47595709ef1c99b569da4c10b943125e48493fa2ab4381f33fa14b32e0/1.response.md",
+    "CP-5": "requests/CP-5/74b252026062458c263088ba3d0c13a7946ecb263ddc6d4aae029c58b6c53fb5/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "ab587b0cd58ba0a7dead22e8da91ed237aff1a689d666c2f0b97b7a7c49c9ffe",
+  "report_sha256": "b2a388d75b171463a5972dc17be6eb1b5f1f7fcdad4dea08b6bf3eca163ae2ce"
+}

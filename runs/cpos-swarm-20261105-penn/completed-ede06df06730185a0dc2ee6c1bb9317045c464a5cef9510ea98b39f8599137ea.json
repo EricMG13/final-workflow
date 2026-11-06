@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for PENN Entertainment, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/37e820f7868a3ee993253a929e5938478f33204684e777b3c1d433ed9658a734/1.response.md",
+    "CP-1": "requests/CP-1/b8708c01fee81d54f4214a76d3bbdfd1d1648d6866198d75a513f8e9bf144b47/2.response.md",
+    "CP-1A": "requests/CP-1A/07b80a03ad77d499fe9a3bab13a3e2320278922df16b6e4ae70d381e21848626/1.response.md",
+    "CP-2": "requests/CP-2/3789c24f2ba79ec443a03961059c1396b6a2f92d45b8f3909b996bcc50ea726b/1.response.md",
+    "CP-5": "requests/CP-5/8ea22739639d0ffbdff7ad1318d338c170e43e5d07ae5f235d1ea2c7476f9e2f/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "74d5b5890cc2a5b785f4ebe8219b17d47d74884a4951a4f1bcabf4a57ac45f02",
+  "report_sha256": "38cc959562896a3c9bfaa4a578e177eecaff51c9779505dcec0cf5650d3bb68a"
+}

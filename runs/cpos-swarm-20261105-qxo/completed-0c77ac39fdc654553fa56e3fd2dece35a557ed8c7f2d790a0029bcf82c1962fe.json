@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for QXO, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/8501f11e85bf342a3d720e95331ef47bf03cb1d19814b323cd558c34c89e4f02/1.response.md",
+    "CP-1": "requests/CP-1/e1c9991c2f90cd846af5e1dae3a39dcd6a4d12925ae0b767906f1a991f865644/1.response.md",
+    "CP-1A": "requests/CP-1A/69bf929f327ab8354122c4d9ba9209c2922138a5fc18e00abd57a4e435498248/2.response.md",
+    "CP-2": "requests/CP-2/634cb27abaa02c173bcebd5c9f969c02daef0ee9e1871373d1ed675b8b1294e4/1.response.md",
+    "CP-5": "requests/CP-5/318975d8f78926948a8784ddb5225d86016bf92e52ee5300453adc0d285a82aa/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "b65dd915001ebc4ca3ca5b313cd0d2d214ed79c543d1190846b2f5e0eee00edc",
+  "report_sha256": "ae496bff498c69f64c94bfc282b678699c81c0d7ca1e47d426a7b774baa8335d"
+}

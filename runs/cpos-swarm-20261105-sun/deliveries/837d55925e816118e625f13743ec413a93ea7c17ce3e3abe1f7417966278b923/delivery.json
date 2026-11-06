@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Sunoco LP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "57b161fbd7e67eac0d6f2f2ef29f60aa3fbd5113ce9bed40f825ee33e1b2f40a",
+    "CP-1.md": "401a06668766db5a4259c5743307b8caec6c76d1f88a9508bac9110bc2cd0d87",
+    "CP-1A.md": "3bc9e341cf71dca7ff3b5bc1e47abb185281f5f4079598326a943c6cf7f10391",
+    "CP-2.md": "7376f87f3c4f924bd47342083b8973282a2cd33e862885cf031325906f980b10",
+    "CP-5.md": "fdd1cb6b050e428808f9f9d899bb6e9df3f8680192efb5a1b51df8aa1cfecb42",
+    "view.json": "60e021070d4cbeafe42c22ef9e74dd9f1ca066709b48044e74b1b715e475f7cc",
+    "report-view.json": "ae8299d897853bd94128723b7d6939fd12fc0f0658694fee99f00fea38e1cc4c",
+    "report.html": "0fc52ed80cabe9bedf6b6772f8cd0bfb498de2ee1deeac50ae397d37764e7c26"
+  }
+}

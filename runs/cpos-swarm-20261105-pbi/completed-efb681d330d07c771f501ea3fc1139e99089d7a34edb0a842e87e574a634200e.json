@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for PITNEY BOWES INC /DE/ as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/46fc4e2bccf55806c086221fddf301ffff6a5d84406fdabb344281e9de1b3dd1/1.response.md",
+    "CP-1": "requests/CP-1/7501daac2c45a8a7852feae9acb02e89a93d9111045a2145b341117c2e1c1e93/1.response.md",
+    "CP-1A": "requests/CP-1A/abca440dc2d24690726590b4c23bbfe19fa3c2932d29ac0f2283fdc2c8717656/2.response.md",
+    "CP-2": "requests/CP-2/872085348ac4340c8b3a515326896e39777e755f14e04ca9b4d79d763c4b527b/1.response.md",
+    "CP-5": "requests/CP-5/6844d3b8ce3eb672660143e5ce989264f6a1a0f40cfb365ab5af64ccbc196c86/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "6c7c47701ee1808c982ec61c0d2f08afc0143ce1ca65ac711b67603c294f7259",
+  "report_sha256": "557e9d108efe0b755a66ba9949392c068dcfefc32508534a660226d1f0dc2660"
+}

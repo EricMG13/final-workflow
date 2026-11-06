@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for MAXIMUS, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "b2c3bb0b1f4af634e0abd5fcab811ad35e641a5d0e7ca14dd9cdc832dae5d76e",
+    "CP-1.md": "8829349e46633913828d697cb82b1a46f8bb93ac6c3f2be62bdafd8355e5278d",
+    "CP-1A.md": "d9cda7603175483bcf5968a1f0a8042b7f967e0d08b03518175f22bf3206e24e",
+    "CP-2.md": "ca53c85f8fbba8848ff44426d7e27941f92725419e6f434b266ec059bd65753b",
+    "CP-5.md": "5ec7d1a5969feaf865cd667dac9d0e3a828d281138bb86f3964d729b8944dc31",
+    "view.json": "29488d954fdb123076295f13ee94294b2592d6a9e8c91a7c38844852f519a376",
+    "report-view.json": "4064ec779feb35bb68743a284a1dd91d4a847626133113132203503abbc158ba",
+    "report.html": "f184a2a04aa7276cd68b17b9a919d7e6b6e94ba764d9f268e535527624672f77"
+  }
+}

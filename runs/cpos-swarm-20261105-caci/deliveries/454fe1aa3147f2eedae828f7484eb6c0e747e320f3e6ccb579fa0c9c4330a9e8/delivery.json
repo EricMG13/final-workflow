@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for CACI INTERNATIONAL INC /DE/ as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "762cecbf926d995975842c532bf62ee7e0ca710d78ac7cdd487a629157bb5aa2",
+    "CP-1.md": "754b7bb7e2540f70cdcb2620bcf9c754b96a73b97c903a97135c15c797fe1220",
+    "CP-1A.md": "41d334b949508139d8f80ad17071c0d78219e102c14bb94f127f21d949bc8517",
+    "CP-2.md": "6c8d0aab4cf5415e4ddcd2499187d65727f89741b83012a35b67c505a51a9952",
+    "CP-5.md": "4b8a0cf369b3e290ff0c171d866b0ab6adbc1888962369544c79e1ac3ab85a72",
+    "view.json": "cf9cbb7c526f9c928670ce46a6dad47adf810a8cdf24eba81fae7002c0117712",
+    "report-view.json": "6f750611612909b712e456c1a863f7dbbc146f499d486a4c6e6a9993d4100af1",
+    "report.html": "7a47c6c51219c271bb12523c1ec0f646d78a2151356a3f497d22fd7e98dbbf92"
+  }
+}

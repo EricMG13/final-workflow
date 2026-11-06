@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CHS INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/ce97baf581dfd01532b98458d3d0b3ead1affed5154ee989cfd6a7214783a899/1.response.md",
+    "CP-1": "requests/CP-1/903c4f5fe522492cb2a864dcfa4d76b18623aa32211f9e85219f78ac8112dd99/1.response.md",
+    "CP-1A": "requests/CP-1A/393e6bdaab30fd7a9a644cc2fb8c26df6f700bae8723780c79054ac9fea72ff1/1.response.md",
+    "CP-2": "requests/CP-2/046b5185b89a2ba61bfaafc4c55e23f5453774dec8d0be58de95eeca6fbb1a46/1.response.md",
+    "CP-5": "requests/CP-5/5dbb64215681d0222f075af19d108cd8926b5641bf89d515f4a10907e9982219/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "9505875513365605a7224a387826ab2f6709f67590bac53e6e3f807f15f56aa1",
+  "report_sha256": "caa53181238c61b5170f8389fa53a64a76122c00935b75ee59814e780200fc08"
+}

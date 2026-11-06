@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for STARWOOD PROPERTY TRUST, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/1a183556fb3b3d08ad9d418a8de4c2671479051d3bba1d1427ede62b43357da7/1.response.md",
+    "CP-1": "requests/CP-1/3b52b4ab41d6aa83057bc7ce64320fa44b121c16d02b7118f7a8c8d2c0dc1b15/2.response.md",
+    "CP-1A": "requests/CP-1A/79da03b805163b5e800cbda6e79194eb6efe24b6abe2c295f70b8437ebb1dad9/1.response.md",
+    "CP-2": "requests/CP-2/58d575e95e5b130f37d1d74feb32a767b2c4556e8b2991d6210001ee67047627/1.response.md",
+    "CP-5": "requests/CP-5/5f4afc69f94daf87142988e43e8385be2a108e52d688cc2acb90cf9e8e556e2e/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "0f5547a3252ad20a805464817bcfe2623e84a0b701ce257df1712b07705982fe",
+  "report_sha256": "54b578159faea205f308ead0daf2ab1afef178aeaf2d1f782c03d3d98568c410"
+}

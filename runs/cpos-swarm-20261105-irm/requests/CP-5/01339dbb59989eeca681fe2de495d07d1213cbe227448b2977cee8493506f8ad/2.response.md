@@ -1,0 +1,277 @@
+## Request
+
+This is the CP-5 evidence trace validation and research-integrity grade for IRON MOUNTAIN INC (issuer id irm), as of 2026-11-05, pathway credit_snapshot. Scope: the accepted CP-0, CP-1, CP-1A and CP-2 handoffs, traced to the seven pinned filings and earnings releases, default Top 5 traceability scope, reporting currency USD, Q3 2026 against FY2025.
+
+## Sources
+
+Issuer sources re-opened for this audit (name as pinned and sha256):
+
+| Source name | sha256 |
+| --- | --- |
+| 10-K_2025-12-31_irm-20251231.htm.jsonl | 9c991d6cdd465558fe3d6c3b1ca180e1a4934be45256793a9fbd2c983d1c3d21 |
+| 10-Q_2026-03-31_irm-20260331.htm.jsonl | c097a3f585d908ce47931b28757115d3a00ba271c949277b2995e2c2344465f7 |
+| 10-Q_2026-06-30_irm-20260630.htm.jsonl | fe08302fa04f9d8c593cf06c79704bdfe3f3999447ef79511393f443f2e9e013 |
+| 10-Q_2026-09-30_irm-20260930.htm.jsonl | c9d6cf1ac242db8c215c06c4487b7325abcfccb724b4417b8410eb43258ea1f1 |
+| EX-99.1_2026-04-30_q12026earningspressrelea.htm.jsonl | 1ea5cf7035da8aa87dd1ad93c853ce455e98a75bb727fb04ac272e58d34c3493 |
+| EX-99.1_2026-08-05_final-q22026earningspres.htm.jsonl | 0d0d4258db90617a30c1e3c9ffb5f20e0de342df888db740df22d17b30f2e886 |
+| EX-99.1_2026-11-05_q32026earningspressrelea.htm.jsonl | 55477d582fc2c850f9912e2fa4b11c0af530fa7f8e752b29ae4633a58c75327b |
+
+Run settings (not issuer evidence): context 1020569-iron-mountain-inc-irm.json, sha256 9bee5f583dd9c7776f1152268ebe2d2da262ea2bd6a67a8712cdfef3c69af924.
+
+Supplied handoffs audited:
+
+| Module | sha256 |
+| --- | --- |
+| CP-0 | 076fb4d2b6b8339ab438834a3632e4ceb7893ce55c2f36ff0e387d2dd78e3329 |
+| CP-1 | 7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d |
+| CP-1A | d12e7d0ae44917957f960b6acdce6d460c2d3f529103448e8ec40f3aacd365b2 |
+| CP-2 | 84766d3faac446e31295d4c2f7c249349c4150d178fd4bdd37a40198a6c76d46 |
+
+Method of this audit: each quoted span in CP-0, CP-1 and CP-1A was searched as an exact substring in the page chunk it cites; each figure in CP-1 and CP-1A was searched on the chunk it cites; every derived figure was recomputed from the cited inputs; CP-2 was checked against the CP-1 and CP-1A text only, as its method requires. Locators are retained chunks (`page:N`), not printed pages.
+
+## Findings
+
+### Reader summary
+
+| Bottom line | Confidence | Main limitation |
+| --- | --- | --- |
+| The four handoffs trace to the filings: every quoted span was found at its locator and every derived figure recomputed. One earlier gap statement was wrong and was corrected downstream; nine minor issues remain. | Medium | The credit agreement, indentures, ratings and a maturity table after December 31, 2025 are not supplied, so covenant and refinancing claims rest on reported figures. |
+
+| Finding | Creditor impact | Confidence |
+| --- | --- | --- |
+| All 56 quoted spans were found on the cited chunks, and all 271 figure checks located the figure. | The leverage, cover and liquidity figures can be relied on as reported by the filings. | High |
+| LTM Adjusted EBITDA of 2,888,192 thousand, leverage of 6.22x and cover of 3.16x recompute exactly from the cited inputs. | The headline credit metrics are reproducible, though based on management Adjusted EBITDA. | High |
+| An early statement that no maturity table exists was wrong; the annual report prints one as at December 31, 2025, and the financial base corrected it. | The 2027 to 2030 wall is stale rather than missing, so refinancing exposure is stated on an older basis. | Medium |
+| Covenant headroom and note ranking rest on reported ratios and a debt-note summary, not on the credit agreement or indentures. | Covenant capacity and legal ranking must not be inferred beyond the reported ratios. | Medium |
+
+### Evidence trace view
+
+Overall, evidence traceability is Ready with Remediation. Of the Top 5 material credit drivers, 2 are directly sourced, 3 are calculated, 0 are assumption-based, 0 are analyst inferences, and 0 are weak-lineage, untraced, conflicting, or insufficient-information items. The most important provenance gap is the lack of a debt maturity table after December 31, 2025 together with the missing credit agreement and indentures, which matters because refinancing exposure and covenant headroom are then stated on an older or reported-ratio basis, and implies that committee use should disclose those limits rather than rely on rebuilt capacity. No orphan claim and no calculation error was found.
+
+### Analytical appendix — complete canonical registers
+
+#### T5B.1 Source register
+
+Module Status: Ready with Limitations. Traceability Scope: Top 5. Entity key: issuer_id irm available.
+
+| Source Document ID | Source Document Name | Source Quality | Period | Entity Covered | Data Supplied | Limitation | Downstream Use |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| S1 | 10-K_2025-12-31_irm-20251231.htm.jsonl | Primary, filed, audited | FY2025 with FY2024 and FY2023 comparatives | Iron Mountain Incorporated and subsidiaries, consolidated | Business, risk factors, MD&A, statements, debt note with maturity table, leases, commitments, segments | No indenture or credit agreement text; exhibit list only | CP-1, CP-1A, CP-2 |
+| S2 | 10-Q_2026-03-31_irm-20260331.htm.jsonl | Primary, filed, unaudited | Q1 2026 | Same consolidated perimeter | Statements, debt, availability, covenant ratios, cash interest | Year-to-date basis | CP-1 LTM bridges |
+| S3 | 10-Q_2026-06-30_irm-20260630.htm.jsonl | Primary, filed, unaudited | Q2 2026 and six months | Same | Statements, debt, availability, covenant ratios, 2035 notes issue | One internal inconsistency on the par call date | CP-1, CP-1A |
+| S4 | 10-Q_2026-09-30_irm-20260930.htm.jsonl | Primary, filed, unaudited | Q3 2026 and nine months | Same | Latest balance sheet, debt table, liquidity, letters of credit, segments, covenants | No maturity table; cost breakdown chart not extracted | CP-1, CP-1A, CP-2 |
+| S5 | EX-99.1_2026-04-30_q12026earningspressrelea.htm.jsonl | Management document, furnished | Q1 2026 | Consolidated, non-GAAP including joint venture share | Adjusted EBITDA reconciliation, leasing statements | No cash flow or debt table | CP-1 LTM, CP-1A |
+| S6 | EX-99.1_2026-08-05_final-q22026earningspres.htm.jsonl | Management document, furnished | Q2 2026 | Same | Reconciliations, leasing statements | Chunk 1 holds only the extraction header | CP-1A |
+| S7 | EX-99.1_2026-11-05_q32026earningspressrelea.htm.jsonl | Management document, furnished | Q3 2026 | Same | Reconciliations, dividend, guidance, leasing | Guidance is a management forward-looking claim | CP-1, CP-1A, CP-2 |
+
+#### T5B.2 Top 5 material credit drivers
+
+| Rank | Credit Driver | Originating Module | Source-Supported Basis | Why Material | Committee Relevance | Source Trace | Limitation |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Leverage of 6.22x total debt to LTM Adjusted EBITDA | CP-1 | Debt 17,972,202 thousand over LTM Adjusted EBITDA 2,888,192 thousand | Sets default risk and leverage tolerance; Adjusted EBITDA adds back items | Primary measure of financial risk | S4 page:19-20; S1 page:57; S4 page:42 | Management measure; covenant EBITDAR differs |
+| 2 | Negative free cash flow and debt-funded growth | CP-1 | Operating cash flow 1,203,634 less capex 1,724,205 for nine months 2026, dividends 789,997 | Debt must rise or partners fund the gap | Drives refinancing dependence | S4 page:6-7 | Excludes acquisitions and intangibles |
+| 3 | Liquidity of cash plus revolver availability | CP-1 | Cash 188,160 plus availability 2,218,218 | Determines ability to meet near-term maturities | Backstop for 2027 notes | S4 page:2, 20, 23 | Revolver commitment taken from the annual report |
+| 4 | Near-term refinancing and maturity concentration | CP-1, CP-2 | Current portion 1,232,903 including notes due September 15, 2027; schedule as at December 31, 2025 | Market access decides rollover cost | Monitoring trigger | S4 page:2; S1 page:144, 150 | No schedule after December 31, 2025 |
+| 5 | Data center growth and segment mix | CP-1A, CP-2 | Data center nine-month revenue 791,194, up 39.6%, growth capex 1,344,097 | Growth consumes capital ahead of revenue | Business risk driver | S4 page:43, 45; S7 page:1 | Leasing is signed capacity; backlog not supplied |
+
+#### T5B.3 Traceability map
+
+| Credit Driver / Conclusion | Originating Module | Source Evidence | Citation Present? | Source Quality | Classification | Claim Status | Confidence Level | Traceability Status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Leverage 6.22x | CP-1 | Balance sheet debt and Adjusted EBITDA reconciliation, recomputed | Yes | Primary filed | Calculated | Supported | High | Remediation Needed (disclose management EBITDA basis) |
+| Negative free cash flow | CP-1 | Cash flow statements 9M 2026, FY2025, 9M 2025 | Yes | Primary filed | Calculated | Supported | High | Committee-Ready |
+| Liquidity 2,406,378 thousand | CP-1 | Cash and printed revolver availability, sum recomputed | Yes | Primary filed | Calculated | Supported | High | Committee-Ready |
+| Refinancing in 2027 | CP-1, CP-2 | Debt table, notes table dates, maturity table at December 31, 2025 | Yes | Primary filed | Directly Sourced | Supported | Medium | Remediation Needed (stale schedule) |
+| Data center growth | CP-1A, CP-2 | Segment table, capex table, release leasing statement | Yes | Primary filed; management for leasing | Directly Sourced | Supported | Medium | Committee-Ready |
+
+#### T5B.4 Source lineage register
+
+| Statement | Source Path | Source File | Source Document ID | Page / Section | Module Section | Type | Source Quality | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Total long-term debt 18,096,426 principal and 17,972,202 carrying | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:20, Note 5 | CP-1 Financials | Sourced | Primary filed | Located; 24 lines sum to the total |
+| Revolver availability 2,218,218 | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:20 | CP-1 Liquidity | Sourced | Primary filed | Located; ties to 2,750,000 less 519,500 less 12,282 |
+| Letters of credit 61,252 of which 12,282 reduce capacity | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:23 | CP-1 Liquidity | Sourced | Primary filed | Located |
+| Covenant ratios 4.8 and 2.5 against 7.0 and 1.5 | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:50 | CP-1 Covenants | Sourced | Primary filed | Located |
+| Adjusted EBITDA FY2025 2,573,950 | source-text | 10-K_2025-12-31_irm-20251231.htm.jsonl | S1 | page:57 | CP-1 LTM bridge | Sourced | Primary filed | Located |
+| Adjusted EBITDA nine months 2,182,915 and 1,868,673 | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:42 | CP-1 LTM bridge | Sourced | Primary filed | Located |
+| Cash paid for interest 801,904, 711,517 and 824,591 | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl and 10-K_2025-12-31_irm-20251231.htm.jsonl | S4, S1 | S4 page:7; S1 page:99 | CP-1 Interest cover | Sourced | Primary filed | Located |
+| Maturities at December 31, 2025 (2027 2,330,763 and others) | source-text | 10-K_2025-12-31_irm-20251231.htm.jsonl | S1 | page:150 | CP-1 Maturities | Sourced | Primary filed | Located; total 16,556,767 recomputed |
+| 4 7/8% notes due September 15, 2027, 1,000,000 | source-text | 10-K_2025-12-31_irm-20251231.htm.jsonl | S1 | page:144 | CP-1, CP-2 | Sourced | Primary filed | Located |
+| Operating cash flow 1,203,634 and capex 1,724,205 | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:6 | CP-1, CP-2 | Sourced | Primary filed | Located |
+| Segment revenue and Adjusted EBITDA FY2025 | source-text | 10-K_2025-12-31_irm-20251231.htm.jsonl | S1 | page:164-165 | CP-1A | Sourced | Primary filed | Located |
+| Nine-month 2026 segment table | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:42-44 | CP-1A | Sourced | Primary filed | Located; segments sum to 2,182,915 |
+| Data center leasing 102 MW in Q3 and 137 MW year to date | source-text | EX-99.1_2026-11-05_q32026earningspressrelea.htm.jsonl | S7 | page:1 | CP-1A | Sourced | Management document | Management Language retained |
+| Leveraged recapitalization not a change of control | source-text | 10-K_2025-12-31_irm-20251231.htm.jsonl | S1 | page:36 | CP-1A | Sourced | Primary filed | Exact quote located |
+| Dividends payable 268,838 for the October 2, 2026 payment | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:7 and page:24 | CP-1 Liquidity | Sourced, partly | Primary filed | Figure located but attribution differs from Note 7 (see issue log) |
+| Par call date of 2035 notes July 15, 2031 versus July 15, 2029 | source-text | 10-Q_2026-06-30_irm-20260630.htm.jsonl | S3 | page:21 and page:47 | CP-0, CP-1A | Conflicting | Primary filed | Both spans located; Q3 report prints 2031 twice |
+| Weighted average interest rate 5.7% | source-text | 10-Q_2026-09-30_irm-20260930.htm.jsonl | S4 | page:39 | CP-1, CP-2 | Sourced | Primary filed | Includes letter of credit fees |
+| CP-2 credit view, strengths, weaknesses and risks | CP-1 and CP-1A text | CP-1, CP-1A handoffs | M1, M2 | Credit view and tables | CP-2 | Inference | Accepted handoffs | Each cited figure traced to CP-1 or CP-1A |
+
+#### T5B.5 Calculation and assumption register
+
+| Item | Where Used | Source Inputs / Assumption | Formula or Logic | Status | Claim Status | Confidence Level | Credit Relevance | Source Trace |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| LTM Adjusted EBITDA | CP-1 charts and table; CP-2 | 2,573,950; 2,182,915; 1,868,673 | FY2025 plus nine months 2026 less nine months 2025 = 2,888,192 (recomputed) | Calculated | Supported | High | Leverage, cover | S1 page:57; S4 page:42 |
+| Total debt / LTM Adjusted EBITDA | CP-1; CP-2 | 17,972,202; 2,888,192 | 6.2226, shown 6.22x (recomputed) | Calculated | Supported | High | Leverage | S4 page:20 |
+| Net debt / LTM Adjusted EBITDA | CP-1; CP-2 | 17,972,202 less 188,160 = 17,784,042 | 17,784,042 / 2,888,192 = 6.1575, shown 6.16x (recomputed) | Calculated | Supported | High | Leverage | S4 page:2, 20 |
+| Adjusted EBITDA / cash interest | CP-1; CP-2 | 2,888,192; 914,978 | 3.1566, shown 3.16x; LTM cash interest 824,591 plus 801,904 less 711,517 (recomputed) | Calculated | Supported | High | Debt service | S1 page:99; S4 page:7 |
+| Stricter EBITDA leverage | CP-1; CP-2 | Operating income plus D&A LTM 2,638,916 | 17,972,202 / 2,638,916 = 6.81x (recomputed) | Calculated | Supported | High | Leverage sensitivity | S1 page:97; S4 page:4 |
+| Operating cash flow less capex | CP-1; CP-2 | 1,203,634 less 1,724,205 | negative 520,571 (recomputed) | Calculated | Supported | High | Liquidity, refinancing | S4 page:6 |
+| Liquidity | CP-1; CP-2 | 188,160 plus 2,218,218 | 2,406,378; Q2 2,912,367; change negative 505,989 (recomputed) | Calculated | Supported | High | Liquidity | S4 page:2, 20; S3 page:19 |
+| Revolver commitment 2,750,000 used for availability tie | CP-1 | Annual report commitment | 2,750,000 less 519,500 less 12,282 = 2,218,218 (recomputed, exact) | Assumption-Based (commitment not restated in 10-Q) | Supported by exact tie | Medium | Liquidity | S1 page:141 |
+| LTM comparatives from 2026 filings | CP-1 | Nine months 2025 amounts printed in the 2026 reports | Assumption that comparatives equal the original 2025 filings | Assumption-Based | Partially supported | Medium | Leverage, cover | S4 page:42 |
+| Segment and geographic shares | CP-1A | Segment and geography tables | Shares recomputed: 76.7, 11.6, 11.7 percent; 66.3, 6.8, 4.4, 22.5 percent; 71.7, 13.3, 15.0 percent; 14.9 percent dividend increase (recomputed) | Calculated | Supported | High | Business risk | S1 page:164-165; S4 page:42-44 |
+| Conversion to USD million | CP-2 | CP-1 and CP-1A thousand values | Divide by 1,000, round to one decimal; all 21 distinct million figures traced | Calculated | Supported | High | Presentation | CP-1, CP-1A |
+
+#### T5B.6 Missing citation and weak-lineage flags
+
+| Severity | Conclusion | Issue | Classification | Why It Matters | Required Remediation | Affected Output / Export Record |
+| --- | --- | --- | --- | --- | --- | --- |
+| MINOR | LTM leverage and cover | Prior-year comparatives are taken from the 2026 filings; the Q3 2025 report is not in the pack | Assumption-Based | If originally reported figures differ, LTM EBITDA and cash interest shift, moving leverage and cover | Obtain the Q3 2025 report and re-check | CP-1 Chart data tables |
+| MINOR | Revolver availability tie | The 2,750,000 commitment is not restated in the 2026 reports | Assumption-Based | A changed commitment would change liquidity | Obtain the current credit agreement or amendment notice | CP-1 liquidity |
+| MINOR | Refinancing wall | The maturity table is as at December 31, 2025 and predates the 2026 notes, refinancings and receivables extension | Directly Sourced (stale) | Wall by year overstates or misplaces some buckets | Build a dated September 30, 2026 wall | CP-1 maturities, CP-2 key findings |
+
+#### T5B.7 Auditability assessment
+
+| Auditability Dimension | Assessment | Evidence | Risk Mechanic | Credit Implication | Remediation Needed |
+| --- | --- | --- | --- | --- | --- |
+| Source coverage | Ready with Remediation | Seven filed sources cover FY2025 to Q3 2026; no credit agreement, indentures, ratings or Q3 2025 report | Missing legal and market sources limit covenant and ranking claims | Covenant and legal claims stay on reported figures | Obtain legal documents and ratings |
+| Citation completeness | Committee-Ready | 56 of 56 quoted spans found; 271 of 271 figure checks located | None found | Reported figures are reliable | None |
+| Calculation traceability | Committee-Ready | All derived figures recomputed with formulas and inputs; no mismatch | Formula drift would distort leverage | Leverage and cover reproducible | None |
+| Assumption transparency | Ready with Remediation | Two assumptions (revolver commitment, comparatives) disclosed in CP-1 gaps | Undisclosed changes would alter liquidity and LTM | Limited effect on the credit view | Confirm both |
+| Markdown and export integrity | Ready with Remediation | Six H2 headings and required sections present; units mixed between thousand and million across modules; no YAML envelope | Unit mixing can cause misreads | No effect on figures | Keep conversion table |
+
+Overall auditability: Ready with Remediation (lowest of the five dimensions).
+
+#### T5B.8 Gaps ledger
+
+| Gap ID | Gap | Missing Evidence / Citation | Why It Matters | Impact on Output | Consequence for Confidence | Required Follow-Up Source |
+| --- | --- | --- | --- | --- | --- | --- |
+| CP-5-GAP-001 | No maturity table after December 31, 2025, so the 2027 to 2030 buckets are on a stale basis | Q3 2026 maturity schedule | Refinancing wall is stale; ties to default risk through rollover | CP-1 maturities chart; CP-2 key findings | Medium impact | Issuer maturity disclosure |
+| CP-5-GAP-002 | Credit agreement and indentures absent | Executed legal documents | Covenant capacity, dividend tests and ranking cannot be inferred | CP-1 covenants; CP-2 risks | Medium impact | Credit agreement; senior indentures |
+| CP-5-GAP-003 | No credit ratings or agency reports | Rating reports | Market view of credit absent | CP-2 assessment | Low impact | Agency reports |
+| CP-5-GAP-004 | Q3 2025 report absent | Original 2025 quarterly figures | LTM comparatives unchecked | CP-1 charts | Low impact | Q3 2025 10-Q |
+| CP-5-GAP-005 | Capitalized interest and cash interest excess for 2026 not disclosed | Interest capitalization note | Cover ratio basis uncertain | CP-1 interest cover | Low impact | Issuer disclosure |
+| CP-5-GAP-006 | Ownership, data center backlog and commencement dates absent | Proxy statement; supplemental disclosure | Business risk and control not fully assessable | CP-1A, CP-2 | Medium impact | Proxy; data center supplement |
+| CP-5-GAP-007 | Cost structure chart not captured | 10-Q Q3 page:31 table | Power and labor sensitivity | CP-1A OM-9 | Low impact | Underlying filing table |
+
+#### T5.1 Input module register
+
+Module Status: Ready with Limitations.
+
+| Module | Handoff canonical `.md` / run_id | Scope | Source Quality | Envelope / Headings Status | QA Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| CP-0 | requests/CP-0 response 1; run irm-2026-11-05-credit_snapshot-host | Source readiness for seven sources | Primary filings and management releases | Six H2 headings present; no YAML envelope | Accepted by CP-OS | One incorrect gap statement (maturity table) |
+| CP-1 | requests/CP-1 response 2; same run | Financial base, LTM Q3 2026 | Primary filed | Six H2 headings and required selectors present | Accepted by CP-OS | Corrects CP-0 on the maturity table |
+| CP-1A | requests/CP-1A response 1; same run | Business, transaction and governance | Primary filed; management for leasing | Six H2 headings and required selectors present | Accepted by CP-OS | Logs one conflict, not reconciled |
+| CP-2 | requests/CP-2 response 1; same run | Fundamental credit synthesis | Upstream only | Six H2 headings and required selectors present | Accepted by CP-OS | No source text used, as required |
+
+#### T5.2 Citation and evidence support audit
+
+| Severity | Module | Claim / Section | Evidence Status | Issue | Required Fix | Clearance Impact |
+| --- | --- | --- | --- | --- | --- | --- |
+| MATERIAL | CP-0 | Gap G1 and the 10-K source row state that no consolidated debt maturity table was located | Unsupported | The 10-K prints "MATURITIES OF LONG-TERM DEBT (GROSS OF DISCOUNTS)" at page:150; the search that produced the statement missed it. Resolved: CP-1 states the correction in its Sources section and uses the table | Downstream modules cite CP-1, not CP-0, for maturities | Requires Source Reconciliation (resolved) |
+| MINOR | CP-1 | Dividends payable 268,838 attributed to the October 2, 2026 payment | Partially Supported | 268,838 is the supplemental non-cash dividends payable (S4 page:7); Note 7 shows 257,293 for the August 5, 2026 dividend paid October 2, 2026 (S4 page:24) | Use 257,293 for that payment; do not use 268,838 elsewhere (it is used nowhere else) | Monitoring Follow-Up |
+| MINOR | CP-2 | Weighted average interest rate of 5.7% | Partially Supported | The rate includes letter of credit fees (S4 page:39); CP-2 omits the qualifier that CP-1 carries | Add the qualifier on re-use | Formatting / Hygiene Only |
+
+#### T5.3 Math, logic and definition audit
+
+| Severity | Module | Metric / Logic Issue | Formula / Definition Issue | Source Conflict | Required Fix | Clearance Impact |
+| --- | --- | --- | --- | --- | --- | --- |
+| MINOR | CP-1 | Deferred purchase obligation loss given as 69.9 million (S4 page:40) in one table note and 69,803 thousand (S4 page:6) in the claims table | The two lines differ in scope (obligations and other deferred payments versus obligations); the handoff does not say so | None; both located | State the scope of each figure on re-use | Monitoring Follow-Up |
+| MINOR | CP-1 | LTM bridges rely on 2025 comparatives printed in 2026 reports | Formula FY plus current YTD less prior YTD is correct and recomputed; comparatives not checked to original 2025 filings | None found | Obtain Q3 2025 report | Monitoring Follow-Up |
+
+All other formulas were recomputed with matching results (see Calculations).
+
+#### T5.4 Legal and structural claim audit
+
+| Severity | Module | Legal / Structural Claim | Required Legal Source | Evidence Gap | Required Fix | Legal Review Dependency |
+| --- | --- | --- | --- | --- | --- | --- |
+| MINOR | CP-1, CP-1A, CP-2 | Notes rank pari passu with Credit Agreement debt, are effectively subordinated to secured debt, and benefit from named guarantors; indenture dividend tests exist | Senior indentures; credit agreement; intercreditor terms if any | Statements rest on the debt note summary (S1 page:144) and covenant text (S4 page:23), not clause-level text; thresholds absent | Do not infer capacity or recovery beyond the notes; obtain documents | Legal review needed before any covenant or ranking conclusion |
+
+#### T5.5 Relative value and market claim audit
+
+| Severity | Module | Market / RV Claim | Missing Datapoint | Evidence Gap | Required Fix | Committee Impact |
+| --- | --- | --- | --- | --- | --- | --- |
+| MINOR | CP-1, CP-1A, CP-2 | None of the modules makes a price, spread, yield, rating or relative value claim | Ratings, quotes and peer data (the context supplies none) | Absence is disclosed in each module | Supply market data before any relative value work | None for this run; disclosed |
+
+#### T5.6 Cross-module consistency and version control
+
+| Severity | Affected Modules | Data / Claim Conflict | Version Issue | Required Fix | Downstream Impact |
+| --- | --- | --- | --- | --- | --- |
+| MINOR | CP-0, CP-1A | The par call date conflict in the Q2 2026 report is treated as an error in CP-0 and logged as not reconciled in CP-1A; both quote the spans | CP-0 reasoning is an inference, CP-1A follows the do-not-reconcile rule | Cite S4 page:22 for the call date (2031) and keep the Q2 conflict logged | None on figures |
+
+Checked and consistent across modules: issuer name, as-of date, reporting currency, total debt 17,972,202 thousand, LTM Adjusted EBITDA 2,888,192 thousand, leverage 6.22x and 6.16x, cover 3.16x, liquidity 2,406,378 thousand, covenants 4.8x and 2.5x, dividend 0.993 per share, segment figures, and the correction of the CP-0 maturity statement.
+
+#### T5.7 Duplication, materiality and committee-readiness audit
+
+| Severity | Module | Issue Type | Description | Required Fix | Committee Impact |
+| --- | --- | --- | --- | --- | --- |
+| MINOR | CP-1, CP-2 | Duplicative or presentation | CP-1 mixes US$ thousand and US$ million in different sections, and CP-2 restates the figures in USD million; the conversion is traced, so no value differs | Keep the conversion table with any re-use | None |
+
+#### T5.8 Handoff envelope and evidence trace audit
+
+| Severity | Module | Handoff Component | Defect | Required Fix | Downstream Handoff Impact |
+| --- | --- | --- | --- | --- | --- |
+| MINOR | CP-0, CP-1, CP-1A, CP-2 | YAML front matter | The Markdown transport of this run uses six H2 headings and required selectors, not a YAML envelope; envelope fields live in the run record | None inside this run; carry run identity from the run record | None; all four accepted by CP-OS |
+
+#### T5.9 Consolidated issue log
+
+| Issue ID | Severity | Module | Issue Type | Description | Required Fix | Clearance Impact | Status |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CP5-001 | MATERIAL | CP-0 | Unsupported Claim | Maturity table stated as absent; the 10-K prints one at page:150 | Cite CP-1 for maturities | Requires Source Reconciliation | Resolved (CP-1 correction) |
+| CP5-002 | MINOR | CP-1 | Partially Supported Claim | Dividends payable 268,838 attributed to the October 2, 2026 payment; Note 7 total is 257,293 | Use 257,293 for that payment | Monitoring Follow-Up | Open |
+| CP5-003 | MINOR | CP-2 | Partially Supported Claim | 5.7% rate cited without the letter of credit fee qualifier | Add qualifier on re-use | Formatting / Hygiene Only | Open |
+| CP5-004 | MINOR | CP-1 | Formula / Definition Drift | Two figures for deferred purchase obligation loss with different scope | State scope on re-use | Monitoring Follow-Up | Open |
+| CP5-005 | MINOR | CP-1 | Source Quality Limitation | 2025 comparatives not checked to original 2025 filings | Obtain Q3 2025 report | Monitoring Follow-Up | Open |
+| CP5-006 | MINOR | CP-1, CP-1A, CP-2 | Legal Support Gap | Ranking and dividend-test statements rest on debt note summaries, not indentures | Obtain legal documents | Requires Legal Review | Open |
+| CP5-007 | MINOR | CP-1, CP-1A, CP-2 | Market Data Gap | No ratings or market data; disclosed | Supply before relative value work | Monitoring Follow-Up | Open |
+| CP5-008 | MINOR | CP-0, CP-1A | Cross-Module Inconsistency | Different treatment of the par call date conflict | Cite the Q3 2026 report | Requires Source Reconciliation | Open |
+| CP5-009 | MINOR | CP-1, CP-2 | Duplicative / Immaterial Content | Mixed thousand and million units | Keep conversion table | Formatting / Hygiene Only | Open |
+| CP5-010 | MINOR | All | Handoff Integrity | No YAML envelope under this transport | Carry identity from run record | Formatting / Hygiene Only | Open |
+
+#### Remediation priority map
+
+- Must-fix before committee: None. The one Material issue (CP5-001) is resolved by the CP-1 correction.
+- Must-fix before the handoffs are consumed downstream: CP5-008 (cite the Q3 2026 report for the call date) and CP5-002 (do not use the 268,838 attribution).
+- Monitoring follow-up: CP5-004, CP5-005, CP5-006 and CP5-007; obtain the Q3 2025 report, the credit agreement and indentures, and ratings.
+- Formatting and hygiene: CP5-003, CP5-009 and CP5-010.
+
+#### Clearance decision
+
+CLEARANCE DECISION: Pass with Remediation. Critical Issues: 0. Material Issues: 0. Minor Issues: 9. Committee Use: Approved.
+
+One Material issue (CP5-001) was found and is resolved, and the remaining nine are Minor. Committee use is approved on the condition that the stale maturity basis, the absence of the credit agreement, indentures and ratings, and the management Adjusted EBITDA basis are disclosed alongside the leverage, cover and liquidity figures.
+
+## Calculations
+
+Recomputation of every derived figure used by the four handoffs (inputs in US$ thousand, from the cited chunks):
+
+| Item | Formula and inputs | Recomputed | Handoff value | Match |
+| --- | --- | --- | --- | --- |
+| LTM Adjusted EBITDA Q3 2026 | 2,573,950 + 2,182,915 - 1,868,673 | 2,888,192 | 2,888,192 | Yes |
+| LTM Adjusted EBITDA Q1 and Q2 2026 | 2,573,950 + 707,939 - 579,906; 2,573,950 + 1,434,957 - 1,208,294 | 2,701,983; 2,800,613 | same | Yes |
+| LTM cash interest Q3, Q1, Q2 | 824,591 + 801,904 - 711,517; + 341,794 - 267,214; + 461,459 - 386,391 | 914,978; 899,171; 899,659 | same | Yes |
+| Total debt / EBITDA | 17,972,202 / 2,888,192; 17,102,981 / 2,701,983; 17,349,649 / 2,800,613; 16,431,959 / 2,573,950; 13,719,086 / 2,236,380 | 6.22; 6.33; 6.19; 6.38; 6.13 | same | Yes |
+| Net debt / EBITDA | 17,784,042 / 2,888,192; 16,273,424 / 2,573,950; 13,563,370 / 2,236,380 | 6.16; 6.32; 6.06 | same | Yes |
+| EBITDA / cash interest | 2,888,192 / 914,978; 2,573,950 / 824,591; 2,236,380 / 770,688 | 3.16; 3.12; 2.90 | same | Yes |
+| Operating income plus D&A leverage | 17,972,202 / (1,520,374 + 1,118,542) | 6.81 | 6.81 | Yes |
+| Operating cash flow less capex, nine months 2026 | 1,203,634 - 1,724,205 | negative 520,571 | negative 520,571 | Yes |
+| Liquidity Q3 and Q2 2026 | 188,160 + 2,218,218; 204,793 + 2,707,574 | 2,406,378; 2,912,367 | same | Yes |
+| Revolver tie | 2,750,000 - 519,500 - 12,282 | 2,218,218 | printed 2,218,218 | Yes |
+| Debt table sums | 24 lines principal; deferred costs; carrying | 18,096,426; 124,224; 17,972,202 | same | Yes |
+| Maturity table sum | 216,074 + 2,330,763 + 1,663,693 + 2,137,476 + 3,035,690 + 7,173,071 | 16,556,767 | printed 16,556,767 | Yes |
+| Segment sum nine months 2026 | 1,868,436 + 424,090 - 109,611 | 2,182,915 | consolidated 2,182,915 | Yes |
+| Shares and dividend growth in CP-1A | see T5B.5 | as listed | as listed | Yes |
+
+Check counts: quoted spans found 56 of 56 (CP-0 25, CP-1 14, CP-1A 17); figure checks located 271 of 271 (CP-1 187, CP-1A 84); the two conflict spans in the Q2 2026 report located.
+
+Confidence score, run with the shipped script (lineage Calculated 3 and Directly Sourced 2 over the Top 5 drivers, 8 of 8 required fields present, source gate pass, findings MINOR 9; the resolved Material issue is excluded): E = 94, C = 100, S = 1.0, P = 27; score = clamp((0.6 x 94 + 0.4 x 100) x 1.0 - 27, 0, 100) = 69.4, rounded to 69, band Medium, qa_status Passed.
+
+## Gaps
+
+Readiness: CP-5 is READY_WITH_LIMITATIONS, matching the source set. The gaps ledger is T5B.8 (CP-5-GAP-001 to CP-5-GAP-007). Revision history: CP-1 corrected the CP-0 statement on the maturity table (CP5-001); no accepted answer was edited in this run. External material: none used by CP-5 or by the audited handoffs. The audit did not review images or charts; the one chart that the extraction missed is recorded as CP-5-GAP-007.
+
+## Next module
+
+None. CP-5 is the last selected module; the next step is report assembly from the five accepted handoffs. Carry forward the Pass with Remediation clearance, the disclosure conditions above and issues CP5-002 and CP5-008 for any re-use of the figures.

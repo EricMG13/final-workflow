@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Builders FirstSource, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "823065622ac29ad63f87b66c10b3d798ab9303f8c970b85b92f36bc8eed37638",
+    "CP-1.md": "936bbb99fc4046541fbb62dacc6ef6d0c679a81360eaf50d71b4f0d7a89c15a8",
+    "CP-1A.md": "2f81a875ac526d890607471397c083e1d1228c0083ca8bf0bfc74361c237ccb9",
+    "CP-2.md": "67caba116dddcaf3e6bad59e4f6506b861a1bc02cce93e4e62d09604ca44169f",
+    "CP-5.md": "2076a7534b0437d40bd0822b1c4f4e0f004af7b683d1cf8a5d10eca7d5a68e70",
+    "view.json": "da0ce5b76b3a216312bd96db3b34787c0ab3d3a624292cc988fa8da813db7ce0",
+    "report-view.json": "c9020a144585c9ec3c3de5b052673f40dc7aa4db403667fb8f30ae5f83a949f6",
+    "report.html": "e56b6f7067508fefade808ef4917e6ee5450b788e3940d0c8d134401cba625ef"
+  }
+}

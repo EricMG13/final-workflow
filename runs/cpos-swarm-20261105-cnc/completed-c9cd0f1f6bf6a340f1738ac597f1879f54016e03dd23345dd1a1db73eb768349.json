@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for CENTENE CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/e4e87c1750a8359946c9ab57524876bcdb08969045455c518d5b003f3c96ab69/1.response.md",
+    "CP-1": "requests/CP-1/017cf70a51936eaded7271b0b1af3e31b9fc0b05208623e92a54b6d3461e6794/1.response.md",
+    "CP-1A": "requests/CP-1A/ab1e3a681e4cf2cea6ffa0e036183f47f9387cdbf9ed9e96cd768032cb14ae99/1.response.md",
+    "CP-2": "requests/CP-2/381f10c3e34578985673d443837f6ab8155ce6fd5083372ef1b1c32d681b981e/1.response.md",
+    "CP-5": "requests/CP-5/6eaf060af5c73495d98c9cec8ab0002c95379255e83375f801f999ceededbb2b/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "dc12111767001d704809690d272a9bea19fe4c1e9370bae51516200183b0cc8c",
+  "report_sha256": "b81c2e70bbdac4e78e3b95553b9fbe6691f8135ba6d334ec53255cd6fb5837b1"
+}

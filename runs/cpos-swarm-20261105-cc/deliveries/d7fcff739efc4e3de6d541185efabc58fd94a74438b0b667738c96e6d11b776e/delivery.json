@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Chemours Co as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "1ecb39c4a4880cffa7ae4a7043208842e01127188022f689018f652251f98699",
+    "CP-1.md": "66c8382addeeb6334641b2106aad48df892e2b12eebe59c20cf662cd9c7c2735",
+    "CP-1A.md": "68f3c23dab99b4b17ecaf3d393184950ee6d4db0592f5576f2a8e526977fa345",
+    "CP-2.md": "c29b7415a9f188a6584a1c4d1bf77728d1fdc814ae3412bd485c11e0c554fdec",
+    "CP-5.md": "e4eb95a6de1079f5505708748509830e8dd45cf083f2b6c4da03df563ba9fbd4",
+    "view.json": "eab8890ae4f7af3714cc07ea64d5af28cf16853b0f686f8990175be2df357302",
+    "report-view.json": "0e1bb2f464803e2b3fb1813853e4a3b34f4409e5420140d052f693e91f73ea0e",
+    "report.html": "7accb0ff7473f7929471da43d19c343efacc4b7c9674267903b48954abf5db0a"
+  }
+}

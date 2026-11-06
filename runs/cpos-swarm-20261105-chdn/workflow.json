@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "chdn-2026-11-05-credit_snapshot-host",
+    "issuer_id": "chdn",
+    "issuer_name": "Churchill Downs Inc",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_chdn-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_chdn-20251231.htm.jsonl",
+      "sha256": "791973148b4d2826daf79f6e0ecd898b524ba905f6928d4b1fa58e745cfa58e6"
+    },
+    "10-Q_2026-03-31_chdn-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_chdn-20260331.htm.jsonl",
+      "sha256": "3d979cd66a5fd3c2d7447c580ef853c0c5a7867f89e2461cd6b817f9d370c641"
+    },
+    "10-Q_2026-06-30_chdn-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_chdn-20260630.htm.jsonl",
+      "sha256": "4eca3b557126cb1eb2e1c2c8c7ed3827f930ac9e114b1865fffc6dfad00959f1"
+    },
+    "10-Q_2026-09-30_chdn-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_chdn-20260930.htm.jsonl",
+      "sha256": "7fff97ce9977f2b2156048dbf8e8996f9058aaa73d34344c7b548ba853ea7229"
+    },
+    "EX-99.1_2026-04-22_ex991pressrelease04-22x26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-22_ex991pressrelease04-22x26.htm.jsonl",
+      "sha256": "bbdcb62a4845e34e0fdd4338c48e18f02c4eceb2b21c6ecefed1bd7b13c21521"
+    },
+    "EX-99.1_2026-07-29_ex991pressrelease07-29x26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-29_ex991pressrelease07-29x26.htm.jsonl",
+      "sha256": "85b22b14ac2149df8072938d3dbc3e8d85579a1e2355ea8fce27bcd305c203d4"
+    },
+    "EX-99.1_2026-10-28_ex991pressrelease10-28x26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-28_ex991pressrelease10-28x26.htm.jsonl",
+      "sha256": "ecea350f3f38425e2e2322d4e7d883986fb7f745d76fde798f61a64ba8bc0e4f"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/20212-churchill-downs-inc-chdn.json",
+      "sha256": "7c4f52e55b5e23c0fba0c45fbf91c794297fbfceecf1db4e9e336166f978aca8"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "17a97142596a591e20f59f1d7a29057a061adab29e5807fd30f936bb5eb43c94"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "16d6357ebec76580de039f35c93ae2f81a70ecd2c47ce44ebee08814d5216f50"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "44e72b89aaa9aebd2528bb1deb6c7f9820fffa538ef07fc5585f66abef5f8004"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "8a8c826909cdb39033edc1bd5615fc5631ce228caa24b8ba4e85448dedf2da94"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "a4c0c42d5d95dbf762c2426b10aa305476984c7d69cfdb25f130e9668f2f853e"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Churchill Downs Inc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Churchill Downs Inc — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

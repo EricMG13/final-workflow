@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for AdaptHealth Corp. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "b67bc3e10a5b190f180f14c79e445250decd0d04cb949167ee513ab97aec68a5",
+    "CP-1.md": "eb5f0019938ce176755d2f69f670b8179c7f85ba4b8a39bd2045a031318087ae",
+    "CP-1A.md": "e3d5790854fad1801078a7e5602ced5962f532c339f8cef43d0d4e1d04d874fa",
+    "CP-2.md": "f4343ca642769d050eded3c7c6aa5e8e8d293b9c9bf3e588d6e331756746d9b2",
+    "CP-5.md": "aeaa73156bc0629d3c47d4f5e211fb9fcf08b9b71d3be1476b61b8db267dc6dd",
+    "view.json": "257c4bae6c1c20325dc7e04db30be6ee16d87fa9c2dca8a52511799331eb8612",
+    "report-view.json": "64db556b085a603d05da611311b4c88ae61e70ff6367a28831ca6f2f23125585",
+    "report.html": "4e7e1675342f57f6e19c74d542823cebaeeee3202d499d6d21d1371f69d6b039"
+  }
+}

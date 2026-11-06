@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for DYCOM INDUSTRIES INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/60873616f1bffa0f1ab8a67845bd6f6ea341e9f6e2c02f77dd8beef5f28a9f0b/1.response.md",
+    "CP-1": "requests/CP-1/a454499b95ed9196b0b9bd14bcfa566d91efef3429c7f1c3a1da2a429853d973/2.response.md",
+    "CP-1A": "requests/CP-1A/5fffbeb44ee37ce5d72d0bccc4d0b6bd8ae44263ba36ade24e91282d25dcbe8d/1.response.md",
+    "CP-2": "requests/CP-2/96b9bcf22828454b17a135556d88919dd43e5539a30fa5839337357d3651474e/1.response.md",
+    "CP-5": "requests/CP-5/9f67d2eff31106d313bfcbc8679cbfb23e56a9af0aee862f0be9e59fa23ac0c5/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "438894d5b8593f189d00af2401db191ca3eb3a07705a49cf831ef541928668d6",
+  "report_sha256": "d95b618dbc837e5bc4855ee33b22fb48b87401bc1db70d8b819ceb816081f6ac"
+}

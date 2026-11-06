@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "q-2026-11-05-credit_snapshot-host",
+    "issuer_id": "q",
+    "issuer_name": "Qnity Electronics, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_q-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_q-20251231.htm.jsonl",
+      "sha256": "e6aa73bd70df7e3e0ffd28b18c3c3617fc18aa3bd528f94171644c3861570e83"
+    },
+    "10-Q_2026-03-31_q-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_q-20260331.htm.jsonl",
+      "sha256": "3e67b29c7bfc54a00e7b4e1053eaf9db0dfe27e98d3be297739af44cb503be9c"
+    },
+    "10-Q_2026-06-30_q-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_q-20260630.htm.jsonl",
+      "sha256": "ea2a02aceafaef264a32b40d769e015a1dab5576908bcfea4c4835f808293c27"
+    },
+    "10-Q_2026-09-30_q-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_q-20260930.htm.jsonl",
+      "sha256": "29a057a7e4cb82ecbc0deda84b9a692d697b84c63c4e79f64989b898a6663fa1"
+    },
+    "EX-99.1_2026-05-12_exhibit991supplementalsche.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-12_exhibit991supplementalsche.htm.jsonl",
+      "sha256": "34da16f47d613afa1ce19e0f2c5d5c1e7404676e6d53e22de943de9472e1406f"
+    },
+    "EX-99.1_2026-08-04_exhibit991supplementalsche.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-04_exhibit991supplementalsche.htm.jsonl",
+      "sha256": "c66d9d8857e25e5f4116acecc0d5ce66c3a7d35395af7543ec410b08117a8397"
+    },
+    "EX-99.1_2026-11-04_exhibit991supplementalsche.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-04_exhibit991supplementalsche.htm.jsonl",
+      "sha256": "93485953e4c12649f8b405499cec560c8cd4ef4e3f09dddaf75ce0a143559f46"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/2058873-qnity-electronics-inc-q.json",
+      "sha256": "02e995f945c46ea1425b085c688f4524b4d428bdd3a6b5db374bc8b937d27e4d"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "699e0f834b697b6a855acdee4da030c0bd8d5e06006e64294973541b5936552a"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "f22489a1a54d8eb7e6fe7589982db095883e942cf9140ac9efaac9bf839a2e90"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "045ab505a725c7e2f1bbe77bcb870dc97385fdf7b460eace4e01edf124ea8b1d"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "1f352188f427112963f0116640061eb1a91668f8c7eed34903956d2e34c17073"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "07fc4823f1e7accd7eb180049f0531e390428ccbda556e9235549f2b729ffb44"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Qnity Electronics, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Qnity Electronics, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

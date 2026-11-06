@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "amtm-2026-11-05-credit_snapshot-host",
+    "issuer_id": "amtm",
+    "issuer_name": "Amentum Holdings, Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-10-03_amtm-20251003.htm.jsonl": {
+      "path": "source-text/10-K_2025-10-03_amtm-20251003.htm.jsonl",
+      "sha256": "8273d25a00529c2b44154e4079fb17aed384ffabfb0b6e916ff874e87d184e2c"
+    },
+    "10-Q_2026-01-02_amtm-20260102.htm.jsonl": {
+      "path": "source-text/10-Q_2026-01-02_amtm-20260102.htm.jsonl",
+      "sha256": "53306aefcf67aafc6e963ada6d826aebfcc9ef2ae12c58e6020ff2739d2c4784"
+    },
+    "10-Q_2026-04-03_amtm-20260403.htm.jsonl": {
+      "path": "source-text/10-Q_2026-04-03_amtm-20260403.htm.jsonl",
+      "sha256": "39d2941eedc33b6b8a6975be5d0ab047229748e579ab149e336916a6515e4e3c"
+    },
+    "10-Q_2026-07-03_amtm-20260703.htm.jsonl": {
+      "path": "source-text/10-Q_2026-07-03_amtm-20260703.htm.jsonl",
+      "sha256": "e0cfefb75002bb2378240c82d12b55245568de0ae66e976bd3399e669ec7e5df"
+    },
+    "EX-99.1_2026-02-09_exhibit991-february92026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-02-09_exhibit991-february92026.htm.jsonl",
+      "sha256": "f4a0837903a2e7b5b24df97e0fe38362855d47b722b3db774277ece94a59d816"
+    },
+    "EX-99.1_2026-05-11_exhibit991-may112026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-11_exhibit991-may112026.htm.jsonl",
+      "sha256": "70874f67722755b78375d913af6706b9925581a1e0d597e3dc867f0ae2da1e41"
+    },
+    "EX-99.1_2026-08-10_exhibit991-august102026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-08-10_exhibit991-august102026.htm.jsonl",
+      "sha256": "cf451c4e10bf61fb7f1fdcb128f9d46a9635fb48c3681eadc79c1a3f2194b093"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/2011286-amentum-holdings-inc-amtm.json",
+      "sha256": "f35913dfc940216c52100a4ebad511585e07d7ab0e645bded7b78046135f5c43"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "112c8aea55cc178cc28726c8da2853e58fff4ea1b5e6c5b88dcc3d76a0def19a"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "c2a2df447b60c52b0d73735db79aed5372b70200d5d5765bf379cf7ef20aafc4"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "1adbc0f80b3fdc89f637249835e45b512e2ae5afd62f76654462146dd3d9f365"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "3d6ba350ba6251d186bef0c3c1ef6d9c4c396e53a4d31f6b839af142f069101e"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "7c1f193c2f5bfd071774fd15cf7034116fd7e52b69b5beacb2261323862abfb1"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Amentum Holdings, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Amentum Holdings, Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

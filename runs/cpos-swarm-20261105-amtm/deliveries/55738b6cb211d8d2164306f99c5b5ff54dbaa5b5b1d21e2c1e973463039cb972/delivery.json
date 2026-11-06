@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Amentum Holdings, Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "a73cd36f054f9d1f45a1a722b687f0bbcf428fae01c4dbd0e0acf28f5952073e",
+    "CP-1.md": "3f7716d0288dc98301a065f43c1a1aafb7f2ca57911372ef5ca1732285e0a677",
+    "CP-1A.md": "d5fb957740351fe382b18b816f2170cd01ce1de250ef7cfa5c0a7e961eb95b91",
+    "CP-2.md": "63c4135cf049313f1699c30f7590c80b67fd898df69bdf26007da35bb98396d8",
+    "CP-5.md": "272766386c24e1116dee118d381dc31387bb7bd5b6a3124e8df4279bdde5acbe",
+    "view.json": "8701bb7b829dcf7ed468ec50c69bcd165ad69ff7e6612c4a033d741cd8f88837",
+    "report-view.json": "5c5a476d03f5b7b1d558270d0dfadfc9f1df165bb0d1e6215b5809a2065844c2",
+    "report.html": "eec61efa918363d0a30afe1c6ec34a7c706bb8ac9c5e7157084b4d2bf6d62305"
+  }
+}

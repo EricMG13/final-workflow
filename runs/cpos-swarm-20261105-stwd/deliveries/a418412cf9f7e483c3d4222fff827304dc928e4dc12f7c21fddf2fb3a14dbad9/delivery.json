@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for STARWOOD PROPERTY TRUST, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "2dd5f2d188dcfd523c32c5571bb13634e5383866cc3b07a5a7ff8344297fbd4e",
+    "CP-1.md": "4e1540f23d70471fc4b9b2945093c91a4c0f050f9198457596131405cd3f82d1",
+    "CP-1A.md": "9e0df2f1a6fca390ee0368bc3a7cb1ba3a1c796d23d87e8940a5abeb1b921158",
+    "CP-2.md": "88bacddd0c1534cdc1e8d252ab513c1dde7b772de5d8fdde696dc47352e73324",
+    "CP-5.md": "044f1ec52aa81b1bb3d1bc347988855866b751486aaf3e467a1b4fa84c47dea3",
+    "view.json": "9a25fd0df42c173f8dd8adc9fa2f3e4a0e9e15018d174978f6b1c6fab83096b8",
+    "report-view.json": "2cbcf5c6fa83193bdbe99f0b3121d4781c3cbdb591c7013b0a7747ddbb91e67b",
+    "report.html": "54b578159faea205f308ead0daf2ab1afef178aeaf2d1f782c03d3d98568c410"
+  }
+}

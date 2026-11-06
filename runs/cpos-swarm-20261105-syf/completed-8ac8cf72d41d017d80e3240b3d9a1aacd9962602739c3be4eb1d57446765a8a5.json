@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Synchrony Financial as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/964042f30fb98aa6991d8eb4bfc73e3c2a050cf5e648494b7e3f36b716fcf98c/1.response.md",
+    "CP-1": "requests/CP-1/26ec78b4c9fbee164992779a473d188a4b2ad8b36ab67dfe3440f6c0fd16933a/1.response.md",
+    "CP-1A": "requests/CP-1A/8fe2a58074091e9ee9e677f99ec8664ddb7ef985a03620677b98aba5ae6e739f/2.response.md",
+    "CP-2": "requests/CP-2/f1b7083e12944fd59681f64a0dab97060bfac8807842c276b9a14bda39cf7282/1.response.md",
+    "CP-5": "requests/CP-5/f9f6ca96aa4779e3854a63c15caece2143ea26c06f072bd15dc02e14fd61a4b5/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "bfa3449ff3b9d2f26f7b31e1d589331ef71fe7da9ddf3fa266d15b07377950f0",
+  "report_sha256": "b768ff3e84b4b67f873e91738387ab932e029a91e3b3dc27fd4d51bf1835153a"
+}

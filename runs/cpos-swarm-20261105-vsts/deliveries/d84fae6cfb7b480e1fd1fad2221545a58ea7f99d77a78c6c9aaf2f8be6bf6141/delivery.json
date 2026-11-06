@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Vestis Corp as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "fb64725ea4a061e1ccbb327ea1648238e8928972fee966ac507aa72bbbb573c2",
+    "CP-1.md": "885870b4672dfea8973940557a2d24917debec5a820a3ff44934bc123d031955",
+    "CP-1A.md": "c554b3d7796c7d2a04977f4bbc28bd611c0e1d2c91843e4c5a928f4f5ae25623",
+    "CP-2.md": "9bc6bc469ef4ebfb2f2179afff2b40f2bed36bf43796c6cf5a5859073f98a24d",
+    "CP-5.md": "6f6e8075e03773f083def08d8f1a3401037f3027f781b2348f2bb40dc6861938",
+    "view.json": "102eb7cb24fd1102209fcc77421bd0585aaf203e0ba55d35c000b2e94b310899",
+    "report-view.json": "7234a9712a3c0afd53c6ea59d4dd0c0a9ece56fd224d22a1af2afca49a40fbc6",
+    "report.html": "6c61507181253bf391960bb25bdfcc1d06063740f3cac0d7bf135b195158933f"
+  }
+}

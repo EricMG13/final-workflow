@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "pbf-holding-co-llc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "pbf-holding-co-llc",
+    "issuer_name": "PBF Holding Co LLC",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_pbfh-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_pbfh-20251231.htm.jsonl",
+      "sha256": "d8cc408b78dbd581d058811f04c883343b35aff7d41a81cb7f7c9a865d63578a"
+    },
+    "10-Q_2026-03-31_pbf-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_pbf-20260331.htm.jsonl",
+      "sha256": "5a4242ec4ab0800289f99b8fb8f699b2f54c974b4153ae81aa21ea53d5f7dce3"
+    },
+    "10-Q_2026-06-30_pbf-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_pbf-20260630.htm.jsonl",
+      "sha256": "179cd47014072a6b74de2a12abf4417faacecc8413b4c8273ab1ec0f832d5c10"
+    },
+    "10-Q_2026-09-30_pbf-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_pbf-20260930.htm.jsonl",
+      "sha256": "aa31b84f94b1c47f81c70abbb0ff7efeca9bcb80852596ec5368223e7eac72e3"
+    },
+    "EX-99.1_2026-04-30_a991pressreleaseq1-26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-30_a991pressreleaseq1-26.htm.jsonl",
+      "sha256": "104828cb4c23629fde92b78b0620cad588c64bcdee91586fe5ba497364c7f993"
+    },
+    "EX-99.1_2026-07-30_a991pressreleaseq2-26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-30_a991pressreleaseq2-26.htm.jsonl",
+      "sha256": "a7bd74033edd0eddbe8e027b1ef6a171c22d27094099293d640917935e8f4118"
+    },
+    "EX-99.1_2026-10-29_a991pressreleaseq3-26.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-29_a991pressreleaseq3-26.htm.jsonl",
+      "sha256": "ceaca5528b0d3a91964868e4bbffe0689397a5fd5afc2bb6cfc13e308a461219"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1566011-pbf-holding-co-llc.json",
+      "sha256": "e3f25603b3db519b8b37c6f17fae4507d987050b491cc8f2ad5a0c098cf08361"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "7fc13029353bf3a7e66f24fa17c55f7907a356d7ffde6cae48f5673bafd60563"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "ff7418aad3509a0285ba4feb4050e90557ce5c6ce68505163c6c4a3d5dca461f"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "1b147f38e440fe5b59082ab5e74d4192493257783339a41a88eb180e99d36664"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "58f23cb337944c91ed788802c323107e18a67b0ee0edeca8d9da687bfa8790b2"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "4e16d40e42ecd7286e148fec60864256c6cddf7d5cca4bf4485d4008964b720e"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for PBF Holding Co LLC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "PBF Holding Co LLC — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

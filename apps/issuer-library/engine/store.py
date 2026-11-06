@@ -18,6 +18,7 @@ REPO = HERE if (HERE / "src").is_dir() else HERE.parents[2]
 OUTPUT_SKIP = re.compile(r"instructions|prompt|calculations|verification")
 INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery|-request\.md")
 HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
+OUTPUT_SEPARATORS = ("-", "_", ".", " ")
 AEROSPACE = "Aerospace & defense"
 # Reading labels written by hand. Route key: (folder under runs/, issuer, title, run label, sector, period).
 CURATED_RUNS = {
@@ -232,7 +233,7 @@ def output_label(module: str, path: Path, siblings: list[Path]) -> tuple[str, in
     """Name a saved output from its file; a label never ranks it as accepted or primary."""
     rest = path.name.removeprefix(module).removesuffix(".md")
     # At most one separator follows the module code; a name with nothing else is its own label.
-    stem = rest.removeprefix("-") or path.name if rest else module
+    stem = (rest[1:] if rest[:1] in OUTPUT_SEPARATORS else rest) or (path.name if rest else module)
     attempt = re.fullmatch(r"(?:(.+)-)?attempt-(\d+)", stem)
     if not attempt:
         repeated = sum(s.name == path.name for s in siblings) > 1
@@ -240,11 +241,10 @@ def output_label(module: str, path: Path, siblings: list[Path]) -> tuple[str, in
         return stem[0].upper() + stem[1:] + (
             f" · delivery {path.parent.name[:8]}" if delivered else ""
         ), None
-    prefix = re.escape(f"{attempt[1]}-") if attempt[1] else ""
-    pattern = rf"{re.escape(module)}-{prefix}attempt-\d+\.md"
-    counted = (
-        f"attempt {attempt[2]} of {sum(bool(re.fullmatch(pattern, s.name)) for s in siblings)}"
-    )
+    # Siblings in the same series share the file name up to "attempt-", taken literally.
+    head = re.escape(path.name.removesuffix(f"attempt-{attempt[2]}.md"))
+    total = sum(bool(re.fullmatch(rf"{head}attempt-\d+\.md", s.name)) for s in siblings)
+    counted = f"attempt {attempt[2]} of {total}"
     return (f"{attempt[1].capitalize()} · {counted}" if attempt[1] else counted.capitalize()), int(
         attempt[2]
     )
@@ -529,19 +529,19 @@ def report_record(
     identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"]
     issuer_name, as_of = identity["issuer_name"], identity["as_of"]
     files = {str(n): str(h) for n, h in delivery["files"].items()}
-    # The hand-written labels describe TransDigm builds; a folder of that name for another issuer
-    # keeps the issuer its own view.json records.
-    curated = name in CURATED_REPORTS and str(issuer_name).startswith("TransDigm Group")
-    issuer = "TransDigm Group" if curated else issuer_name
-    default = artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
-    label, status = (
-        CURATED_REPORTS[name]
-        if curated
-        else (
-            default,
-            "Superseded" if artifact.get("state") == "superseded" else None,
-        )
+    # The hand-written labels describe the TransDigm builds under deliverables/; a folder of that
+    # name elsewhere or for another issuer keeps the issuer its own view.json records.
+    curated = (
+        folder == f"deliverables/{name}"
+        and name in CURATED_REPORTS
+        and str(issuer_name).startswith("TransDigm Group")
     )
+    issuer = "TransDigm Group" if curated else issuer_name
+    if curated:
+        label, status = CURATED_REPORTS[name]
+    else:
+        label = artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
+        status = "Superseded" if artifact.get("state") == "superseded" else None
     return {
         "id": name,
         "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,

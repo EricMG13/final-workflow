@@ -621,3 +621,102 @@ def test_the_cp8_comparison_pin_needs_the_curated_builds_not_same_named_folders(
     wrong = store.workspace_store(tmp_path / "b", compared_workspace(tmp_path / "b", "Ford Otosan"))
     assert "CP-8" not in wrong["pins"]
     assert any(i.startswith("CP-8: curated pin dropped") for i in wrong["issues"])
+
+
+def test_other_one_character_separators_label_and_number_outputs_as_before(tmp_path):
+    """Hand-derived from "one separator of -, _, . or space; a series shares the name up to
+    'attempt-'": CP-1.original -> 'Original', CP-1 (copy) -> '(copy)', the two CP-1_attempt files
+    are attempts 1 and 2 of 2, so the default is attempt 2; CP-1x-attempt-1 counts itself
+    (1 of 1)."""
+    names = [
+        "CP-1.original.md",
+        "CP-1 (copy).md",
+        "CP-1_attempt-1.md",
+        "CP-1_attempt-2.md",
+        "CP-1x-attempt-1.md",
+    ]
+    for name in names:
+        put(tmp_path, f"runs/sep/{name}", f"# CP-1\n\n## Findings\n\n{name}.\n")
+    result = store.workspace_store(tmp_path, plain_run("sep"))
+    labels = {oid.split("/", 1)[1]: output["label"] for oid, output in result["outputs"].items()}
+    assert labels == {
+        "CP-1.original.md": "Original",
+        "CP-1 (copy).md": "(copy)",
+        "CP-1_attempt-1.md": "Attempt 1 of 2",
+        "CP-1_attempt-2.md": "Attempt 2 of 2",
+        "CP-1x-attempt-1.md": "X · attempt 1 of 1",
+    }
+    assert result["runs"]["sep"]["modules"]["CP-1"]["default"] == "sep/CP-1_attempt-2.md"
+
+
+def test_a_linked_deliveries_folder_and_a_linked_run_folder(tmp_path):
+    """Expected: runs/a/deliveries itself linking outside leaks nothing (only a's root CP-0);
+    a run folder that is itself a link keeps its own root handoff, as before the fix."""
+    put(tmp_path, "private/real/CP-9.md", "# CP-9\n\nSECRET-OUTSIDE.\n")
+    put(tmp_path, "runs/a/CP-0.md", BETA)
+    (tmp_path / "runs/a/deliveries").symlink_to(tmp_path / "private")
+    put(tmp_path, "elsewhere/b/CP-1.md", CP1)
+    (tmp_path / "runs/b").symlink_to(tmp_path / "elsewhere/b")
+    catalogue = {"issues": [], "real": [{"id": "a", "name": "a"}, {"id": "b", "name": "b"}]}
+    result = store.workspace_store(tmp_path, catalogue)
+    assert sorted(result["outputs"]) == ["a/CP-0.md", "b/CP-1.md"]
+    assert "SECRET-OUTSIDE" not in json.dumps(result)
+
+
+def test_a_malformed_manifest_files_value_hides_that_report_alone(tmp_path):
+    """Expected: delivery.json "files" as a list is that report's Settings issue only; the good
+    report lists CP-1 traced to run alpha-001's CP-1.md, and a manifest name in a subfolder
+    (sub/CP-2.md) is not a handoff row, as the old top-level glob never saw it either."""
+    put(tmp_path, "runs/alpha-001/CP-1.md", CP1)
+    delivery(tmp_path, "deliverables/good", "Alpha", {"CP-1.md": CP1, "sub/CP-2.md": "# CP-2\n"})
+    delivery(tmp_path, "deliverables/bad", "Alpha", {"CP-1.md": CP1})
+    put(tmp_path, "deliverables/bad/delivery.json", json.dumps({"files": ["CP-1.md"]}))
+    catalogue = report_catalogue("deliverables/good", "deliverables/bad")
+    catalogue["real"].append({"id": "alpha-001", "name": "Alpha"})
+    result = store.workspace_store(tmp_path, catalogue)
+    assert [r["id"] for r in result["reports"]] == ["good"]
+    assert [(b["module"], b["run"], b["source"]) for b in result["reports"][0]["builtFrom"]] == [
+        ("CP-1", "alpha-001", "alpha-001/CP-1.md")
+    ]
+    assert [i.split(":")[0] for i in result["issues"]] == ["deliverables/bad"]
+
+
+def test_a_curated_report_name_inside_a_run_is_not_a_curated_build(tmp_path):
+    """Expected: a TransDigm delivery kept at runs/r/deliveries/tdg-fy2024-snapshot-7 is not
+    build 7: no build number, no "Latest", its recorded issuer and a view.json label."""
+    folder = "runs/r/deliveries/tdg-fy2024-snapshot-7"
+    delivery(tmp_path, folder, "TransDigm Group Incorporated", {"CP-1.md": CP1})
+    report = store.workspace_store(tmp_path, report_catalogue(folder))["reports"][0]
+    assert (report["build"], report["status"], report["issuer"], report["label"]) == (
+        None,
+        None,
+        "TransDigm Group Incorporated",
+        "TransDigm Group Incorporated · as of 2025-06-30",
+    )
+
+
+@pytest.mark.parametrize("curated_first", [True, False])
+def test_the_route_key_rule_does_not_depend_on_catalogue_order(tmp_path, curated_first):
+    """Expected either way: key frontier-2020 holds frontier-2020-001 and the same-named folder
+    is reported; with the retained folder absent, runs/frontier-2020 is shown under its name."""
+    put(tmp_path, "runs/frontier-2020-001/CP-1.md", CP1)
+    put(tmp_path, "runs/frontier-2020/CP-2.md", "# CP-2\n\nNew run.\n")
+    entries = [{"id": "frontier-2020-001", "name": "F"}, {"id": "frontier-2020", "name": "N"}]
+    order = entries if curated_first else entries[::-1]
+    result = store.workspace_store(tmp_path, {"issues": [], "real": order})
+    assert result["runs"]["frontier-2020"]["folder"] == "frontier-2020-001"
+    assert sum(i.startswith("frontier-2020:") for i in result["issues"]) == 1
+    alone = store.workspace_store(tmp_path, {"issues": [], "real": [entries[1]]})
+    assert alone["runs"]["frontier-2020"]["folder"] == "frontier-2020"
+    assert alone["issues"] == []
+
+
+def test_a_name_that_merely_contains_request_stays_an_output(tmp_path):
+    """Expected: CP-1-requested-changes.md is a saved output; CP-1-request.md is an input."""
+    put(tmp_path, "runs/q/CP-1-requested-changes.md", "# CP-1\n\n## Findings\n\nChanged.\n")
+    put(tmp_path, "runs/q/CP-1-request.md", "# CP-1 — request\n")
+    module = store.workspace_store(tmp_path, plain_run("q"))["runs"]["q"]["modules"]["CP-1"]
+    assert (module["outputs"], module["inputs"]) == (
+        ["q/CP-1-requested-changes.md"],
+        ["q/CP-1-request.md"],
+    )

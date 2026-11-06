@@ -32,6 +32,7 @@ from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, chec
 from deploy_workflow.platform_io import replace
 
 RETAINED_NOTE = "Retained work is in the run folder; no automatic paid retry was made."
+UNKNOWN_SPEND_NOTE = "Recorded spend could not be read and may be above zero."
 # Room a run needs beyond this job's folder: requests/<module>/<hash>/<n>.request.json under runs/.
 RUN_PATH_ROOM = 100
 
@@ -214,6 +215,14 @@ def start(directory: Path) -> None:
     def spent() -> str:
         return str(Budget(prepared.plan.provider_cap_usd, run_dir / "live").spent)
 
+    def final_spend() -> tuple[str, list[str]]:
+        """The ledger's spend for status.json. An unreadable ledger is "unknown" with a note,
+        never left out: the app would fall back to progress.json's earlier, lower figure."""
+        try:
+            return spent(), []
+        except Exception:  # noqa: BLE001 -- any ledger fault
+            return "unknown", [UNKNOWN_SPEND_NOTE]
+
     def started(task: Any) -> None:
         write_json(
             run_dir / "progress.json",
@@ -247,19 +256,19 @@ def start(directory: Path) -> None:
             )
     except Exception as error:  # Any failure after launch may follow paid calls.
         stopped = isinstance(error, (ValueError, RuntimeError))
-        message = f"{with_notes(error)} {RETAINED_NOTE}"
-        recorded = {}
-        try:
-            recorded = {"spent_usd": spent()}
-        except Exception:  # noqa: BLE001 -- any ledger fault: say unknown, never a stale zero
-            message += " Recorded spend could not be read and may be above zero."
+        amount, notes = final_spend()
         write_json(
             directory / "status.json",
-            {"state": "stopped" if stopped else "failed", "message": redact(message), **recorded},
+            {
+                "state": "stopped" if stopped else "failed",
+                "message": redact(" ".join([with_notes(error), RETAINED_NOTE, *notes])),
+                "spent_usd": amount,
+            },
         )
         if not stopped:
             raise  # main prints the redacted problems; it keeps this status, which holds the spend
         return
+    amount, notes = final_spend()
     write_json(
         directory / "status.json",
         {
@@ -268,9 +277,10 @@ def start(directory: Path) -> None:
                 [
                     COMPLETE_MESSAGE,
                     *(str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)),
+                    *notes,
                 ]
             ),
-            "spent_usd": spent(),
+            "spent_usd": amount,
             "run_id": job["id"],
         },
     )

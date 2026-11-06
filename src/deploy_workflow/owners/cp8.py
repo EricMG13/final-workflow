@@ -148,6 +148,13 @@ _DECIMAL = re.compile(rf"(?:{_SIGN} ?)?[0-9]+\.[0-9]+|\( ?[0-9]+\.[0-9]+ ?\)")
 _W_MINUS = re.compile(rf"(?<=.){_SIGN} (?=[0-9])")
 _NUMERAL_RUN = re.compile(r"\.?[0-9](?:[0-9]|[.,][0-9])*")
 _PLAIN_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
+# S10-A01: a measure's word between a label and the figure after it: the figure is that measure's
+_MEASURE_WORD = re.compile(
+    r"(?<![a-z])(?:leverage|cover|coverage|bid|offer)(?![a-z])", re.IGNORECASE
+)
+# a label that follows another measure's word and a joiner ("bid/offer 98.00/98.75"): the figures
+# are listed in the order of the words, which the first-figure rule cannot read, so it binds none
+_JOINED = re.compile(rf"{_MEASURE_WORD.pattern} *(?:/|&|,|and|or) *$", re.IGNORECASE)
 _REFERENCE = re.compile(r"[{}\[\]]")
 _SUBJECT = re.compile(r"default|restructuring")
 _PROHIBITED = re.compile(  # r14 prohibited conclusions (lease, analyst text)
@@ -471,27 +478,36 @@ def _wrap_split(value: str, quote: str) -> bool:
 
 
 def _labelled(metric: str, value: str, quote: str) -> bool:
-    """``value`` is the first figure after the measure's label (a multiple for leverage/cover)."""
+    """``value`` is the figure bound to the measure's label (a multiple for leverage/cover), and
+    the only one: every occurrence of the label that binds a figure binds this one (S10-A01)."""
     text = _norm(quote)
     if metric in MEASURE_LABEL:
         label, figure, shown = MEASURE_LABEL[metric], _MULTIPLE, value + "x"
     else:
         label, figure, shown = ("bid " if metric == "loan_bid" else "offer "), _DECIMAL, value
-    at = text.lower().find(label)
-    if at < 0:
-        return False
-    start = at + len(label)
+    found = re.finditer(rf"(?<![a-z]){re.escape(label)}", text, re.IGNORECASE)
+    bound = {
+        "" if _JOINED.search(text, 0, at.start()) else _label_figure(text, at.end(), figure)
+        for at in found
+    } - {None}
+    return bound == {shown}
+
+
+def _label_figure(text: str, start: int, figure: re.Pattern[str]) -> str | None:
+    """The first ``figure`` after a label ending at ``start``; None when no figure follows or
+    another measure's word comes first (S10-A01: the label binds nothing); "" when a run that is
+    not a plain number or decimal comes first (round 13 item 7: `.75`, `1.2.5`, `1,250`: the
+    label binds a figure that cannot be read, which no value equals); plain integer runs (a
+    date's day and year) are skipped."""
     match = figure.search(text, start)
-    if match is None:
-        return False
+    if match is None or _MEASURE_WORD.search(text, start, match.start()):
+        return None
     for run in _NUMERAL_RUN.finditer(text, start):
-        # round 13 item 7: a run that starts before the match and is not a plain number or
-        # decimal (`.75`, `1.2.5`, `1,250`) ends the search; plain integer runs are skipped
         if run.start() >= match.start():
             break
         if not _PLAIN_NUMBER.fullmatch(run.group(0)):
-            return False
-    return match.group(0) == shown
+            return ""
+    return match.group(0)
 
 
 def _parts(metric: str) -> tuple[str, ...]:

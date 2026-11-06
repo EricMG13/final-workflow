@@ -28,6 +28,7 @@ from deploy_vii.contracts import (
     TableRow,
     validate_tables,
 )
+from deploy_vii.report_view import fact_spelling
 from deploy_workflow.owners import cpl10
 from deploy_workflow.owners.blank import one_per_page
 
@@ -689,6 +690,47 @@ def _with(path: tuple[Any, ...], value: Any) -> dict[str, Any]:
         target = target[key]
     target[path[-1]] = value
     return sub
+
+
+def _closing_known(*metrics: str) -> cpl10.Upstream:
+    """CP-1 with every Q4 25 operand missing except the named metrics'."""
+    out = []
+    for f in _cp1_facts():
+        if f.label.startswith("Q4 25") and f.row_id not in metrics:
+            f = f.model_copy(update={"status": "missing", "amount": None, "limitation": "Absent"})
+        out.append(f)
+    return _upstream(out)
+
+
+@pytest.mark.parametrize(
+    ("known", "assessed", "supported"),
+    [
+        # S10-A02, hand-read: no topic has a closing value, so CP-1 supports none; the cell
+        # states that (it was empty known text, and the report view raised on it)
+        ((), (), "None: no topic has values at both ends"),
+        # a single-topic scope: only Cash has values at both ends
+        (("cash_closing",), ("cash",), "Cash"),
+    ],
+)
+def test_s10_a02_topics_supported_is_never_empty_text(
+    known: tuple[str, ...], assessed: tuple[str, ...], supported: str
+) -> None:
+    upstream = _closing_known(*known)
+    sub = deepcopy(SUBMISSIONS["positive"])
+    sub["assessments"] = [a for a in sub["assessments"] if a["topic_id"] in assessed]
+    if not assessed:
+        sub["overall"] = {
+            "rationale": "No topic can be screened for this pair.",
+            "category": "Insufficient Information",
+            "confidence": "Insufficient Information",
+            "limitation": "Closing quarter values are not reported.",
+        }
+    assert cpl10.validate_screen(submission=json.dumps(sub), upstream=upstream) == ()
+    result = cpl10.change_screen(submission=json.dumps(sub), upstream=upstream)
+    cells = {c.fact.fact_id: c.fact for c in result.cells}
+    fact = cells["TL10.1.cp1.topics_supported"]
+    assert (fact.status, fact.value_class, fact.text) == ("known", "calculated", supported)
+    assert fact_spelling(fact, "G1") == ("text", "known", supported)
 
 
 def test_text_check_binds_every_python_built_fact() -> None:

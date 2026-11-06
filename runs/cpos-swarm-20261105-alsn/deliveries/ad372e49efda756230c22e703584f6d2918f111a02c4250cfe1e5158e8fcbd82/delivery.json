@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for Allison Transmission Holdings Inc as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "944a1fdb32b0e105bdb98bcce7fe9920a9ab8a1870c238bf911cb1860242755e",
+    "CP-1.md": "b27b50a0994fa47ab4bf54e7b8dd4dd25bcc010c8d3d2635214f68fda996a5d1",
+    "CP-1A.md": "be911cd43317c5c9e3b0719c6b55735952efe3e667f403e5f91bac7ad242802a",
+    "CP-2.md": "3c5b98128b1331940df6fc514c4ed76e24ae4a7ff327fdd907fc578b96707e09",
+    "CP-5.md": "664dd0961645504a835ad6dbcbe26e11a366f2668fd4a97c4de44e984a7e11a6",
+    "view.json": "1f559d876880cf92e85ab2fd016f6cf11e643d14e3c1a3c1a163c9fe0950a07b",
+    "report-view.json": "d8fde9a8ecf837b329bd689c1bde0cee00cfc3759bcacee47e7da0dc37f6a5ea",
+    "report.html": "48019fe9039b1400a7fe03a83601180c595c3f80c1cf03d0cd1c2e719b19831d"
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "amc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "amc",
+    "issuer_name": "AMC ENTERTAINMENT HOLDINGS, INC.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_amc-20251231x10k.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_amc-20251231x10k.htm.jsonl",
+      "sha256": "0ee36dfaa277d4be92a491f5b99adc1814801764434d8deab942cd5a2a5838d7"
+    },
+    "10-Q_2026-03-31_amc-20260331x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_amc-20260331x10q.htm.jsonl",
+      "sha256": "60b4c5d601e7b9acdc0496904f66b9f655c90ba8205a7e0b8cfdb830abd7ba76"
+    },
+    "10-Q_2026-06-30_amc-20260630x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_amc-20260630x10q.htm.jsonl",
+      "sha256": "952c4d205e8b900447956bd8caf30135da02e7444c27c71416edab4cbcf69ef9"
+    },
+    "10-Q_2026-09-30_amc-20260930x10q.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_amc-20260930x10q.htm.jsonl",
+      "sha256": "4d74cb1c191d1b28823e0af713c0d425aa587b54390a0af45163d9f0bd9f73ed"
+    },
+    "EX-99.1_2026-05-05_amc-20260505xex99d1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-05-05_amc-20260505xex99d1.htm.jsonl",
+      "sha256": "8c768557ab2991f52a8715d41145f36c5481fa9f34d8f76f8e3c17ac84833c6d"
+    },
+    "EX-99.1_2026-07-20_amc-20260720xex99d1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-20_amc-20260720xex99d1.htm.jsonl",
+      "sha256": "7ae4adc015a7738b87280223fdf61d61080e8bd76f8462c8935a6d99aa02e8e6"
+    },
+    "EX-99.1_2026-11-04_amc-ex99d1.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-11-04_amc-ex99d1.htm.jsonl",
+      "sha256": "51a7c35ada2d95a83a44b3a8c877a5584b3fe836e069b2ff43e63ad3815eecda"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/1411579-amc-entertainment-holdings-inc-amc.json",
+      "sha256": "0cce4dad135405f8586147db90660063f1faeb01eb8ee14c36784567b5aeaa09"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "adb28d9a7aaa3c73047422223f63785ce975804534a730bd86ff4d88b8da82d3"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "d93bde2807ac84d710f5c576ca71cb5e050a0931326f45a7e60ce0d05546a19f"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "517688a3bfefb65bfba37960b6c6b5fdd706e0e38d5d9710d5e7b498c9e6784c"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "e19b90de7acc5cf6b94f11e3cf5f45807ce184f25c9e8a1eb690e87c51e6edf5"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "411a76952e2ecf44af3c4f6ec6d468382d4f0934080cc5522e9c9521afea8afe"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for AMC ENTERTAINMENT HOLDINGS, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "AMC ENTERTAINMENT HOLDINGS, INC. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

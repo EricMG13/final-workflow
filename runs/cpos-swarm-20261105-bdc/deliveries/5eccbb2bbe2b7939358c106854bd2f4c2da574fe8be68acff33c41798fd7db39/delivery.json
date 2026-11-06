@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for BELDEN INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "cb24f448d7e562ed131ff8665c52f3b4cf4366d8e66384b5dea0d4a7df37f262",
+    "CP-1.md": "3e5c83e1173b68bed2223644f0ac2d4646c1f8f4d35660263af5cbd4e64cf59a",
+    "CP-1A.md": "c7902876ec44083e570bc569c8bfb3a1f55adbecc53f1c2df6625f3c0f821ac9",
+    "CP-2.md": "2655e6daf1365cfa80f2d905b25f17ad0e6814f7b6570ccb5a8f7811e4154093",
+    "CP-5.md": "ea5f19750432b399da5a89d04352b3fe0062e7f303786de527107ac6425c31ff",
+    "view.json": "b5e2f20d5c7c880b602cdeaef38bf1a68eb6dc60ec240ba87055660b944c2ab4",
+    "report-view.json": "4fe676ce305ca705bc37cf63745dc5eecde971287557da3a91eae361fcd2b9bd",
+    "report.html": "d1749734469308c0a5a5e627c02292844000ba7513ed617bfc78f6ed1680e06d"
+  }
+}

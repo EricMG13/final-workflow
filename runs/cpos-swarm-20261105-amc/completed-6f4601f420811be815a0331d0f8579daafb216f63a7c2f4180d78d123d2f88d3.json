@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for AMC ENTERTAINMENT HOLDINGS, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/31eb4a0ab5e90cf1affd1546e060c9b25a29a7ffc7d6f1454a9de49686b7b89c/1.response.md",
+    "CP-1": "requests/CP-1/7c2f698a6ec558553c25cc4c4049a9c467f7e25ed64ae3ef4fec2d564d753b89/1.response.md",
+    "CP-1A": "requests/CP-1A/e9661d0f44d49b525372fcd8ffd8a42c9bcec548c4ac3449aa8a4f7273a42845/1.response.md",
+    "CP-2": "requests/CP-2/786118488c193c085ac3e74032aa61f0b98c22d6741a4f5a9fa9ce154d1dc7c5/1.response.md",
+    "CP-5": "requests/CP-5/9cc746b32b0a96f04f02187fe593774a4a40fcd4bfe5d23289f9b35bf2a776e4/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "c0e33ac4b5ce75d57ce3819e5ce19edb401fbf4b3c8389b92532ed35856fcf99",
+  "report_sha256": "7e01a39a22a86e2d4e13c990215174eb0f0fa4a6df7f684158e19ca4cc5b3a20"
+}

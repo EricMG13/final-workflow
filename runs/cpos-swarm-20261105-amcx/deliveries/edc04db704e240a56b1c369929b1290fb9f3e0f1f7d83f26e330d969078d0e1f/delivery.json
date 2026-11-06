@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for AMC Global Media Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "35f530dc59f7820bbe868f2a577800a555c15b2a5fcc5f7bfcb4e80bdce10420",
+    "CP-1.md": "746b970893dcbe57525284bb2a29c526ab69662e4945f1c9b86d2e2b0cceacb8",
+    "CP-1A.md": "2e989982f8986cd3b9bca83e423ed4609a85d6ece2c247b7b18eb58c7e718ed2",
+    "CP-2.md": "1514d8ccb83323d74dcb053e0625536752c0f779b9f921d962b253e9ddfc1615",
+    "CP-5.md": "4c8f96e89e04172e484fa664e63651176de3529bd286380c4e5e42e1137c9f54",
+    "view.json": "aa619638ec13550d970faa7a3553cbb625f480d6f07530e243331aa06f0e2e0a",
+    "report-view.json": "3aa2c34331470b5c7de364b2556d75e918ce7c285a61c078bd71191d4008f4fc",
+    "report.html": "0c378f88744dd67b8cd956155da54e9682c28e4c94f2013fe25fbd7faf45a661"
+  }
+}

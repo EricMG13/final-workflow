@@ -1,0 +1,246 @@
+{
+  "run": {
+    "schema_version": "run/2",
+    "run_id": "bhc-2026-11-05-credit_snapshot-host",
+    "issuer_id": "bhc",
+    "issuer_name": "Bausch Health Companies Inc.",
+    "as_of": "2026-11-05",
+    "method_version": "deploy-v-r14",
+    "case_kind": "public",
+    "pathway": "credit_snapshot",
+    "requested_modules": [
+      "CP-1",
+      "CP-1A",
+      "CP-2",
+      "CP-5"
+    ]
+  },
+  "sources": {
+    "10-K_2025-12-31_bhc-20251231.htm.jsonl": {
+      "path": "source-text/10-K_2025-12-31_bhc-20251231.htm.jsonl",
+      "sha256": "dd4233546d8f09a0a7172210eae9b856cf06217c0da999f68b6e9a8283f6671d"
+    },
+    "10-Q_2026-03-31_bhc-20260331.htm.jsonl": {
+      "path": "source-text/10-Q_2026-03-31_bhc-20260331.htm.jsonl",
+      "sha256": "2ab4f9a58a29bd8e4f27c1aaa3b34a916ad63a6c5e24a2f2cf1f677d2bf1adb3"
+    },
+    "10-Q_2026-06-30_bhc-20260630.htm.jsonl": {
+      "path": "source-text/10-Q_2026-06-30_bhc-20260630.htm.jsonl",
+      "sha256": "9bd8cebbf75325a6e2424a90dc4ffd52c51b1a73535e612ffb413df53a0d5061"
+    },
+    "10-Q_2026-09-30_bhc-20260930.htm.jsonl": {
+      "path": "source-text/10-Q_2026-09-30_bhc-20260930.htm.jsonl",
+      "sha256": "bbe6464eac7c28eba7ae73d3d4c1550a00ee295236fd32b72332e63bba1b2690"
+    },
+    "EX-99.1_2026-04-29_ex991-q1x2026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-04-29_ex991-q1x2026.htm.jsonl",
+      "sha256": "a03142c8b51f52ce0bcea39df704d05d1ec6cd25d01c476f43f591aef5327135"
+    },
+    "EX-99.1_2026-07-29_ex991-q22026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-07-29_ex991-q22026.htm.jsonl",
+      "sha256": "b572ec3ee8791446c7753f44c437564f85dc7c22a9282dc8fe3094943c7ca9ed"
+    },
+    "EX-99.1_2026-10-28_ex991-q32026.htm.jsonl": {
+      "path": "source-text/EX-99.1_2026-10-28_ex991-q32026.htm.jsonl",
+      "sha256": "d176e2b2337e8c9ee765792690a4c9894f8e78c9eadadca91a11afce842a8bb9"
+    },
+    "context": {
+      "path": "../../../../../workspace/secdata/data/2026-11-05/contexts/885590-bausch-health-companies-inc-bhc.json",
+      "sha256": "ce3ba040ad702f7a097a4705cf09e05a5541c48113a20eaf4b83ee334242bc43"
+    }
+  },
+  "instructions": {
+    "CP-0": {
+      "path": "instructions/CP-0.md",
+      "sha256": "b10baa6c72071399b4b2235fff921875afbf90ad8186afa43a6c860b716bd439"
+    },
+    "CP-1": {
+      "path": "instructions/CP-1.md",
+      "sha256": "b6b7fbef7e76850736347ef289b7407de90c13035a92d0158466c897e1c81775"
+    },
+    "CP-1A": {
+      "path": "instructions/CP-1A.md",
+      "sha256": "31cce87d1f1a987449719b7d372631a153fe5c21758decdfb8efccaa3c0034a9"
+    },
+    "CP-2": {
+      "path": "instructions/CP-2.md",
+      "sha256": "6c1667d9b5db5f390c340c03fed0cdc5289bc0774ca22d4623df9e8d25bc0e6a"
+    },
+    "CP-5": {
+      "path": "instructions/CP-5.md",
+      "sha256": "c7a494be119b05821e17db6f2d363b42e33a54097d70264cd1dadb77e5294be2"
+    }
+  },
+  "retained_handoffs": {},
+  "model": null,
+  "layout": {
+    "blocks": [
+      "key-findings",
+      "company-operating-model",
+      "model-chart-strip",
+      "financials-credit-metrics",
+      "strengths-weaknesses",
+      "company-profile",
+      "transaction-summary"
+    ],
+    "routes": [
+      {
+        "module_id": "CP-2",
+        "heading": "Key findings",
+        "kind": "prose",
+        "block_id": "key-findings",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company and operating model",
+        "kind": "table",
+        "block_id": "company-operating-model",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: leverage",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.1",
+        "value_columns": [
+          "Total debt / EBITDA",
+          "Net debt / EBITDA"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: interest cover",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.2",
+        "value_columns": [
+          "EBITDA / cash interest"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "x"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: liquidity",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.3",
+        "value_columns": [
+          "Cash",
+          "Undrawn committed facilities"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Chart data: debt maturities",
+        "kind": "chart",
+        "block_id": "model-chart-strip",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": "S.4",
+        "value_columns": [
+          "Debt maturing"
+        ],
+        "row_labels": [],
+        "orientation": "period-rows",
+        "chart_unit": "US$m"
+      },
+      {
+        "module_id": "CP-1",
+        "heading": "Financials and credit metrics",
+        "kind": "table",
+        "block_id": "financials-credit-metrics",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-2",
+        "heading": "Strengths and weaknesses",
+        "kind": "prose",
+        "block_id": "strengths-weaknesses",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Company profile",
+        "kind": "table",
+        "block_id": "company-profile",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      },
+      {
+        "module_id": "CP-1A",
+        "heading": "Transaction summary and new debt issues",
+        "kind": "prose",
+        "block_id": "transaction-summary",
+        "table_header": null,
+        "prefix": null,
+        "label": null,
+        "figure_id": null,
+        "value_columns": [],
+        "row_labels": [],
+        "orientation": "period-columns",
+        "chart_unit": null
+      }
+    ],
+    "scope": "User-launched Credit Snapshot run for Bausch Health Companies Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+    "title": "Bausch Health Companies Inc. — Credit Snapshot",
+    "question": null,
+    "issuer_aliases": []
+  },
+  "execution": "host-session",
+  "max_attempts": 3,
+  "provider_cap_usd": "0"
+}

@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for Hilton Grand Vacations Inc. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/2320e150b492335fc7031030ab22acd08d686d62b524074f9c3b9138549a87a0/1.response.md",
+    "CP-1": "requests/CP-1/75928ff2e2d960bb61c2a280c85cbf2195f9674a002b18eca295f633008c40af/1.response.md",
+    "CP-1A": "requests/CP-1A/f766ba53be9521d0f9a8422199544374cb9cb9278ee330d22ad82d4d878793ee/2.response.md",
+    "CP-2": "requests/CP-2/a677dcafbb41c1e8e22966590bde36bad57e9ce9b79d7cf812e3ebce4639f2c6/1.response.md",
+    "CP-5": "requests/CP-5/b1a744a5bb53d6666821cb1555658c707c858993c299f0faa907a5f41ef7bc27/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "e85ecf7bf539a2628abd42603cfe64c2367419adb4cec6da3f81c5d8e0c4fc5f",
+  "report_sha256": "295297936285a732343c121deb89b845b4500c10dd1da89183eb01769f53c483"
+}

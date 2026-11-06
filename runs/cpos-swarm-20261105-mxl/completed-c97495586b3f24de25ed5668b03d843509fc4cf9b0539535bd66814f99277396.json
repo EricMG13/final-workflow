@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for MAXLINEAR, INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/c2225ca4d4c7249e5123348c3d3d5f13ff1db715e5cbf337a770818a31e11cc1/1.response.md",
+    "CP-1": "requests/CP-1/7a771c0a56a66fc0bc99b94b37eee7d8e85ce0741d9685384b1e070bb117576e/1.response.md",
+    "CP-1A": "requests/CP-1A/49170fe7552082dc5359e40e6906ecf6556e392223937ba8a4235062af2184f9/2.response.md",
+    "CP-2": "requests/CP-2/d6ca4e46874cefe0e04cbb8ff64ccaec61775b4f1db70b2c7ccf40a6738c58a4/1.response.md",
+    "CP-5": "requests/CP-5/a1817d85a966ed1c5e3823b41e89c91d79f111d147c08d0273d6aa11292d58f4/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "eb79389f6e5e993310f3c50b84838a8146f64a626b3f3ea1078c7df4fa7e5330",
+  "report_sha256": "83125413cb402dcb70dbf2fc53866283f5bf405dc8e7563b50d6291dc0c45142"
+}

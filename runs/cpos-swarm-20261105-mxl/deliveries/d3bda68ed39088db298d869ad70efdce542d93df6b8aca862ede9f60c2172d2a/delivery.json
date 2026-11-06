@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for MAXLINEAR, INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "5befe5c880ee0e3433b442e8789a41a9cded34b374570aca05a9aef7730f3cef",
+    "CP-1.md": "2832c94f6492e1df4076ecb5839e253635a2fd23b2e187e34996c901c739795e",
+    "CP-1A.md": "f533fc4fd71da72246347836548cfdc7ef38585fe6508619d7c09dfc4405a609",
+    "CP-2.md": "4ebbbc5436d29da37effcc60911120269e4bd89ebe4a63cf3b70fd356395209b",
+    "CP-5.md": "1a06b8d2c2a076c09f39f642857147f507dfadd4b6c60e41172efeebbd937f56",
+    "view.json": "7e2c8b15c9426f50ec2da9063481d282f1d061d3f11cc99b128bec0029659011",
+    "report-view.json": "26224257a4c10bdc71160b216ef6527ddbd528777f9a44c9122aa5f245ede1a0",
+    "report.html": "83125413cb402dcb70dbf2fc53866283f5bf405dc8e7563b50d6291dc0c45142"
+  }
+}

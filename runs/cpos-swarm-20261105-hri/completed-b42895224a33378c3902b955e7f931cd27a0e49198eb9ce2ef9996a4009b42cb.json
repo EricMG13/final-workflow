@@ -1,0 +1,23 @@
+{
+  "kind": "cpos-markdown-delivery/1",
+  "execution": "host-session",
+  "scope": "User-launched Credit Snapshot run for HERC HOLDINGS INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "provider_cap_usd": 0,
+  "modules": {
+    "CP-0": "requests/CP-0/634accd01152b6ba1483aaa9055ab02515fee8df56d818b37541b4bc35fe6381/1.response.md",
+    "CP-1": "requests/CP-1/5c0eb2d641a0ffa6241f888e28747846e50c26e5c1c831ff26120948162ce3d7/1.response.md",
+    "CP-1A": "requests/CP-1A/0cc76c423b885f1f5681a2dacc1266cc0e1022e1d3bd7d7f65e168808d91300b/1.response.md",
+    "CP-2": "requests/CP-2/b69e5cc6352a3970bb8f8e04a355c2d9007c811b077f679230a0fb0d6e72707b/1.response.md",
+    "CP-5": "requests/CP-5/76e6dae14b8cbc93d16f64c4ce350a4083ef3d7869b0d15f9ef57b435016db1a/1.response.md"
+  },
+  "module_execution": {
+    "CP-0": "host-session",
+    "CP-1": "host-session",
+    "CP-1A": "host-session",
+    "CP-2": "host-session",
+    "CP-5": "host-session"
+  },
+  "cp_model_published": false,
+  "delivery_manifest_sha256": "e1405b42a797f68cae186d1bc3e9a4b84033063253cc8b6f56d3c891d5368c6d",
+  "report_sha256": "0e5b6c6fe6bbfed8c1dbef4bca798e387a0ff8cf574d7b0a3dfdfaf81d6d220c"
+}

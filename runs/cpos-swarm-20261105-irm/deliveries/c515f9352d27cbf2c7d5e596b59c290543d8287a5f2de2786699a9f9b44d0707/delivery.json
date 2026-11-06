@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for IRON MOUNTAIN INC as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "076fb4d2b6b8339ab438834a3632e4ceb7893ce55c2f36ff0e387d2dd78e3329",
+    "CP-1.md": "7feb24aa51bc1a3c70d89aa85368031167c124dade1fa9fb626e8b93f721b58d",
+    "CP-1A.md": "d12e7d0ae44917957f960b6acdce6d460c2d3f529103448e8ec40f3aacd365b2",
+    "CP-2.md": "84766d3faac446e31295d4c2f7c249349c4150d178fd4bdd37a40198a6c76d46",
+    "CP-5.md": "525c35f0960147fa9e745933626b4dafb5ad0e042b0f9237b7195b811385cb11",
+    "view.json": "345af69af183079cac4dc8295701403008eb9287f4ce5179cdbfa90378403a14",
+    "report-view.json": "69939f21cd6a37c51f71178103ea4966a0d8ad097ef52fb4d82914faa7977a0e",
+    "report.html": "2b7a583c92e2c923c49e99c562c6a740139c0d1eed8efbd1e9058fb695fa54a0"
+  }
+}

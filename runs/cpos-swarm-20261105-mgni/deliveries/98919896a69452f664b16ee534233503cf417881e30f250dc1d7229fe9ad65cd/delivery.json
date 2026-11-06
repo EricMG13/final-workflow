@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for MAGNITE, INC. as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "3b5491ad4792081e28ccae80a3f58279ef4978af29432bbcc0ff2472969d5e7a",
+    "CP-1.md": "cf0ec312bd9af098d8cd5dace46250f5fca56aeaabf079c0944d4e2f7db15241",
+    "CP-1A.md": "b1efedaebd7ef38fb9a661e7eae1a0c5ee6fc705e354b6c541cdd812e11c37e9",
+    "CP-2.md": "4e34195d7605cd99daf11db1b9ff8816019879fe8368e66cf17154c0e40344dc",
+    "CP-5.md": "d8bbb44c2baee6fb53150eec82aa3c6ba31d1b514a949b8585fe8809a70d2ca2",
+    "view.json": "cdb8d2e432d518eb4e09fd3e5254e1dc4c2e0c58fb28ed50114093263d8e685b",
+    "report-view.json": "5a89762e55626427ea4693302160b02d2176a9493c563b50059955da03ab56ac",
+    "report.html": "299e47b5a753717db83be492801b16dbc3cb8cd9e5b4ff1611366737e6db65c1"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "kind": "literal_handoff_delivery",
+  "scope": "User-launched Credit Snapshot run for JETBLUE AIRWAYS CORP as of 2026-11-05, using a host session, with no provider call, on the selected issuer folder. Automated checks cover handoff structure, issuer and date anchors, source and upstream references and report selectors; analytical accuracy has not been independently reviewed. The HTML Model and calculation JSON are not published by this launcher. Sections not produced: capital-structure, relative-value, portfolio-fit, committee-challenge, what-changed.",
+  "analytical_runtime_executed": false,
+  "cp_model_published": false,
+  "excel_output": false,
+  "files": {
+    "CP-0.md": "5f1fd6d78bb06a0ae2ac09089d15d4162bd31f1324bf5098e03d0142b1a1dcc0",
+    "CP-1.md": "58c5892d83fe67883e53348fce2c2bb7681059206834d241a6a44bac68076eb9",
+    "CP-1A.md": "a86f2f6e5a76d902727adc98a9a5a8baa4dddf9cd4339e005d871c5fe4f6f707",
+    "CP-2.md": "0c97bd29c11b1acc9d49b10cbb33edce3c7bee5fec6211913211c49302bd1daa",
+    "CP-5.md": "5e9fb1bec6242fa6e52b4c632b5ce25b3064d6012190028f4a3a4df5230f0fd5",
+    "view.json": "dfc4cebe4030e1ef093f9cdc7f99faf57cad54b109cad93fafb954859e76c8c1",
+    "report-view.json": "76594e3ca5847d4a6200cf3fc30087f7a39b483f0322ce47d88f5c193b80739a",
+    "report.html": "359e2bc126afb75626f63502d7cf3fddd929e2e1aaada440a6c5199ecdd68526"
+  }
+}

@@ -462,3 +462,39 @@ def test_a_linked_delivery_folder_leads_out_of_the_run_and_is_not_read(tmp_path)
     assert sorted(result["outputs"]) == ["linked/CP-0.md", "linked/deliveries/real/CP-1.md"]
     assert "SECRET-OUTSIDE" not in json.dumps(result)
     assert result["issues"] == []
+
+
+def report_catalogue(*folders: str) -> dict:
+    artifacts = [
+        {
+            "folder": folder,
+            "label": Path(folder).name,
+            "available": True,
+            "href": f"/files/{folder}",
+        }
+        for folder in folders
+    ]
+    return {"issues": [], "real": [{"id": "delivery:x", "name": "x", "artifacts": artifacts}]}
+
+
+def test_built_from_is_the_verified_manifest_and_one_odd_entry_loses_nothing(tmp_path):
+    """Expected: the first report lists exactly CP-1 (the manifest's only handoff), with the
+    manifest's hash; the stray CP-2.md copy, the CP-notes.md directory and a CP-3.md that is a
+    directory are not "built from" anything. The second report is listed as well, and the third,
+    whose delivery.json lacks report.html, is reported in Settings alone."""
+    delivery(tmp_path, "deliverables/first", "Alpha", {"CP-1.md": CP1})
+    put(tmp_path, "deliverables/first/CP-2.md", "# CP-2\n\nNot in delivery.json.\n")
+    (tmp_path / "deliverables/first/CP-notes.md").mkdir()
+    (tmp_path / "deliverables/first/CP-3.md").mkdir()
+    delivery(tmp_path, "deliverables/second", "Beta", {"CP-1.md": CP1})
+    delivery(tmp_path, "deliverables/third", "Gamma", {"CP-1.md": CP1})
+    put(tmp_path, "deliverables/third/delivery.json", json.dumps({"files": {"CP-1.md": "ab"}}))
+    names = ("deliverables/first", "deliverables/second", "deliverables/third")
+    result = store.workspace_store(tmp_path, report_catalogue(*names))
+    assert [r["id"] for r in result["reports"]] == ["first", "second"]
+    expected = hashlib.sha256(CP1.encode()).hexdigest()
+    first = result["reports"][0]["builtFrom"]
+    assert [(row["module"], row["sha256"], row["source"]) for row in first] == [
+        ("CP-1", expected, "CP-1.md")
+    ]
+    assert [issue.split(":")[0] for issue in result["issues"]] == ["deliverables/third"]

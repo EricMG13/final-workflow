@@ -10,6 +10,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
@@ -497,21 +498,61 @@ def collect_runs(root, shown, catalog, link, strict=True):
     return runs, outputs, inputs, sources, pins, issues
 
 
-def built_from(folder, sources):
-    """Each handoff beside a report, traced to the run files holding the same bytes, or named as unmatched."""
+def built_from(
+    files: dict[str, str], sources: dict[str, list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
+    """Each handoff the verified delivery lists, traced to the run files holding the same bytes.
+
+    The names and hashes are delivery.json's, which the server verified; a handoff-looking file
+    beside the report that the delivery does not list was not verified and is not "built from".
+    """
     rows = []
-    for path in sorted(folder.glob("CP-*.md")):
-        digest = sha256(path)
-        match = HANDOFF_NAME.match(path.name)
-        if not match:
+    for name, digest in sorted(files.items()):
+        match = HANDOFF_NAME.match(name)
+        if not match or not name.endswith(".md"):
             continue
-        module = match[0]
-        matches = sources.get(digest) or [{"run": None, "source": path.name, "output": False}]
-        rows += [{"module": module, "sha256": digest, **match} for match in matches]
+        matches = sources.get(digest) or [{"run": None, "source": name, "output": False}]
+        rows += [{"module": match[0], "sha256": digest, **found} for found in matches]
     return rows
 
 
-def catalogue_reports(root, catalogue, sources):
+def report_record(
+    root: Path, folder: str, artifact: dict[str, Any], sources: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    """One verified deliverable as the app shows it; raises when its delivery cannot be read."""
+    name = Path(folder).name
+    delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
+    identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"]
+    issuer_name, as_of = identity["issuer_name"], identity["as_of"]
+    files = {str(n): str(h) for n, h in delivery["files"].items()}
+    curated = name in CURATED_REPORTS
+    issuer = "TransDigm Group" if curated else issuer_name
+    default = artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
+    label, status = CURATED_REPORTS.get(
+        name, (default, "Superseded" if artifact.get("state") == "superseded" else None)
+    )
+    return {
+        "id": name,
+        "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,
+        "label": label,
+        "status": status,
+        "issuer": issuer,
+        "sha256": files["report.html"],
+        "scope": delivery.get("scope"),
+        "modelPublished": delivery.get("cp_model_published", False),
+        "href": artifact["href"] + "&embedded=1",
+        "download": artifact["href"] + "&download=1",
+        "files": [
+            {"name": n, "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1"}
+            for n, h in sorted(files.items())
+        ],
+        "builtFrom": built_from(files, sources),
+    }
+
+
+def catalogue_reports(
+    root: Path, catalogue: dict[str, Any], sources: dict[str, list[dict[str, Any]]]
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Deliverables the server verified, each once, with what it was built from."""
     reports, seen, issues = [], set(), []
     for run in catalogue["real"]:
@@ -523,44 +564,9 @@ def catalogue_reports(root, catalogue, sources):
             seen.add(name)
             # Documented fail-open: reported in Settings; the other deliverables stay readable.
             try:
-                delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
-                identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))[
-                    "run"
-                ]
-                issuer_name, as_of = identity["issuer_name"], identity["as_of"]
-            except (OSError, ValueError, KeyError) as error:
+                reports.append(report_record(root, folder, artifact, sources))
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
                 issues.append(f"{folder}: could not be read ({error!r})")
-                continue
-            curated = name in CURATED_REPORTS
-            issuer = "TransDigm Group" if curated else issuer_name
-            default = (
-                artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
-            )
-            label, status = CURATED_REPORTS.get(
-                name, (default, "Superseded" if artifact.get("state") == "superseded" else None)
-            )
-            reports.append(
-                {
-                    "id": name,
-                    "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,
-                    "label": label,
-                    "status": status,
-                    "issuer": issuer,
-                    "sha256": delivery["files"]["report.html"],
-                    "scope": delivery.get("scope"),
-                    "modelPublished": delivery.get("cp_model_published", False),
-                    "href": artifact["href"] + "&embedded=1",
-                    "download": artifact["href"] + "&download=1",
-                    "files": [
-                        {
-                            "name": n,
-                            "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1",
-                        }
-                        for n, h in sorted(delivery["files"].items())
-                    ],
-                    "builtFrom": built_from(root / folder, sources),
-                }
-            )
     return reports, issues
 
 

@@ -19,6 +19,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Final, Literal, get_args
 
 from deploy_vii.contracts import Citation, Contract, Fact, Identifier, Module, Source, Text
+from deploy_vii.quotes import normalise
 from deploy_vii.readiness import citation_issues
 from deploy_workflow.research.contracts import RESERVED_PREFIX, EvidenceItem, ResearchBrief
 
@@ -56,6 +57,10 @@ NOT_AN_OPERAND: Final = "operand is not a CP-1C operand"
 NOT_A_CANDIDATE: Final = "peer_id is not a TDR.4 candidate"
 NOT_A_DATE: Final = "period_end is not a calendar date"
 NOT_EVIDENCE: Final = "citation is not an accepted ev-* item"
+CUT_FIGURE: Final = (
+    "quote is part of a larger number, date or signed figure in the cited span; quote the whole "
+    "figure as the span prints it, with its minus sign"
+)
 # A peer id sits in every fact id of its rows: `TDR.4.<id>.<field>`, `TDR.5.<id>.<dimension>.<field>`
 # and `TDR.6.<id>.<operand>.<field>`. The longest tail decides (TDR.5 with `definition` and
 # `observation`); one id past this makes `Fact` raise after the binding write.
@@ -149,6 +154,52 @@ def _citation_issues(
     return [_issue(where, text) for text in citation_issues((citation,), sources)]
 
 
+def _span_text(citation: Citation, sources: Sequence[Source]) -> str | None:
+    """The text of the span the citation names, else None (``citation_issues`` reports it)."""
+    for source in sources:
+        if source.source_id == citation.source_id:
+            return next((s.text for s in source.spans if s.locator == citation.locator), None)
+    return None
+
+
+def _cuts_figure(text: str, start: int, end: int) -> bool:
+    """Whether ``text[start:end]`` is not a whole figure token: a letter or digit touches it, a
+    sign, point, comma, slash or bracket precedes it (``-12`` of a date, ``12.3`` of ``(12.3)``),
+    or a dash, slash, bracket, percent sign, or a point or comma before a digit follows it."""
+    before = text[start - 1] if start > 0 else " "
+    after = text[end] if end < len(text) else " "
+    return (
+        before.isalnum()
+        or before in "-+.,/("
+        or after.isalnum()
+        or after in "-/)%"
+        or (after in ".," and text[end + 1 : end + 2].isalnum())
+    )
+
+
+def whole_figure(quote: str, text: str) -> bool:
+    """Whether ``quote`` occurs in ``text`` (both normalised as ``quotes.normalise``) at least once
+    as a whole figure token (``_cuts_figure``)."""
+    needle, hay = normalise(quote), normalise(text)
+    at = hay.find(needle) if needle else -1
+    while at >= 0:
+        if not _cuts_figure(hay, at, at + len(needle)):
+            return True
+        at = hay.find(needle, at + 1)
+    return False
+
+
+def _cut_figure_issues(
+    where: str, citation: Citation, sources: Sequence[Source]
+) -> list["ReviewIssue"]:
+    """A quote the table rule reads as an amount must be a whole figure of its span, not a
+    fragment of a larger number, a date or a signed figure (run once the citation holds)."""
+    text = _span_text(citation, sources)
+    if text is None or amount_from_quote(citation.quote) is None:
+        return []
+    return [] if whole_figure(citation.quote, text) else [_issue(where, CUT_FIGURE)]
+
+
 def _candidate_issues(
     pack: PeerPack, items: set[str], sources: tuple[Source, ...]
 ) -> list["ReviewIssue"]:
@@ -204,7 +255,8 @@ def _figure_issues(
         seen.add(where)
         if period_end_date(fig.period_end) is None:
             issues.append(_issue(where, NOT_A_DATE))
-        issues += _citation_issues(where, fig.citation, items, sources)
+        cited = _citation_issues(where, fig.citation, items, sources)
+        issues += cited or _cut_figure_issues(where, fig.citation, sources)
     return issues
 
 

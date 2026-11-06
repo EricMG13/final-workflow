@@ -73,7 +73,11 @@ COVENANT_QUOTE = "the Total Net Leverage Ratio shall not exceed 12.50:1.00 as of
 
 def test_threshold_cut_out_of_a_larger_figure_is_not_quoted() -> None:
     """S13 A03/C05: `2.50:1.00` is a substring of `12.50:1.00` but not a quote of it, so the
-    12.50x covenant cannot be recorded as 2.50x. The whole threshold is accepted without issue."""
-    issues = _threshold_issues("covenants[0]", _covenant("2.50:1.00", "2.50", COVENANT_QUOTE))
+    12.50x covenant cannot be recorded as 2.50x. The whole threshold is accepted without issue.
+    No pack sources are passed: the S09 sentence check then reads the quote alone."""
+    issues = _threshold_issues("covenants[0]", _covenant("2.50:1.00", "2.50", COVENANT_QUOTE), ())
     assert issues == ["covenants[0]: threshold_text is not part of the row's quotes"]
-    assert _threshold_issues("covenants[0]", _covenant("12.50:1.00", "12.50", COVENANT_QUOTE)) == []
+    assert (
+        _threshold_issues("covenants[0]", _covenant("12.50:1.00", "12.50", COVENANT_QUOTE), ())
+        == []
+    )

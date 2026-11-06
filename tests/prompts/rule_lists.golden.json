@@ -993,10 +993,11 @@
    },
    {
     "id": "legal_covenants.d",
-    "statement": "d. `threshold_text` is copied from one of the covenant's own quotes and holds the one tested threshold. `threshold_value` is that number exactly as the quote writes it (null for `other` and `not stated`): Python reads the number out of the quote and rejects a value that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, `<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names only a cap.",
+    "statement": "d. `threshold_text` is copied from one of the covenant's own quotes and holds the one tested threshold. `threshold_value` is that number exactly as the quote writes it (null for `other` and `not stated`): Python reads the number out of the quote and rejects a value that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, `<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names only a cap. The quote that holds it is one of the covenant's governing document (`document_id`) and writes that number as a threshold, not inside a longer number; when that quote or its sentence states another threshold of the unit (a step-down schedule or several tests), `threshold_unit` is other.",
     "checks": [
      "fn:deploy_vii.cp4_legal:_threshold_issues",
-     "fn:deploy_vii.cp4_legal:_direction_issues"
+     "fn:deploy_vii.cp4_legal:_direction_issues",
+     "fn:deploy_vii.cp4_legal:_schedule_issues"
     ]
    },
    {
@@ -1867,6 +1868,7 @@
      "oracle:cp4c:v22",
      "oracle:cp4c:v23",
      "fn:deploy_workflow.owners.cp4c:_text_fields",
+     "fn:deploy_workflow.owners.cp4c:_text_issues",
      "fn:deploy_workflow.owners.cp4c:_run_text_issues",
      "fn:deploy_workflow.owners.cp4c:guard_issues"
     ]
@@ -2013,7 +2015,7 @@
    "src/deploy_vii/cp2_synthesis.py": "ac8856fddb71e7ddef9715febeffdeaa88ff9aa34526dd299ecb1cbc92d4d04e",
    "src/deploy_vii/cp3_relative_value.py": "d53035f7368704e750ecaded0985ecdfdb18c86acf8aaa8d60cab371df05e24b",
    "src/deploy_vii/cp4_legal.py": "d7c78ba0bdb6cae78053e76dfce08e35f6c545ae53cfdcb1da01861b32c54233",
-   "src/deploy_vii/cp5_integrity.py": "eb3a766f5ed1ff5bb856c64d0e5a477855d421ded57b91279d365c1fa03ea901",
+   "src/deploy_vii/cp5_integrity.py": "43ce4ac8f18720b695dbd57b21b331835245fb458f3e1027040b964701709d8c",
    "src/deploy_vii/cp6_committee.py": "e97d5074292aa29dc93651dedce0dbc734e38d0373a34f769e0cfef65e2196ac",
    "src/deploy_vii/downstream_readiness.py": "29c71a90df07d1eed7df2903b30211377a77588fa7f564d09389d6d47c11dbdd",
    "src/deploy_vii/financial_contracts.py": "527090d4c2a6ed38f21eb5e2022d7508a1b2421f07240e31bb58e6a4695a375b",
@@ -2041,7 +2043,7 @@
    "src/deploy_workflow/owners/cp3c.py": "c9d2c18c275d5b83b4fb56a2d406873f53f44810cd24661acf8e0e09eb751fd3",
    "src/deploy_workflow/owners/cp3d.py": "50a541d29c3b2ed73d506c587ec054bfd4e8b30655260a2cf3d0a129499228bc",
    "src/deploy_workflow/owners/cp4.py": "4b7746e5af316f6321c7f0c002d35d3280858c19f59fb1d14be0da06c9a10f6a",
-   "src/deploy_workflow/owners/cp4c.py": "d6c14206bc3437e0e51e764719070871a0fce96f13112a2221a6ff40f109ed97",
+   "src/deploy_workflow/owners/cp4c.py": "fae7cb24605dd8ddfc89a80a40ceaaf9ce9fe2e4a07e093ca7e733f2e0f80a9d",
    "src/deploy_workflow/owners/cp5.py": "8de8e36d045aed056c372e13891722db348a44f5acdca3fdd56e5b379402a93b",
    "src/deploy_workflow/owners/cp6.py": "3212ec05142d5c62e749aca5edf2d83c22b5902d33c7e55cb343c66535fd489d",
    "src/deploy_workflow/owners/cp8.py": "21c84ea849976f8c88e545e547ae749a22bd32e62abbb4b168ab8187439c5b6d",

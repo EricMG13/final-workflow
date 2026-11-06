@@ -555,7 +555,10 @@ CP4_THRESHOLD_RULE = (
     "`other` and `not stated`): Python reads the number out of the quote and rejects a value "
     "that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, "
     "`<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names "
-    "only a cap."
+    "only a cap. The quote that holds it is one of the covenant's governing document "
+    "(`document_id`) and writes that number as a threshold, not inside a longer number; when "
+    "that quote or its sentence states another threshold of the unit (a step-down schedule or "
+    "several tests), `threshold_unit` is other."
 )
 CP4_METRIC_RULE = (
     "`metric_ref` is a ref listed under `cp1_facts` whose unit matches the threshold's, or null; "

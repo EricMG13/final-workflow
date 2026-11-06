@@ -20,6 +20,7 @@ binding replaces every run-time marker of the oracle.
 
 import copy
 import dataclasses
+import datetime as dt
 import hashlib
 import json
 import re
@@ -52,10 +53,13 @@ from deploy_vii.contracts import (
 from deploy_vii.cp5_integrity import (
     KIND_LABEL,
     NOT_EVALUATED,
+    REFERENCE_TABLES,
     IntegritySubmission,
     ReviewScope,
+    figure_identity,
     python_checks,
 )
+from deploy_vii.bindings.shipped import SHIPPED_MAPS
 from deploy_vii.live.context import integrity_projection
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.quotes import prefix
@@ -1253,3 +1257,91 @@ def test_validator_refusal(entry: dict[str, Any]) -> None:
     result = compute(make_inputs(entry["case"], literal))
     assert result.report is None
     assert list(result.issues) == entry["issues"]
+
+
+# S09-A01/C01: the composer-assigned verbatim copy tables of CP-4 (T4F.2), CP-4C, CP-2G and
+# CP-2H, besides every module's cp1_references.
+COPY_TABLES = (
+    ("CP-4", "T4F.2"),
+    ("CP-4C", "cp2g_references"),
+    ("CP-4C", "cp2a_references"),
+    ("CP-4C", "cp4_references"),
+    ("CP-2H", "cp2g_references"),
+    ("CP-2G", "cp2a_references"),
+    ("CP-2G", "cp1d_references"),
+    ("CP-4C", "cp1_references"),
+)
+
+
+def _one_fact_head(module_id: str, fact: Fact) -> Module:
+    table = ReportTable(
+        table_id=fact.table_id,
+        title="t",
+        columns=(TableColumn(field=fact.field, label="Value"),),
+        rows=(TableRow(row_id=fact.row_id, label="r", fact_ids=(fact.fact_id,)),),
+    )
+    return Module(
+        run_id="r",
+        issuer_id="i",
+        as_of=dt.date(2026, 1, 1),
+        module_id=module_id,
+        status="accepted",
+        facts=(fact,),
+        tables=(table,),
+    )
+
+
+@pytest.mark.parametrize(("copier", "table_id"), COPY_TABLES)
+def test_a_verbatim_copy_table_is_not_a_placement_mismatch(copier: str, table_id: str) -> None:
+    """S09-A01/C01: a copy under the source fact id that moves only table, row and field is no
+    figure_identity finding; a copy whose value differs (4.2x against 4.3x, by hand) still is,
+    and names only `value`."""
+    source = Fact(
+        fact_id="interface-fact:abc",
+        label="Net leverage",
+        table_id="T4.10",
+        row_id="net_leverage",
+        field="ltm",
+        amount=Decimal("4.2"),
+        unit="MULTIPLE",
+        period="LTM Q4 25",
+    )
+    moved = {"table_id": table_id, "row_id": "ref01", "field": "value"}
+    same = source.model_copy(update=moved)
+    heads = [_one_fact_head("CP-1", source), _one_fact_head(copier, same)]
+    assert figure_identity(heads) == ()
+    wrong = source.model_copy(update={**moved, "amount": Decimal("4.3")})
+    findings = figure_identity([_one_fact_head("CP-1", source), _one_fact_head(copier, wrong)])
+    assert [f.detail.split(" between ")[0] for f in findings] == ["differs in value"]
+
+
+def test_a_period_or_unit_change_in_a_copy_is_still_a_finding() -> None:
+    """The exemption covers placement only: a T4F.2 copy whose period moves (LTM Q4 25 to LTM
+    Q3 25) or whose unit changes (MULTIPLE to PERCENT) is reported."""
+    source = Fact(
+        fact_id="f1",
+        label="Net leverage",
+        table_id="T4.10",
+        row_id="net_leverage",
+        field="ltm",
+        amount=Decimal("4.2"),
+        unit="MULTIPLE",
+        period="LTM Q4 25",
+    )
+    moved = {"table_id": "T4F.2", "row_id": "ref01", "field": "value"}
+    for change, field in (({"period": "LTM Q3 25"}, "period"), ({"unit": "PERCENT"}, "unit")):
+        copy_ = source.model_copy(update={**moved, **change})
+        findings = figure_identity([_one_fact_head("CP-1", source), _one_fact_head("CP-4", copy_)])
+        assert [f.detail.split(" between ")[0] for f in findings] == [f"differs in {field}"]
+
+
+def test_every_shipped_reference_table_is_exempt() -> None:
+    """Every `*_references` table a shipped binding map names, and CP-4's T4F.2, is a
+    REFERENCE_TABLES copy table."""
+    named = {
+        entry.fact_coord.table_id
+        for binding_map in SHIPPED_MAPS
+        for entry in binding_map.entries
+        if entry.fact_coord.table_id and entry.fact_coord.table_id.endswith("_references")
+    }
+    assert named | {"T4F.2"} <= REFERENCE_TABLES

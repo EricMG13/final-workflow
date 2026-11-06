@@ -14,6 +14,7 @@ import pytest
 from deploy_vii.cp1_quality import _lineage_basis, _module_status
 from deploy_vii.financial_reconciliation import Reconciliation, ReconciliationTerm
 from deploy_vii.narrative import EvidenceRecord, NarrativeReport
+from deploy_vii.period_reconciliation import PeriodCheck, PeriodTerm
 
 H = hashlib.sha256(b"x").hexdigest()
 
@@ -74,6 +75,65 @@ def test_a_check_caps_at_calculated_only_when_it_computed_and_does_not_block(
     status: str, calculated: str | None, expected: str
 ) -> None:
     assert _lineage_basis(_check(status, calculated)) == expected
+
+
+def _period_check(status: str, calculated: str | None) -> EvidenceRecord:
+    term = PeriodTerm(
+        label="FY from quarters",
+        value_id=None,
+        amount=None,
+        observation_ids=(),
+        citations=(),
+        reason="Not reported",
+    )
+    check = PeriodCheck(
+        check_id="chk-fy-quarters-fy2025",
+        construction_id="con-fy-2025",
+        check_type="FY_QUARTERS",
+        metric_id="revenue",
+        reported=term,
+        components=(term,),
+        calculated_value=None if calculated is None else Decimal(calculated),
+        difference=None,
+        tolerance=None,
+        independent=True,
+        shared_observation_ids=(),
+        status=status,
+        formula="FY = Q1 + Q2 + Q3 + Q4",
+        explanation="Quarters are unavailable",
+        context_citations=(),
+    )
+    return EvidenceRecord(
+        evidence_id="narrative-evidence-period-check-x",
+        kind="period_check",
+        reference=check.check_id,
+        artifact_sha256=H,
+        record_sha256=check.content_hash(),
+        record_json=check.model_dump_json(),
+        citations=(),
+    )
+
+
+@pytest.mark.parametrize(
+    ("status", "calculated", "expected"),
+    [
+        ("BLOCK", None, "missing"),
+        ("BLOCK", "400", "missing"),
+        ("WARN", None, "missing"),
+        ("PASS", "400", "calculation"),
+        ("WARN", "400", "calculation"),
+        # A calculated amount of zero is a computed zero, not a missing amount.
+        ("PASS", "0", "calculation"),
+    ],
+)
+def test_a_period_check_follows_the_same_rule_as_a_source_check(
+    status: str, calculated: str | None, expected: str
+) -> None:
+    assert _lineage_basis(_period_check(status, calculated)) == expected
+
+
+def test_a_source_check_with_a_calculated_zero_is_a_calculation() -> None:
+    assert _lineage_basis(_check("PASS", "0")) == "calculation"
 
 
 # The four scope disclaimers canonical_narrative writes on every report (narrative.py), copied

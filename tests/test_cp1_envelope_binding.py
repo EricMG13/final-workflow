@@ -162,3 +162,27 @@ def test_an_export_without_a_promoted_handoff_is_refused(tmp_path: Path) -> None
     with pytest.raises(EnvelopeRefused) as refused:
         read_cp1_envelope(store, _export(GENUINE, tmp_path / "x"))
     assert refused.value.issues == ("CP-1 head was not promoted through a verified handoff",)
+
+
+@pytest.mark.parametrize("update", [{"step_id": "other"}, {"output_sha256": None}])
+def test_a_step_that_is_not_the_retained_quality_output_is_refused(
+    tmp_path: Path, update: dict[str, Any]
+) -> None:
+    store = _store()
+    vars(store.read().attempts[0].steps[-1]).update(update)
+    with pytest.raises(EnvelopeRefused) as refused:
+        read_cp1_envelope(store, _export(GENUINE, tmp_path / "x"))
+    assert refused.value.issues == ("CP-1 head was not promoted through a verified handoff",)
+
+
+def test_a_genuine_export_is_refused_when_the_journal_holds_another_handoff(
+    tmp_path: Path,
+) -> None:
+    """The binding runs both ways: the journal's handoff, not the export, is the record."""
+    store = _store()
+    other = HANDOFF.model_copy(update={"gap_limitations": (*GAPS, "A second gap")})
+    outputs = {h("handoff"): other.model_dump_json()}
+    store.step_output = outputs.__getitem__
+    with pytest.raises(EnvelopeRefused) as refused:
+        read_cp1_envelope(store, _export(GENUINE, tmp_path / "x"))
+    assert refused.value.issues == (PREFIX + "gap limitations",)

@@ -685,6 +685,52 @@ def test_an_old_peer_assessed_with_its_limitation_is_composed(
     assert facts["T1C.1.p02.included"].text == included
 
 
+def test_a_disagreeing_issuer_line_of_another_period_is_not_called_different() -> None:
+    """Review: two periods are neither Reconciled nor Differs, whatever the figures say."""
+    line = STALE_ISSUER_LINE.replace("120.0", "125.0")
+    edited = _edited("positive", 1, ISSUER_LINE, line)
+    found = cp1c.compute(_with_sources("positive", edited))
+    facts = _facts(found)
+    margin = facts["T1C.6.adjusted_ebitda_margin.difference"]
+    assert (margin.status, margin.amount, margin.limitation) == (
+        "not_applicable",
+        None,
+        STALE_REASON,
+    )
+    assert facts["T1C.6.adjusted_ebitda_margin.result"].text == "Not compared"
+    assert STALE_LIMITATION in found.limitations
+
+
+def test_an_issuer_line_ending_after_cp1s_ltm_end_is_not_tied_either() -> None:
+    """The run is as of 2026-01-10, so 2026-01-10 is readable, but it is not CP-1's 2025-12-31."""
+    line = ISSUER_LINE.replace("2025-12-31", "2026-01-10")
+    edited = _edited("positive", 1, ISSUER_LINE, line)
+    case = _with_sources("positive", edited)
+    assert cp1c.calculation_issues(case) == ()
+    facts = _facts(cp1c.compute(case))
+    reason = "Not compared: the issuer line on the peer source ends 2026-01-10, not 2025-12-31"
+    assert facts["T1C.6.ffo_to_debt.difference"].limitation == reason
+    assert facts["T1C.6.ffo_to_debt.result"].text == "Not compared"
+
+
+def test_an_unavailable_issuer_figure_keeps_its_own_reason_over_a_period_mismatch() -> None:
+    line = STALE_ISSUER_LINE.replace("  120.0  ", "  Not stated  ")
+    edited = _edited("positive", 1, ISSUER_LINE, line)
+    found = cp1c.compute(_with_sources("positive", edited))
+    margin = _facts(found)["T1C.6.adjusted_ebitda_margin.difference"]
+    assert (margin.status, margin.limitation) == (
+        "missing",
+        "Not compared: one side is not available",
+    )
+    assert STALE_LIMITATION in found.limitations  # the leverage tie-out is still across periods
+
+
+def test_an_issuer_period_end_after_the_run_as_of_is_a_table_rule_breach() -> None:
+    line = ISSUER_LINE.replace("2025-12-31", "2026-01-11")
+    edited = _edited("positive", 1, ISSUER_LINE, line)
+    assert cp1c.calculation_issues(_with_sources("positive", edited)) == ("Peer table not found",)
+
+
 def test_negative_denominator_is_not_meaningful_with_its_reason() -> None:
     """An excluded peer (Ellsworth) with negative EBITDA: the T1C.3 cell is not_applicable."""
     line = "Ellsworth Park Limited  2025-12-31  500.0  150.0  75.0  7.5  60.0"

@@ -112,3 +112,53 @@ def test_each_cp1_one_step_submit_resumes(
         ["valid"],
     )
     assert _head(store) == _reference(tmp_path / "reference")
+
+
+class _Spy:
+    """Counts `Execution.submit_step` calls."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.calls = 0
+        real = Execution.submit_step
+
+        def counted(*args: Any, **kwargs: Any) -> Attempt:
+            self.calls += 1
+            return real(*args, **kwargs)
+
+        monkeypatch.setattr(Execution, "submit_step", counted)
+
+
+def test_the_resume_does_not_journal_the_step_again_and_a_finished_ticket_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, ticket, payload = _begun(tmp_path / "x")
+    _crash_at_finish(
+        monkeypatch, lambda: cp1a.submit_one_step(store, ticket, CP0, payload, _validate(store))
+    )
+    spy = _Spy(monkeypatch)
+    cp1a.submit_one_step(store, ticket, CP0, payload, _validate(store))
+    assert spy.calls == 0  # the retained valid step is settled, not submitted again
+    with pytest.raises(ValueError, match="absent, finished or belongs to another module"):
+        cp1a.submit_one_step(store, ticket, CP0, payload, _validate(store))
+    assert spy.calls == 1  # a settled ticket takes the ordinary path, which refuses it
+
+
+def test_a_different_payload_never_reaches_the_journal_or_the_validator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, ticket, payload = _begun(tmp_path / "x")
+    _crash_at_finish(
+        monkeypatch, lambda: cp1a.submit_one_step(store, ticket, CP0, payload, _validate(store))
+    )
+    before = store.read()
+    spy = _Spy(monkeypatch)
+    with pytest.raises(ValueError, match="already retains a different response"):
+        cp1a.submit_one_step(store, ticket, CP0, payload + " ", _validate(store))
+    assert spy.calls == 0 and store.read() == before
+
+
+def test_a_ticket_of_another_module_is_refused(tmp_path: Path) -> None:
+    store, ticket, payload = _begun(tmp_path / "x")
+    other = cp1a.OneStep("CP-1B", "earnings_delta", CP0.validate, _build, None)
+    with pytest.raises(ValueError, match="absent, finished or belongs to another module"):
+        cp1a.submit_one_step(store, ticket, other, payload, _validate(store))

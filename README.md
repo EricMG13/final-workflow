@@ -236,10 +236,13 @@ PYTHONPATH=src .venv/bin/python -m deploy_workflow.owners.cpos_launch \
 
 ### SECData issuer runs in the library
 
-The 101 SECData credit snapshots that pass the library gate are not stored in git, so a download
-of this repository stays its usual size. They are five ZIP parts of at most 40 MB on the draft
-release `issuer-runs-20261105`, with `SHA256SUMS.txt` beside them. Extract every part into the
-library's workspace folder, the one holding `runs/` and `deliverables/`: together they add the
+The 101 SECData credit snapshots that pass the library gate are not stored on `main`, so a
+download of this repository stays its usual size. They are five ZIP parts of at most 40 MB on the
+branch [`claude/issuer-runs-20261105`](https://github.com/EricMG13/final-workflow/tree/claude/issuer-runs-20261105),
+which shares no history with `main`, with `SHA256SUMS.txt` beside them. Download each part from
+that branch's file view. A plain `git clone` fetches every branch, parts included; Download ZIP or
+`git clone --single-branch` leaves them out. Extract every part into the library's workspace
+folder, the one holding `runs/` and `deliverables/`: together they add the
 `runs/cpos-swarm-20261105-*` folders, each with its `library.json`. The library checks each run's
 manifest and report hashes when it loads them. Each run passed the gate described in
 `apps/issuer-library/README.md`; none has had an independent review, so treat each as a candidate.

@@ -57,8 +57,10 @@ them in the entries below resolve there. SECData's restored packs (`claude/resto
 - **Shipped beside the repository:** at the user's instruction that downloads from the repository
   must not be too large, the 101 run folders (1.0 GB, 162 MB compressed) are not in git. A ZIP of the
   branch tip is 192 MB, as for `main`; with the runs it was 355 MB. `cpos_library --package` writes the
-  runs that pass the gate into five parts, the largest 39.8 MB, on the draft release
-  `issuer-runs-20261105`, with `SHA256SUMS.txt`. Two builds were byte-identical. Extracted, the parts
+  runs that pass the gate into five parts, the largest 39.8 MB, with `SHA256SUMS.txt`. This session
+  may not create releases, so the parts are on the branch `claude/issuer-runs-20261105`, which shares
+  no history with `main`; each part downloaded back from GitHub matches its checksum. Two builds were
+  byte-identical. Extracted, the parts
   recreate all 5,625 files committed at `a7812217`, byte for byte, with none missing or extra. On a
   fresh checkout of the branch with the parts extracted: all 101 pass the gate and `--check`;
   Go tests pass; 250 Python tests pass, including the three that read a retained run, with the same

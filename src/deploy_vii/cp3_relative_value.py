@@ -1020,6 +1020,10 @@ class _Evidence:
         return {row.row_id: row.kind for row in self.context.rows}
 
     @property
+    def context_facilities(self) -> Mapping[str, str]:
+        return {row.row_id: row.facility_id for row in self.context.rows}
+
+    @property
     def context_stale(self) -> bool:
         return any(row.stale for row in self.context.rows)
 
@@ -1187,6 +1191,7 @@ def _instrument_issues(
     issues: list[str] = []
     offered = upstream.facilities
     catalogue = upstream.catalogue
+    context_facilities = evidence.context_facilities
     seen = [row.facility_id for row in submission.instruments]
     for facility_id in sorted(f for f, n in Counter(seen).items() if n > 1):
         issues.append(f"instruments: facility {facility_id} appears more than once")
@@ -1195,6 +1200,13 @@ def _instrument_issues(
         if row.facility_id not in offered:
             issues.append(f"{path}.facility_id: unknown CP-1 facility {row.facility_id}")
         issues += _basis_issues(path, row.basis, catalogue, evidence)
+        # S08-cp3-A07: a context row is another facility's market evidence unless it is this one's.
+        issues += [
+            f"{path}.basis.context_rows[{j}]: context row {row_id} quotes facility "
+            f"{context_facilities[row_id]}, not {row.facility_id}"
+            for j, row_id in enumerate(row.basis.context_rows)
+            if row_id in context_facilities and context_facilities[row_id] != row.facility_id
+        ]
         market = not _none(row.market_observation)
         cites_market = _cites_market(row.basis)
         if market and not cites_market:

@@ -843,7 +843,7 @@ def _null_column(
     given = [
         (rows, frozenset().union(*mapped))
         for rows, headers in peers
-        if (mapped := _mapped_columns(headers, book.periods)) is not None
+        if (mapped := _mapped_columns(headers, book.periods, statement)) is not None
     ]
     return all(
         any(
@@ -856,7 +856,7 @@ def _null_column(
     )
 
 
-def _uncovered_reason(
+def _uncovered_reason(  # noqa: PLR0913 - existing coverage-gate signature, unchanged here
     table: Any,
     extracted: Any,
     statement: str | None,
@@ -875,7 +875,7 @@ def _uncovered_reason(
     reason = None
     for book in books:
         mapped = (
-            _mapped_columns(table.headers, book.periods)
+            _mapped_columns(table.headers, book.periods, statement)
             if page_text is None
             else _header_columns(table, book, page_text=page_text, statement=statement)
         )
@@ -1242,10 +1242,13 @@ class _HeaderPeriod(BaseModel):
     end_date: date | None
 
 
-def _ocr_header(table: Any, book: dict[str, Any]) -> tuple[frozenset[str], ...] | None:
+def _ocr_header(
+    table: Any, book: dict[str, Any], statement: str | None = None
+) -> tuple[frozenset[str], ...] | None:
     """The period ids each column of the table's own printed header maps to in the payload's book
-    (`_mapped_columns`), or None when the book's periods lack the header fields or no column maps
-    (CP1H-R23.23.2): an OCR unit composes only when this verifies the model's column map."""
+    (`_mapped_columns`, for the unit's located `statement` kind), or None when the book's periods
+    lack the header fields or no column maps (CP1H-R23.23.2): an OCR unit composes only when this
+    verifies the model's column map."""
     raw = book.get("periods")
     if not isinstance(raw, list):
         return None
@@ -1253,7 +1256,7 @@ def _ocr_header(table: Any, book: dict[str, Any]) -> tuple[frozenset[str], ...] 
         periods = [_HeaderPeriod.model_validate(period) for period in raw]
     except ValidationError:
         return None
-    return _mapped_columns(table.headers, periods)
+    return _mapped_columns(table.headers, periods, statement)
 
 
 def _context_headers(table: Any, statement: str | None, pdf_text: str | None) -> tuple[str, ...]:
@@ -1283,9 +1286,9 @@ def _header_columns(
     """Map either extracted headers or PDF-only recovered printed context."""
     if page_text is None:
         return (
-            _ocr_header(table, book)
+            _ocr_header(table, book, statement)
             if isinstance(book, dict)
-            else _mapped_columns(table.headers, getattr(book, "periods", ()))
+            else _mapped_columns(table.headers, getattr(book, "periods", ()), statement)
         )
     periods = book.get("periods") if isinstance(book, dict) else getattr(book, "periods", None)
     if periods is None:
@@ -1296,7 +1299,7 @@ def _header_columns(
             periods = [_HeaderPeriod.model_validate(p) for p in periods]
         except ValidationError:
             return None
-    return _mapped_columns(headers, periods) if headers else None
+    return _mapped_columns(headers, periods, statement) if headers else None
 
 
 def _ocr_pages(pack: Any, financial_ids: Collection[str]) -> frozenset[tuple[str, str]]:
@@ -1694,12 +1697,20 @@ def _column_periods(headers: tuple[str, ...], periods: Any) -> tuple[frozenset[s
     return None
 
 
-def _mapped_columns(headers: tuple[str, ...], periods: Any) -> tuple[frozenset[str], ...] | None:
-    """`_column_periods` for coverage (CP1H-R20): per header column, the period ids it maps to, or an
-    empty set where it maps to none. None where no column maps, or where two columns that map share
-    a period, or on a flow-span row that fails to map: the fail-closed cases of `_column_periods`.
-    One column may map to several periods (a balance date); a line in any of them covers it. A
-    column that several declared periods match, and that is not a balance, is ambiguous: None."""
+_FLOW_STATEMENTS = frozenset(("IS", "CI", "CFS"))
+
+
+def _mapped_columns(
+    headers: tuple[str, ...], periods: Any, statement: str | None = None
+) -> tuple[frozenset[str], ...] | None:
+    """`_column_periods` for coverage (CP1H-R20): per header column, the period ids it maps to, or
+    an empty set where it maps to none. None where no column maps, or where two columns that map
+    share a period, or on a flow-span row that fails to map: the fail-closed cases of
+    `_column_periods`. One column may map to several periods (a balance date); a line in any of
+    them covers it. A column that several declared periods match, and that is not a balance, is
+    ambiguous: None. A balance date names an instant, not a flow's duration: under an income or
+    cash-flow `statement` it maps to no period, so a dated header never verifies a full-year
+    column as Q4."""
     for index in range(len(headers)):
         specs = _spec_row(headers, index)
         if specs is None:
@@ -1708,7 +1719,10 @@ def _mapped_columns(headers: tuple[str, ...], periods: Any) -> tuple[frozenset[s
             continue
         found = []
         for spec in specs:
-            hits = frozenset(period.period_id for period in periods if _hit(spec, period))
+            flow_date = spec[0] == "balance" and statement in _FLOW_STATEMENTS
+            hits = frozenset(
+                period.period_id for period in periods if not flow_date and _hit(spec, period)
+            )
             if spec[0] != "balance" and len(hits) > 1:
                 return None
             found.append(hits)

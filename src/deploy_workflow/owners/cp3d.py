@@ -848,9 +848,35 @@ def _firm_ok(o: Observation, path: str, out: _Issues) -> bool:
     return not markers
 
 
+# A unit or wording right after a labelled level that makes it a yield or spread, not a price in
+# points of par (`bid 6.25%`, `bid 175 bps`, `bid 6.25 yield`); `98.50% of par` is a price.
+_NOT_PRICE = re.compile(
+    r" ?(%|per ?cent\b|percent\b|bps?\b|basis points?\b|yield\b|spread\b|discount margin\b"
+    r"|DM\b)(?! of (?:the )?par\b)",
+    re.IGNORECASE,
+)
+
+
+def _priced_ok(o: Observation, path: str, out: _Issues) -> bool:
+    """Whether a sheet bid or offer is a price: in its quote and in the page sentence holding it,
+    no labelled `<kind> <level>` is followed by a percent, basis-point, yield or spread unit
+    (`_NOT_PRICE`); else the issue."""
+    page = out.context.pages[o.source_id][o.locator]
+    label = re.compile(rf"\b{o.kind}\s+{re.escape(o.level_text)}(?![0-9])", re.IGNORECASE)
+    for text in (normalise(o.quote), *_sentences(o.quote, page)):
+        for m in label.finditer(text):
+            if unit := _NOT_PRICE.match(text, m.end()):
+                out.add(
+                    f"{path}: {o.kind} level_text {o.level_text} is quoted in "
+                    f'"{unit.group(1)}", not as a price in points of par'
+                )
+                return False
+    return True
+
+
 def _label_ok(o: Observation, path: str, out: _Issues) -> bool:
     """Whether the quote labels the level as the observation's kind (ruling 6b C1) and, for a bid
-    or offer, quotes it as firm (`_firm_ok`); else the issue."""
+    or offer, quotes it as firm (`_firm_ok`) and as a price (`_priced_ok`); else the issue."""
     lt = o.level_text
     if o.kind == "indicative_talk":
         if _labelled("(?:bid|offer)", lt, o.quote):
@@ -860,7 +886,7 @@ def _label_ok(o: Observation, path: str, out: _Issues) -> bool:
     if not _labelled(o.kind, lt, o.quote):
         out.add(f"{path}: {o.kind} level_text {lt} is not labelled {o.kind} in the quote")
         return False
-    return _firm_ok(o, path, out)
+    return _firm_ok(o, path, out) and _priced_ok(o, path, out)
 
 
 def _observation_level(o: Observation, path: str, out: _Issues) -> Decimal | None:

@@ -2066,3 +2066,60 @@ def test_s08_a05_a_stale_sheet_quote_gets_the_stale_line(when: str, line: str | 
     assert cp3d.submission_issues(submission=sub, context=ctx) == ()
     stale = [x for x in cp3d.own_limitations(sub, ctx) if x.startswith("Stale quote")]
     assert stale == ([] if line is None else [line])
+
+
+def _one_side_case(
+    sentence: str, level_text: str, quote: str | None = None
+) -> tuple[dict[str, Any], cp3d.MarketContext]:
+    """A bid-only submission (no offer, so no bid-exceeds-offer check) on `sentence`."""
+    raw, ctx = _sheet_case(sentence)
+    bid = dict(raw["observations"][0], quote=quote or sentence, level_text=level_text)
+    raw["observations"] = [bid, raw["observations"][2]]
+    return raw, ctx
+
+
+@pytest.mark.parametrize(
+    ("sentence", "level", "unit"),
+    (
+        ("Dealer quotation on January 9, 2026: bid 6.25% yield to maturity.", "6.25", "%"),
+        ("Dealer quotation on January 9, 2026: bid 6.25 percent.", "6.25", "percent"),
+        ("Dealer quotation on January 9, 2026: bid 175 bps discount margin.", "175", "bps"),
+        ("Dealer quotation on January 9, 2026: bid 175 basis points.", "175", "basis points"),
+        ("Dealer quotation on January 9, 2026: bid 6.25 yield.", "6.25", "yield"),
+    ),
+)
+def test_s08_a03_a_bid_quoted_as_a_yield_or_spread_is_refused(
+    sentence: str, level: str, unit: str
+) -> None:
+    """S08-cp3-A03: a level printed with a percent, basis-point, yield or spread unit is not a
+    price in points of par (6.25% would be stored as 0.0625 of par, DM 2356.7 bp)."""
+    raw, ctx = _one_side_case(sentence, level)
+    assert _issues_of(raw, ctx) == (
+        (
+            f'observations[0]: bid level_text {level} is quoted in "{unit}", not as a price in '
+            "points of par"
+        ),
+    )
+
+
+def test_s08_a03_the_unit_on_the_page_after_a_truncated_quote_still_refuses() -> None:
+    """The quote stops at the figure; the page sentence holding it prints `%` after it."""
+    sentence = "Dealer quotation on January 9, 2026: bid 6.25% yield to maturity."
+    raw, ctx = _one_side_case(sentence, "6.25", "Dealer quotation on January 9, 2026: bid 6.25")
+    assert _issues_of(raw, ctx) == (
+        'observations[0]: bid level_text 6.25 is quoted in "%", not as a price in points of par',
+    )
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    (
+        "Dealer quotation on January 9, 2026: bid 98.50% of par.",
+        "Dealer quotation on January 9, 2026: bid 98.50 (DM 350 bps).",
+        "Dealer quotation on January 9, 2026: bid 98.50, yielding 7.10%.",
+    ),
+)
+def test_s08_a03_a_price_with_other_units_elsewhere_is_accepted(sentence: str) -> None:
+    """`98.50% of par` is a price; a spread or yield apart from the level is not its unit."""
+    raw, ctx = _one_side_case(sentence, "98.50")
+    assert _issues_of(raw, ctx) == ()

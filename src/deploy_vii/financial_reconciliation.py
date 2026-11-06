@@ -16,6 +16,7 @@ from pydantic import model_validator
 from deploy_vii.audit_basis import annual_warning
 from deploy_vii.contracts import Citation, Contract, Hash, Identifier, Text
 from deploy_vii.facility_fx import FacilityNormalization, normalize_facilities
+from deploy_vii.financial_adapter import facility_issued_after
 from deploy_vii.financial_contracts import (
     AuditBasisExplanation,
     BalanceMovementBridge,
@@ -315,6 +316,19 @@ def _debt(
         }:
             continue
         values = values_by_id.get(fid, [])
+        issued = None if values else facility_issued_after(book, fid, period.end_date)
+        if issued is not None:
+            # Not yet issued at this date and no row of its own: zero, as the adapter reads it.
+            terms.append(
+                ReconciliationTerm(
+                    label=fid,
+                    observation_id=None,
+                    original_amount=None,
+                    amount=Decimal(0),
+                    citations=issued.issuance_citations,
+                )
+            )
+            continue
         value = next((v for v in values if v.status == "conflicting"), None)
         value = value or next((v for v in values if v.amount is not None), next(iter(values), None))
         if template.currency != book.currency:

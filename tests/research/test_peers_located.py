@@ -175,7 +175,7 @@ def test_a_declared_basis_the_span_and_basis_line_do_not_state_is_refused(case: 
 @pytest.mark.parametrize("currency", ["usd", "US", "USDX", "XYZ"])
 def test_a_currency_that_is_not_an_iso_code_is_refused(case: Case, currency: str) -> None:
     got = [str(i) for i in case.issues(_figure(case, 0, currency=currency))]
-    assert got == [REVENUE + p.NOT_A_CODE, REVENUE + p.UNSTATED_CURRENCY]
+    assert got == [REVENUE + p.NOT_A_CODE]
 
 
 @pytest.mark.parametrize(
@@ -252,3 +252,88 @@ def test_without_a_basis_line_a_flow_needs_twelve_months_and_a_balance_does_not(
     unstated = "Garrowby Holdings SE total debt at 31 December 2025: 90.0"
     got = _texts(case, case.body, _edited(case, "ev-2", "line:8", unstated))
     assert got == ["p06.debt: " + p.UNSTATED_CURRENCY, "p06.debt: " + p.UNSTATED_SCALE]
+
+
+# --- Second-model review: adversarial cases, expected issues read by hand off each edited line ---
+#
+# Every line below is ``line:11`` of ev-1 (revenue of p01, declared USD millions, 2025-12-31); the
+# Basis line (USD, amounts in millions, twelve months) answers whatever the line does not state.
+
+HEAD = "Alder Ridge Holdings revenue for the twelve months to 2025-12-31"
+
+
+@pytest.mark.parametrize(
+    ("line", "quote"),
+    [
+        # Comparative columns: a decimal figure is not grouped with the digits beside it.
+        (f"{HEAD}: 200.0 180.0", "200.0"),
+        (f"{HEAD}: 180.0 200.0", "200.0"),
+        (f"{HEAD}: 200.0 150", "200.0"),
+        (f"{HEAD}: 200.0 year ended", "200.0"),
+        # A ticker or heading that is also an ISO 4217 code is not the currency of the line.
+        ("AMD revenue for the twelve months to 2025-12-31: 200.0", "200.0"),
+        ("Allstate (ALL) revenue for the twelve months to 2025-12-31: 200.0", "200.0"),
+        (
+            "TOP picks: Alder Ridge Holdings revenue for the twelve months to 2025-12-31: 200.0",
+            "200.0",
+        ),
+        # An ordinal day is a date.
+        (
+            "Alder Ridge Holdings revenue for the twelve months to December 31st, 2025: 200.0",
+            "200.0",
+        ),
+        # Equals sign, no space after the colon.
+        (f"{HEAD} = 200.0", "200.0"),
+        (f"{HEAD}:200.0", "200.0"),
+    ],
+)
+def test_a_legitimate_layout_is_not_refused(case: Case, line: str, quote: str) -> None:
+    assert _texts(case, _quoting(case, quote), _with_line(case, "line:11", line)) == []
+
+
+@pytest.mark.parametrize(
+    ("line", "quote", "issue"),
+    [
+        # The year of the period, and a count of time, are not the amount.
+        ("Alder Ridge 2025 revenue for the twelve months to 2025-12-31: 200.0", "2025", p.A_YEAR),
+        ("Alder Ridge revenue for the 12 months to 2025-12-31: 200.0", "12", p.CUT_FIGURE),
+        # A percentage with a space or as a word is not an amount.
+        (f"{HEAD}: 12.5 %", "12.5", p.CUT_FIGURE),
+        (f"{HEAD}: 12.5 percent", "12.5", p.CUT_FIGURE),
+        (f"{HEAD}: 125 bps", "125", p.CUT_FIGURE),
+        # A dash used as a separator cannot be told from a minus sign: refused, not read as +200.0.
+        (f"{HEAD} – 200.0", "200.0", p.CUT_FIGURE),
+        # A scale or currency printed in a form the Basis line must not answer for.
+        (f"{HEAD} (USD 000s): 200.0", "200.0", p.UNSTATED_SCALE),
+        (f"{HEAD} (USD '000): 200.0", "200.0", p.UNSTATED_SCALE),
+        (f"{HEAD}, RMB: 200.0", "200.0", p.UNSTATED_CURRENCY),
+        (f"{HEAD}, in rand: 200.0", "200.0", p.UNSTATED_CURRENCY),
+        # A date in a form the reader does not know is not the declared period end.
+        (
+            "Alder Ridge Holdings revenue for the twelve months to 12/31/2025: 200.0",
+            "200.0",
+            p.UNSTATED_END,
+        ),
+        (
+            "Alder Ridge Holdings revenue for the twelve months to December 2025: 200.0",
+            "200.0",
+            p.UNSTATED_END,
+        ),
+    ],
+)
+def test_a_figure_that_is_not_the_stated_amount_is_refused(
+    case: Case, line: str, quote: str, issue: str
+) -> None:
+    assert _texts(case, _quoting(case, quote), _with_line(case, "line:11", line)) == [
+        REVENUE + issue
+    ]
+
+
+def test_a_dash_separated_figure_quoted_with_its_dash_is_the_missing_cell(case: Case) -> None:
+    """The repair for a ``label - 200.0`` line: quote the dash too and the cell is ``missing``
+    (the table rule reads no amount), never 200.0 and never -200.0."""
+    line = f"{HEAD} - 200.0"
+    body = _quoting(case, "- 200.0")
+    assert _texts(case, body, _with_line(case, "line:11", line)) == []
+    fact = {f.fact_id: f for f in case.composed(body).facts}["TDR.6.p01.revenue.amount"]
+    assert (fact.status, fact.amount, fact.limitation) == ("missing", None, p.UNREADABLE)

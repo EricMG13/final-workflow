@@ -63,9 +63,10 @@ NOT_A_CANDIDATE: Final = "peer_id is not a TDR.4 candidate"
 NOT_A_DATE: Final = "period_end is not a calendar date"
 NOT_EVIDENCE: Final = "citation is not an accepted ev-* item"
 CUT_FIGURE: Final = (
-    "quote is part of a larger number, date or signed figure in the cited span; quote the whole "
-    "figure as the span prints it, with its minus sign"
+    "quote is part of a larger number, date, signed figure, percentage or count of time in the "
+    "cited span; quote the whole figure as the span prints it, with its minus sign"
 )
+A_YEAR: Final = "quote is a year of the period, not an amount"
 NOT_A_CODE: Final = "currency is not a three-letter ISO 4217 code"
 _OR_BASIS: Final = "the cited span states (or, when it states none, a Basis: line of the same item)"
 UNSTATED_CURRENCY: Final = f"currency is not the one currency {_OR_BASIS}"
@@ -181,31 +182,26 @@ def _cited(citation: Citation, sources: Sequence[Source]) -> tuple[str, list[str
     return None
 
 
-# A digit group of a number that prints its thousands with spaces (``1 200 000``), beside a quote.
-_THOUSANDS_AFTER: Final = re.compile(r"[0-9]{3}(?![0-9])")
-_THOUSANDS_BEFORE: Final = re.compile(r"(?:^| )[0-9]{1,3}$")
+# What cuts a quote out of a larger figure, read from the text before and after it (S16 A01/C01):
+# a letter or digit touching it; a sign, point, comma, slash or bracket before it (``-12`` of a
+# date, ``12.3`` of ``(12.3)``), also across one space (``- 12.3``); a dash, slash, bracket or
+# percent sign after it (also across one space, or as a word), or a point or comma before a
+# letter or digit; and, for an integer, a count of time (``12 months``) or a space-grouped
+# thousands digit group after it (``200 000``), which a decimal figure has not.
+_CUT_BEFORE: Final = re.compile(r"(?:[^\W_]|[-+.,/(]|[-+(] |(?:^| )[0-9]{1,3} )$")
+_CUT_AFTER: Final = re.compile(
+    r"[^\W_]|[-/)%]|[.,][^\W_]| [%)]"
+    r"| (?i:percent|per cent|bps|basis points)\b"
+)
+_INTEGER_AFTER: Final = re.compile(r" [0-9]{3}(?![0-9])| (?i:(?:month|week|quarter|year|day)s?)\b")
 
 
 def _cuts_figure(text: str, start: int, end: int) -> bool:
-    """Whether ``text[start:end]`` is not a whole figure token: a letter or digit touches it; a
-    sign, point, comma, slash or bracket precedes it (``-12`` of a date, ``12.3`` of ``(12.3)``),
-    also across one space (``- 12.3``, ``( 12.3 )``); a dash, slash, bracket or percent sign
-    follows it, or a point or comma before a letter or digit; or a space-grouped thousands digit
-    group touches it across one space (``1 200.0``, ``200 000``)."""
-    before = text[start - 1] if start > 0 else " "
-    after = text[end] if end < len(text) else " "
-    lead = text[start - 2] if before == " " and start > 1 else ""
-    trail = text[end + 1 : end + 2] if after == " " else ""
+    """Whether ``text[start:end]`` is not a whole figure token (``_CUT_BEFORE``, ``_CUT_AFTER``)."""
     return (
-        before.isalnum()
-        or before in "-+.,/("
-        or (lead != "" and lead in "-+(")
-        or after.isalnum()
-        or after in "-/)%"
-        or (after in ".," and text[end + 1 : end + 2].isalnum())
-        or trail == ")"
-        or (after == " " and _THOUSANDS_AFTER.match(text, end + 1) is not None)
-        or (before == " " and _THOUSANDS_BEFORE.search(text, 0, start - 1) is not None)
+        _CUT_BEFORE.search(text, 0, start) is not None
+        or _CUT_AFTER.match(text, end) is not None
+        or ("." not in text[start:end] and _INTEGER_AFTER.match(text, end) is not None)
     )
 
 
@@ -213,20 +209,26 @@ def whole_figure(quote: str, text: str) -> bool:
     """Whether ``quote`` occurs in ``text`` (both normalised as ``quotes.normalise``) at least once
     as a whole figure token (``_cuts_figure``)."""
     needle, hay = normalise(quote), normalise(text)
-    at = hay.find(needle) if needle else -1
-    while at >= 0:
-        if not _cuts_figure(hay, at, at + len(needle)):
-            return True
-        at = hay.find(needle, at + 1)
-    return False
+    return bool(needle) and any(
+        not _cuts_figure(hay, at, at + len(needle))
+        for at in range(len(hay))
+        if hay.startswith(needle, at)
+    )
 
 
-def _cut_figure_issues(where: str, quote: str, text: str) -> list["ReviewIssue"]:
+def _cut_figure_issues(where: str, fig: "LocatedFigure", text: str) -> list["ReviewIssue"]:
     """A quote the table rule reads as an amount must be a whole figure of its span, not a
-    fragment of a larger number, a date or a signed figure."""
-    if amount_from_quote(quote) is None or whole_figure(quote, text):
+    fragment of a larger number, a date or a signed figure, and not the year of the period."""
+    quote = fig.citation.quote
+    if amount_from_quote(quote) is None:
         return []
-    return [_issue(where, CUT_FIGURE)]
+    if not whole_figure(quote, text):
+        return [_issue(where, CUT_FIGURE)]
+    years = {
+        fig.period_end[:4],
+        *(str(day.year) for day in peer_basis.period_ends(normalise(text))),
+    }
+    return [_issue(where, A_YEAR)] if normalise(quote) in years else []
 
 
 def _basis_issues(
@@ -236,7 +238,10 @@ def _basis_issues(
     ``Basis:`` lines) states, and a flow figure is stated for twelve months and no other length."""
     said = partial(peer_basis.stated, span=text, basis=basis)
     wrong = [
-        (said(peer_basis.currencies) != {fig.currency}, UNSTATED_CURRENCY),
+        (
+            fig.currency in peer_basis.ISO_4217 and said(peer_basis.currencies) != {fig.currency},
+            UNSTATED_CURRENCY,
+        ),
         (said(peer_basis.scales) != {fig.unit}, UNSTATED_SCALE),
         (
             fig.operand not in BALANCE_OPERANDS
@@ -260,9 +265,7 @@ def _located_issues(
     if cited is None:
         return []
     text, basis = cited
-    return _cut_figure_issues(where, fig.citation.quote, text) + _basis_issues(
-        where, fig, text, basis
-    )
+    return _cut_figure_issues(where, fig, text) + _basis_issues(where, fig, text, basis)
 
 
 def _candidate_issues(

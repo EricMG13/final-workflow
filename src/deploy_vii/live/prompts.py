@@ -587,6 +587,7 @@ CP3_EVIDENCE_RULE = (
     "rows by id (`basis.context_rows`) and never copies their figures; a `basis.quotes` entry "
     "still repeats a `market_evidence` row's quote exactly, for the rows of a `third_party` source "
     "only."
+    " An observed or indicative_talk row's `as_of` is a Month D, YYYY or ISO date its quote prints (an undated quote may take a date its cited page prints), never after the run's as-of; a quote more than 30 days older is reported stale and caps the preference below High."
 )
 CP3_TALK_RULE = (
     "Indicative talk is never a market level: an `observed` row never quotes talk wording (talk, "
@@ -600,6 +601,7 @@ CP3_BASIS_RULE = (
     "`{ref|unit}` CP-1 figure or, for an instrument, a `basis.quotes` market quote or a context "
     "row named in `basis.context_rows`; a `market_observation` other than none cites a market "
     "quote or a context row named in `basis.context_rows`."
+    " A context row named in an instrument's `basis.context_rows` quotes that instrument's own facility."
 )
 CP3_PREFERENCE_RULE = (
     "When a ranking is supported, `preference.ordering` lists every instrument's `facility_id` "

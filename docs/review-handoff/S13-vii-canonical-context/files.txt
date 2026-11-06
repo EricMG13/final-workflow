@@ -1,0 +1,14 @@
+src/deploy_vii/canonical_tables.py
+src/deploy_vii/canonical_audit.py
+src/deploy_vii/canonical_gaps.py
+src/deploy_vii/canonical_kpis.py
+src/deploy_vii/quotes.py
+src/deploy_vii/inputs/portfolio.py
+src/deploy_vii/inputs/__init__.py
+src/deploy_vii/business_context.py
+src/deploy_vii/source_context.py
+src/deploy_vii/narrative.py
+src/deploy_vii/narrative_projection.py
+src/deploy_vii/prose.py
+src/deploy_vii/quality.py
+src/deploy_vii/__init__.py

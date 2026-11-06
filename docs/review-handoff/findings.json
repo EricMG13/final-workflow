@@ -1,0 +1,920 @@
+[
+ {
+  "id": "S01-orchestration-A01",
+  "section": "S01-orchestration",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "identity / duplicate key overwrite",
+  "location": "`src/deploy_workflow/owners/cpos_launch.py:300` and `:310` (`_issuer_files`)"
+ },
+ {
+  "id": "S01-orchestration-A02",
+  "section": "S01-orchestration",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "resume / non-atomic write",
+  "location": "`src/deploy_workflow/workflow.py:153` (`_put`), used at `src/deploy_workflow/owners/cpos.py:207-216` (`_handoff`)"
+ },
+ {
+  "id": "S01-orchestration-A03",
+  "section": "S01-orchestration",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "CP-8 input validation / wrong comparison",
+  "location": "`src/deploy_workflow/owners/cpos.py:658-669` (`run_comparison`)"
+ },
+ {
+  "id": "S02-module-framework-A01",
+  "section": "S02-module-framework",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "gate weakness / missing-input disclosure",
+  "location": "`src/deploy_workflow/owners/cp0_attachments.py:42-44,70-81` (`GAP_MATCH`, `_legal_issue`, `_issues`)"
+ },
+ {
+  "id": "S02-module-framework-A02",
+  "section": "S02-module-framework",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "prompt fence / injection",
+  "location": "`src/deploy_workflow/prompts/fence.py:62-78` (`_normalised`, `_refuse_markers`)"
+ },
+ {
+  "id": "S02-module-framework-A03",
+  "section": "S02-module-framework",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "prompt composition rule list incomplete",
+  "location": "`src/deploy_workflow/prompts/compose.py:96-106` (`O1`, `O2`) together with `src/deploy_workflow/prompts/factory.py:128-129`"
+ },
+ {
+  "id": "S03-model-provider-A01",
+  "section": "S03-model-provider",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "quantity identity / scoring correctness",
+  "location": "`src/deploy_workflow/model_testing/scoring.py:222` (`_equal`), `:100` (`_unit_problem`), `:120` (`_module_units`)"
+ },
+ {
+  "id": "S03-model-provider-A02",
+  "section": "S03-model-provider",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "secrets (a JSON-escaped key in error text)",
+  "location": "`src/deploy_workflow/model/providers.py:412` (`_http_error`), `:390` (`_provider_message`). `parse` returns at `:633` for non-2xx bodies before `_guard_decoded` runs."
+ },
+ {
+  "id": "S03-model-provider-A03",
+  "section": "S03-model-provider",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "replay fidelity (offline and live reservations differ)",
+  "location": "`src/deploy_workflow/model/loop.py:633-637` (`ToolLoop._attempt`) together with `src/deploy_workflow/model/pricing.py:217` (`reservation_usd`)"
+ },
+ {
+  "id": "S03-model-provider-A04",
+  "section": "S03-model-provider",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "path leakage into records",
+  "location": "`src/deploy_workflow/model/copilot.py:132-156` (`_session_error`), `src/deploy_workflow/model/copilot_adapter.py:851` (`_settle`, which stores `raw = redactor.bytes_(body)`), `src/deploy_workflow/model/handoff.py:500-511` (`_turn`, `message=self.redactor.exception(exc)`), `src/deploy_workflow/model/loop.py:654` (`_attempt`, `error=self._redactor.exception(...)`)"
+ },
+ {
+  "id": "S04-delivery-A01",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "units/limitations lost at the delivery boundary",
+  "location": "`src/deploy_workflow/markdown_delivery.py:84-138` (literal_module, how prose is split from tables) and `:517-531` (markdown_files, table-route selection)"
+ },
+ {
+  "id": "S04-delivery-A02",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "nonzero amounts shown as zero / fixed display precision ignores the source",
+  "location": "`src/deploy_workflow/model_handoff_delivery.py:468` (build_model, `decimals=2 if tid == \"ratios\" else 0`); `src/deploy_workflow/markdown_delivery.py:381-383` (_numeric_observations, fixed `2`/`4` decimals when the token path is used)"
+ },
+ {
+  "id": "S04-delivery-A03",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "reader-summary number check ignores sign, unit and scale",
+  "location": "`src/deploy_workflow/reader_summary.py:15,84-92` (NUMBER, _unmatched_numbers)"
+ },
+ {
+  "id": "S04-delivery-A04",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "chart period axis follows authoring order (reversed time)",
+  "location": "`src/deploy_workflow/markdown_delivery.py:321-400` (_numeric_observations: categories in table-row order); drawn by `src/deploy_vii/charts.py:188-194,260-326`"
+ },
+ {
+  "id": "S04-delivery-A05",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "\"line N\" citations drift from physical lines",
+  "location": "`src/deploy_workflow/model_handoff_delivery.py:280` (_literal_tables), `markdown_delivery.py:70` (literal_module), `handoff_delivery.py:208` (mapped_module): all use `str.splitlines()`"
+ },
+ {
+  "id": "S04-delivery-A06",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "hidden multi-line HTML comments are published as prose",
+  "location": "`src/deploy_workflow/markdown_delivery.py:87-95` (literal_module paragraph loop)"
+ },
+ {
+  "id": "S04-delivery-A07",
+  "section": "S04-delivery",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "delivery ignores the chart table's own Reporting unit",
+  "location": "`src/deploy_workflow/markdown_delivery.py:341-356` (_numeric_observations token path)"
+ },
+ {
+  "id": "S05-cp0-cp1-A01",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "quantity family / currency of a model-cited amount",
+  "location": "`src/deploy_workflow/owners/cp1d.py:588` (`_basis_amounts`), `:784` (`_shape_issue`), `:759` (`_outcome`), `:1061` (`_assessment_rows`)"
+ },
+ {
+  "id": "S05-cp0-cp1-A02",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "source/period identity in a tie-out",
+  "location": "`src/deploy_workflow/owners/cp1c.py:1206` (`_tie_out`), `:1244` (`_tie_out_settled`)"
+ },
+ {
+  "id": "S05-cp0-cp1-A03",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "wrong/impossible periods pass response validation",
+  "location": "`src/deploy_workflow/owners/cp1c.py:335` (`_period_end`), `:2510`/`:2531` (`_assessment_set_issues`, `_content_issues`)"
+ },
+ {
+  "id": "S05-cp0-cp1-A04",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "unknown treated as better than missing (QA ceiling)",
+  "location": "`src/deploy_vii/cp1_quality.py:94-95` (`_lineage_basis`)"
+ },
+ {
+  "id": "S05-cp0-cp1-A05",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "envelope read-back does not bind QA, gap limitations or registers hash to the journal",
+  "location": "`src/deploy_vii/cp1_workflow.py:601` (`cp1_binding_issues`), `:644` (`read_cp1_envelope`)"
+ },
+ {
+  "id": "S05-cp0-cp1-A06",
+  "section": "S05-cp0-cp1",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "contradictory unit/currency basis accepted",
+  "location": "`src/deploy_workflow/owners/cp1c.py:349` (`_basis`)"
+ },
+ {
+  "id": "S06-cp2-ade-A01",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "control flow / unsatisfiable validation",
+  "location": "`src/deploy_workflow/owners/cp2d.py:1862` (submission_issues, WALL_DATE_ISSUE), with `maturity_date_refs` built only from T4.18 rows in `select_cp1` (`cp2d.py:2185-2189`)."
+ },
+ {
+  "id": "S06-cp2-ade-A02",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "periods / row reading",
+  "location": "`src/deploy_workflow/owners/cp2e.py:778-797` (`_Check.row`)"
+ },
+ {
+  "id": "S06-cp2-ade-A03",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "numbers / sign of outflows",
+  "location": "`src/deploy_workflow/owners/cp2e.py:502` (`_row_decimal`) and `cp2e.py:778-797` (`_Check.row`), used by `derive_sensitivity` (`cp2e.py:268`)."
+ },
+ {
+  "id": "S06-cp2-ade-A04",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "units / scale",
+  "location": "`src/deploy_workflow/owners/cp2e.py:778-797` (`_Check.row`), `cp2e.py:739-746` (`_Check.code`), and the stamping in `_materialise` (`cp2e.py:1093`, `MILLIONS_SCALE`)."
+ },
+ {
+  "id": "S06-cp2-ade-A05",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "control flow / resume wedge",
+  "location": "`src/deploy_workflow/owners/cp2d.py:1840-1841` (submission_issues bounds only the sign of minimum_cash), with the crash in `amount_text` (`cp2d.py:851`, `format_value`) reached from `_judgments` via `liquidity_bridge` in `_validate_step` (`cp2d.py:2796-2808`)."
+ },
+ {
+  "id": "S06-cp2-ade-A06",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "limitation preservation / gap propagation",
+  "location": "`src/deploy_vii/cp2_synthesis.py:427-438` (`_propagation_issues`) and the limitation built at `cp2_synthesis.py:779`."
+ },
+ {
+  "id": "S06-cp2-ade-A07",
+  "section": "S06-cp2-ade",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "currency identity",
+  "location": "`src/deploy_workflow/owners/cp2e.py:739-746` (`_Check.code`) and `cp2e.py:2028-2033` (the context comparison runs only when a run context exists)."
+ },
+ {
+  "id": "S07-cp2-gh-A01",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "response validation / wrong break metric",
+  "location": "`src/deploy_workflow/owners/cp2g.py:842-846` (`_metric_check`), `:887-894` (`_break_issues`), `:2030` (`_tests`)"
+ },
+ {
+  "id": "S07-cp2-gh-A02",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "invented content passes validation (limitations)",
+  "location": "`src/deploy_workflow/owners/cp2g.py:826-829` (`_limitation_issues`), used at `:925, :929, :936`; stored as `Claim.limitation` at `:2390-2391, :2406, :2483`"
+ },
+ {
+  "id": "S07-cp2-gh-A03",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "wrong comparison (rating scope/instrument mixed in notch divergence)",
+  "location": "`src/deploy_workflow/owners/cp2h.py:1464-1529` (`_divergence`), `:430-464` (`context_register`)"
+ },
+ {
+  "id": "S07-cp2-gh-A04",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "analyst conclusion unconstrained by computed outcomes and evidence",
+  "location": "`src/deploy_workflow/owners/cp2h.py:1782-1820` (`_view_issues`)"
+ },
+ {
+  "id": "S07-cp2-gh-A05",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "breach reported as \"Not calculable\" (zero/negative denominator)",
+  "location": "`src/deploy_workflow/owners/cp2g.py:319-329, :535-539` (`_ratio`, `_year`) and `:618-650` (`test_breaks`); consumed by `cp2h.py:1258-1263, :1346-1408`"
+ },
+ {
+  "id": "S07-cp2-gh-A06",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "realistic context refused with a misleading reason",
+  "location": "`src/deploy_workflow/owners/cp2h.py:453-457` (`context_register`)"
+ },
+ {
+  "id": "S07-cp2-gh-A07",
+  "section": "S07-cp2-gh",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "outlook compared as raw text",
+  "location": "`src/deploy_workflow/owners/cp2h.py:1442-1461` (`_outlook_match`)"
+ },
+ {
+  "id": "S08-cp3-A01",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "quote handling / conditional quote treated as executable",
+  "location": "`src/deploy_workflow/owners/cp3d.py:816` (`_observation_level`), `:796` (`_labelled`), `:2008` (`own_limitations`)"
+ },
+ {
+  "id": "S08-cp3-A02",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "wrong instrument passes validation (CP-3D)",
+  "location": "`src/deploy_workflow/owners/cp3d.py:1112` (`submission_issues`), `:937` (`_check_observations`), `:979` (`_check_maturity`)"
+ },
+ {
+  "id": "S08-cp3-A03",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "price vs yield vs spread: units of a quoted level are not checked",
+  "location": "`src/deploy_workflow/owners/cp3d.py:796` (`_labelled`), `:845` (bound `0 < value <= 200`), `:650` (`_point`)"
+ },
+ {
+  "id": "S08-cp3-A04",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "bp vs percent: margin and reference-rate units not checked",
+  "location": "`src/deploy_workflow/owners/cp3d.py:958` (`_check_quoted_numeral`), `:1025-1034` (reference level), `:710` (`inputs_from_submission`)"
+ },
+ {
+  "id": "S08-cp3-A05",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "stale or future-dated sheet quotations accepted (period integrity)",
+  "location": "`src/deploy_workflow/owners/cp3d.py:852` (`_observation_date`), `:402` (`_stale_lines`, context rows only), `:671` (`compose`)"
+ },
+ {
+  "id": "S08-cp3-A06",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "CP-3 market-evidence `as_of` is model text, unchecked, shown as the quote date",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1060` (`_market_row`, no `as_of` check), `:1557` (`_market`, `out.said(row.as_of)`)"
+ },
+ {
+  "id": "S08-cp3-A07",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "CP-3 accepts another facility's context quote as an instrument's market basis",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1099` (`_basis_issues`), `:1138` (`_instrument_issues`)"
+ },
+ {
+  "id": "S08-cp3-A08",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "CP-3 talk marker check bypassed by quoting a sub-span",
+  "location": "`src/deploy_vii/cp3_relative_value.py:1091-1095` (`_market_row` talk check on `quote.quote` only)"
+ },
+ {
+  "id": "S08-cp3-A09",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "CP-3C: positive cash interest is silently negated; pro forma cover nets new interest against it",
+  "location": "`src/deploy_workflow/owners/cp3c.py:1087` (`compose_operands`, `interest.copy_negate()`), `:836-848` (`compose_refinancing`)"
+ },
+ {
+  "id": "S08-cp3-A10",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "rv_quotes validator crashes on a large exponent",
+  "location": "`src/deploy_vii/inputs/rv_quotes.py:90` (`NUMBER` allows any exponent), `:344` (`Decimal(bid) > Decimal(ask)`)"
+ },
+ {
+  "id": "S08-cp3-A11",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "rv_quotes: zero or negative price passes; duplicate key check is case- and space-sensitive",
+  "location": "`src/deploy_vii/inputs/rv_quotes.py:322` (`column_problem`), `:168-176` (duplicate key)"
+ },
+ {
+  "id": "S08-cp3-A12",
+  "section": "S08-cp3",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "rv_quotes fix text points to a template that does not exist",
+  "location": "`src/deploy_vii/inputs/rv_quotes.py:33` (`TEMPLATE`), used in FIX \"empty\"/\"header\"/\"sheet\""
+ },
+ {
+  "id": "S09-cp4-cp5-A01",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "integrity check false positive (verbatim copy reported as a figure mismatch)",
+  "location": "`src/deploy_vii/cp5_integrity.py:107` (`REFERENCE_TABLES`), `:386-430` (`identity_groups`); producer side `src/deploy_vii/cp4_legal.py:1403-1438` (`_referenced_table`)"
+ },
+ {
+  "id": "S09-cp4-cp5-A02",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "response validation: threshold may come from the wrong indenture",
+  "location": "`src/deploy_vii/cp4_legal.py:538-568` (`_threshold_issues`), `:571-602` (`_covenant_issues`)"
+ },
+ {
+  "id": "S09-cp4-cp5-A03",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "period / step-down: one step of a schedule tested against a CP-1 metric of another period",
+  "location": "`src/deploy_vii/cp4_legal.py:302-334` (`parse_threshold`, run on `threshold_text` only), `:538-568`, `:917-948` (`_test`), `:951-966` (`_computed`, headroom period = metric period)"
+ },
+ {
+  "id": "S09-cp4-cp5-A04",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "CP-4C passes validation, then raises inside the step validator after the paid response is retained (step left pending)",
+  "location": "`src/deploy_workflow/owners/cp4c.py:1034-1109` (`content_issues`, which has no CP-4 head check), `:1589-1603` (`_check_cp4_head`, reached only from `_resolve`/`compute`), `:3324-3335` (`_validate_step` calls `restructuring` after `_lines` is empty); `deploy_vii/execution.py:853-857` writes the pending step before it calls the validator"
+ },
+ {
+  "id": "S09-cp4-cp5-A05",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "covenant direction check misses common cap/floor wording and never checks strictness",
+  "location": "`src/deploy_vii/cp4_legal.py:515-535` (`_FLOOR`, `_CAP`, `_direction_issues`)"
+ },
+ {
+  "id": "S09-cp4-cp5-A06",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "invented basket capacity passes when written in words",
+  "location": "`src/deploy_vii/cp4_legal.py:633-671` (`validate_covenant_interpretation`; Basket rows are only required to carry a quote, `:497-498`)"
+ },
+ {
+  "id": "S09-cp4-cp5-A07",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "CP-5 accepts a \"supported\" verdict backed by unrelated evidence",
+  "location": "`src/deploy_vii/cp5_integrity.py:623-660` (`_review_issues`)"
+ },
+ {
+  "id": "S09-cp4-cp5-A08",
+  "section": "S09-cp4-cp5",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "the CP-4 \"Same definition\" gate is a two-phrase closed list taken from one synthetic source",
+  "location": "`src/deploy_workflow/owners/cp4.py:27` (`MARKERS`), `:65-76` (`semantic_issues`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-A01",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "Numbers / quote parsing: wrong figure bound to a measure",
+  "location": "`src/deploy_workflow/owners/cp8.py:470-494` (`_labelled`), called from `_observation` at `cp8.py:769`"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-A02",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "Missing vs empty: the renderer crashes when no topic can be screened",
+  "location": "`src/deploy_workflow/owners/cpl10.py:878` and `:900-902` (`_scope_rows`: `supported = \", \".join(...)` written as known text)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-A03",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "Invented decision input: vocabulary word matched as a substring",
+  "location": "`src/deploy_workflow/owners/cp8.py:668` (`_decision_text`: `text not in _norm(quote.quote)`)"
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-A04",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "Currency: a USD or no-context screen never checks operand currency",
+  "location": "`src/deploy_workflow/owners/cpl10.py:409-427` (`Upstream.__post_init__`) together with `:1393-1395` (`cpl10_upstream` uses `RunUpstream`, the only class that checks currency, only for non-USD runs). Also `:687-691` (`_Cells.add` stamps `self.currency`) and `:719-726` (`copied` keeps CP-1's currency)."
+ },
+ {
+  "id": "S10-cp6-cp8-cpl10-A05",
+  "section": "S10-cp6-cp8-cpl10",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "Scope: a native CP-8 run executes the superseded post-mortem under the comparison title",
+  "location": "`src/deploy_workflow/owners/cp8.py:1-15, 71-75` (module purpose, `DECISION_SOURCE=\"prior_case\"`), registered as the CP-8 owner in `src/deploy_workflow/owner_workflow.py:524-537`"
+ },
+ {
+  "id": "S11-earnings-financial-A01",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "period / guard bypass",
+  "location": "`src/deploy_workflow/financial_workflow.py:1582-1583` (`_hit`, \"balance\" spec), used by `_mapped_columns` 1697 and `_header_columns` 1280 (HTML/line path: `_ocr_header`)"
+ },
+ {
+  "id": "S11-earnings-financial-A02",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "quantity scale (shares)",
+  "location": "`src/deploy_workflow/statement_compose.py:226-246` (`_header_scale`), used by `resolve_typed_row` 207-208 and `validate_typed_statement_line`"
+ },
+ {
+  "id": "S11-earnings-financial-A03",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "HTML parsing: silent row drop",
+  "location": "`src/deploy_workflow/statement_lines.py:38-39,96-115` (`_NUMTOK`, `respace`), feeding `line_table`"
+ },
+ {
+  "id": "S11-earnings-financial-A04",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "period handling (leap year / quarter length)",
+  "location": "`src/deploy_workflow/earnings.py:348-353` (`build_earnings_delta_in`)"
+ },
+ {
+  "id": "S11-earnings-financial-A05",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "iXBRL parsing aborts run staging",
+  "location": "`src/deploy_workflow/inline_xbrl.py:155-158` (missing-id raise), `:166` (strict UTF-8 decode); caller `src/deploy_workflow/run_inputs.py:291-296`"
+ },
+ {
+  "id": "S11-earnings-financial-A06",
+  "section": "S11-earnings-financial",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "currency guard gap",
+  "location": "`src/deploy_workflow/statement_compose.py:249-258` (`_currency_matches`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A01",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "critical",
+  "verdict": "CONFIRMED",
+  "category": "period arithmetic / balance summed as flow",
+  "location": "`src/deploy_vii/statement_history.py:226-247` (statement_history: every non-BS item goes through `history._Series(\"flow\", ...)` / `history._flow`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A02",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "sign convention / explicit signed inflow flipped",
+  "location": "`src/deploy_vii/statement_output.py:113-118` (`_cell`), `src/deploy_vii/statement_validation.py:404-411` (`account_outflow`), `src/deploy_vii/model/history.py:220-231` (`_row`), `src/deploy_vii/financial_reconciliation.py:128` (`_term`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A03",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "reconciliation tolerance widened by Decimal exponent",
+  "location": "`src/deploy_vii/financial_reconciliation.py:166-168` (`_check`), `src/deploy_vii/period_reconciliation.py:122-126` (`_compare`), `src/deploy_vii/model/_cells.py:41-45` (`beyond_rounding`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A04",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "statement extraction drops minus-signed rows silently",
+  "location": "`src/deploy_vii/statement_extract.py:93-97` (`_NUMBER`/`_NUMERIC_CELL`), `:426-434` (`_is_omitted_candidate`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A05",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "European thousands separator parsed as decimal",
+  "location": "`src/deploy_vii/statement_extract.py:93` (`_NUMBER` alternative `\\d+(?:\\.\\d+)?`)"
+ },
+ {
+  "id": "S12-vii-financial-engine-A06",
+  "section": "S12-vii-financial-engine",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "DR.2 rows grouped by display name",
+  "location": "`src/deploy_vii/distressed_figures.py:88-100` (`_cp4c_figures`, DR.2 branch)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A01",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "gap severity / hidden disagreement",
+  "location": "`src/deploy_vii/canonical_audit.py:491-527` (absent_input_limitation); used at canonical_audit.py:626-638 and canonical_gaps.py:253-271"
+ },
+ {
+  "id": "S13-vii-canonical-context-A02",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "wrong analytical conclusion (governance risk level)",
+  "location": "`src/deploy_vii/business_context.py:844-873` (governance_sponsor_score); rendered at business_context.py:1500-1523 (T2D.8 composite)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A03",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "citation verification accepts numeric fragments",
+  "location": "`src/deploy_vii/quotes.py:105-118` (quoted)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A04",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "bare-figure guard bypass in run text",
+  "location": "`src/deploy_vii/prose.py:139-147` (\"coverage\" label), `prose.py:94` (bare year label), `prose.py:215-229` (bare_figures)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A05",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "period mislabelling of referenced figures",
+  "location": "`src/deploy_vii/prose.py:282-323` (_fact_issues / issues); spelled in business_context.py:377-382 and narrative_projection chips"
+ },
+ {
+  "id": "S13-vii-canonical-context-A06",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "canonical adjusted EBITDA lost on period-absent add-backs",
+  "location": "`src/deploy_vii/canonical_kpis.py:201-208` (_canonical_frame)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A07",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "PLAUSIBLE",
+  "category": "financial-narrative gate is vacuous",
+  "location": "`src/deploy_vii/narrative.py:233-235`, `narrative.py:244-249`, `narrative.py:286-287`"
+ },
+ {
+  "id": "S13-vii-canonical-context-A08",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "portfolio percent-of-NAV value 100x wrong",
+  "location": "`src/deploy_vii/inputs/portfolio.py:96-98, 784-800` (PCT_COLUMNS / percent_findings)"
+ },
+ {
+  "id": "S13-vii-canonical-context-A09",
+  "section": "S13-vii-canonical-context",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "portfolio workbook accepts hidden stale rows/sheets and negative shares",
+  "location": "`src/deploy_vii/inputs/portfolio.py:705-731` (load_table), `portfolio.py:845-860` (rating_rules)"
+ },
+ {
+  "id": "S14-vii-live-runtime-A01",
+  "section": "S14-vii-live-runtime",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "unbounded model-controlled CPU / output (search DoS)",
+  "location": "`src/deploy_vii/live/tools.py:384-427` (`PackTools.search_pack`)"
+ },
+ {
+  "id": "S14-vii-live-runtime-A02",
+  "section": "S14-vii-live-runtime",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "read_pages byte cap bypass on line sources",
+  "location": "`src/deploy_vii/live/tools.py:437-450` (`PackTools.read_pages`)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-A01",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "control flow / crash on corrupt input",
+  "location": "`src/deploy_vii/preparation.py:466-487` (prepare_source except list), and the per-page handler at `:228` (_pdf_pages)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-A02",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "readiness gate accepts unavailable evidence",
+  "location": "`src/deploy_vii/downstream_readiness.py:229-243` (_evidence_tags), used at `:290-298` (validate_downstream_review)"
+ },
+ {
+  "id": "S15-vii-readiness-bindings-A03",
+  "section": "S15-vii-readiness-bindings",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "absence-claim guard gap",
+  "location": "`src/deploy_vii/readiness.py:240-263` (_PAGE_RANGE / absent_page_ranges), used by coverage_issues/absence_issues"
+ },
+ {
+  "id": "S16-research-tools-A01",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "Identity / quote anchoring (wrong figure accepted as \"located\")",
+  "location": "`src/deploy_workflow/research/peers.py:295` (`_amount_cell` -> `amount_from_quote`), with the check at `peers.py:144-149` (`_citation_issues` -> `deploy_vii.readiness.citation_issues`)"
+ },
+ {
+  "id": "S16-research-tools-A02",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "high",
+  "verdict": "CONFIRMED",
+  "category": "Units / currency / period invented or unverified on the pack path",
+  "location": "`src/deploy_workflow/research/peers.py:298-308` (`_amount_cell`), `peers.py:90-96` (`LocatedFigure`)"
+ },
+ {
+  "id": "S16-research-tools-A03",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "Swallowed contract: network-layer error escapes fetch and aborts all intake",
+  "location": "`src/deploy_workflow/research/webfetch.py:165-168` (`resolve_public` catches only `OSError`), `webfetch.py:177-180` (`system_resolver`), `webfetch.py:517` (`fetch` catches `OSError`/`HTTPException`)"
+ },
+ {
+  "id": "S16-research-tools-A04",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "Independence rule defeated by label variants",
+  "location": "`src/deploy_workflow/research/review.py:175-189` (`_family_issues`); labels are kept unnormalised at `intake.py:109-123` (`_cell_text`)"
+ },
+ {
+  "id": "S16-research-tools-A05",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "A model claim_id or peer_id `total` makes an ordinary row a total row",
+  "location": "`src/deploy_workflow/research/tables.py:165` (`_Table.add`, `row_kind=\"total\" if row_id == TOTAL_ROW`)"
+ },
+ {
+  "id": "S16-research-tools-A06",
+  "section": "S16-research-tools",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "Manifest path with NUL raises a raw ValueError, not IntakeError",
+  "location": "`src/deploy_workflow/research/intake.py:190-195` (`_resolve`)"
+ },
+ {
+  "id": "S17-issuer-library-A01",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "money/limits: spend misreported after a failure",
+  "location": "`apps/issuer-library/engine/bridge.py:206-233` (start) and `:260-273` (main)"
+ },
+ {
+  "id": "S17-issuer-library-A02",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "path containment: a symlinked or junctioned delivery folder escapes the run and the workspace",
+  "location": "`apps/issuer-library/engine/store.py:371-387` (handoff_files)"
+ },
+ {
+  "id": "S17-issuer-library-A03",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "fail-open boundary and provenance: built_from globs the folder instead of using the verified manifest",
+  "location": "`apps/issuer-library/engine/store.py:490-501` (built_from), called at `:551` outside the try in `catalogue_reports`"
+ },
+ {
+  "id": "S17-issuer-library-A04",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "swallowed error hides a whole run: output_label crashes on unusual file names",
+  "location": "`apps/issuer-library/engine/store.py:230-245` (output_label)"
+ },
+ {
+  "id": "S17-issuer-library-A05",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "HTML injection of handoff values into the pinned CP-1 chart",
+  "location": "`apps/issuer-library/web/screen.js:186-188` (trendChart: `${p.exact}`, `${p.label}`)"
+ },
+ {
+  "id": "S17-issuer-library-A06",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "medium",
+  "verdict": "CONFIRMED",
+  "category": "identity collision: curated route keys and folder names override recorded identity",
+  "location": "`apps/issuer-library/engine/store.py:590-600` (workspace_store `shown[key]`), `:524-531` (catalogue_reports)"
+ },
+ {
+  "id": "S17-issuer-library-A07",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "attribute injection from folder and file names (macOS/Linux builds)",
+  "location": "`apps/issuer-library/web/views.js:121,142,151,158` (`data-evidence=\"${module}:...\"` with output id), `views.js:206-212` (routeHref puts `section` = report id into `href` without escaping, used at `views.js:340`, `screen.js:285`, workspace tabs)"
+ },
+ {
+  "id": "S17-issuer-library-A08",
+  "section": "S17-issuer-library",
+  "pass": "adversarial",
+  "severity": "low",
+  "verdict": "CONFIRMED",
+  "category": "packaging: a re-pinned runtime keeps stale wheels in the shipped ZIP",
+  "location": "`apps/issuer-library/packaging/runtime.py:79-106` (bundle) together with `build.py:16-36` (the target is reused and every file is zipped)"
+ }
+]

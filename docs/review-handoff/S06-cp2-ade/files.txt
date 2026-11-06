@@ -1,0 +1,5 @@
+src/deploy_workflow/owners/cp2.py
+src/deploy_workflow/owners/cp2a.py
+src/deploy_workflow/owners/cp2d.py
+src/deploy_workflow/owners/cp2e.py
+src/deploy_vii/cp2_synthesis.py

@@ -1,0 +1,7 @@
+src/deploy_workflow/owners/cp1a.py
+src/deploy_workflow/owners/cp1b.py
+src/deploy_workflow/owners/cp1c.py
+src/deploy_workflow/owners/cp1d.py
+src/deploy_vii/cp0_workflow.py
+src/deploy_vii/cp1_workflow.py
+src/deploy_vii/cp1_quality.py

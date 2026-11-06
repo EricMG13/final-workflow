@@ -2003,8 +2003,10 @@ def test_property_break_decline_round_trip(
 
 # --- S07-cp2-gh-A01/A02 -------------------------------------------------------------------------
 def _q4_context() -> cp2g.ForwardContext:
-    """The positive context with CP-2A stressing the fourth quarter, not the twelve-month base,
-    so the CP-2A required decline cannot be reproduced and only its formula names the metric."""
+    """Synthetic scope: the positive (LTM) CP-2A head relabelled to a fourth-quarter base,
+    keeping its known required declines, so the decline cannot be reproduced and only its formula
+    names the metric. Real CP-2A output on a single-quarter base settles no ratio decline at all
+    (`_quarter_cp2a_context`), where the formula cannot help (the xfail below)."""
     ctx = _context("positive")
     cp2a = dataclasses.replace(ctx.cp2a, base_period="Q4 2025: 2025-10-01 to 2025-12-31")
     return dataclasses.replace(ctx, cp2a=cp2a)
@@ -2087,4 +2089,122 @@ def test_a02_limitation_reference_is_refused_and_plain_text_is_accepted() -> Non
     payload["downside"]["limitation"] = "Revenue was {x|EUR} in the base year."
     assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == (
         "downside.limitation: Unresolved reference: x",
+    )
+
+
+# --- S07 review: adversarial cases for the A01/A02 fixes ----------------------------------------
+def _with_b03_decline(**update: Any) -> cp2g.ForwardContext:
+    ctx = _context("positive")
+    breaks = tuple(
+        dataclasses.replace(b, required_decline=b.required_decline.model_copy(update=update))
+        if b.row == "b03"
+        else b
+        for b in ctx.cp2a.breaks
+    )
+    return dataclasses.replace(ctx, cp2a=dataclasses.replace(ctx.cp2a, breaks=breaks))
+
+
+@pytest.mark.parametrize("formula", ["Legacy wording of the decline", None])
+@pytest.mark.parametrize("metric", ["total_leverage", "net_leverage", "interest_coverage"])
+def test_a01_known_decline_with_an_unmapped_formula_refuses_every_metric(
+    formula: str | None, metric: str
+) -> None:
+    """Fail closed: a known CP-2A required decline whose formula CP-2G does not map (or none)
+    names no tested metric, so even the metric that reproduces the amount (total leverage for
+    b03) is refused, alone, at break_metrics[0]."""
+    payload = _bind_all(_payload("positive"))
+    payload["break_metrics"][0]["metric"] = metric
+    assert cp2g.payload_issues(json.dumps(payload), _with_b03_decline(formula=formula)) == (
+        f"break_metrics[0]: metric {metric} does not reproduce the CP-2A required decline of b03",
+    )
+
+
+def test_a01_unknown_decline_keeps_the_formula_out_of_the_check() -> None:
+    """A not_applicable decline still carrying a formula (as `test_g_decisions_unknown_cp2a_copy_
+    keeps_status` builds it) is not read: the correct metric passes, unverified."""
+    na = {"status": "not_applicable", "amount": None, "calculation_id": None, "limitation": "n/a"}
+    payload = _bind_all(_payload("positive"))
+    assert cp2g.payload_issues(json.dumps(payload), _with_b03_decline(**na)) == ()
+
+
+def _quarter_cp2a_context() -> cp2g.ForwardContext:
+    """CP-2G over the real CP-2A oracle on a single-quarter base (cp2a-owner
+    fixture_quarter_known): b03 'Total leverage watch level' has level 2.5 and a required
+    decline not_applicable ('Not meaningful: the base period is a single quarter ...')."""
+    return dataclasses.replace(
+        _context("fixture_cp2a_gap_head"), cp2a=_cp2a_head("fixture_quarter_known")
+    )
+
+
+def test_a01_quarter_cp2a_correct_metric_is_accepted() -> None:
+    payload = _bind_all(_payload("fixture_cp2a_gap_head"))
+    payload["break_metrics"] = [{"break_id": "b03", "metric": "total_leverage"}]
+    assert cp2g.payload_issues(json.dumps(payload), _quarter_cp2a_context()) == ()
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="S07-cp2-gh-A01 residual (BLOCKER): real CP-2A output on a quarter base settles no "
+    "ratio required decline, so its formula cannot name the tested metric and a swapped metric "
+    "is still accepted unverified; closing it needs CP-2A to expose the watch metric",
+)
+@pytest.mark.parametrize("metric", ["interest_coverage", "net_leverage"])
+def test_a01_quarter_cp2a_swapped_metric_is_refused(metric: str) -> None:
+    payload = _bind_all(_payload("fixture_cp2a_gap_head"))
+    payload["break_metrics"] = [{"break_id": "b03", "metric": metric}]
+    assert cp2g.payload_issues(json.dumps(payload), _quarter_cp2a_context()) != ()
+
+
+def _limitation_issues_of(text: str) -> tuple[str, ...]:
+    payload = _bind_all(_payload("positive"))
+    payload["assessment"]["limitation"] = text
+    return cp2g.payload_issues(json.dumps(payload), _context("positive"))
+
+
+_GUARD = "assessment.limitation: prohibited conclusion "
+
+
+@pytest.mark.parametrize(
+    ("text", "want"),
+    [
+        # labels and the issuer name carry digits that are not figures
+        ("The FY2026 guidance in the 2025 10-K is silent for Northbridge Synthetic Group.", ()),
+        ("No guidance for Q4 2025 or H1 2026 was published.", ()),
+        # 'Q4 25' is not a period label of prose.LABELS: the '25' is bare (as in a rationale)
+        ("Q4 25 is a single quarter.", ("assessment.limitation: Bare figure: 25",)),
+        ("Leverage could reach 4.5x.", ("assessment.limitation: Bare figure: 4.5x",)),
+        (
+            "Results are weighted, VERSUS PEERS, by the PROBABILITY OF default.",
+            (
+                f'{_GUARD}(peer ranking): "versus peers"',
+                f'{_GUARD}(probability weighting): "probability of"',
+            ),
+        ),
+        (
+            # 'we recommend' is a listed phrase; 'recommend' and 'will recover' are near the
+            # instrument noun 'notes' (NEAR_INSTRUMENT), listed after the phrase table
+            "We recommend the notes; the issuer will recover.",
+            (
+                f'{_GUARD}(instrument recommendation): "we recommend"',
+                f'{_GUARD}(instrument recommendation): "recommend"',
+                f'{_GUARD}(recovery conclusion): "will recover"',
+            ),
+        ),
+        ("\u200b \u200b", ("assessment.limitation: empty text",)),
+    ],
+)
+def test_a02_limitation_adversarial(text: str, want: tuple[str, ...]) -> None:
+    assert _limitation_issues_of(text) == want
+
+
+def test_a02_limitation_refuses_a_reference_a_rationale_resolves() -> None:
+    """A reference bound in this module's context resolves in a rationale but not in a
+    limitation (plain text): it is an unresolved reference there, the id quoted."""
+    ref = _fig_id(next(iter(SUBMISSIONS["figures"])))
+    payload = _bind_all(_payload("positive"))
+    unit = re.search(r"\{" + re.escape(ref) + r"\|([^}]*)\}", json.dumps(payload))
+    assert unit is not None, ref  # the positive payload cites it in a rationale
+    payload["downside"]["limitation"] = f"Base EBITDA was {{{ref}|{unit[1]}}}."
+    assert cp2g.payload_issues(json.dumps(payload), _context("positive")) == (
+        f"downside.limitation: Unresolved reference: {ref}",
     )

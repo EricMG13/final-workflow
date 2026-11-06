@@ -852,12 +852,14 @@ def _is_definition(b: Cp2aBreak) -> bool:
 _FORMULA_KIND: Mapping[str, BreakKind] = {f: k for k, f in DECLINE_FORMULA.items()}
 
 
-def _tested_kind(b: Cp2aBreak) -> BreakKind | None:
-    """The metric kind CP-2A tested for a break: the one whose decline formula its known
-    required decline carries (any base period); None when CP-2A settled no decline (the kind
-    is then unknowable)."""
+def _names_tested_metric(b: Cp2aBreak, kind: BreakKind) -> bool:
+    """S07-cp2-gh-A01: whether `kind` is the metric CP-2A tested for a break, read from the
+    decline formula its known required decline carries (any base period). A known decline whose
+    formula CP-2G does not map names no metric (fail closed). With no known decline the metric is
+    not knowable from CP-2A's output, so this cannot refuse it (`_metric_check` then reports it
+    unverified)."""
     rd = b.required_decline
-    return _FORMULA_KIND.get(rd.formula) if rd.status == "known" and rd.formula else None
+    return rd.status != "known" or _FORMULA_KIND.get(rd.formula or "") == kind
 
 
 def _metric_check(
@@ -912,9 +914,8 @@ def _break_issues(
         else:
             seen.add(bm.break_id)
             kind = _METRIC_KIND[bm.metric]
-            tested = _tested_kind(b)  # S07-cp2-gh-A01: another metric never reproduces it
             ok = (
-                tested in (None, kind)
+                _names_tested_metric(b, kind)
                 and _metric_check(b, kind, operands, cp2a.base_period, basis)[0]
             )
             if not ok:

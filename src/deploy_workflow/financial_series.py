@@ -57,6 +57,10 @@ _PERIOD_FIELDS = (
     "accounting_basis",
     "entity_perimeter",
 )
+# The T4.14 period types (financial_contracts.FinancialPeriod.period_type) the projection reads,
+# and the two it leaves out of the chart periods.
+_CHART_KINDS = frozenset({"QUARTER", "FY", "PERIOD_END"})
+_UNPLOTTED_KINDS = frozenset({"YTD", "LTM"})
 _SERIES = (
     ("S.1", "Leverage", ("total_leverage_reported", "net_leverage_reported")),
     ("S.2", "Interest cover", ("interest_coverage_reported",)),
@@ -109,7 +113,12 @@ def _periods(module: ModuleView) -> tuple[_Period, ...]:
         if any(f.basis != "IFRS · consolidated group" for f in row.values()):
             raise ValueError("Inconsistent chart period perimeter")
         kind = _text(row["period_type"])
-        if kind not in {"QUARTER", "FY", "PERIOD_END"}:
+        if kind in _UNPLOTTED_KINDS:
+            # A YTD or LTM row is a valid register period the charts do not plot (only QUARTER
+            # rows are plotted; QUARTER and FY rows give the facility snapshot). It is checked
+            # above and left out here, never an exception out of the renderer.
+            continue
+        if kind not in _CHART_KINDS:
             raise ValueError("Unsupported historical chart period type")
         periods.append(_Period(identity, kind, date.fromisoformat(_text(row["end_date"])), row))
     return tuple(sorted(periods, key=lambda p: (p.end, p.identity)))

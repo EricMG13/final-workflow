@@ -361,6 +361,51 @@ def test_empty_period_register_cannot_hide_malformed_facility_payload():
         cp1_chart_series(module)
 
 
+def _with_period(module, pid, kind, start, end):
+    """`module` plus a T4.14 row copied from q1-2025 with the given identity and dates; the fiscal
+    quarter is not applicable (as the FY alias below writes it). No T4.10 or T4.18 row is added."""
+    added = []
+    for f in module.facts:
+        if f.row_id != "T4.14.q1-2025":
+            continue
+        updates = {"fact_id": f"T4.14.{pid}.{f.field}", "row_id": f"T4.14.{pid}", "period": pid}
+        text = {"period_id": pid, "period_type": kind, "start_date": start, "end_date": end}
+        if f.field in text:
+            updates["text"] = text[f.field]
+        if f.field == "fiscal_quarter":
+            updates.update(text=None, status="not_applicable", limitation=kind)
+        added.append(f.model_copy(update=updates))
+    return module.model_copy(update={"facts": (*module.facts, *added)})
+
+
+# S11-C01: a 10-Q book holds a six- or nine-month YTD period and a leverage book an LTM period;
+# the contract allows both (financial_contracts.FinancialPeriod.period_type). By hand: the four
+# quarters are unchanged, so the five figures S.1-S.5 are all supplied; the LTM ending on the
+# latest quarter end (2025-12-31) must not compete with q4-2025 for the facility snapshot, whose
+# principal stays the oracle's 50; no chart point may cite the YTD or LTM row.
+@pytest.mark.parametrize(
+    "pid,kind,start,end",
+    [
+        ("ytd-h1-2025", "YTD", "2025-01-01", "2025-06-30"),
+        ("ltm-q3-2025", "LTM", "2024-10-01", "2025-09-30"),
+        ("ltm-q4-2025", "LTM", "2025-01-01", "2025-12-31"),
+    ],
+)
+def test_ytd_and_ltm_register_periods_are_left_out_of_the_charts(pid, kind, start, end):
+    module = _with_period(fixture(), pid, kind, start, end)
+    figures = cp1_chart_series(module)
+    assert [f.fig_id for f in figures] == ["S.1", "S.2", "S.3", "S.4", "S.5"]
+    assert [f.reason for f in figures] == [None] * 5
+    assert all(f.points for f in figures)
+    assert amounts(module, figures[3]) == [Decimal(50)]
+    assert not any(pid in p.fact_id for f in figures for p in f.points)
+
+
+def test_a_period_type_outside_the_contract_still_fails_closed():
+    with pytest.raises(ValueError, match="Unsupported historical chart period type"):
+        cp1_chart_series(_with_period(fixture(), "wk-2025", "WEEK", "2025-01-01", "2025-01-07"))
+
+
 def test_fy_q4_snapshot_alias_is_not_double_counted_and_conflict_refuses():
     module = fixture()
     added = []

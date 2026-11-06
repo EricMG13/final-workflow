@@ -65,12 +65,18 @@ func (engine Engine) library(workspace string, catalogue []byte) ([]byte, error)
 	return output, nil
 }
 
+// reviewTimeout bounds one launcher review; a variable so tests can shorten it.
+var reviewTimeout = 10 * time.Minute
+
+// reviewWriteGrace is the time left to write a review response after the review ends.
+const reviewWriteGrace = 30 * time.Second
+
 func (engine Engine) review(folder string) (json.RawMessage, error) {
 	if _, err := os.Stat(engine.Python); err != nil {
 		return nil, fmt.Errorf("CP-OS runtime is unavailable; use the complete application package")
 	}
 	// The launcher reads every file in the folder, so a large one takes minutes.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 	defer cancel()
 	output, err := engine.command(ctx, "review", folder).Output()
 	if len(output) > 1<<20 || !json.Valid(output) {
@@ -323,6 +329,11 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not save run request", 500)
 		return
 	}
+	// The server's write deadline (set when the request headers were read) is far shorter than a
+	// review may take, and the browser needs this response for the review_id. Give this one
+	// response the review bound plus the usual write time; each request starts afresh, so no other
+	// endpoint is affected.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(reviewTimeout + reviewWriteGrace))
 	result, err := app.engine.review(folder)
 	if err != nil {
 		http.Error(w, err.Error(), 503)

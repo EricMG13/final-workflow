@@ -295,12 +295,24 @@ def test_a_402_twice_is_credit_exhausted(tmp_path: Path) -> None:
 
 def test_a_prompt_over_the_listed_context_is_refused_before_any_send(tmp_path: Path) -> None:
     def huge(binding: Any, spec: Any, issues: Any) -> Any:
-        return prompt_for(binding, spec, ("x" * 300_000,))
+        return prompt_for(binding, spec, ("x" * 1_100_000,))  # one byte a token: over 1,050,000
 
     rig = make_rig(tmp_path, [ok(gap_submit())], prompts=huge)
     assert _stop(rig).reason == "ContextTooLong" and rig.adapter.sent == []
     (record,) = rig.records()
     assert record["error_class"] == "ContextTooLong" and record["settled_usd"] == "0"
+
+
+def test_an_offline_loop_holds_a_long_context_request_as_the_live_loop_does(tmp_path: Path) -> None:
+    # 400,000 bytes at one byte a token is a bound between the legacy 272,000 listing and the
+    # 1,050,000 ceiling a live sol loop reserves under. Offline it is held at the same price,
+    # not refused: 1,050,000 * 5 per million (5.25) + 4000 output * 15 per million (0.06) = 5.31.
+    def long_prompt(binding: Any, spec: Any, issues: Any) -> Any:
+        return prompt_for(binding, spec, ("x" * 400_000,))
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())], prompts=long_prompt)
+    assert rig.loop.run()[-1]["status"] == "valid"
+    assert {Decimal(r["reserved_usd"]) for r in rig.records()} == {Decimal("5.31")}
 
 
 @pytest.mark.parametrize("bound", [Decimal(0), Decimal(-1), Decimal("NaN")])
@@ -334,7 +346,7 @@ def test_sent_usage_settles_from_the_usage_then_stops(tmp_path: Path) -> None:
     rig = make_rig(
         tmp_path,
         [failed("sent_usage", "MalformedToolArguments", 200, usage=usage), ok(gap_submit())],
-        cap="5",
+        cap="50",
         max_output=100_000,
     )
     assert _stop(rig).reason == "MalformedToolArguments"
@@ -363,13 +375,16 @@ def test_an_ok_reply_with_an_unknowable_charge_keeps_the_hold_and_stops(tmp_path
 
 
 def test_a_charge_above_the_reservation_is_recorded_in_full_and_stops(tmp_path: Path) -> None:
-    usage = Usage(input_tokens=1000, output_tokens=5000)
+    # The sol hold is the 1,050,000-token context ceiling at the dearest input rate, 5 per
+    # million (5.25), plus 10 output tokens at the long rate 15 (0.00015) = 5.25015; the charge
+    # (1000 * 2 + 600000 * 10) per million = 6.002 is above it.
+    usage = Usage(input_tokens=1000, output_tokens=600_000)
     rig = make_rig(tmp_path, [ok(read_identity(), gap_submit(), usage=usage)], max_output=10)
     assert _stop(rig).reason == "OverrunStop"
     (record,) = rig.records()
-    assert Decimal(record["settled_usd"]) == Decimal("0.052")  # (1000 * 2 + 5000 * 10) per million
-    assert Decimal(record["settled_usd"]) > Decimal(record["reserved_usd"])
-    assert rig.budget.spent == Decimal("0.052")
+    assert Decimal(record["reserved_usd"]) == Decimal("5.25015")
+    assert Decimal(record["settled_usd"]) == Decimal("6.002")
+    assert rig.budget.spent == Decimal("6.002")
 
 
 def test_a_turn_with_no_tool_call_is_no_submit(tmp_path: Path) -> None:
@@ -1548,7 +1563,7 @@ def _resumed(root: Path, script: list[Any], prompts: Any = prompt_for) -> tuple[
     loop = ToolLoop(
         workflow,
         adapter,
-        Budget(Decimal(1), root / "store"),
+        Budget(Decimal(50), root / "store"),
         CallLog(root / "run", redactor),
         prompts,
         tools_for,

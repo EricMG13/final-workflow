@@ -361,3 +361,17 @@ test('the section bar leads with the run and the module or destination name',asy
   await go(w,'W-Reports/list?c=tdg-002');
   assert.equal(text(prefix()),'TDG-002 · Reports');
 });
+
+test('Overview charts carry their period, name their bars, and the lead is not repeated',t=>{
+  const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  const bridge=[...d.querySelectorAll('.summary-chart')].find(c=>c.querySelector('.axis-label'));
+  assert.ok(bridge,'a waterfall chart is on the Overview');
+  assert.equal(text(bridge.querySelector('.section-heading span')),'USD millions · FY2024 cash bridge · historical opening basis');
+  assert.equal([...bridge.querySelectorAll('text.axis-label')].map(text).join('|'),'Beginning cash|Operating cash flow|Investing cash flow|Financing cash flow|Exchange-rate effect|Calculated closing cash');
+  assert.equal(bridge.querySelectorAll('.bridge-key b').length,0);
+  const lead=text(d.querySelector('.summary-lead .call-quote'));
+  assert.equal(text(d.body).split(lead).length-1,1);
+  const owner=text(d.querySelector('.summary-lead .summary-owner'));
+  assert.equal(d.querySelector(`.summary-card[data-module]`)&&[...d.querySelectorAll('.summary-card')].some(c=>text(c.querySelector('h3'))===owner),false);
+  for(const s of d.querySelectorAll('.question-map>section'))assert.ok(s.querySelector('.summary-card'));
+});

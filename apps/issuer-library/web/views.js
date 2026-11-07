@@ -119,7 +119,7 @@ function chartNumber(value) {
   return Number.isFinite(number)?number:null;
 }
 function chartIntro(id,v) {
-  return `<div class="section-heading"><h2>${esc(v.title)}</h2>${v.unit?`<span>${esc(v.unit)}</span>`:''}</div>${v.quote?`<p class="chart-reading">${rich(v.quote.text.replace(/\n/g,' '))}</p>${sourceFooter(`${id}:${v.quote.line}`)}`:''}`;
+  return `<div class="section-heading"><h2>${esc(v.title)}</h2>${(()=>{const label=[v.unit,data[id].period].filter(Boolean).join(' · ');return label?`<span>${esc(label)}</span>`:'';})()}</div>${v.quote?`<p class="chart-reading">${rich(v.quote.text.replace(/\n/g,' '))}</p>${sourceFooter(`${id}:${v.quote.line}`)}`:''}`;
 }
 const evidenceHref=(id,line)=>routeHref(data[id].module,current?.output===id?current.section:modules[id].first,`${id}:${line}`,data[id].run);
 function comparisonChart(module,v,selection=0) {
@@ -133,6 +133,13 @@ function comparisonChart(module,v,selection=0) {
     const n=chartNumber(p.value),width=n===null?0:Math.abs(n)/max*100;
     return `<button class="chart-row" data-evidence="${module}:${p.row.line}"><span class="chart-label">${i&&points[i-1].label===p.label?`<span class="sr-only">${esc(p.label)}</span>`:esc(p.label)}${v.columns&&v.kind!=='peers'?`<small>${esc(table.headers[p.column])}</small>`:''}</span><span class="track ${n===null?'missing':''}">${hasNegative?`<span class="zero-rule"></span><i class="series-${p.series} ${n<0?'negative':''}" style="left:${n<0?50-width/2:50}%;width:${width/2}%"></i>`:`<i class="series-${p.series}" style="width:${width}%"></i>`}</span><strong>${n===null?'Not available':esc(p.value)}</strong></button>`;
   }).join('')}</div><p class="matrix-note">Missing values have no bar.</p>`;
+}
+// A label of two or more words breaks at the space nearest its middle (ties: the earlier one).
+function axisLines(label) {
+  const spaces=[...label.matchAll(/ /g)].map(m=>m.index);
+  if(!spaces.length)return [label];
+  const at=spaces.reduce((best,i)=>Math.abs(i-label.length/2)<Math.abs(best-label.length/2)?i:best);
+  return [label.slice(0,at),label.slice(at+1)];
 }
 function bridgeChart(module,v) {
   const table=fixtureTable(module,v.table),rows=(v.rows||table.rows.map((_,i)=>i)).map(i=>table.rows[i]);
@@ -152,7 +159,7 @@ function bridgeChart(module,v) {
   }
   const max=Math.max(...points.map(p=>Math.max(p.start,p.end)))*1.16;
   const width=660,height=210,step=width/points.length,y=n=>height-n/max*height;
-  return `${chartIntro(module,v)}<div class="vector-chart"><svg viewBox="-5 -12 680 270" role="group" aria-label="${esc(v.title)}. Select a movement to inspect its source."><line x1="0" y1="210" x2="660" y2="210" class="axis"/>${points.map((p,i)=>`<a class="plot-point" href="${evidenceHref(module,p.row.line)}" data-evidence="${module}:${p.row.line}" aria-label="${esc(p.label||plain(p.row.cells[0]))}, ${esc(p.display??p.row.cells[v.amount])} ${esc(v.unit)}. View source"><title>${esc(p.label||plain(p.row.cells[0]))}: ${esc(p.display??p.row.cells[v.amount])}</title><rect class="${p.total?'total':p.amount<0?'outflow':'movement'}" x="${i*step+10}" y="${y(Math.max(p.start,p.end))}" width="${step-20}" height="${Math.max(1,Math.abs(y(p.end)-y(p.start)))}"/><text x="${i*step+step/2}" y="${y(Math.max(p.start,p.end))-8}" text-anchor="middle">${esc(p.display??p.row.cells[v.amount])}</text><text class="axis-label" x="${i*step+step/2}" y="232" text-anchor="middle">${i+1}</text>${i<points.length-1?`<line class="connector" x1="${i*step+step-10}" y1="${y(p.end)}" x2="${(i+1)*step+10}" y2="${y(p.end)}"/>`:''}</a>`).join('')}</svg></div><div class="bridge-key">${points.map((p,i)=>`<span><b>${i+1}</b>${sourceLink(`${module}:${p.row.line}`,p.label||plain(p.row.cells[0]))}${classTag(evidence.get(`${module}:${p.row.line}`),'row-classification')}</span>`).join('')}</div>`;
+  return `${chartIntro(module,v)}<div class="vector-chart"><svg viewBox="-5 -12 680 270" role="group" aria-label="${esc(v.title)}. Select a movement to inspect its source."><line x1="0" y1="210" x2="660" y2="210" class="axis"/>${points.map((p,i)=>`<a class="plot-point" href="${evidenceHref(module,p.row.line)}" data-evidence="${module}:${p.row.line}" aria-label="${esc(p.label||plain(p.row.cells[0]))}, ${esc(p.display??p.row.cells[v.amount])} ${esc(v.unit)}. View source"><title>${esc(p.label||plain(p.row.cells[0]))}: ${esc(p.display??p.row.cells[v.amount])}</title><rect class="${p.total?'total':p.amount<0?'outflow':'movement'}" x="${i*step+10}" y="${y(Math.max(p.start,p.end))}" width="${step-20}" height="${Math.max(1,Math.abs(y(p.end)-y(p.start)))}"/><text x="${i*step+step/2}" y="${y(Math.max(p.start,p.end))-8}" text-anchor="middle">${esc(p.display??p.row.cells[v.amount])}</text><text class="axis-label" x="${i*step+step/2}" y="232" text-anchor="middle">${axisLines(p.label||plain(p.row.cells[0])).map((line,at)=>`<tspan x="${i*step+step/2}" dy="${at?'1.2em':0}">${esc(line)}</tspan>`).join(' ')}</text>${i<points.length-1?`<line class="connector" x1="${i*step+step-10}" y1="${y(p.end)}" x2="${(i+1)*step+10}" y2="${y(p.end)}"/>`:''}</a>`).join('')}</svg></div><div class="bridge-key">${points.map((p,i)=>`<span>${sourceLink(`${module}:${p.row.line}`,p.label||plain(p.row.cells[0]))}${classTag(evidence.get(`${module}:${p.row.line}`),'row-classification')}</span>`).join('')}</div>`;
 }
 function pathChart(module,v) {
   const table=fixtureTable(module,v.table),series=['Reference','Downside','Upside'];
@@ -428,12 +435,20 @@ function moduleSummary(id) {
   const finding=firstFinding(id);
   return finding&&{kind:'finding',...finding};
 }
-function summaryLead(context,available) {
+function leadModule(context,available) {
   const order=[...new Set([...CALL_ORDER,...groups.flatMap(g=>g[1].map(item=>item[0]))])].filter(id=>available.includes(id));
   for(const module of order) {
     const id=defaultOutput(module,context),summary=id&&moduleSummary(id);
     // A first finding is one paragraph of a module's work, so it never stands as the run's bottom line.
-    if(summary&&summary.kind!=='finding')return `<section class="summary-lead"><p class="summary-owner">${esc(moduleNames[module])}</p><p class="call-quote">${rich(summary.text.replace(/\n/g,' '))}</p>${summary.kind==='summary'?readerFacts(summary):''}${sourceFooter(`${id}:${summary.line}`)}</section>`;
+    if(summary&&summary.kind!=='finding')return {module,id,summary};
+  }
+  return null;
+}
+function summaryLead(context,available) {
+  const lead=leadModule(context,available);
+  if(lead) {
+    const {module,id,summary}=lead;
+    return `<section class="summary-lead"><p class="summary-owner">${esc(moduleNames[module])}</p><p class="call-quote">${rich(summary.text.replace(/\n/g,' '))}</p>${summary.kind==='summary'?readerFacts(summary):''}${sourceFooter(`${id}:${summary.line}`)}</section>`;
   }
   return '<section class="summary-lead empty"><p>No bottom line is stored for this run. Read the findings below.</p></section>';
 }
@@ -451,8 +466,8 @@ function summaryCard(module,context) {
   return `<article class="summary-card" data-module="${esc(module)}" ${id?`data-output="${esc(id)}"`:''}><h3>${moduleLink(module)}</h3>${body}</article>`;
 }
 function summaryView(context) {
-  const available=contextModules(context),built=reportsBuiltFrom(context);
-  const questions=groups.map(([title,items])=>[title,items.filter(([id])=>available.includes(id))]).filter(([,items])=>items.length);
+  const available=contextModules(context),built=reportsBuiltFrom(context),led=leadModule(context,available)?.module;
+  const questions=groups.map(([title,items])=>[title,items.filter(([id])=>available.includes(id)&&id!==led)]).filter(([,items])=>items.length);
   return `${summaryLead(context,available)}${summaryCharts(available,context)}<div class="question-map">${questions.map(([title,items])=>`<section><h2>${esc(title)}</h2><div>${items.map(([id])=>summaryCard(id,context)).join('')}</div></section>`).join('')}</div>${built.length?`<section class="summary-deliverables"><h2>Deliverables from this run</h2>${built.map(r=>`<div class="deliverable"><a class="text-action" href="${routeHref('W-Reports',r.id,null,context)}">${esc(reportName(r))}${icon('arrow-right')}</a> ${reportAcceptance(r).html}</div>`).join('')}</section>`:''}`;
 }
 function workspaceView(module,section) {

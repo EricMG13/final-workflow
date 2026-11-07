@@ -1170,12 +1170,14 @@ test('A malformed reader section is named, and the handoff still renders with no
   assert.ok(d.getElementById('content').textContent.includes('Total debt / EBITDA fell'),'its rows stay readable');
   dom.window.close();
 });
-test('A stopped run holding only one module shows one card',()=>{
+test('A stopped run holding only one module shows it as the lead and no card',()=>{
   const store=readerStore();
   delete store.runs['web-1'].modules['CP-4A'];delete store.runs['web-1'].modules['CP-0'];
   delete store.outputs['web-1/CP-4A.md'];delete store.outputs['web-1/deliveries/abc/CP-0.md'];
   const dom=appFixture('W-Overview?c=web-1',store,NORTHBRIDGE_REPORTS),d=dom.window.document;
-  assert.deepEqual([...d.querySelectorAll('.summary-card')].map(c=>c.dataset.module),['CP-1']);
+  assert.ok(d.querySelector('.summary-lead .call-quote'),'its bottom line leads');
+  assert.deepEqual([...d.querySelectorAll('.summary-card')].map(c=>c.dataset.module),[],'the lead module repeats no card');
+  assert.equal(d.querySelectorAll('.question-map>section').length,0,'a group left with no card is omitted');
   dom.window.close();
 });
 test('A reader section opens first, even when the catalogue names another heading',()=>{

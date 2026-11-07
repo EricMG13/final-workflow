@@ -8,6 +8,39 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Confidence review of the whole app
+
+Scope: 14 slices of the app at a313b50, each reviewed by a Sonnet agent and checked in the main
+session. A patch was kept only when its new test failed on the a313b50 source and passed after.
+Merged with main after `claude/review-fixes`, which had fixed several of the same defects; main's
+versions were kept for the run-list order and review write timeout (`jobs.go`), the stray
+`CP-1a.md` (`store.py`), the gate key list (`validate.py`), the `rv_quotes` exponent, the
+calendar-quarter delta core (`earnings.py`, owner ruling: delta core only, B19 unchanged) and
+R5b. `cpos_handoffs.py` was deleted on main, so its UTF-8 fix lapses. Fixes this entry adds:
+- a stale status reply no longer overwrites another run's screen (`actions.js`);
+- the budget's directory fsync goes through `platform_io` (`budget.py`); Windows refuses
+  `os.open` on a directory, so a paid run would have stopped creating its budget (simulated);
+- `search_source` matches on the page itself (U+0130, `handoff.py`);
+- journal writes retry through `platform_io.replace` (`execution.py`);
+- the CP-2 `**Key risks:**` line is kept among limitations (`handoff_delivery.py`);
+- `_scale_of` keys on the resolved scale label (owner ruling, `report_view.py`), clearing the
+  T4.9 `mixes amount units` refusal.
+Rejected: joining split negatives `(1,234 )` (0 of 43,461 corpus lines; breaks the spacing
+invariant); chart text at the handoff's precision (display-only; stops a retained delivery
+verifying).
+Open for the owner: a leftover `run.json.tmp` blocks a resume; `os.rename` at
+`run_inputs.py:581`; `_stated` drops a cell's note; CP-1D reads `25bps` as 25; `.copilot-home`
+depends on the launcher's working directory; an undecodable source leaves its module folder, so
+a rerun says `cpos_live_already_started`; 25 of 27 retained deliveries do not verify under
+current code (as at a313b50).
+Checks after the merge: `tools/quality_gate.py` 0 findings in 10 changed files;
+`cases/pins.py --check` matches 219 paths; 371 of 373 affected Python tests pass, and the 2
+failures (`test_cp2e_refuses_the_fy_2025_header_under_fy_2026`, `test_no_hardcoded_period_left`)
+fail on a clean main tree too; the nine web test files (191) and `go vet`/`go test` pass.
+GitNexus: this repo is not indexed.
+Not verified: real Windows; any provider; the whole suite; `test_financial_workflow.py` after the
+merge (it passed 21 before it, agent-run, and exceeds the five-minute limit).
+
 ## 2026-11-07 — Fixes for the whole-app review findings (branch `claude/review-fixes`)
 
 Scope: the 253 agreed findings of the whole-app review (`docs/review-handoff/` on

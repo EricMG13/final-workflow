@@ -132,7 +132,9 @@ function installNewRun(){
       if($('new-run').hidden){controls();return;}
       await recent();
       if(!review||!running)return;
-      const status=await appRequest('/api/runs/status?id='+encodeURIComponent(review.id));
+      const asked=review.id,status=await appRequest('/api/runs/status?id='+encodeURIComponent(asked));
+      // The reader may have opened another run while this reply was in flight; it describes the old one.
+      if(review?.id!==asked)return;
       showStatus(status);
       if(!WORKFLOW_ACTIVE.includes(status.state))running=false;
     }catch(error){$('run-progress').textContent='Could not refresh run status. The app will check again automatically. Details: '+error.message;}

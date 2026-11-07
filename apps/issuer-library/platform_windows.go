@@ -3,7 +3,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -59,4 +61,44 @@ func showError(message string) {
 
 func configureWorkerCommand(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
+}
+
+const errorSharingViolation syscall.Errno = 32
+
+// holdWorkerLock creates the worker lock at name, open without write sharing, as a handle for
+// command to inherit. While the worker (or this app, until it closes its copy) has it open,
+// nobody can open the file for writing; Windows closes the worker's handle when the worker ends,
+// however it ends, so the lock lasts exactly as long as the worker process, past this app.
+func holdWorkerLock(command *exec.Cmd, name string) (*os.File, error) {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return nil, err
+	}
+	inherit := syscall.SecurityAttributes{Length: uint32(unsafe.Sizeof(syscall.SecurityAttributes{})), InheritHandle: 1}
+	handle, err := syscall.CreateFile(path, syscall.GENERIC_READ, syscall.FILE_SHARE_READ, &inherit, syscall.OPEN_ALWAYS, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return nil, err
+	}
+	command.SysProcAttr.AdditionalInheritedHandles = append(command.SysProcAttr.AdditionalInheritedHandles, handle)
+	return os.NewFile(uintptr(handle), name), nil
+}
+
+// workerAlive reports whether a worker still holds the lock at name. A missing lock means no
+// worker ever held one.
+func workerAlive(name string) (bool, error) {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return false, err
+	}
+	handle, err := syscall.CreateFile(path, syscall.GENERIC_WRITE, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	switch {
+	case err == nil:
+		syscall.CloseHandle(handle)
+		return false, nil
+	case errors.Is(err, syscall.ERROR_FILE_NOT_FOUND):
+		return false, nil
+	case errors.Is(err, errorSharingViolation):
+		return true, nil
+	}
+	return false, err
 }

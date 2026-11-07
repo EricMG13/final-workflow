@@ -461,6 +461,15 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 	command := app.engine.command(context.Background(), "start", folder)
 	// Discard command output; structured, redacted status is the only browser contract.
 	command.Stdout = io.Discard
+	// The worker inherits this lock and holds it while it runs, so a restarted app can tell a
+	// live worker from a dead one; this copy is closed once the worker has started (or failed to).
+	lock, err := holdWorkerLock(command, filepath.Join(folder, "worker.lock"))
+	if err != nil {
+		release()
+		http.Error(w, "Could not prepare the run lock; no run was started and no model call was made. Start can be tried again.", 500)
+		return
+	}
+	defer lock.Close()
 	if err = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "running", Message: "CP-OS is validating the reviewed inputs and starting the selected workflow.", ID: request.ID}); err != nil {
 		release()
 		http.Error(w, "Could not retain start state; no run was started and no model call was made. Start can be tried again.", 500)
@@ -478,18 +487,76 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 	app.activeJobs[request.ID] = true
 	go func() {
 		_ = command.Wait()
-		raw, _ := os.ReadFile(filepath.Join(folder, "status.json"))
-		var status JobStatus
-		_ = json.Unmarshal(raw, &status)
-		if status.State == "running" {
-			_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "interrupted", Message: "The worker exited without a final result. Retained evidence remains available; no automatic paid retry was made."})
-		}
-		app.mu.Lock()
-		delete(app.activeJobs, request.ID)
-		app.mu.Unlock()
-		app.refresh()
+		app.finishJob(folder, request.ID)
 	}()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	jsonResponse(w, JobStatus{State: "running", ID: request.ID, Message: "Run started."})
+}
+
+// workerPoll is how often a restarted app checks a worker it did not start; a variable so tests
+// can shorten it.
+var workerPoll = 5 * time.Second
+
+// settleJob marks a job interrupted when its worker has ended while its status still says running.
+func settleJob(folder string) {
+	raw, _ := os.ReadFile(filepath.Join(folder, "status.json"))
+	var status JobStatus
+	if json.Unmarshal(raw, &status) == nil && status.State == "running" {
+		_ = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "interrupted", Message: "The worker exited without a final result. Retained evidence remains available; no automatic paid retry was made."})
+	}
+}
+
+// finishJob settles a job whose worker has ended, ends its activity and refreshes the library.
+func (app *Application) finishJob(folder, id string) {
+	settleJob(folder)
+	app.mu.Lock()
+	delete(app.activeJobs, id)
+	app.mu.Unlock()
+	app.refresh()
+}
+
+// adoptJobsLocked settles the jobs an earlier instance of the app left running in workspace. A
+// job whose worker still holds its lock is active again, so no second Start or workspace change
+// is allowed, and is watched until the worker ends; a job whose lock is free, or absent because
+// it was started before the lock existed, is interrupted. A lock that cannot be checked leaves
+// its job as it is. The caller holds app.mu or owns app alone.
+func (app *Application) adoptJobsLocked(workspace string) {
+	entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
+	for _, entry := range entries {
+		id := entry.Name()
+		folder := filepath.Join(workspace, "intake", id)
+		if !jobID.MatchString(id) || app.activeJobs[id] {
+			continue
+		}
+		var status JobStatus
+		if raw, err := os.ReadFile(filepath.Join(folder, "status.json")); err != nil || json.Unmarshal(raw, &status) != nil || status.State != "running" {
+			continue
+		}
+		alive, err := workerAlive(filepath.Join(folder, "worker.lock"))
+		switch {
+		case err != nil:
+			log.Printf("Run %s: its worker lock cannot be checked; its state is left as it is: %v", id, err)
+		case alive:
+			if app.activeJobs == nil {
+				app.activeJobs = map[string]bool{}
+			}
+			app.activeJobs[id] = true
+			go app.watchWorker(folder, id)
+		default:
+			settleJob(folder)
+		}
+	}
+}
+
+// watchWorker waits for a worker this instance did not start to release its lock, then settles
+// its job as for a worker it started.
+func (app *Application) watchWorker(folder, id string) {
+	for {
+		time.Sleep(workerPoll)
+		if alive, err := workerAlive(filepath.Join(folder, "worker.lock")); err == nil && !alive {
+			break
+		}
+	}
+	app.finishJob(folder, id)
 }

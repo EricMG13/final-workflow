@@ -991,3 +991,127 @@ func TestUploadStreamsEachSourceWithinTheExactLimit(t *testing.T) {
 		t.Fatalf("a refused upload left a folder: %d -> %d", len(entries), len(again))
 	}
 }
+
+// heldEngine's worker runs until <job>/release exists, then exits without a final status, as a
+// worker killed mid-run would.
+func heldEngine(t *testing.T) Engine {
+	t.Helper()
+	engine := fakeEngine(t)
+	script := filepath.Join(t.TempDir(), "held.py")
+	raw := `import json,sys,pathlib,time
+folder=pathlib.Path(sys.argv[2])
+job=json.loads((folder/'job.json').read_text())
+if sys.argv[1]=='review':
+ print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True}))
+else:
+ deadline=time.time()+60
+ while not (folder/'release').exists() and time.time()<deadline: time.sleep(.01)
+`
+	if err := os.WriteFile(script, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return Engine{Python: engine.Python, Script: script}
+}
+
+func jobState(t *testing.T, folder string) JobStatus {
+	t.Helper()
+	var status JobStatus
+	raw, _ := os.ReadFile(filepath.Join(folder, "status.json"))
+	_ = json.Unmarshal(raw, &status)
+	return status
+}
+
+func restarted(t *testing.T, root string) *Application {
+	t.Helper()
+	app, err := newApplication(Locations{State: t.TempDir(), Documents: t.TempDir()}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.host = "127.0.0.1:54321"
+	app.stop = func() {}
+	return app
+}
+
+// A07: a job an earlier instance left "running" is settled when the app starts: interrupted when
+// no worker holds its lock (a dead worker, or one started before the lock existed); other
+// states are left alone.
+func TestRestartSettlesARunningJobWhoseWorkerIsGone(t *testing.T) {
+	_, root := testApp(t)
+	jobs := map[string]string{}
+	for i, setup := range []string{"unlocked", "no-lock", "complete", "reviewed"} {
+		id := fmt.Sprintf("web-%032x", i+1)
+		jobs[setup] = filepath.Join(root, "intake", id)
+		state := "running"
+		if setup == "complete" || setup == "reviewed" {
+			state = setup
+		}
+		writeJob(t, root, id, state, time.Now())
+		if setup != "no-lock" {
+			put(t, root, "intake/"+id+"/worker.lock", nil)
+		}
+	}
+	app := restarted(t, root)
+	for setup, folder := range jobs {
+		want := map[string]string{"unlocked": "interrupted", "no-lock": "interrupted", "complete": "complete", "reviewed": "reviewed"}[setup]
+		if got := jobState(t, folder); got.State != want {
+			t.Errorf("%s: state %q, want %q", setup, got.State, want)
+		} else if want == "interrupted" && !strings.Contains(got.Message, "no automatic paid retry was made") {
+			t.Errorf("%s: message %q", setup, got.Message)
+		}
+	}
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	if len(app.activeJobs) != 0 {
+		t.Fatalf("dead jobs counted as active: %v", app.activeJobs)
+	}
+}
+
+// A07: a worker that outlives the instance that started it still holds its lock, so a restarted
+// app treats its job as active (no workspace change, no second Start) until the worker ends.
+func TestRestartWithALiveWorkerKeepsItsJobActiveUntilItEnds(t *testing.T) {
+	shortWorkerPoll(t)
+	first, root := testApp(t)
+	first.engine = heldEngine(t)
+	review := reviewRequest(t, first, `["annual.txt"]`)
+	var value map[string]any
+	_ = json.Unmarshal(review.Body.Bytes(), &value)
+	id := value["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	t.Cleanup(func() {
+		started, _ := filepath.Glob(filepath.Join(root, "intake", "web-*"))
+		for _, job := range started {
+			_ = os.WriteFile(filepath.Join(job, "release"), nil, 0600)
+		}
+	})
+	if start := call(first, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
+		t.Fatalf("start: %d %s", start.Code, start.Body.String())
+	}
+	second := restarted(t, root)
+	second.engine = first.engine
+	if got := jobState(t, folder); got.State != "running" {
+		t.Fatalf("a live worker's job was settled as %q", got.State)
+	}
+	other := reviewRequest(t, second, `["annual.txt"]`)
+	_ = json.Unmarshal(other.Body.Bytes(), &value)
+	if start := call(second, "POST", "/api/runs/start", `{"id":"`+value["id"].(string)+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 409 {
+		t.Fatalf("second Start beside a live worker: %d %s", start.Code, start.Body.String())
+	}
+	raw, _ := json.Marshal(Config{Workspace: t.TempDir()})
+	if settings := call(second, "POST", "/api/settings", string(raw)); settings.Code != 409 {
+		t.Fatalf("workspace change beside a live worker: %d %s", settings.Code, settings.Body.String())
+	}
+	if err := os.WriteFile(filepath.Join(folder, "release"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	waitIdle(t, second)
+	waitIdle(t, first)
+	if got := jobState(t, folder); got.State != "interrupted" {
+		t.Fatalf("after the worker ended: %q", got.State)
+	}
+}
+
+func shortWorkerPoll(t *testing.T) {
+	saved := workerPoll
+	workerPoll = 10 * time.Millisecond
+	t.Cleanup(func() { workerPoll = saved })
+}

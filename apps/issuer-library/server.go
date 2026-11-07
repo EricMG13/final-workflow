@@ -213,6 +213,7 @@ func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (
 	}
 	app.config = config
 	app.catalogue = catalogue
+	app.adoptJobsLocked(config.Workspace)
 	return http.StatusOK, ""
 }
 
@@ -371,5 +372,6 @@ func newApplication(loc Locations, override string) (*Application, error) {
 	}
 	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
 	app.catalogue = app.buildCatalogue(config.Workspace)
+	app.adoptJobsLocked(config.Workspace)
 	return app, nil
 }

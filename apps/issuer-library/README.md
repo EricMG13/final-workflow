@@ -76,6 +76,9 @@ standard parent folders in a new writable workspace. Existing run destinations a
 overwritten. A stopped web run shows the handoffs it accepted and publishes no report. It
 is not resumed from the app; the command line can resume the run folder.
 A crash/interruption is retained and does not trigger an automatic paid restart.
+The worker holds `intake/<run-id>/worker.lock` while it runs. When the app starts again, a run
+still marked running whose worker has ended is shown as interrupted; one whose worker is still
+running stays active (no second Start, no workspace change) until that worker ends.
 
 The Windows package contains pinned Python 3.13.15 and its dependency wheels,
 verified against upstream SHA-256 digests at build time. It needs no Python/pip

@@ -928,6 +928,11 @@ class _Composer:
         limitation = getattr(row, "limitation", None)
         return Cell(self.text(limitation) if limitation else NONE_STATED)
 
+    def stored(self, limitation: str | None) -> str | None:
+        """A claim's limitation as stored: spelled like its table cell (`text`), never with raw
+        `{ref|unit}` braces (S06-cp2-ade-C03, S10-cp6-cp8-cpl10-C04); None stays None."""
+        return None if limitation is None else self.text(limitation)
+
     def trace(self, row: BaseModel) -> Cell:
         cited = self.binding.of(row)
         return Cell(_trace(cited) or NO_EVIDENCE, cited)
@@ -1600,7 +1605,7 @@ def covenant_interpretation(
             text=f"Lender protection {submission.protection_score.rating}: "
             f"{submission.protection_score.rationale}",
             citations=out.binding.of(submission.protection_score),
-            limitation=submission.protection_score.limitation,
+            limitation=out.stored(submission.protection_score.limitation),
         ),
     )
     return CovenantInterpretationReport(

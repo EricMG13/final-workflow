@@ -1092,3 +1092,63 @@ def test_an_account_beside_a_known_line_reads_unchanged_end_to_end() -> None:
     column = {c.period_id: c.column_id for c in columns}
     assert frame[column["q2-2025"]]["acct:cash_taxes_paid"].value == Decimal(-15)
     assert ltm[column["q4-2025"]]["acct:cash_taxes_paid"].value == Decimal(-17)
+
+
+# --- review of the two refund-sign rulings: adversarial cases (hand-derived) ----------------------
+# A "net of" clause ends at the bracket that encloses it, at a semicolon or at the label's end; a
+# bracketed part inside it stays in it (one level of nesting); an unbalanced opener is not a clause
+# bracket, so the scan ends the clause there and the word after it counts (fail closed).
+
+
+@pytest.mark.parametrize(
+    ("label", "word"),
+    [
+        ("Taxes paid, net of refunds) refund", "refund"),  # the stray ")" closes the clause
+        ("Taxes paid (net of refunds [x]) and refund", "refund"),  # the nested part stays inside
+        ("Taxes paid [net of refunds (x)] and receipts", "receipts"),
+        ("Taxes paid net of (a (b) refunds) x", "refunds"),  # depth 2: refused, not accepted
+        ("Taxes paid, net of refunds; refunded", "refunded"),  # NBSP is a space; ";" ends it
+        ("Net‐of refunds. Receipts", None),  # the clause runs to the end: no word outside
+        ("Tax‑refund", "refund"),  # a non-breaking hyphen separates words
+        ("TAX Reimbursements", "reimbursements"),
+    ],
+)
+def test_clause_boundaries_and_separators(label: str, word: str | None) -> None:
+    found = inflow_refused(statement_issues(book((labelled(label),))))
+    if word is None:
+        assert found == []
+    else:
+        [issue] = found
+        assert f'label word "{word}"' in issue
+
+
+def test_a_very_long_label_is_scanned_in_linear_time() -> None:
+    # 100 000 repeats of an opener inside a clause, and 200 000 plain words, must not blow up.
+    nested = labelled("Taxes paid, net of " + "(refunds " * 50_000)
+    assert inflow_refused(statement_issues(book((nested,)))) != []  # the unclosed "(" ends it
+    plain = labelled("paid " * 200_000 + "refund")
+    assert len(inflow_refused(statement_issues(book((plain,))))) == 1
+
+
+def test_only_a_missing_line_withholds_an_account() -> None:
+    # A not_applicable line is not "withheld as missing": the new rule is silent on it.
+    base = outflow_line("CFS", "cash_taxes_paid", None)
+    line = base.model_copy(
+        update={"value": base.value.model_copy(update={"status": "not_applicable"})}
+    )
+    forged = with_accounts((line,), account("cash_taxes_paid", Decimal(15)))
+    assert conflicts(statement_issues(forged)) == []
+
+
+def test_each_period_of_an_account_is_checked_against_its_own_line() -> None:
+    # FY2024 withheld, FY2023 known: only the FY2024 account row conflicts.
+    lines = (
+        outflow_line("CFS", "cash_taxes_paid", None),
+        outflow_line("CFS", "cash_taxes_paid", Decimal(-9), period_id="FY2023"),
+    )
+    rows = (
+        account("cash_taxes_paid", Decimal(15)),
+        account("cash_taxes_paid", Decimal(9), "FY2023"),
+    )
+    [issue] = conflicts(statement_issues(with_accounts(lines, *rows)))
+    assert "cash_taxes_paid FY2024 carries an amount" in issue

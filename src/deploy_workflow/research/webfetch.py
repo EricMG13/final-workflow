@@ -117,6 +117,10 @@ def _problem(parts: SplitResult, host: str | None) -> str | None:
         return "a user name or password is not allowed"
     if not host:
         return "the host is missing"
+    try:
+        host.encode("idna")  # what the resolver and the TLS server name do with it
+    except UnicodeError:
+        return "the host is not a valid domain name (an empty label or one over 63 characters)"
     return None
 
 
@@ -164,7 +168,8 @@ def resolve_public(host: str, resolver: Resolver) -> str:
     """Resolve once; every address must be public. Returns the first address."""
     try:
         addresses = list(resolver(host))
-    except OSError as error:
+    # UnicodeError: getaddrinfo's IDNA encoding of a host check_url let through
+    except (OSError, UnicodeError) as error:
         raise FetchRefusal(f"host {host} did not resolve: {type(error).__name__}") from error
     if not addresses:
         raise FetchRefusal(f"host {host} did not resolve")

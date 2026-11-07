@@ -661,7 +661,9 @@ CP5_REVIEW_RULE = (
     "`claim_reviews`: exactly one for each pair listed under `claims_to_review`, `producer_module` "
     "and `claim_ref` as listed. Name upstream evidence by `ref` only, in `upstream_refs`: a fact "
     "ref or a citation ref of that module. A supported or partly_supported verdict names at "
-    "least one; supported is refused where a Python finding touches the claim or a ref it names."
+    "least one that belongs to that claim (one of its own citation refs, a fact its text names "
+    "or a fact filed under its id); supported is refused where a Python finding touches the "
+    "claim or a ref it names."
 )
 CP5_CONTRADICTION_RULE = (
     "A `contradictions` entry names, in `claim_refs`, claims of at least two modules, each claim "

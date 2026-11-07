@@ -56,6 +56,8 @@ from deploy_vii.cp5_integrity import (
     REFERENCE_TABLES,
     IntegritySubmission,
     ReviewScope,
+    _own_refs,
+    validate_integrity,
     figure_identity,
     python_checks,
 )
@@ -1345,3 +1347,27 @@ def test_every_shipped_reference_table_is_exempt() -> None:
         if entry.fact_coord.table_id and entry.fact_coord.table_id.endswith("_references")
     }
     assert named | {"T4F.2"} <= REFERENCE_TABLES
+
+
+def test_s09_a07_a_supported_verdict_needs_a_ref_of_its_own_claim() -> None:
+    """S09-A07. The oracle's first supported review rests on its claim's own citation ref; swapped
+    for an unrelated fact of the same head (a facility id) it is refused for that review, naming
+    the claim. Restoring the original ref accepts it again (hand-derived: the claim's own refs are
+    its `#cN` citation refs, the facts its text names and the facts filed under its id)."""
+    case = CASES[0]
+    base = json.loads(make_inputs(case).submission.model_dump_json())
+    heads = {h.module_id: h for h in make_inputs(case).scope.evaluated}
+    index = next(i for i, r in enumerate(base["claim_reviews"]) if r["support"] == "supported")
+    review = base["claim_reviews"][index]
+    head = heads[review["producer_module"]]
+    claim = next(c for c in head.claims if c.claim_id == review["claim_ref"])
+    own = _own_refs(head, claim)
+    unrelated = next(f.fact_id for f in head.facts if f.fact_id not in own and f.text is not None)
+    review["upstream_refs"] = [unrelated]
+    scope = make_inputs(case).scope
+    got = validate_integrity(scope, IntegritySubmission.model_validate_json(json.dumps(base)))
+    want = f"claim_reviews[{index}]: a supported verdict names no upstream_ref of {claim.claim_id}"
+    assert any(issue.startswith(want) for issue in got), got
+    review["upstream_refs"] = [next(iter(sorted(own)))]
+    ok = validate_integrity(scope, IntegritySubmission.model_validate_json(json.dumps(base)))
+    assert not any("names no upstream_ref of" in issue for issue in ok), ok

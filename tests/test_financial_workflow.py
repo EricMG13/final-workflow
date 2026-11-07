@@ -1549,3 +1549,61 @@ def test_transport_rejects_nonfinite_json_before_tool_invocation(tmp_path):
     )
     assert json.loads(writer.getvalue()) == {"status": "refused", "error_code": "bad_arguments"}
     assert not workflow._calls
+
+
+@pytest.mark.parametrize("step", ["write", "fsync", "link"])
+def test_financial_put_failing_midway_leaves_no_target_and_no_temp_file(
+    tmp_path, monkeypatch, step
+):
+    import os
+
+    from deploy_workflow import financial_workflow as fw
+
+    target = tmp_path / "missing-parent" / "audit" / "record"  # The put creates the parent.
+
+    def fail(*_args, **_kwargs):
+        raise OSError("disk failure")
+
+    if step == "write":
+        real_open = Path.open
+
+        class Dying:  # Writes half of the bytes, then the disk fails.
+            def __init__(self, stream):
+                self.stream = stream
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self.stream.close()
+
+            def write(self, raw):
+                self.stream.write(raw[: len(raw) // 2])
+                self.stream.flush()
+                fail()
+
+        monkeypatch.setattr(Path, "open", lambda self, *a, **k: Dying(real_open(self, *a, **k)))
+    elif step == "fsync":
+        monkeypatch.setattr(os, "fsync", fail)
+    else:
+        monkeypatch.setattr(os, "link", fail)
+    with pytest.raises(OSError, match="disk failure"):
+        fw._put(target, b"payload")
+    monkeypatch.undo()
+    # Expected by hand: nothing is published and the hidden temp file is removed.
+    assert not target.exists()
+    assert list(target.parent.iterdir()) == []
+
+
+def test_financial_put_refuses_an_existing_target_as_before(tmp_path):
+    from deploy_workflow import financial_workflow as fw
+    from deploy_workflow.workflow import WorkflowError
+
+    target = tmp_path / "audit" / "record"
+    fw._put(target, b"abc")
+    fw._put(target, b"abc")  # Same bytes: accepted, nothing changes.
+    with pytest.raises(WorkflowError) as refused:
+        fw._put(target, b"xyz")  # Different bytes: refused, the original stays.
+    assert "identity_mismatch" in str(refused.value) or refused.value.args == ("identity_mismatch",)
+    assert target.read_bytes() == b"abc"
+    assert [p.name for p in target.parent.iterdir()] == ["record"]

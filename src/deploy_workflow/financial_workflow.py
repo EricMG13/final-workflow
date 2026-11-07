@@ -79,7 +79,7 @@ from deploy_workflow.host import SourceSession
 from deploy_workflow.statement_lines import LineTools, respace, seen_tables
 from deploy_workflow.tools.source import SourceError
 from deploy_workflow.unit_maps import Expansion, UnitInputs, expand
-from deploy_workflow.workflow import SourceEvidence, WorkflowError, read_line
+from deploy_workflow.workflow import SourceEvidence, WorkflowError, _put, read_line
 
 _LINE_LOCATOR = re.compile(r"line:([0-9]+)")
 _PAGE_LOCATOR = re.compile(r"page:[0-9]+")
@@ -224,16 +224,6 @@ def _parse[T: BaseModel](model: type[T], value: Any) -> T:
 
 def _hash(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
-
-
-def _put(path: Path, raw: bytes) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with path.open("xb") as stream:
-            stream.write(raw)
-    except FileExistsError:
-        if path.read_bytes() != raw:
-            raise WorkflowError("identity_mismatch") from None
 
 
 def _audit(store: Execution, kind: str, digest: str) -> Path:

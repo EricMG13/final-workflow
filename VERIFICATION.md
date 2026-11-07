@@ -36,20 +36,29 @@ User rulings (2026-11-07), applied through the same matrix with a review each:
 - S12-A02: option B, fail closed. A positive `signed` amount on an outflow-linked line is refused.
   A printed magnitude uses `outflow_magnitude`. A refund is recorded as missing with its reason, and
   the coverage gate accepts that withheld line. `o2-synthetic` was corrected through its builder.
-- S10-A05: a native CP-8 run is refused when it would begin, with a pointer to CP-OS
-  `run_comparison`.
-- S18-C03: a per-launch secret held in memory only, sent as a one-time launch ticket and a
-  SameSite=Strict session cookie; a relaunch says "already running".
+- S10-A05: a native CP-8 that CP-0 commands is recorded as refused (superseded, pointing to CP-OS
+  `run_comparison`) and the run finishes with a verified receipt.
+- S18-C03: a per-launch secret held in memory only. The one-time launch ticket expires after 120 s
+  and is exchanged for a SameSite=Strict session cookie. Same-site and cross-site requests are
+  refused. A relaunch asks an idle library to quit through an owner-only request file and then
+  opens a fresh link; a busy library answers with what is running.
 - S18-C08: a workspace switch is refused while a review is in flight.
 - S08-C08: interest covers are n.m. when adjusted EBITDA is ≤ 0.
 - S08-C09: an Insufficient Information preference has an empty ordering.
 - S13-A07: the financial-synthesis scope is gated per dimension.
 - S09-A08: a "Same definition" naming a document missing from the pack must be "Not determinable".
 - S09-C04: the source-refusal wording is corrected.
-- S09-A04 remainder: CP-4C picks the secured facility by T4.18 status.
+- S09-A04 remainder: CP-4C picks the secured facility by T4.18 status. Its other upstream faults
+  are typed issues. A hopeless facility issue is refused at begin (no model call); the verifier
+  recomputes the reason from that snapshot's CP-1 head.
+- CP-4 missing-document check: "set forth in", "specified in" and "ascribed to" also count as
+  pointers, and memorandum and prospectus as document nouns.
 - S04-C11: the Model rail highlight is fixed.
-- CP-2E accepts "$m", "US$m" and "USDm" as millions; CP-1D matches its Basis clause without regard
-  to case.
+- CP-2E accepts "$m", "US$m" and "USDm" as millions, and refuses a unit statement that names a
+  currency other than the run's reporting currency. CP-1D matches its Basis clause without regard
+  to case, and its second-currency guard reads ISO 4217 codes only.
+- Refund handling: `outflow_magnitude` is refused on a line whose label states an inflow (outside a
+  "net of" clause), and an accounts row cannot contradict a withheld line.
 - S14-A02: the read-window bound is confirmed, superseding the PF-R7 exemption (recorded in
   `cases/pilot-fixes/read-window.json`).
 - S15-C05: splitlines numbering is canonical (documented in `preparation.text_content`).
@@ -65,11 +74,13 @@ or high finding; conflict resolutions coherent; every composed-prompt difference
 step contracts maps to a named finding. Its low items were fixed through the matrix: comments
 opened mid-line are hidden too, financial_workflow (and owner_workflow through it) uses the atomic
 `workflow._put`, and the CP-4 context.py pin test is renamed to what it checks.
-Known-failure list: 43 more base failures found during the waves and confirmed on
+Known-failure list: 45 more base failures found during the waves and confirmed on
 `claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose,
-coverage rule, prompt-set digest, the 26 frozen-message digest failures, one o2 citation test and
-the financial-workflow full-component fixture). The S18-C03 launch secret also needs Windows and
-browser acceptance (launch link, cookie in the report frames, relaunch dialog).
+coverage rule, prompt-set digest, the 26 frozen-message digest failures, one o2 citation test, the
+financial-workflow full-component fixture and two research consumer-block stubs). The Issuer
+Library launch secret and relaunch quit request also need Windows and browser acceptance: the
+launch link and cookie in the report frames, the state-folder ACL check, the polling watcher,
+port rebinding and the dialogs.
 Not verified here (slow or not runnable in this container; the nightly run covers the pytest
 ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
 attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,

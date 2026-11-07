@@ -155,3 +155,87 @@ def test_a_single_secured_row_without_a_facility_id_is_an_issue_not_a_raise(
     assert upstream.cp1.facility_issue == (
         "CP-4C: the one secured CP-1 T4.18 row at q4-2025 states no facility id or no terms"
     )
+
+
+# --- review of ruling A04 (second model): adversarial heads, expected values read by hand ---
+
+
+def test_a_secured_status_that_is_not_known_is_not_counted(tmp_path: Path) -> None:
+    # The q4-2025 term-loan row states its secured status as missing: no row is known SECURED.
+    cp1 = tuple(
+        Fact(
+            fact_id=f.fact_id,
+            label=f.label,
+            table_id=f.table_id,
+            row_id=f.row_id,
+            field=f.field,
+            period=f.period,
+            status="missing",
+            limitation="not stated",
+        )
+        if (f.table_id, f.row_id, f.field) == ("T4.18", "term-loan", "secured_status")
+        else f
+        for f in conn.cp1_facts()
+    )
+    _, _, upstream = _upstream(tmp_path, cp1)
+    assert upstream.cp1.facility_issue == ZERO
+
+
+def test_a_secured_row_at_an_earlier_quarter_only_is_not_selected(tmp_path: Path) -> None:
+    # The q4-2025 row is removed and a SECURED revolver row is added at q3-2025 (not the quarter).
+    revolver = tuple(
+        conn._text("T4.18", "revolver-q3", field, value, "q3-2025")
+        for field, value in (
+            ("facility_id", "revolver"),
+            ("period_id", "q3-2025"),
+            ("secured_status", "SECURED"),
+            ("seniority", "SENIOR"),
+        )
+    )
+    _, _, upstream = _upstream(tmp_path, _without_current_row(conn.cp1_facts()) + revolver)
+    assert upstream.cp1.facility_issue == ZERO
+
+
+def test_a_secured_alias_row_of_another_facility_does_not_change_the_selection(
+    tmp_path: Path,
+) -> None:
+    # A revolver row at the fy-2025 alias is SECURED; at q4-2025 only term-loan is SECURED.
+    revolver = tuple(
+        conn._text("T4.18", "revolver-fy", field, value, "fy-2025")
+        for field, value in (
+            ("facility_id", "revolver"),
+            ("period_id", "fy-2025"),
+            ("secured_status", "SECURED"),
+            ("seniority", "SENIOR"),
+        )
+    )
+    _, _, upstream = _upstream(tmp_path, conn.cp1_facts() + revolver)
+    assert (upstream.cp1.facility_id, upstream.cp1.facility_issue) == ("term-loan", None)
+
+
+def test_two_secured_rows_of_one_facility_are_counted_not_merged(tmp_path: Path) -> None:
+    cp1 = conn.cp1_facts() + _row("term-loan-2", "term-loan", "SECURED")
+    _, _, upstream = _upstream(tmp_path, cp1)
+    assert upstream.cp1.facility_issue == TWO.replace("term-loan, revolver", "term-loan, term-loan")
+
+
+def test_the_alias_of_a_newly_selected_facility_must_agree(tmp_path: Path) -> None:
+    # The only SECURED q4-2025 row is renamed 'senior-notes' and its fy-2025 alias (also renamed)
+    # is UNSECURED: the alias check reads the selected id, not term-loan, and still fails closed.
+    renamed = _renamed(conn.cp1_facts(alias=("UNSECURED", "SENIOR")), "term-loan", "senior-notes")
+    with pytest.raises(ValueError, match="senior-notes secured_status differs between its q4-2025"):
+        _upstream(tmp_path, renamed)
+
+
+def test_a_rejected_attempt_has_one_repair_and_then_no_further_begin(tmp_path: Path) -> None:
+    # Spend bound: attempt 0 and its one repair are both rejected with the issue; a third begin is
+    # refused, so a CP-1 without one secured facility costs at most two model responses.
+    store, _, attempt = conn.seed(tmp_path, cp1=_without_current_row(conn.cp1_facts()))
+    payload = conn.json.dumps(conn._payload("positive"))
+    conn._submit(store, attempt, payload)
+    repair = store.begin(cp4c.MODULE_ID)
+    assert (repair.number, repair.repair_issues) == (1, (ZERO,))
+    conn._submit(store, repair, payload)
+    assert conn._finished(store, repair).issues == (ZERO,)
+    with pytest.raises(ValueError, match="one repair has been consumed"):
+        store.begin(cp4c.MODULE_ID)

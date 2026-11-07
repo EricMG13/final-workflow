@@ -37,16 +37,21 @@ _MISSING_DOCUMENT_ISSUE = (
     "cannot be compared, so write 'Not determinable'"
 )
 _WHITESPACE = re.compile(r"\s+")
-# "defined in the Credit Agreement", "has the meaning given to it in the Senior Facility Agreement":
-# a pointer (optionally "Section 1.1 of"), then up to five words ending in a document noun. A
+# "defined in the Credit Agreement", "has the meaning given to it in the Senior Facility Agreement",
+# "meanings assigned to such terms in Article I of that certain Credit Agreement": a pointer
+# (singular or plural "meaning"; optionally "Section 1.1 of"), then up to five words ending in a
+# document noun or its plural (the Trust Indenture Act is a statute, not a document). A
 # determiner as the first word (this Agreement, such Indenture) refers to the document itself.
 _NAMED_DOCUMENT = re.compile(
-    r"\b(?:defined|meaning\s+(?:given|assigned)(?:\s+to\s+\w+(?:\s+\w+)?)?)\s+in\s+"
-    r"(?:(?:section|clause|article|schedule|paragraph)\s+[\w.()]+\s+of\s+)?(?:the\s+)?"
-    r"((?!(?:the|this|such|that|these|its|each|any)\b)(?:[\w&'-]+\s+){1,5}?"
-    r"(?:agreement|indenture|instrument|deed|debenture))\b",
+    r"\b(?:defined|meanings?\s+(?:given|assigned)(?:\s+to\s+\w+(?:\s+\w+)?)?)\s+in\s+"
+    r"(?:(?:section|clause|article|schedule|paragraph)\s+[\w.()]+\s+of\s+)?"
+    r"(?:the\s+|that\s+certain\s+)?"
+    r"((?!(?:the|this|such|that|these|its|each|any)\b)(?:[\w&'’-]+\s+){1,5}?"
+    r"(?:agreement|indenture|instrument|deed|debenture)s?)\b(?!\s+act\b)",
     re.IGNORECASE,
 )
+# A source name's folder and file extension: "sources/notes-indenture.pdf" is "notes-indenture".
+_FOLDER_OR_EXTENSION = re.compile(r"^.*[/\\]|\.\w{1,5}$")
 
 
 def _normalise(text: str) -> str:
@@ -74,23 +79,28 @@ def markers_in_scope(pack: PreparedPack, covenant: cp4_legal.Covenant) -> tuple[
     return tuple(marker for marker in MARKERS if any(marker in text for text in scope))
 
 
+def _folded(text: str) -> str:
+    """Case folded, dashes and underscores read as spaces, whitespace collapsed and stripped."""
+    return " ".join(text.replace("-", " ").replace("_", " ").split()).casefold()
+
+
 def _missing_documents(pack: PreparedPack, covenant: cp4_legal.Covenant) -> tuple[str, ...]:
-    """The documents (casefolded) that the covenant's quotes say its term is defined in and that
-    no ready pack source is. A source is that document when its name or its id (dashes and
-    underscores read as spaces) contains the quoted name or ends it."""
+    """The documents (`_folded`) that the covenant's quotes say its term is defined in and that
+    no ready pack source is. A source is that document when its id, its name or its file name
+    without folder and extension contains the quoted name, or ends it in whole words."""
     held = [
-        _normalise(text).replace("-", " ").replace("_", " ")
+        _folded(text)
         for source in pack.sources
         if source.status == "ready"
-        for text in (source.name, source.source_id)
+        for text in (source.source_id, source.name, _FOLDER_OR_EXTENSION.sub("", source.name))
     ]
     named = dict.fromkeys(
-        match.group(1)
+        _folded(match.group(1))
         for quote in covenant.citations
         for match in _NAMED_DOCUMENT.finditer(_normalise(quote.quote))
     )
     return tuple(
-        doc for doc in named if not any(doc in name or doc.endswith(name) for name in held)
+        doc for doc in named if not any(doc in name or doc.endswith(" " + name) for name in held)
     )
 
 

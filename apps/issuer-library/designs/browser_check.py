@@ -54,7 +54,7 @@ def note(ok: bool, what: str, fault: bool = True, kind: str = "check") -> None:
     results.append((ok, what))
     if not ok and fault:
         FAULTS.add(WALK, kind, what)
-    print(("PASS " if ok else "FAIL ") + what, flush=True)
+    print(redact(("PASS " if ok else "FAIL ") + what, secrets()), flush=True)
 
 
 def serve(
@@ -63,10 +63,9 @@ def serve(
     engine: Path,
     key: str | None = None,
     extra: dict[str, str] | None = None,
-    keep_keys: bool = False,
+    new_session: bool = False,
 ) -> subprocess.Popen[bytes]:
-    # Provider keys are stripped unless the paid walk (live_check) asks to keep them.
-    env = {k: v for k, v in os.environ.items() if keep_keys or k not in KEYS}
+    env = {k: v for k, v in os.environ.items() if k not in KEYS}
     env |= {
         "ISSUER_LIBRARY_PYTHON": PY,
         "ISSUER_LIBRARY_ENGINE_ROOT": str(engine),
@@ -95,6 +94,7 @@ def serve(
         env=env,
         stdout=subprocess.PIPE,
         stderr=stderr,
+        start_new_session=new_session,  # live_check stops the server's whole group
     )
     stderr.close()  # the child holds its own copy
     try:

@@ -1,16 +1,19 @@
 """A printed value the extraction rules do not read is never silent (review of
-S12-vii-financial-engine-A04/C04).
+S12-vii-financial-engine-A04/C04 and A05).
 
 - A row of minus-signed (`-1,234`, U+2212 `−123`), percent (`12.5%`),
   split-parenthesis (`(250 )`) or decimal-comma (`1.234,5`) values is not data and is
   listed in `omitted`, whatever the sign of its last column. Reading such cells as values is
   an open ruling; until then they are recorded, not read.
 - A minus-signed value left in a data line's label flags it `label_ends_numeric`.
+- A `1.234` cell (one dot, exactly three digits after it) in a table that also prints whole
+  numbers is flagged `ambiguous_separator`: it may be 1,234 with a dotted thousands separator.
 """
 
 from decimal import Decimal
 
 from deploy_vii.statement_extract import (
+    AMBIGUOUS_SEPARATOR,
     LABEL_ENDS_NUMERIC,
     extract_statement_lines,
 )
@@ -85,3 +88,41 @@ def test_minus_value_left_in_the_label_is_flagged() -> None:
     (line,) = table.lines
     assert line.values == (Decimal(-80), Decimal(-70))
     assert LABEL_ENDS_NUMERIC in line.flags
+
+
+def test_dotted_thousands_beside_a_whole_number_is_flagged() -> None:
+    table = extract_statement_lines(
+        _page(
+            "Umsatzerlöse                     1.234         987",
+            "Revenue                           1,200       1,100",
+        ),
+        "p1",
+    )
+    umsatz, revenue = table.lines
+    # The raw text and its exact reading are kept; the flag says it may be 1,234.
+    assert umsatz.raw_values == ("1.234", "987")
+    assert umsatz.values == (Decimal("1.234"), Decimal(987))
+    assert umsatz.flags == (AMBIGUOUS_SEPARATOR,)
+    assert revenue.flags == ()
+
+
+def test_three_decimals_in_a_table_of_decimals_is_not_flagged() -> None:
+    # No whole number anywhere: 1.234 and 0.987 read as decimals, unflagged.
+    table = extract_statement_lines(
+        _page("Rate                              1.234       0.987"), "p1"
+    )
+    (line,) = table.lines
+    assert line.values == (Decimal("1.234"), Decimal("0.987"))
+    assert line.flags == ()
+
+
+def test_one_and_two_decimals_are_not_ambiguous() -> None:
+    table = extract_statement_lines(
+        _page(
+            "Earnings per share                 1.23        0.98",
+            "Revenue                           1,200       1,100",
+            "Rate                              1.2345      1.5",
+        ),
+        "p1",
+    )
+    assert all(AMBIGUOUS_SEPARATOR not in line.flags for line in table.lines)

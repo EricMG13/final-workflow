@@ -58,6 +58,9 @@ Flags (task 8.10b, review risks 1-2) inform the model and never drop a line:
   dash, a split `(12 )`) or a minus-signed number (`-120`, `\u2212120`), which stops the scan.
   Two numbers one space apart are one text cell, so the scan stops there and they stay
   in the label; a label ending in a year (`Balance, January 1, 2023`) is flagged too.
+- `ambiguous_separator`: a value is printed with one dot and exactly three digits after it
+  (`1.234`) on a page whose data lines also print a whole number: the dot may be a thousands
+  separator (1,234), so the value read (1.234) may be a thousand times too small.
 - `footnote_marker`: the header lines hold N > 0 four-digit years and the line has N + 1 raw
   values whose first is `(n)`, or a bare `n` when a header line has a cell that is the word Note or
   Notes on its own, starting left of the leftmost year column (one or two digits, no `$`), and
@@ -101,6 +104,9 @@ _CELL = re.compile(r"\S+(?: \S+)*")
 _DIGITS = r"[-\u2212]?[$\u00a3\u20ac]?\d(?:[\d,.]*\d)?"
 _UNREAD_NUMBER = re.compile(rf"[-\u2212+]?[$\u00a3\u20ac]?(?:\({_DIGITS}\)|{_DIGITS})%?")
 _MINUS_NUMBER = re.compile(r"[-\u2212][$\u00a3\u20ac]?\d(?:[\d,.]*\d)?")
+# A dot followed by exactly three digits (`1.234`): a decimal point, or a thousands separator.
+_DOT_THREE = re.compile(r"\(?\d{1,3}\.\d{3}\)?")
+_INTEGER = re.compile(r"\(?\d{1,3}(?:,\d{3})*\)?|\(?\d+\)?")
 _YEAR = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 _BARE_YEAR = re.compile(r"(?:19|20)\d{2}")
 _YEAR_END = re.compile(r"(?<![\d$\u00a3\u20ac])(?:19|20)\d{2}$")
@@ -132,10 +138,13 @@ _STATEMENT_TITLE = re.compile(
     r"\b(?:balance sheets?|income statements?|cash flow statements?|statements?\s+of)\b",
     re.IGNORECASE,
 )
-LineFlag = Literal["more_values_than_header_years", "label_ends_numeric", "footnote_marker"]
+LineFlag = Literal[
+    "more_values_than_header_years", "label_ends_numeric", "footnote_marker", "ambiguous_separator"
+]
 MORE_VALUES_THAN_HEADER_YEARS: LineFlag = "more_values_than_header_years"
 LABEL_ENDS_NUMERIC: LineFlag = "label_ends_numeric"
 FOOTNOTE_MARKER: LineFlag = "footnote_marker"
+AMBIGUOUS_SEPARATOR: LineFlag = "ambiguous_separator"
 
 
 @dataclass(frozen=True)
@@ -429,7 +438,7 @@ def _label_ends_numeric(label: str) -> bool:
     )
 
 
-def _flags(line: ExtractedLine, years: int, footnote: bool) -> tuple[LineFlag, ...]:
+def _flags(line: ExtractedLine, years: int, footnote: bool, integers: bool) -> tuple[LineFlag, ...]:
     flags: list[LineFlag] = []
     if years and len(line.raw_values) > years:
         flags.append(MORE_VALUES_THAN_HEADER_YEARS)
@@ -437,6 +446,8 @@ def _flags(line: ExtractedLine, years: int, footnote: bool) -> tuple[LineFlag, .
         flags.append(LABEL_ENDS_NUMERIC)
     if footnote:
         flags.append(FOOTNOTE_MARKER)
+    if integers and any(_DOT_THREE.fullmatch(raw) for raw in line.raw_values):
+        flags.append(AMBIGUOUS_SEPARATOR)
     return tuple(flags)
 
 
@@ -528,6 +539,8 @@ def extract_statement_lines(
         index for index, raw_line in enumerate(lines) if _is_period_header(raw_line)
     )
     years = sum(len(_YEAR.findall(header)) for header in headers)
+    # Any value printed as a whole number makes a `1.234` beside it ambiguous.
+    integers = any(_INTEGER.fullmatch(raw) for line in found for raw in line.raw_values)
     flagged: list[ExtractedLine] = []
     year_column = _year_column(headers)
     note_header = year_column is not None and any(
@@ -579,7 +592,7 @@ def extract_statement_lines(
                 values=printed.values[1:],
                 currency_values=printed.currency_values[1:],
             )
-        flagged.append(replace(data, flags=_flags(data, years, footnote)))
+        flagged.append(replace(data, flags=_flags(data, years, footnote, integers)))
     bounded: list[ExtractedLine] = []
     for flagged_line in flagged:
         row_cells = _cells(lines[flagged_line.line_no - 1])
@@ -592,7 +605,6 @@ def extract_statement_lines(
                 ),
             )
         )
-    flagged = bounded
     kept = {line.line_no - 1 for line in found}.union(header_at)
     omitted = tuple(
         OmittedLine(line_no=index + 1, text=text)
@@ -602,7 +614,7 @@ def extract_statement_lines(
     return ExtractedTable(
         locator=locator,
         headers=headers,
-        lines=tuple(flagged),
+        lines=tuple(bounded),
         source_id=source_id,
         omitted=omitted,
         source_lines=tuple(

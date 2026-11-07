@@ -8,6 +8,50 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Fixes for the whole-app review findings (branch `claude/review-fixes`)
+
+Scope: the 253 agreed findings of the whole-app review (`docs/review-handoff/` on
+`claude/review-handoff`): 4 critical, 49 high, 94 medium, 106 low after the cross-review.
+326 files against `claude/quality-gate` (src/deploy_workflow 95, src/deploy_vii 45,
+apps/issuer-library 28, tests, five case oracles rebuilt by their own builders and re-pinned).
+No change under runs/ or deliverables/. Offline only: no provider call, network fetch or key.
+Method (user): a model matrix. Each batch was fixed by one model and reviewed by the other
+(Opus/Sonnet). The reviewer confirmed or repaired each commit, ran a rewrite tournament and
+adversarial tests, and committed separately. Every merge passed the changed-code gate
+(`tools/quality_gate.py`, 0 findings at the end over 253 changed files) and targeted fast tests
+only (each pytest call under `timeout 300`; no test_owner_*, nothing promoting CP-0/CP-1). Frozen
+prompt digests: each deliberate wording change has a strip helper (`tests/prompts/s*_strip.py`),
+and the digest failures equal main's 26 by name. The rule-list golden sha256 section was refreshed
+after wave 1 and again at the end, each in its own commit. `cases/pins.py --check` matches 219
+paths.
+
+| Severity | Fixed | Partly fixed | Held for a ruling | Already fixed by an earlier fix | Not a defect / not reachable |
+|---|---|---|---|---|---|
+| critical | 3 | 0 | 1 | 0 | 0 |
+| high | 44 | 5 | 0 | 0 | 0 |
+| medium | 89 | 2 | 2 | 1 | 0 |
+| low | 87 | 3 | 11 | 2 | 3 |
+
+Held for a ruling: S12-A02 (critical, sign of a positive `signed` amount on an outflow account),
+S10-A05, S18-C03, S03-C06, S04-C11, S05-C07, S08-C08, S08-C09, S09-A08, S09-C04, S13-A07, S13-C10,
+S15-C05, S18-C08. Partly fixed: S07-A01 (strict xfail
+`test_a01_quarter_cp2a_swapped_metric_is_refused`), S09-A04 (CP-4C still keys the secured facility
+on `term-loan`), S11-A03, S13-A03/C05, S01-A03, S06-A06, S07-C03, S05-C09, S09-C06. S14-A02
+amends the controller-ruled read window (PF-R7 in `cases/pilot-fixes/read-window.json`); that
+amendment awaits confirmation. Also fixed: three defects reviewers found next to fixed findings
+(non-UTF-8 lines in the source and financial servers, now one shared `workflow.read_line` that
+the owner server also uses; lone surrogates in research manifests; the CP-4 stored claim
+limitation).
+Known-failure list: 13 more base failures found during the waves and confirmed on
+`claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose and
+prompt-set digest).
+Not verified here (slow or not runnable in this container; the nightly run covers the pytest
+ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
+attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,
+test_financial_workflow and test_host_h1 as a whole; the Issuer Library jsdom suites and
+browser_check; the Windows path of the S18-A07 worker lock (compiled and vetted only). Retained-data
+checks were deterministic replays of retained outputs, not live runs.
+
 ## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
 
 Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,

@@ -40,3 +40,73 @@ test('loading a valid saved context keeps focus on visible context for review',a
  assert.equal(p.doc.activeElement.closest('section').id,'sec2');
  const result=p.submit();assert.equal(result.problems.length,0);assert.equal(result.context.identity.issuer_name,'Northbridge Group');assert.equal(result.context.run.as_of,'2026-10-31');
 });
+const INTRO='Name the issuer so CP-0 can confirm it and the filings can be matched.';
+const sendNames=(p,names,source)=>p.win.dispatchEvent(new p.win.MessageEvent('message',{source:source===undefined?p.win:source,data:{type:'cpos:names',names}}));
+const intro=p=>p.doc.querySelector('#sec2 .intro');
+test('the names message replaces a visible module code with its name and keeps the code as a title',t=>{
+ const p=form(t);assert.equal(intro(p).textContent,INTRO);
+ sendNames(p,{'CP-0':'Source readiness'});
+ assert.equal(intro(p).textContent,'Name the issuer so Source readiness can confirm it and the filings can be matched.');
+ assert.equal(intro(p).title,'CP-0');
+ assert.ok(!p.doc.getElementById('s2-borrower_name-h').textContent.includes('CP-0'));
+});
+test('a code with no name stays a code, and values and options keep codes',t=>{
+ const p=form(t);p.doc.querySelector('[data-add="q"]').click();sendNames(p,{'CP-0':'Source readiness'});
+ assert.match(p.doc.getElementById('s2-borrower_name-h').textContent,/CP-1 looks/);
+ const option=[...p.doc.querySelectorAll('option')].find(o=>o.textContent==='CP-0');assert.ok(option);
+ assert.equal(option.value,'CP-0');
+});
+test('names apply again when the form rewrites its own text',async t=>{
+ const p=form(t);sendNames(p,{'CP-0':'Source readiness'});
+ intro(p).textContent='Ask CP-0 first.';
+ await new Promise(resolve=>setTimeout(resolve,20));
+ assert.equal(intro(p).textContent,'Ask Source readiness first.');
+});
+test('the names message is ignored from another source or with a non-string value',t=>{
+ const p=form(t),other=new JSDOM('').window;t.after(()=>other.close());
+ sendNames(p,{'CP-0':'Source readiness'},other);assert.equal(intro(p).textContent,INTRO);
+ sendNames(p,{'CP-0':'Source readiness'},null);assert.equal(intro(p).textContent,INTRO);
+ sendNames(p,{'CP-0':'Source readiness','CP-1':{toString:()=>'x'}});assert.equal(intro(p).textContent,INTRO);
+ sendNames(p,null);sendNames(p,'CP-0');assert.equal(intro(p).textContent,INTRO);
+});
+test('a name is written as text, never markup',t=>{
+ const p=form(t);sendNames(p,{'CP-0':'<img src=x onerror=1>'});
+ assert.equal(p.doc.querySelector('#sec2 .intro img'),null);assert.match(intro(p).textContent,/<img src=x onerror=1>/);
+});
+test('names leave the emitted context JSON unchanged',t=>{
+ const before=form(t),after=form(t);
+ for(const p of [before,after]){p.set('s2-issuer_name','Synthetic');p.set('s3-reporting_currency','EUR');}
+ sendNames(after,{'CP-0':'Source readiness','CP-1':'Filing intake'});
+ assert.match(intro(after).textContent,/Source readiness/);
+ assert.equal(JSON.stringify(after.submit().context),JSON.stringify(before.submit().context));
+});
+test('the date help names the picker and keeps the saved format',t=>{
+ const p=form(t),help=p.doc.getElementById('s3-as_of-h').textContent;
+ assert.match(help,/Choose the date; it is saved as YYYY-MM-DD\./);assert.doesNotMatch(help,/Format YYYY-MM-DD/);
+});
+test('the form uses the app look: 40 px fields, 16 px text, pills and a styled file button',t=>{
+ const p=form(t),css=fs.readFileSync(path.join(__dirname,'context-embed.css'),'utf8');
+ for(const id of ['s2-issuer_name','s3-as_of']){const s=p.win.getComputedStyle(p.doc.getElementById(id));assert.equal(s.height,'40px');assert.equal(s.fontSize,'16px');assert.equal(s.borderRadius,'8px');}
+ const select=p.win.getComputedStyle(p.doc.querySelector('.f select'));assert.equal(select.height,'40px');assert.match(css,/\.f select \{[^}]*background-image:url\("data:image\/svg\+xml/);
+ assert.match(css,/::file-selector-button/);
+ const req=p.win.getComputedStyle(p.doc.querySelector('.rtag.req'));assert.equal(req.backgroundColor,'rgb(248, 249, 251)');assert.equal(req.color,'rgb(58, 64, 86)');
+ const rec=p.win.getComputedStyle(p.doc.querySelector('.rtag.rec'));assert.equal(rec.backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(rec.borderTopColor,'rgb(207, 211, 221)');
+ assert.match(css,/\.tag\.def \{[^}]*background:#E7ECFF;[^}]*color:#0017E5/);
+});
+const later=()=>new Promise(resolve=>setTimeout(resolve,20));
+test('a host with several text nodes titles all their codes once, and loses the title when they go',async t=>{
+ const p=form(t),host=intro(p);
+ host.textContent='';host.append('Ask CP-0 then ',p.doc.createElement('br'),'CP-2 after.');
+ sendNames(p,{'CP-0':'Source readiness','CP-2':'Review'});
+ assert.equal(host.textContent,'Ask Source readiness then Review after.');
+ assert.equal(host.title,'CP-0, CP-2');
+ host.textContent='No codes here.';await later();
+ assert.equal(host.hasAttribute('title'),false);
+});
+test('a title the host had before the script ran is never overwritten or removed',async t=>{
+ const p=form(t),host=intro(p);host.title='Their own';
+ sendNames(p,{'CP-0':'Source readiness'});
+ assert.equal(host.title,'Their own');
+ host.textContent='None.';await later();
+ assert.equal(host.title,'Their own');
+});

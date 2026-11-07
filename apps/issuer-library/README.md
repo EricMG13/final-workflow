@@ -17,7 +17,10 @@ delivery folders. Candidate output remains explicitly qualified.
    Documents known folder plus `FinalWorkflow`; existing folders are not moved.
 4. The rail reaches every part of the one app: Issuer library, Research workspace,
    Reports, Run activity, New run, Search (`/`), Settings and Help. Choose a run
-   in the library to read its overview, modules, calendar, reports and evidence. A report
+   in the library to read its overview, modules, calendar, forecast, reports and evidence.
+   Forecast shows the model published from the run's files, why it was built, its assumption
+   register and the handoffs it was built from; a model delivery (`model.html` with no
+   `report.html`) is verified like a report. A report
    opens inside the app beside that navigation; its **Built from** list opens the
    module outputs it used, and a module output links to the deliverables that used it.
    Discovery runs every 30 seconds; when it finds a change the app offers **Reload**.
@@ -60,8 +63,8 @@ command line, and stays inside the app: moving elsewhere and back keeps what you
    instructions, workflow code or review invalidate the approval.
 5. Follow the module in progress, the last accepted module and recorded spend. Recent runs stay listed after
    reopening the page. The progress step is headed by the run's issuer, workflow, date and id. Recent runs
-   lists every run in the workspace with its workflow, module, state and spend; opening
-   a row shows its progress. A rejected module stops the run: its work is kept and no automatic
+   lists up to 30 runs started from this app in this workspace, with their workflow, module, state and
+   spend; opening a row shows its progress. A rejected module stops the run: its work is kept and no automatic
    paid retry is made. A finished run opens on its deliverables. Automated checks cover
    structure, anchors and report selectors only: review the handoffs against the sources
    before relying on a report. The launcher publishes the report; it does not publish an

@@ -214,13 +214,7 @@ func TestCurrentRetainedWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	cat := discover(root, seeds)
-	// These hold an HTML Model and no report, which the library does not present yet.
-	modelOnly := []string{
-		"deliverables/tdg-model-1: Delivery manifest requires report.html and view.json",
-		"deliverables/tdg-model-2: Delivery manifest requires report.html and view.json",
-		"deliverables/tdg-model-3: Delivery manifest requires report.html and view.json",
-	}
-	if !slices.Equal(cat.Issues, modelOnly) {
+	if len(cat.Issues) != 0 {
 		t.Fatalf("retained data rejected: %v", cat.Issues)
 	}
 	var annual *Run
@@ -255,6 +249,8 @@ func TestCurrentRetainedWorkspace(t *testing.T) {
 		}
 	}
 	delivered, _ := filepath.Glob(filepath.Join(root, "deliverables", "*", "report.html"))
+	models, _ := filepath.Glob(filepath.Join(root, "deliverables", "*", "model.html"))
+	delivered = append(delivered, models...)
 	launched, _ := filepath.Glob(filepath.Join(root, "runs", "*", "deliveries", "*", "report.html"))
 	if runFolders != wantRuns || len(reports) != len(delivered)+len(launched) {
 		t.Fatalf("got %d run folders, %d reports; folders hold %d runs, %d reports", runFolders, len(reports), wantRuns, len(delivered)+len(launched))
@@ -308,6 +304,79 @@ func TestDeliveryCheckpointRequiresAvailableDirectBundle(t *testing.T) {
 		if run.ID == "case-a" && run.Completion != nil {
 			t.Fatal("changed delivery retained completeness")
 		}
+	}
+}
+
+func addModelDelivery(t *testing.T, root, folder string, withReport bool) []byte {
+	t.Helper()
+	var view deliveryView
+	view.Run.RunID = "model-run"
+	view.Run.IssuerID = "TDG"
+	view.Run.IssuerName = "Example Industries"
+	view.Run.AsOf = "2024-12-31"
+	raw, _ := json.Marshal(view)
+	model := []byte("<!doctype html><title>Model</title><p>Published model</p>")
+	files := map[string]string{"view.json": digest(raw), "model.html": digest(model)}
+	put(t, root, "deliverables/"+folder+"/view.json", raw)
+	put(t, root, "deliverables/"+folder+"/model.html", model)
+	if withReport {
+		put(t, root, "deliverables/"+folder+"/report.html", []byte("report"))
+		files["report.html"] = digest([]byte("report"))
+	}
+	putJSON(t, root, "deliverables/"+folder+"/delivery.json", map[string]any{"files": files})
+	return model
+}
+
+func findArtifact(cat Catalogue, folder string) *Artifact {
+	for i := range cat.Real {
+		for j := range cat.Real[i].Artifacts {
+			if cat.Real[i].Artifacts[j].Folder == folder {
+				return &cat.Real[i].Artifacts[j]
+			}
+		}
+	}
+	return nil
+}
+
+func TestModelDeliveryVerifiesAsAModelAndAReportKeepsItsKind(t *testing.T) {
+	root, _ := fixture(t)
+	model := addModelDelivery(t, root, "m-1", false)
+	addDelivery(t, root, "r-1", "case-a", "other")
+	cat := discover(root, Catalogue{})
+	if len(cat.Issues) != 0 {
+		t.Fatalf("issues: %v", cat.Issues)
+	}
+	artifact := findArtifact(cat, "deliverables/m-1")
+	if artifact == nil || !artifact.Available || artifact.Kind != "model" || artifact.Href != pinnedURL("deliverables/m-1/model.html", digest(model)) {
+		t.Fatalf("model delivery: %+v", artifact)
+	}
+	if report := findArtifact(cat, "deliverables/r-1"); report == nil || report.Kind != "report" || !strings.HasSuffix(strings.Split(report.Href, "?")[0], "/report.html") {
+		t.Fatalf("report delivery: %+v", report)
+	}
+	if cat.Allowed["deliverables/m-1/model.html"] != digest(model) {
+		t.Fatal("model file not admitted under its hash")
+	}
+}
+
+func TestDeliveryWithNeitherPageKeepsItsIssue(t *testing.T) {
+	root, _ := fixture(t)
+	putJSON(t, root, "deliverables/empty/delivery.json", map[string]any{"files": map[string]string{"view.json": "x"}})
+	cat := discover(root, Catalogue{})
+	if !slices.Contains(cat.Issues, "deliverables/empty: Delivery manifest requires report.html and view.json") {
+		t.Fatalf("issues: %v", cat.Issues)
+	}
+}
+
+func TestChangedModelMakesItsDeliveryUnavailable(t *testing.T) {
+	root, _ := fixture(t)
+	addModelDelivery(t, root, "m-1", false)
+	put(t, root, "deliverables/m-1/model.html", []byte("changed"))
+	cat := discover(root, Catalogue{})
+	if artifact := findArtifact(cat, "deliverables/m-1"); artifact != nil && artifact.Available {
+		t.Fatalf("changed model stayed available: %+v", artifact)
+	}
+	if !slices.Contains(cat.Issues, "deliverables/m-1: Missing or changed delivery file: model.html") {
+		t.Fatalf("issues: %v", cat.Issues)
 	}
 }
 
@@ -668,4 +737,34 @@ func TestSeedMetricsAllStated(t *testing.T) {
 		}
 	}
 	t.Log(n)
+}
+
+func TestAPublishedModelAloneDoesNotRestoreARunsCompleteness(t *testing.T) {
+	root, m := fixture(t)
+	raw := `{"scope":"Annual review","requirements":[{"id":"s","stage":"sources","done":true,"evidence":["check"]},{"id":"a","stage":"analysis","done":true,"evidence":["check"]},{"id":"v","stage":"verification","done":true,"evidence":["check"]},{"id":"c","stage":"downstream","done":true,"evidence":["check"]},{"id":"d","stage":"delivery","done":true,"evidence":["check"]}]}`
+	if err := json.Unmarshal([]byte(raw), &m.Checklist); err != nil {
+		t.Fatal(err)
+	}
+	putJSON(t, root, "runs/case-a/library.json", m)
+	var view deliveryView
+	view.Run.RunID, view.Run.IssuerID, view.Run.IssuerName, view.Run.AsOf = "case-a", "EX", "Example Industries", "2024-12-31"
+	rawView, _ := json.Marshal(view)
+	model := []byte("<!doctype html><title>Model</title><p>Published model</p>")
+	put(t, root, "deliverables/m-only/view.json", rawView)
+	put(t, root, "deliverables/m-only/model.html", model)
+	putJSON(t, root, "deliverables/m-only/delivery.json", map[string]any{"files": map[string]string{"view.json": digest(rawView), "model.html": digest(model)}})
+	cat := discover(root, Catalogue{})
+	found := false
+	for _, run := range cat.Real {
+		if run.ID != "case-a" {
+			continue
+		}
+		found = true
+		if run.Completion != nil {
+			t.Fatalf("completeness %d%% restored by a model-only delivery; no report exists", *run.Completion)
+		}
+	}
+	if !found {
+		t.Fatal("run case-a not discovered")
+	}
 }

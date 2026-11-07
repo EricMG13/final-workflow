@@ -121,6 +121,54 @@ test('layout: controls reach 32px', () => {
   }
 });
 
+test('content table cards are bounded and keep their header in view', () => {
+  const card = screen.match(/(?:^|[}\n])\.table-scroll\{([^}]*)\}/);
+  assert.ok(card, 'no .table-scroll rule');
+  assert.ok(card[1].includes('max-height:70vh'), card[1]);
+  assert.ok(card[1].includes('overflow:auto'), card[1]);
+  const head = screen.match(/\.table-scroll thead th\{([^}]*)\}/);
+  assert.ok(head, 'no .table-scroll thead th rule');
+  assert.ok(head[1].includes('position:sticky') && head[1].includes('top:0'), head[1]);
+  assert.ok(head[1].includes('background:var(--gray-50)'), head[1]);
+  assert.match(screen, /\.case-list thead th\{[^}]*position:sticky;top:var\(--band-h,101px\)/);
+});
+
+test('the section bar is sticky with its run and module prefix at 720px and below', () => {
+  assert.match(screen, /\.section-context\{display:none\}/);
+  const media = [...screen.matchAll(/@media\(max-width:720px\)\{(.*)/g)].map((m) => m[1]).join('\n');
+  const bar = media.match(/#section-nav\{[^}]*position:sticky[^}]*\}/);
+  assert.ok(bar, 'no sticky #section-nav at 720px');
+  assert.ok(bar[0].includes('top:0') && bar[0].includes('background:#fff') && bar[0].includes('border-bottom:1px solid var(--rule)'), bar[0]);
+  assert.match(media, /#section-nav \.section-context\{display:block/);
+});
+
+test('the rail opens as an overlay, for focus too, and stops animating under reduced motion', () => {
+  const open = screen.match(/\.rail\.rail-open[^{}]*\{[^}]*\}/g) || [];
+  assert.ok(open.some((r) => r.includes('width:220px')), 'open rail is 220px wide');
+  assert.ok(!/\.app\{[^}]*margin-left:220px/.test(screen), 'the page does not reflow');
+  assert.ok(!screen.includes('.rail:focus-within'), 'a mouse click must not leave the rail open');
+  const covered = screen.split('\n').filter((l) => /^\.rail\.rail-open/.test(l));
+  assert.ok(covered.length >= 4);
+  for (const l of covered) for (const sel of l.slice(0, l.indexOf('{')).split(',').filter((x) => x.includes('.rail-open'))) {
+    assert.ok(l.slice(0, l.indexOf('{')).includes(sel.replace('.rail-open', ':has(:focus-visible)')), `keyboard focus mirrors ${sel}`);
+  }
+  assert.match(screen, /\.rail:not\(\.rail-open\)[^{]*\.rail-label|\.rail-label\{[^}]*clip:rect\(0,0,0,0\)/, 'labels are clipped at rest');
+  assert.ok(!/\.rail-label\{[^}]*display:none/.test(screen), 'labels keep their accessible name');
+  const reduced = [...screen.matchAll(/@media\(prefers-reduced-motion:reduce\)\{(.*)\}/g)].map((m) => m[1]).join('');
+  assert.match(reduced, /\.rail\{[^}]*transition:none/);
+  assert.match(screen, /\.rail\{[^}]*transition:width/);
+});
+
+test('at 720px and below the section bar outranks every sticky table cell and cash flow row labels are capped', () => {
+  const mobile = screen.slice(screen.lastIndexOf('@media(max-width:720px){#section-nav{z-index:5}'));
+  assert.ok(mobile.startsWith('@media(max-width:720px){#section-nav{z-index:5}'), 'no section bar z-index rule');
+  const bar = Number(mobile.match(/#section-nav\{z-index:(\d+)\}/)[1]);
+  const cells = [...screen.matchAll(/position:sticky[^}]*z-index:(\d+)/g)].map((m) => Number(m[1]));
+  assert.ok(cells.length > 0);
+  assert.ok(cells.every((z) => z < bar), `a sticky cell reaches ${Math.max(...cells)}, bar is ${bar}`);
+  assert.match(mobile, /\.cashflow tbody th\[scope=row\]\{[^}]*white-space:normal[^}]*max-width:9\.5rem/);
+});
+
 test('every custom property screen.css reads without a fallback is defined in screen.css', () => {
   // index.html loads screen.css alone, so a token from another stylesheet (such as the report's
   // --rb-ink-2) would silently fall back to the inherited colour. --band-h has a fallback (set by JS).

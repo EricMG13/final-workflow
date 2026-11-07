@@ -351,7 +351,13 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 		artifact.Issue = err.Error()
 		return artifact, view, files
 	}
-	if record.Files["report.html"] == "" || record.Files["view.json"] == "" {
+	// A delivery presents either a report or, lacking one, a published model.
+	page := "report.html"
+	artifact.Kind = "report"
+	if record.Files[page] == "" && record.Files["model.html"] != "" {
+		page, artifact.Kind = "model.html", "model"
+	}
+	if record.Files[page] == "" || record.Files["view.json"] == "" {
 		artifact.Issue = "Delivery manifest requires report.html and view.json"
 		return artifact, view, files
 	}
@@ -382,7 +388,7 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 		return artifact, view, files
 	}
 	artifact.Available = true
-	artifact.Href = pinnedURL(folder+"/report.html", record.Files["report.html"])
+	artifact.Href = pinnedURL(folder+"/"+page, record.Files[page])
 	if view.Mode != "" {
 		artifact.State = view.Mode
 	}
@@ -600,14 +606,15 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 		}
 		available := false
 		for _, artifact := range run.Artifacts {
-			if artifact.Available && artifact.State != "superseded" && artifact.Relationship != "related" {
+			// The delivery checkpoint is the report bundle: a published model alone does not complete a run.
+			if artifact.Available && artifact.Kind == "report" && artifact.State != "superseded" && artifact.Relationship != "related" {
 				available = true
 			}
 		}
 		if !available {
 			run.Completion = nil
 			run.Checkpoints = nil
-			run.Gaps = append(run.Gaps, "Checklist delivery checkpoint is unverified: no available direct deliverable.")
+			run.Gaps = append(run.Gaps, "Checklist delivery checkpoint is unverified: no available direct report.")
 			cat.Issues = append(cat.Issues, run.ID+": completeness withheld until its delivery checkpoint can be verified")
 		}
 	}

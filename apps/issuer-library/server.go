@@ -24,6 +24,7 @@ type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
 	mu         sync.RWMutex
+	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations
 	config     Config
 	locked     bool
@@ -33,14 +34,35 @@ type Application struct {
 	stop       func()
 }
 
-func (app *Application) refreshLocked() {
-	app.catalogue = discover(app.config.Workspace, app.seed)
-	app.catalogue.PolicyLocked = app.locked
+// discoverWorkspace is discover; a variable so tests can hold a discovery in progress.
+var discoverWorkspace = discover
+
+// buildCatalogue discovers workspace and saves the disposable index. It takes no lock and reads
+// only fields fixed at start, so the slow part of a refresh (hashing every pinned file) runs
+// while requests are served from the previous catalogue. Callers hold app.refreshing.
+func (app *Application) buildCatalogue(workspace string) Catalogue {
+	catalogue := discoverWorkspace(workspace, app.seed)
+	catalogue.PolicyLocked = app.locked
 	// The persisted index is a disposable snapshot, never an authority on restart.
-	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), app.catalogue); err != nil {
+	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), catalogue); err != nil {
 		log.Printf("Index cache: %v", err)
-		app.catalogue.Issues = append(app.catalogue.Issues, "Search index could not be saved; live browsing is still available.")
+		catalogue.Issues = append(catalogue.Issues, "Search index could not be saved; live browsing is still available.")
 	}
+	return catalogue
+}
+
+// refresh rediscovers the current workspace and swaps the result in under a short lock. The
+// workspace only changes under app.refreshing, so the result always belongs to it.
+func (app *Application) refresh() {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
+	catalogue := app.buildCatalogue(workspace)
+	app.mu.Lock()
+	app.catalogue = catalogue
+	app.mu.Unlock()
 }
 
 func jsonResponse(w http.ResponseWriter, value any) {
@@ -128,9 +150,7 @@ func (app *Application) serveWorkspace(w http.ResponseWriter) {
 func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/api/refresh":
-		app.mu.Lock()
-		app.refreshLocked()
-		app.mu.Unlock()
+		app.refresh()
 		app.writeCatalogue(w)
 	case "/api/settings":
 		if status, message := app.changeSettings(w, r); status != http.StatusOK {
@@ -153,12 +173,16 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// changeSettings switches to the requested workspace and rediscovers it, refusing with an HTTP
-// status and message while a run is active, under IT policy or for an unusable folder.
+// changeSettings switches to the requested workspace, refusing with an HTTP status and message
+// while a run is active, under IT policy or for an unusable folder. The new workspace is
+// discovered without app.mu; the settings, configuration and catalogue then change together.
 func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (int, string) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
-	if len(app.activeJobs) > 0 {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	active := len(app.activeJobs) > 0
+	app.mu.RUnlock()
+	if active {
 		return 409, "Wait for the active run before changing its workspace"
 	}
 	if app.locked {
@@ -178,11 +202,17 @@ func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (
 	if err != nil || !info.IsDir() {
 		return http.StatusBadRequest, "The workspace folder is unavailable"
 	}
+	catalogue := app.buildCatalogue(config.Workspace)
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if len(app.activeJobs) > 0 { // A run started while the new workspace was being read.
+		return 409, "Wait for the active run before changing its workspace"
+	}
 	if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
 		return http.StatusInternalServerError, "Could not save settings"
 	}
 	app.config = config
-	app.refreshLocked()
+	app.catalogue = catalogue
 	return http.StatusOK, ""
 }
 
@@ -340,6 +370,6 @@ func newApplication(loc Locations, override string) (*Application, error) {
 		return nil, err
 	}
 	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
-	app.refreshLocked()
+	app.catalogue = app.buildCatalogue(config.Workspace)
 	return app, nil
 }

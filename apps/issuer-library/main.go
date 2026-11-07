@@ -107,9 +107,7 @@ func run() (err error) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				app.mu.Lock()
-				app.refreshLocked()
-				app.mu.Unlock()
+				app.refresh()
 			}
 		}
 	}()

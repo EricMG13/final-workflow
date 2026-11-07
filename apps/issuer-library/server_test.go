@@ -667,3 +667,89 @@ func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
 		<-locked
 	}
 }
+
+// blockDiscovery makes discovery of workspace wait until release is closed; entered is closed
+// when it starts. Other workspaces are discovered as usual.
+func blockDiscovery(t *testing.T, workspace string) (entered, release chan struct{}) {
+	t.Helper()
+	entered, release = make(chan struct{}), make(chan struct{})
+	saved := discoverWorkspace
+	var once sync.Once
+	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+		if folder == workspace {
+			once.Do(func() { close(entered) })
+			<-release
+		}
+		return saved(folder, seeds)
+	}
+	t.Cleanup(func() { discoverWorkspace = saved })
+	return entered, release
+}
+
+func lockWithin(t *testing.T, app *Application, what string) {
+	t.Helper()
+	locked := make(chan struct{})
+	go func() { app.mu.Lock(); close(locked); app.mu.Unlock() }()
+	select {
+	case <-locked:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("%s holds the catalogue lock", what)
+	}
+}
+
+// C11: discovery hashes every pinned file, so it runs without the catalogue lock; requests are
+// served from the previous catalogue meanwhile and only the swap is locked.
+func TestRefreshDiscoversWithoutHoldingTheCatalogueLock(t *testing.T) {
+	app, root := testApp(t)
+	put(t, root, "runs/added/CP-0.md", []byte("added"))
+	entered, release := blockDiscovery(t, root)
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- call(app, "POST", "/api/refresh", "{}") }()
+	<-entered
+	lockWithin(t, app, "a refresh in discovery")
+	var during Catalogue
+	if response := call(app, "GET", "/api/catalogue", ""); response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &during) != nil || len(during.Real) != 1 {
+		t.Fatalf("catalogue during discovery: %d %s", response.Code, response.Body.String())
+	}
+	if response := call(app, "GET", "/files/runs/case-a/CP-0.md", ""); response.Code != 200 {
+		t.Fatalf("file during discovery: %d", response.Code)
+	}
+	close(release)
+	var after Catalogue
+	if response := <-done; json.Unmarshal(response.Body.Bytes(), &after) != nil || len(after.Real) != 2 {
+		t.Fatalf("refresh result: %s", response.Body.String())
+	}
+}
+
+// C11: a workspace switch waits for a refresh already discovering the old workspace, and the
+// old workspace's catalogue never replaces the new one; the switch itself discovers unlocked.
+func TestWorkspaceSwitchDuringARefreshKeepsTheNewWorkspace(t *testing.T) {
+	app, root := testApp(t)
+	other := t.TempDir()
+	put(t, other, "runs/other/CP-0.md", []byte("other"))
+	oldEntered, oldRelease := blockDiscovery(t, root)
+	refreshed := make(chan struct{})
+	go func() { call(app, "POST", "/api/refresh", "{}"); close(refreshed) }()
+	<-oldEntered
+	newEntered, newRelease := blockDiscovery(t, other)
+	switched := make(chan *httptest.ResponseRecorder)
+	raw, _ := json.Marshal(Config{Workspace: other})
+	go func() { switched <- call(app, "POST", "/api/settings", string(raw)) }()
+	close(oldRelease)
+	<-refreshed
+	<-newEntered
+	lockWithin(t, app, "a workspace switch in discovery")
+	close(newRelease)
+	if response := <-switched; response.Code != 200 {
+		t.Fatalf("switch: %d %s", response.Code, response.Body.String())
+	}
+	app.mu.RLock()
+	workspace, catalogueWorkspace := app.config.Workspace, app.catalogue.Workspace
+	app.mu.RUnlock()
+	if workspace != other || catalogueWorkspace != other {
+		t.Fatalf("config %s, catalogue %s; want %s", workspace, catalogueWorkspace, other)
+	}
+	if response := call(app, "GET", "/files/runs/case-a/CP-0.md", ""); response.Code != 404 {
+		t.Fatalf("old workspace file still admitted: %d", response.Code)
+	}
+}

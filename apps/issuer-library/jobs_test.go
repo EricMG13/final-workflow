@@ -883,3 +883,33 @@ func TestReviewWorkerThatStartedAndFailedKeepsTheClaim(t *testing.T) {
 		t.Fatalf("status: %s", status.Body.String())
 	}
 }
+
+// C11: the workspace switch discovers the new folder without the lock, so a Start can begin
+// meanwhile; the switch is then refused when it would commit, as for any active run.
+func TestStartDuringAWorkspaceSwitchRefusesTheSwitch(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	other := t.TempDir()
+	entered, release := blockDiscovery(t, other)
+	switched := make(chan *httptest.ResponseRecorder)
+	raw, _ := json.Marshal(Config{Workspace: other})
+	go func() { switched <- call(app, "POST", "/api/settings", string(raw)) }()
+	<-entered
+	if start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
+		t.Fatalf("start: %d %s", start.Code, start.Body.String())
+	}
+	close(release)
+	if response := <-switched; response.Code != 409 || !strings.Contains(response.Body.String(), "Wait for the active run") {
+		t.Fatalf("switch during a started run: %d %s", response.Code, response.Body.String())
+	}
+	waitIdle(t, app)
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	if app.config.Workspace != root || app.catalogue.Workspace != root {
+		t.Fatalf("workspace moved: config %s, catalogue %s", app.config.Workspace, app.catalogue.Workspace)
+	}
+}

@@ -482,8 +482,8 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 		}
 		app.mu.Lock()
 		delete(app.activeJobs, request.ID)
-		app.refreshLocked()
 		app.mu.Unlock()
+		app.refresh()
 	}()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)

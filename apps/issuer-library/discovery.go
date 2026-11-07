@@ -606,14 +606,15 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 		}
 		available := false
 		for _, artifact := range run.Artifacts {
-			if artifact.Available && artifact.State != "superseded" && artifact.Relationship != "related" {
+			// The delivery checkpoint is the report bundle: a published model alone does not complete a run.
+			if artifact.Available && artifact.Kind == "report" && artifact.State != "superseded" && artifact.Relationship != "related" {
 				available = true
 			}
 		}
 		if !available {
 			run.Completion = nil
 			run.Checkpoints = nil
-			run.Gaps = append(run.Gaps, "Checklist delivery checkpoint is unverified: no available direct deliverable.")
+			run.Gaps = append(run.Gaps, "Checklist delivery checkpoint is unverified: no available direct report.")
 			cat.Issues = append(cat.Issues, run.ID+": completeness withheld until its delivery checkpoint can be verified")
 		}
 	}

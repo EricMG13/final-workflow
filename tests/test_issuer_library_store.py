@@ -198,6 +198,12 @@ def _report_with_view(tmp_path, **declared):
     view = json.loads(view_path.read_text(encoding="utf-8"))
     view.update(declared)
     view_path.write_text(json.dumps(view), encoding="utf-8")
+    record = view_path.with_name("delivery.json")
+    listed = json.loads(record.read_text(encoding="utf-8"))
+    listed["files"]["view.json"] = hashlib.sha256(
+        view_path.read_bytes()
+    ).hexdigest()  # As verified.
+    record.write_text(json.dumps(listed), encoding="utf-8")
     reports = {r["id"]: r for r in store.workspace_store(tmp_path, catalogue)["reports"]}
     return reports["alpha-report"]
 
@@ -1216,7 +1222,14 @@ def test_forecast_exact_json_must_match_its_listed_hash_and_not_be_a_symlink(tmp
 def test_a_model_read_error_names_its_type_and_reason_and_never_the_bytes(tmp_path):
     good = model_delivery(tmp_path, "deliverables/m-1")
     bad = model_delivery(tmp_path, "deliverables/m-2")
-    (tmp_path / "deliverables/m-2/view.json").write_bytes(b"\xff\xfe TOPSECRET")
+    raw = b"\xff\xfe TOPSECRET"
+    (tmp_path / "deliverables/m-2/view.json").write_bytes(raw)
+    record = tmp_path / "deliverables/m-2/delivery.json"
+    listed = json.loads(record.read_text(encoding="utf-8"))
+    listed["files"]["view.json"] = hashlib.sha256(
+        raw
+    ).hexdigest()  # The server verified these bytes.
+    record.write_text(json.dumps(listed), encoding="utf-8")
     issues = models_of(tmp_path, good, bad)["issues"]
     (issue,) = [i for i in issues if i.startswith("deliverables/m-2: could not be read")]
     assert "UnicodeDecodeError" in issue and "invalid start byte" in issue
@@ -2309,3 +2322,115 @@ def test_the_handoff_labels_the_reader_matches_are_one_mapping():
     assert store.CASHFLOW_LABELS["adjusted_ebitda"] == "Total Company EBITDA As Defined"
     assert store.CASHFLOW_LABELS["secured_securitization"] == "Trade receivable securitization"
     assert store.CASHFLOW_LABELS["secured_term_loans"] == "Term loans aggregate"
+
+
+def lone_report_catalogue(folder: str) -> dict:
+    artifact = {
+        "folder": folder,
+        "available": True,
+        "kind": "report",
+        "label": Path(folder).name,
+        "href": f"/files/{folder}/report.html?sha256=x",
+    }
+    return {"real": [{"id": "delivery:r", "artifacts": [artifact]}]}
+
+
+def report_folder(root: Path, view: bytes, delivery_tail: bytes = b"") -> str:
+    folder = root / "deliverables/r-1"
+    folder.mkdir(parents=True)
+    (folder / "view.json").write_bytes(view)
+    (folder / "report.html").write_bytes(b"<p>r</p>")
+    files = {
+        n: hashlib.sha256((folder / n).read_bytes()).hexdigest()
+        for n in ("view.json", "report.html")
+    }
+    body = json.dumps({"files": files}).encode()
+    (folder / "delivery.json").write_bytes(
+        body[:-1] + delivery_tail + b"}" if delivery_tail else body
+    )
+    return "deliverables/r-1"
+
+
+RUN_VIEW = {"run": {"run_id": "r1", "issuer_id": "A", "issuer_name": "A", "as_of": "2025-06-30"}}
+
+
+def test_a_report_read_error_names_its_type_and_reason_never_the_file_bytes(tmp_path):
+    secret = "PRIVATE-NOTE-" + "x" * 2000
+    view = json.dumps({**RUN_VIEW, "note": secret}).encode("cp1252")
+    view = view.replace(b"x" * 10, b"\xe9" * 10, 1)
+    folder = report_folder(tmp_path, view)
+    reports, issues = store.catalogue_reports(tmp_path, lone_report_catalogue(folder), {}, {})
+    assert reports == [] and len(issues) == 1
+    assert issues[0].startswith(f"{folder}: could not be read (UnicodeDecodeError:")
+    assert "PRIVATE-NOTE" not in issues[0] and len(issues[0]) < 300
+
+
+def test_a_non_utf8_report_delivery_json_does_not_copy_its_bytes(tmp_path):
+    folder = report_folder(
+        tmp_path, json.dumps(RUN_VIEW).encode(), b', "scope": "\xff MARKER ' + b"y" * 2000 + b'"'
+    )
+    _, issues = store.catalogue_reports(tmp_path, lone_report_catalogue(folder), {}, {})
+    assert len(issues) == 1 and "MARKER" not in issues[0] and len(issues[0]) < 300
+
+
+def test_a_report_view_json_nested_too_deep_is_an_issue_not_a_crash(tmp_path):
+    deep = json.dumps(RUN_VIEW)[:-1] + ',"x":' + "[" * 9998 + "]" * 9998 + "}"
+    folder = report_folder(tmp_path, deep.encode())
+    reports, issues = store.catalogue_reports(tmp_path, lone_report_catalogue(folder), {}, {})
+    assert reports == [] and [i.split(" (")[0] for i in issues] == [f"{folder}: could not be read"]
+    assert "RecursionError" in issues[0]
+
+
+def test_a_run_workflow_json_nested_too_deep_records_nothing(tmp_path):
+    run = tmp_path / "runs/r1"
+    run.mkdir(parents=True)
+    (run / "workflow.json").write_text("[" * 20000 + "]" * 20000)
+    assert store.recorded_run(run) == {}
+
+
+def test_a_model_delivery_json_that_is_a_link_is_not_followed(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    real = tmp_path / "deliverables/m-1/delivery.json"
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.json"
+    outside.write_text(real.read_text(encoding="utf-8"), encoding="utf-8")
+    real.unlink()
+    real.symlink_to(outside)
+    result = models_of(tmp_path, artifact)
+    assert result["models"] == []
+    assert any(i.startswith("deliverables/m-1: could not be read") for i in result["issues"])
+
+
+def test_a_model_delivery_json_that_is_a_fifo_does_not_block_the_store(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    real = tmp_path / "deliverables/m-1/delivery.json"
+    real.unlink()
+    os.mkfifo(real)
+    result = models_of(tmp_path, artifact)
+    assert result["models"] == []
+    assert any(i.startswith("deliverables/m-1: could not be read") for i in result["issues"])
+
+
+def test_a_model_view_json_that_is_a_link_is_not_read(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    view = tmp_path / "deliverables/m-1/view.json"
+    outside = tmp_path.parent / f"{tmp_path.name}-view.json"
+    outside.write_text(view.read_text(encoding="utf-8"), encoding="utf-8")
+    view.unlink()
+    view.symlink_to(outside)
+    result = models_of(tmp_path, artifact)
+    assert result["models"] == []
+    assert any(i.startswith("deliverables/m-1: could not be read") for i in result["issues"])
+
+
+def test_the_debt_register_repeat_check_ignores_case(tmp_path):
+    annual = ANNUAL_MD.replace(
+        "| 5% senior",
+        "| Secured notes | Principal 200; carrying 200 | x |\n"
+        "| SECURED NOTES | Principal 200; carrying 200 | x |\n| 5% senior",
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["reason"]) == (
+        NA,
+        "the debt register repeats a row label: SECURED NOTES",
+    )

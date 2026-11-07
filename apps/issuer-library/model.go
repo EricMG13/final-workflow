@@ -13,7 +13,9 @@ import (
 	"strings"
 )
 
-const maxFile = 64 << 20
+// maxFileBytes is the one size limit for a delivered or uploaded file in this language. The store states
+// the same 64 MiB as MODEL_FILE_LIMIT (engine/store.py); change the two together.
+const maxFileBytes = 64 << 20
 
 type Source struct {
 	Path   string `json:"path"`
@@ -137,11 +139,11 @@ func readFile(root *os.Root, name string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if !info.Mode().IsRegular() || info.Size() > maxFile {
+	if !info.Mode().IsRegular() || info.Size() > maxFileBytes {
 		return nil, fmt.Errorf("not a regular file within 64 MiB: %s", name)
 	}
-	raw, err := io.ReadAll(io.LimitReader(f, maxFile+1))
-	if len(raw) > maxFile {
+	raw, err := io.ReadAll(io.LimitReader(f, maxFileBytes+1))
+	if len(raw) > maxFileBytes {
 		return nil, fmt.Errorf("file grew beyond 64 MiB: %s", name)
 	}
 	return raw, err

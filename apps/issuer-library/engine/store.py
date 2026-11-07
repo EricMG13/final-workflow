@@ -241,7 +241,9 @@ def parse_source(text):
     return sections
 
 
-MODEL_FILE_LIMIT = 64 * 1024 * 1024  # The Go server's read cap for a delivered file.
+# The one size limit for a delivered or uploaded file in this language. The Go server states the
+# same 64 MiB as `maxFileBytes` (model.go); change the two together.
+MODEL_FILE_LIMIT = 64 * 1024 * 1024
 CHUNK = 1024 * 1024
 
 
@@ -306,6 +308,23 @@ def describe(error: BaseException) -> str:
     if isinstance(error, UnicodeDecodeError):
         return f"UnicodeDecodeError: {error.reason}"
     return f"{type(error).__name__}: {str(error)[:80]}"
+
+
+def delivery_json(folder: Path) -> dict[str, Any]:
+    """folder/delivery.json read bounded and without following a link; raises when unreadable."""
+    return json.loads(
+        b"".join(regular_chunks(folder / "delivery.json", follow=False)).decode("utf-8")
+    )
+
+
+def listed_view(folder: Path, delivery: dict[str, Any]) -> dict[str, Any]:
+    """folder/view.json when it is a plain file with the hash delivery.json lists; raises otherwise."""
+    if not isinstance(delivery.get("files"), dict):
+        raise TypeError("files is not an object")
+    raw = listed_bytes(folder, delivery, "view.json")
+    if raw is None:
+        raise UnreadableFile("view.json is not the plain file its delivery record lists")
+    return json.loads(raw.decode("utf-8"))
 
 
 def locate_quote(sections, locator, owner):
@@ -615,7 +634,7 @@ def collect_runs(
                 else None,
             }
         with_outputs = [module for module in modules if modules[module]["outputs"]]
-        recorded = recorded_run(run_dir)
+        recorded = recorded_run(run_dir, issues)
         runs[key] = {
             "folder": folder,
             "issuer": issuer,
@@ -658,8 +677,8 @@ def report_record(
 ) -> dict[str, Any]:
     """One verified deliverable as the app shows it; raises when its delivery cannot be read."""
     name = Path(folder).name
-    delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
-    view = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))
+    delivery = delivery_json(root / folder)
+    view = listed_view(root / folder, delivery)
     identity = view["run"]
     issuer_name, as_of = identity["issuer_name"], identity["as_of"]
     issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
@@ -726,8 +745,16 @@ def catalogue_reports(
             # Documented fail-open: reported in Settings; the other deliverables stay readable.
             try:
                 reports.append(report_record(root, folder, artifact, sources, keys))
-            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
-                issues.append(f"{folder}: could not be read ({error!r})")
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                AttributeError,
+                RecursionError,
+                MemoryError,
+            ) as error:
+                issues.append(f"{folder}: could not be read ({describe(error)})")
     return reports, issues
 
 
@@ -1020,11 +1047,13 @@ def markdown_table(lines, file):
     body = [table_cells(line) for line in lines[1 + separated :]]
     label_header = CASHFLOW_LABELS["label_header"]
     label_column = header.index(label_header) if label_header in header else 0
-    rows, repeated = {}, None
+    rows, repeated, folded = {}, None, set()
     for row in body:
         if label_column < len(row):
-            if row[label_column] in rows and repeated is None:
+            # Case-insensitive, as the debt classification is.
+            if row[label_column].casefold() in folded and repeated is None:
                 repeated = row[label_column]
+            folded.add(row[label_column].casefold())
             rows.setdefault(row[label_column], row)
     periods = {}
     for index, name in enumerate(header):
@@ -1730,16 +1759,14 @@ def catalogue_models(root, catalogue, outputs, keys):
             # Documented fail-open: reported in Settings; the other models stay readable. A model too
             # large to parse (MemoryError) is reported the same way, not allowed to end the store.
             try:
-                delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
-                view = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))
+                delivery = delivery_json(root / folder)
+                view = listed_view(root / folder, delivery)
                 identity = view["run"]
                 run_id = identity["run_id"]
                 issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
                 sources = model_sources(root, delivery, outputs, folder, issues)
                 register = handoff_text = None
                 files = delivery["files"]
-                if not isinstance(files, dict):
-                    raise TypeError("files is not an object")
                 if "forecast.md" in files:
                     handoff = listed_bytes(root / folder, delivery, "forecast.md")
                     if handoff is None:
@@ -1798,12 +1825,28 @@ def visual_catalogue() -> list[dict[str, str]]:
         return list(csv.DictReader(source))
 
 
-def recorded_run(run_dir: Path) -> dict[str, str]:
-    """The text fields of the launcher's own manifest; a run without a readable one records none."""
+def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, str]:
+    """The text fields of the launcher's own manifest; a run without a readable one records none.
+
+    Documented fail-open: a manifest that cannot be read records nothing and, when `issues` is
+    given, is named there by type and reason (never its bytes). A run with no manifest is normal.
+    """
     try:
         manifest = json.loads((run_dir / "workflow.json").read_text(encoding="utf-8"))
         return {key: value for key, value in manifest["run"].items() if isinstance(value, str)}
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+    except FileNotFoundError:
+        return {}
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RecursionError,
+        MemoryError,
+    ) as error:
+        if issues is not None:
+            issues.append(f"{run_dir.name}: workflow.json could not be read ({describe(error)})")
         return {}
 
 

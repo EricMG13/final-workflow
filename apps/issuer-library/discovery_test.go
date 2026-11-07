@@ -738,3 +738,33 @@ func TestSeedMetricsAllStated(t *testing.T) {
 	}
 	t.Log(n)
 }
+
+func TestAPublishedModelAloneDoesNotRestoreARunsCompleteness(t *testing.T) {
+	root, m := fixture(t)
+	raw := `{"scope":"Annual review","requirements":[{"id":"s","stage":"sources","done":true,"evidence":["check"]},{"id":"a","stage":"analysis","done":true,"evidence":["check"]},{"id":"v","stage":"verification","done":true,"evidence":["check"]},{"id":"c","stage":"downstream","done":true,"evidence":["check"]},{"id":"d","stage":"delivery","done":true,"evidence":["check"]}]}`
+	if err := json.Unmarshal([]byte(raw), &m.Checklist); err != nil {
+		t.Fatal(err)
+	}
+	putJSON(t, root, "runs/case-a/library.json", m)
+	var view deliveryView
+	view.Run.RunID, view.Run.IssuerID, view.Run.IssuerName, view.Run.AsOf = "case-a", "EX", "Example Industries", "2024-12-31"
+	rawView, _ := json.Marshal(view)
+	model := []byte("<!doctype html><title>Model</title><p>Published model</p>")
+	put(t, root, "deliverables/m-only/view.json", rawView)
+	put(t, root, "deliverables/m-only/model.html", model)
+	putJSON(t, root, "deliverables/m-only/delivery.json", map[string]any{"files": map[string]string{"view.json": digest(rawView), "model.html": digest(model)}})
+	cat := discover(root, Catalogue{})
+	found := false
+	for _, run := range cat.Real {
+		if run.ID != "case-a" {
+			continue
+		}
+		found = true
+		if run.Completion != nil {
+			t.Fatalf("completeness %d%% restored by a model-only delivery; no report exists", *run.Completion)
+		}
+	}
+	if !found {
+		t.Fatal("run case-a not discovered")
+	}
+}

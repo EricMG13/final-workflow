@@ -115,3 +115,96 @@ tests/test_o2_done_when.py::test_a_line_citation_naming_the_range_key_is_not_cov
 tests/test_financial_workflow.py::test_full_component_promotes_and_publishes_actual_model  # fixture errors with publication_refused at base (found by the S12-A02 review)
 tests/research/test_consumer_block.py::test_attachments_supersedes_is_the_replayed_run  # stub has no delivery_scope (run_pathway) at base; found by the CP-8 review
 tests/research/test_consumer_block.py::test_a_stop_after_cp_dr_records_the_heads_state  # same
+
+# Found by the first nightly run (2026-11-07), failing at 5dd01ec (before the review fixes) with
+# the same message (rerun 42369487867 against 42369485755).
+tests/test_prove_affected.py::test_checkpoint_lists_equal_heavy  # .github/workflows/checkpoint.yml never existed here
+tests/test_owner_cpdr.py::test_the_closed_run_renders_and_verifies  # AssertionError: assert {'evidence': ...verage', ...]} == {'evidence': 
+tests/test_owner_cpdr_replace.py::test_replacement_rerun  # ReplayRecord validation error
+tests/test_owner_cpos.py::test_a2_gap_run_is_the_gap_run  # fixture: publication refused (publication_refused)
+tests/test_owner_cpos.py::test_a3_a4_derived_cp2_states_as_observed  # same
+tests/test_owner_cpos.py::test_a5_foreign_store_refuses_stale_binding  # same
+tests/test_owner_cpos.py::test_a5_head_status_forged_refuses_identity_mismatch  # same
+tests/test_owner_cpos.py::test_a5_refusal_comes_from_the_verifier_before_any_render  # same
+tests/test_owner_cpos.py::test_a5_seal_edit_refuses_identity_mismatch  # same
+tests/test_owner_cpos.py::test_a6_calculation_json_linked_but_not_in_the_receipt_files  # same
+tests/test_owner_cpos.py::test_a6_dangling_target  # same
+tests/test_owner_cpos.py::test_a6_forged_external_link_is_refused_only_by_full_equality[links0]  # same
+tests/test_owner_cpos.py::test_a6_forged_external_link_is_refused_only_by_full_equality[links1]  # same
+tests/test_owner_cpos.py::test_a6_forged_proof_destination  # same
+tests/test_owner_cpos.py::test_a6_forged_proof_row  # same
+tests/test_owner_cpos.py::test_a6_forged_row  # same
+tests/test_owner_cpos.py::test_a6_page_bytes_edited  # same
+tests/test_owner_cpos.py::test_a6_proof_of_other_receipt  # same
+tests/test_owner_cpos.py::test_a6_receipt_hash_only  # same
+tests/test_owner_cpos.py::test_a6_report_data_that_cannot_be_extracted[bad_json]  # same
+tests/test_owner_cpos.py::test_a6_report_data_that_cannot_be_extracted[no_close]  # same
+tests/test_owner_cpos.py::test_a6_report_data_that_cannot_be_extracted[no_tag]  # same
+tests/test_owner_cpos.py::test_a6_unverifiable_page_hash  # same
+tests/test_owner_cpos.py::test_a8_navigation_and_a_refused_verify_leave_everything_unchanged  # same
+tests/test_owner_cpos.py::test_a8_other_hash_seed_gives_identical_page_and_proof  # same
+tests/test_owner_cpos.py::test_hash_links_are_in_the_oracle_superset_and_all_resolve[s1a_blocked_cp1a]  # same
+tests/test_owner_cpos.py::test_hash_links_are_in_the_oracle_superset_and_all_resolve[s1a_gap]  # same
+tests/test_owner_cpos.py::test_hash_links_are_in_the_oracle_superset_and_all_resolve[s1a_positive]  # same
+tests/test_owner_cpos.py::test_hash_links_are_in_the_oracle_superset_and_all_resolve[s1a_refused_cp1a]  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_cpos.py::test_row_link_facts_agree_with_the_real_head_views[s1a_blocked_cp1a]  # fixture: publication refused (publication_refused)
+tests/test_owner_cpos.py::test_row_link_facts_agree_with_the_real_head_views[s1a_gap]  # same
+tests/test_owner_cpos.py::test_row_link_facts_agree_with_the_real_head_views[s1a_positive]  # same
+tests/test_owner_cpos.py::test_row_link_facts_agree_with_the_real_head_views[s1a_refused_cp1a]  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_cpos.py::test_rows_destinations_and_tally_match_oracle[s1a_blocked_cp1a]  # fixture: publication refused (publication_refused)
+tests/test_owner_cpos.py::test_rows_destinations_and_tally_match_oracle[s1a_gap]  # same
+tests/test_owner_cpos.py::test_rows_destinations_and_tally_match_oracle[s1a_positive]  # same
+tests/test_owner_cpos.py::test_rows_destinations_and_tally_match_oracle[s1a_refused_cp1a]  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_cpos.py::test_search_probes_match_oracle[s1a_blocked_cp1a]  # fixture: publication refused (publication_refused)
+tests/test_owner_cpos.py::test_search_probes_match_oracle[s1a_gap]  # same
+tests/test_owner_cpos.py::test_search_probes_match_oracle[s1a_positive]  # same
+tests/test_owner_cpos.py::test_search_probes_match_oracle[s1a_refused_cp1a]  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_cpos.py::test_verify_navigation_accepts_the_genuine_page_and_proof[s1a_blocked_cp1a]  # fixture: publication refused (publication_refused)
+tests/test_owner_cpos.py::test_verify_navigation_accepts_the_genuine_page_and_proof[s1a_gap]  # same
+tests/test_owner_cpos.py::test_verify_navigation_accepts_the_genuine_page_and_proof[s1a_positive]  # same
+tests/test_owner_cpos.py::test_verify_navigation_accepts_the_genuine_page_and_proof[s1a_refused_cp1a]  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_s1a.py::test_blocked_cp1a_still_begins_cp2_and_publishes  # fixture: publication refused (publication_refused)
+tests/test_owner_s1a.py::test_cp1a_claims_and_limitations[gap]  # same
+tests/test_owner_s1a.py::test_cp1a_claims_and_limitations[positive]  # same
+tests/test_owner_s1a.py::test_cp1a_gap_case_keeps_ownership_and_transaction_unsettled[gap]  # same
+tests/test_owner_s1a.py::test_cp1a_gap_case_keeps_ownership_and_transaction_unsettled[positive]  # same
+tests/test_owner_s1a.py::test_cp1a_invented_validator_issue_refuses  # same
+tests/test_owner_s1a.py::test_cp1a_tables_match_oracle[gap]  # same
+tests/test_owner_s1a.py::test_cp1a_tables_match_oracle[positive]  # same
+tests/test_owner_s1a.py::test_cp1a_truncated_issue_list_still_verifies  # same
+tests/test_owner_s1a.py::test_cp1a_without_business_page3_read_is_invalid_and_repairs  # same
+tests/test_owner_s1a.py::test_cp1a_without_search_is_invalid_on_the_absence_rule  # same
+tests/test_owner_s1a.py::test_cp2_claims_signals_figures_and_limitations[gap]  # same
+tests/test_owner_s1a.py::test_cp2_claims_signals_figures_and_limitations[positive]  # same
+tests/test_owner_s1a.py::test_cp2_confidence_is_never_high[gap]  # same
+tests/test_owner_s1a.py::test_cp2_confidence_is_never_high[positive]  # same
+tests/test_owner_s1a.py::test_cp2_read_body_is_the_frozen_core_view[gap]  # same
+tests/test_owner_s1a.py::test_cp2_read_body_is_the_frozen_core_view[positive]  # same
+tests/test_owner_s1a.py::test_cp2_tables_match_oracle[gap]  # same
+tests/test_owner_s1a.py::test_cp2_tables_match_oracle[positive]  # same
+tests/test_owner_s1a.py::test_cp2_unreplaced_figure_is_invalid_then_repaired  # same
+tests/test_owner_s1a.py::test_downstream_consumption_inputs[gap]  # same
+tests/test_owner_s1a.py::test_downstream_consumption_inputs[positive]  # same
+tests/test_owner_s1a.py::test_forgery_cp_model_attempt_bound_to_another_cp1_refuses  # publication_refused
+tests/test_owner_s1a.py::test_forgery_cp_model_attempt_with_cp1_dropped_from_inputs_refuses  # same
+tests/test_owner_s1a.py::test_forgery_cp_model_failed_first_publication_on_forged_inputs_refuses  # same
+tests/test_owner_s1a.py::test_forgery_cp_model_failed_publication_rewritten_interruption_refuses  # same
+tests/test_owner_s1a.py::test_forgery_cp_model_failed_publication_rewritten_issues_refuses  # same
+tests/test_owner_s1a.py::test_inherited_limitations_follow_the_rule[gap]  # fixture: publication refused (publication_refused)
+tests/test_owner_s1a.py::test_inherited_limitations_follow_the_rule[positive]  # same
+tests/test_owner_s1a.py::test_model_publication_and_receipt_verify_read_only[gap]  # same
+tests/test_owner_s1a.py::test_model_publication_and_receipt_verify_read_only[positive]  # same
+tests/test_owner_s1a.py::test_plan_attempts_heads_and_cp0[gap]  # same
+tests/test_owner_s1a.py::test_plan_attempts_heads_and_cp0[positive]  # same
+tests/test_owner_s1a.py::test_tampering_refuses_with_identity_mismatch[gap]  # same
+tests/test_owner_s1a.py::test_tampering_refuses_with_identity_mismatch[positive]  # same
+tests/test_owner_s1a.py::test_tool_use_per_oracle[gap]  # same
+tests/test_owner_s1a.py::test_tool_use_per_oracle[positive]  # same
+tests/test_owner_s1a.py::test_unauthorized_cp1a_is_refused_and_cp_model_publishes  # fixture: publication refused (cp1a_not_authorized)
+tests/test_owner_workflow.py::test_equivalence_positive  # publication_refused
+tests/test_owner_workflow.py::test_publish_failure_outside_value_error_still_quarantines  # same
+tests/test_owner_workflow.py::test_tamper_and_foreign_store_refuse  # same
+tests/test_owner_workflow.py::test_verifier_is_read_only  # same
+tests/test_run_pathway_cpdr.py::test_a_resumed_run_records_the_bare_anchor_fault  # stub has no delivery_scope
+tests/test_run_pathway_cpdr.py::test_a_stop_whose_head_state_recurses_deeply_is_named_not_a_crash  # same
+tests/test_run_pathway_cpdr.py::test_anchor_fault_stops_the_run  # same

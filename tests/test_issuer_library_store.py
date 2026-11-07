@@ -447,3 +447,194 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
     output = result["outputs"]["web-1/CP-1.md"]
     assert output["summary"] is None
     assert any(s["heading"] == "Chart data: leverage" for s in output["sections"])
+
+
+# Issuer identity: expected keys, headings and terms are written here, not computed by the store.
+def view_delivery(
+    root: Path, folder: str, run_id: str, issuer_id: str | None, name: str, available: bool = True
+) -> dict:
+    """A deliverable whose view.json says which run and issuer it belongs to; returns its catalogue artifact."""
+    run = {"run_id": run_id, "issuer_name": name, "as_of": "2025-06-30"}
+    if issuer_id is not None:
+        run["issuer_id"] = issuer_id
+    files = {
+        "report.html": put(root, f"{folder}/report.html", "<html>r</html>"),
+        "view.json": put(root, f"{folder}/view.json", json.dumps({"run": run})),
+    }
+    put(root, f"{folder}/delivery.json", json.dumps({"files": files}))
+    href = f"/files/{folder}/report.html?sha256=x"
+    return {
+        "folder": folder,
+        "label": folder,
+        "state": "final",
+        "available": available,
+        "href": href,
+    }
+
+
+def identity_catalogue(root: Path, runs: dict, deliveries: list) -> dict:
+    """runs: folder -> (catalogue name or None for the folder name, catalogue issuer or None, manifest or None)."""
+    real = []
+    for folder, (name, issuer, manifest) in runs.items():
+        put(root, f"runs/{folder}/CP-0.md", "# CP-0\n\n## Request\n\nText.\n")
+        if manifest is not None:
+            put(root, f"runs/{folder}/workflow.json", json.dumps({"run": manifest}))
+        real.append(
+            {
+                "id": folder,
+                "name": name or folder,
+                "issuer": issuer or "Unclassified",
+                "sector": "",
+                "period": "",
+                "artifacts": [],
+            }
+        )
+    for artifact in deliveries:
+        pseudo = {"id": f"delivery:{Path(artifact['folder']).name}", "name": "x", "sector": ""}
+        real.append({**pseudo, "period": "", "artifacts": [artifact]})
+    return {"issues": [], "real": real}
+
+
+def identities(tmp_path, runs, deliveries=()):
+    result = store.workspace_store(tmp_path, identity_catalogue(tmp_path, runs, list(deliveries)))
+    return result, result["runs"]
+
+
+def test_agreeing_deliveries_name_an_otherwise_unrecorded_run(tmp_path):
+    first = view_delivery(tmp_path, "deliverables/d1", "plain-001", "DLT", "Delta Corp")
+    second = view_delivery(tmp_path, "deliverables/d2", "plain-001", "dlt", "Delta Corp")
+    result, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [first, second])
+    run = runs["plain-001"]
+    assert (run["issuer"], run["title"]) == ("Delta Corp", "Delta Corp")
+    assert (run["issuerKey"], run["issuerHeading"]) == ("id:dlt", "Delta Corp")
+    assert run["issuerTerms"] == ["DLT", "Delta Corp"]
+    assert not any("different issuers" in issue for issue in result["issues"])
+
+
+def test_disagreeing_deliveries_leave_the_run_unrecorded_and_say_so(tmp_path):
+    one = view_delivery(tmp_path, "deliverables/d1", "plain-001", "AAA", "Alpha Corp")
+    other = view_delivery(tmp_path, "deliverables/d2", "plain-001", "BBB", "Beta Corp")
+    result, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [one, other])
+    run = runs["plain-001"]
+    assert (run["issuer"], run["issuerKey"], run["issuerHeading"], run["issuerTerms"]) == (
+        "plain-001",
+        None,
+        None,
+        [],
+    )
+    assert (
+        "runs/plain-001: deliverables name different issuers; issuer left unrecorded"
+        in result["issues"]
+    )
+
+
+def test_deliveries_that_agree_on_the_id_but_not_the_name_disagree(tmp_path):
+    one = view_delivery(tmp_path, "deliverables/d1", "plain-001", "AAA", "Alpha Corp")
+    other = view_delivery(tmp_path, "deliverables/d2", "plain-001", "AAA", "Alpha Corporation")
+    result, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [one, other])
+    assert runs["plain-001"]["issuerKey"] is None
+    assert any("different issuers" in issue for issue in result["issues"])
+
+
+def test_an_unavailable_delivery_names_nobody(tmp_path):
+    gone = view_delivery(tmp_path, "deliverables/d1", "plain-001", "AAA", "Alpha", available=False)
+    result, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [gone])
+    assert runs["plain-001"]["issuerKey"] is None and runs["plain-001"]["issuer"] == "plain-001"
+    assert not any("different issuers" in issue for issue in result["issues"])
+
+
+def test_a_delivery_for_another_run_names_nobody(tmp_path):
+    other = view_delivery(tmp_path, "deliverables/d1", "someone-else", "AAA", "Alpha")
+    _, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [other])
+    assert runs["plain-001"]["issuerKey"] is None
+
+
+def test_a_recorded_name_outranks_a_delivery(tmp_path):
+    delivered = view_delivery(tmp_path, "deliverables/d1", "named-001", "ZZZ", "Delivered Name")
+    manifest = {"issuer_name": "Manifest Name", "issuer_id": "MAN"}
+    _, runs = identities(tmp_path, {"named-001": (None, None, manifest)}, [delivered])
+    assert (runs["named-001"]["issuer"], runs["named-001"]["issuerKey"]) == (
+        "Manifest Name",
+        "id:man",
+    )
+
+
+def test_the_catalogue_name_counts_only_when_it_differs_from_the_folder(tmp_path):
+    seeded = {"seed-001": ("Seed Co", "SEED", None), "bare-001": (None, "BARE", None)}
+    _, runs = identities(tmp_path, seeded)
+    assert (runs["seed-001"]["issuer"], runs["seed-001"]["issuerKey"]) == ("Seed Co", "id:seed")
+    assert (runs["bare-001"]["issuer"], runs["bare-001"]["issuerKey"]) == ("bare-001", None)
+
+
+def test_ids_that_differ_only_in_case_join_runs_under_the_most_frequent_name(tmp_path):
+    spec = {
+        "a-001": (None, None, {"issuer_name": "Xyz Corporation", "issuer_id": "XYZ"}),
+        "b-001": (None, None, {"issuer_name": "Xyz Corp", "issuer_id": "xyz"}),
+        "c-001": (None, None, {"issuer_name": "Xyz Corp", "issuer_id": "Xyz"}),
+    }
+    _, runs = identities(tmp_path, spec)
+    assert {run["issuerKey"] for run in runs.values()} == {"id:xyz"}
+    assert {run["issuerHeading"] for run in runs.values()} == {"Xyz Corp"}
+    assert runs["a-001"]["issuerTerms"] == ["XYZ", "Xyz", "Xyz Corp", "Xyz Corporation", "xyz"]
+    assert runs["a-001"]["issuer"] == "Xyz Corporation"
+
+
+def test_an_exact_recorded_name_joins_runs_without_ids_and_transitively(tmp_path):
+    spec = {
+        "a-001": (None, None, {"issuer_name": "Same Name"}),
+        "b-001": (None, None, {"issuer_name": "Same Name", "issuer_id": "SN"}),
+        "c-001": (None, None, {"issuer_name": "Other Name", "issuer_id": "sn"}),
+        "d-001": (None, None, {"issuer_name": "same name"}),
+    }
+    _, runs = identities(tmp_path, spec)
+    assert {runs[k]["issuerKey"] for k in ("a-001", "b-001", "c-001")} == {"id:sn"}
+    assert runs["d-001"]["issuerKey"] == "name:same name"
+    assert runs["d-001"]["issuerTerms"] == ["same name"]
+
+
+def test_a_group_without_an_id_is_keyed_by_its_heading(tmp_path):
+    spec = {"a-001": (None, None, {"issuer_name": "No Id Inc"})}
+    _, runs = identities(tmp_path, spec)
+    assert (runs["a-001"]["issuerKey"], runs["a-001"]["issuerHeading"]) == (
+        "name:No Id Inc",
+        "No Id Inc",
+    )
+
+
+def test_a_tied_heading_goes_to_the_alphabetically_first_name(tmp_path):
+    spec = {
+        "a-001": (None, None, {"issuer_name": "beta Co", "issuer_id": "K"}),
+        "b-001": (None, None, {"issuer_name": "Alpha Co", "issuer_id": "K"}),
+        "c-001": (None, None, {"issuer_name": "Alpha co", "issuer_id": "K"}),
+    }
+    _, runs = identities(tmp_path, spec)
+    assert {run["issuerHeading"] for run in runs.values()} == {"Alpha Co"}
+
+
+def test_a_curated_name_comes_first_and_an_unrecorded_run_shares_no_group(tmp_path):
+    spec = {
+        "tdg-002": (None, "TDG", {"issuer_name": "Manifest Loses", "issuer_id": "TDG"}),
+        "blank-001": (None, None, None),
+        "blank-002": (None, None, None),
+    }
+    _, runs = identities(tmp_path, spec)
+    assert (runs["tdg-002"]["issuer"], runs["tdg-002"]["issuerKey"]) == (
+        "TransDigm Group",
+        "id:tdg",
+    )
+    for folder in ("blank-001", "blank-002"):
+        assert [runs[folder][f] for f in ("issuerKey", "issuerHeading", "issuerTerms")] == [
+            None,
+            None,
+            [],
+        ]
+
+
+def test_a_report_takes_the_key_of_the_group_holding_its_issuer_id(tmp_path):
+    spec = {"a-001": (None, None, {"issuer_name": "Alpha Co", "issuer_id": "ALP"})}
+    held = view_delivery(tmp_path, "deliverables/held", "elsewhere", "alp", "Alpha Co")
+    loose = view_delivery(tmp_path, "deliverables/loose", "elsewhere", "NEW", "New Co")
+    anonymous = view_delivery(tmp_path, "deliverables/anon", "elsewhere", None, "Nameless")
+    result, _ = identities(tmp_path, spec, [held, loose, anonymous])
+    keys = {report["id"]: report["issuerKey"] for report in result["reports"]}
+    assert keys == {"held": "id:alp", "loose": "id:new", "anon": None}

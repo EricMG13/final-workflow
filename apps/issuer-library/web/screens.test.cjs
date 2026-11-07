@@ -320,3 +320,33 @@ test('layout: toggle label, issuer title, library band offset and row labels', a
   for(const c of cells)assert.ok(c.dataset.label,c.outerHTML);
   assert.deepEqual([...new Set(cells.map(c=>c.dataset.label))].sort(),['Period','Reports','Run','Workflow']);
 });
+
+test('a group stays open across searches because its state is keyed by the issuer key',async t=>{
+  const w=fixture('W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const group=()=>d.querySelector('tbody.run-list[data-group="id:tdg"]');
+  group().querySelector('.run-toggle').click();
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
+  assert.deepEqual([...w.eval('expandedIssuers')],['id:tdg']);
+  const box=d.getElementById('library-query');
+  box.value='transdigm';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
+  assert.ok([...group().querySelectorAll('.run-row')].every(row=>!row.hidden));
+});
+
+test('other runs of the issuer are found by issuer key, never by display name, and an unrecorded run matches nothing',async t=>{
+  const w=fixture('W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const module=w.eval(`Object.keys(moduleNames).find(m=>isAnalytical(m)&&contexts['tdg-003'].modules[m]?.outputs.length&&!contexts['tdg-002'].modules[m]?.outputs.length)`);
+  assert.ok(module,'the fixture has a module tdg-003 holds and tdg-002 lacks');
+  const others=()=>[...d.querySelectorAll('.available-case a')].map(a=>text(a)),third=w.eval(`contexts['tdg-003'].run`);
+  const show=async()=>{await go(w,'W-Help/help');await go(w,`${module}?c=tdg-002`);};
+  await show();
+  assert.ok(others().includes(third),'a run of the same issuer is offered');
+  w.eval(`contexts['tdg-003'].issuer='A different recorded name'`);await show();
+  assert.ok(others().includes(third),'a different recorded name is still the same issuer');
+  w.eval(`contexts['tdg-003'].issuerKey='id:someone-else'`);await show();
+  assert.ok(!others().includes(third),'another key is another issuer');
+  w.eval(`contexts['tdg-003'].issuerKey=null;contexts['tdg-002'].issuerKey=null`);await show();
+  assert.deepEqual(others(),[],'an unrecorded issuer equals nothing, not even itself');
+  assert.equal(w.eval('sameIssuer(null,null)'),false);
+  assert.equal(w.eval('issuerReports("tdg-002").length'),0);
+});

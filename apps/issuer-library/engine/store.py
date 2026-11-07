@@ -9,6 +9,7 @@ import hashlib
 import json
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 from urllib.parse import quote
 
@@ -501,8 +502,8 @@ def built_from(folder, sources):
     return rows
 
 
-def catalogue_reports(root, catalogue, sources):
-    """Deliverables the server verified, each once, with what it was built from."""
+def catalogue_reports(root, catalogue, sources, keys):
+    """Deliverables the server verified, each once, with what it was built from; keys maps issuer IDs to group keys."""
     reports, seen, issues = [], set(), []
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
@@ -518,6 +519,7 @@ def catalogue_reports(root, catalogue, sources):
                     "run"
                 ]
                 issuer_name, as_of = identity["issuer_name"], identity["as_of"]
+                issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
             except (OSError, ValueError, KeyError) as error:
                 issues.append(f"{folder}: could not be read ({error!r})")
                 continue
@@ -536,6 +538,7 @@ def catalogue_reports(root, catalogue, sources):
                     "label": label,
                     "status": status,
                     "issuer": issuer,
+                    "issuerKey": issuer_key,
                     "sha256": delivery["files"]["report.html"],
                     "scope": delivery.get("scope"),
                     "modelPublished": delivery.get("cp_model_published", False),
@@ -568,11 +571,119 @@ def recorded_run(run_dir):
         return {}
 
 
-def run_row(root, run):
+def delivery_identities(root, catalogue):
+    """What each available (hash-verified) deliverable says about its own run and issuer.
+
+    A deliverable whose view.json cannot be read is skipped here; catalogue_reports names it in
+    Workspace issues, so the failure is reported once and no run takes an identity from it.
+    """
+    found, seen = [], set()
+    for run in catalogue["real"]:
+        for artifact in run.get("artifacts") or []:
+            folder = artifact["folder"]
+            if not artifact.get("available") or folder in seen:
+                continue
+            seen.add(folder)
+            try:
+                identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))[
+                    "run"
+                ]
+                run_id, name = identity["run_id"], identity["issuer_name"]
+                issuer_id = identity.get("issuer_id") or None
+            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+                continue
+            if isinstance(run_id, str) and isinstance(name, str) and name:
+                valid_id = issuer_id if isinstance(issuer_id, str) else None
+                found.append(
+                    {"folder": folder, "run_id": run_id, "issuer_id": valid_id, "issuer_name": name}
+                )
+    return sorted(found, key=lambda item: item["folder"])
+
+
+def recorded_identity(run_dir, run, curated_name, delivered):
+    """A run's recorded issuer (name, ID) and, if its deliverables disagree, the issue to report.
+
+    Name: curated, else the launcher manifest, else a catalogue name unlike the folder, else what
+    its deliverables agree on. ID: manifest, else the catalogue's issuer, else the deliverables'.
+    """
+    manifest = recorded_run(run_dir)
+    name = (
+        curated_name
+        or manifest.get("issuer_name")
+        or (run["name"] if run["name"] != run["id"] else None)
+        or None
+    )
+    seeded = run.get("issuer")
+    issuer_id = manifest.get("issuer_id") or (seeded if seeded != "Unclassified" else None) or None
+    if name:
+        return name, issuer_id, None
+    said = {}
+    for (
+        item
+    ) in delivered:  # In folder order, so the first deliverable's spelling of the ID is kept.
+        said.setdefault(((item["issuer_id"] or "").casefold(), item["issuer_name"]), item)
+    if len(said) > 1:
+        return None, issuer_id, "deliverables name different issuers; issuer left unrecorded"
+    if said:
+        (agreed,) = said.values()
+        return agreed["issuer_name"], issuer_id or agreed["issuer_id"], None
+    return None, issuer_id, None
+
+
+def issuer_groups(recorded):
+    """Group runs by issuer. recorded maps run key to (name or None, ID or None).
+
+    Runs with a name join when they share a case-folded ID or an exact name, transitively. Returns
+    the identity fields of every run and a map from each case-folded ID to its group's key.
+    """
+    named = {key: pair for key, pair in recorded.items() if pair[0]}
+    parent = {key: key for key in named}
+
+    def root_of(key):
+        while parent[key] != key:
+            parent[key] = parent[parent[key]]
+            key = parent[key]
+        return key
+
+    first = {}
+    for key, (name, issuer_id) in named.items():
+        for token in [("name", name), *([("id", issuer_id.casefold())] if issuer_id else [])]:
+            parent[root_of(key)] = root_of(first.setdefault(token, key))
+    members = {}
+    for key in named:
+        members.setdefault(root_of(key), []).append(key)
+    fields = {
+        key: {"issuerKey": None, "issuerHeading": None, "issuerTerms": []} for key in recorded
+    }
+    keys = {}
+    for group in members.values():
+        names = Counter(named[key][0] for key in group)
+        heading = min(names, key=lambda name: (-names[name], name.casefold(), name))
+        ids = {named[key][1] for key in group if named[key][1]}
+        folded = {issuer_id.casefold() for issuer_id in ids}
+        group_key = f"id:{min(folded)}" if folded else f"name:{heading}"
+        keys |= dict.fromkeys(folded, group_key)
+        for key in group:
+            fields[key] = {
+                "issuerKey": group_key,
+                "issuerHeading": heading,
+                "issuerTerms": sorted({*names, *ids}),
+            }
+    return fields, keys
+
+
+def report_issuer_key(keys, issuer_id):
+    """The key of the group holding a report's issuer ID, or one built from that ID alone."""
+    if not isinstance(issuer_id, str) or not issuer_id:
+        return None
+    return keys.get(issuer_id.casefold(), f"id:{issuer_id.casefold()}")
+
+
+def run_row(root, run, name=None):
     """Labels for a run with no curated ones: the launcher's own manifest, else the catalogue."""
     folder = run["id"]
     identity = recorded_run(root / "runs" / folder)
-    issuer = identity.get("issuer_name") or run["name"]
+    issuer = name or identity.get("issuer_name") or run["name"]
     period = (
         f"As of {identity['as_of']}"
         if identity.get("as_of")
@@ -588,7 +699,10 @@ def workspace_store(root, catalogue):
     root = Path(root)
     catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
     curated = {row[0]: (key, row) for key, row in CURATED_RUNS.items()}
-    shown, issues = {}, list(catalogue.get("issues") or [])
+    shown, issues, recorded = {}, list(catalogue.get("issues") or []), {}
+    delivered = {}
+    for item in delivery_identities(root, catalogue):
+        delivered.setdefault(item["run_id"], []).append(item)
     for run in catalogue["real"]:
         folder = run["id"]
         if folder.startswith("delivery:"):
@@ -596,8 +710,14 @@ def workspace_store(root, catalogue):
         if not SAFE_FOLDER.fullmatch(folder):
             issues.append(f"{folder}: folder name cannot be linked; rename it to show this run")
             continue
-        key, row = curated.get(folder) or (folder, run_row(root, run))
-        shown[key] = row
+        key, row = curated.get(folder) or (folder, None)
+        name, issuer_id, problem = recorded_identity(
+            root / "runs" / folder, run, row and row[1], delivered.get(folder, [])
+        )
+        if problem:
+            issues.append(f"runs/{folder}: {problem}")
+        shown[key] = row or run_row(root, run, name)
+        recorded[key] = (name, issuer_id)
 
     def link(folder, relative, digest):
         return f"/files/{quote(f'runs/{folder}/{relative}')}?sha256={digest}"
@@ -617,7 +737,10 @@ def workspace_store(root, catalogue):
             sources.setdefault(digest, []).extend(matches)
         pins |= part[4]
         found += part[5]
-    reports, unread = catalogue_reports(root, catalogue, sources)
+    fields, keys = issuer_groups({key: recorded[key] for key in runs})
+    for key, identity in fields.items():
+        runs[key].update(identity)
+    reports, unread = catalogue_reports(root, catalogue, sources, keys)
     found += unread
     for module, config in catalog.items():
         compare = config.get("compare")

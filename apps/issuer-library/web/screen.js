@@ -304,7 +304,7 @@ function parseRoute() {
   let context=Object.hasOwn(contexts,requestedContext)?requestedContext:fallback||current?.context||Object.keys(contexts)[0]||null;
   // A deliverable opens under a run of its own issuer, or under none if no run file matches.
   const report=module==='W-Reports'&&window.DESIGN_WORKSPACE.reports.find(r=>r.id===requestedSection);
-  if(report&&contexts[context]?.issuer!==report.issuer)context=tracedRun(report);
+  if(report&&!sameIssuer(contexts[context]?.issuerKey,report.issuerKey))context=tracedRun(report);
   if(!context&&!appDestinations.has(module)&&module!=='W-Reports')module='W-Library';
   const output=resolveOutput(module,context,params.get('o'));
   const sections=navigationSections(module,context,output),first=output?modules[output].first:modules[module]?.first;
@@ -427,7 +427,7 @@ document.addEventListener('click',event=>{
   if(summary?.parentElement.dataset.group)expandedGroups.set(summary.parentElement.dataset.group,!summary.parentElement.open);
   const toggle=event.target.closest('.run-toggle');
   if(toggle){
-    const open=toggle.getAttribute('aria-expanded')!=='true',issuer=toggle.closest('tbody').querySelector('h2').textContent;
+    const open=toggle.getAttribute('aria-expanded')!=='true',issuer=toggle.closest('tbody').dataset.group;
     if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
     toggle.setAttribute('aria-expanded',String(open));toggle.getAttribute('aria-controls').split(' ').forEach(id=>{$(id).hidden=!open;});return;
   }

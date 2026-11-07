@@ -807,7 +807,7 @@ test('Run inputs can be committed and the CP-8 rule is current',()=>{
 });
 
 // ---- One app: navigation across destinations and deliverables, over any workspace. ----
-const NORTHBRIDGE={runs:{'web-1':{folder:'web-1',issuer:'Northbridge',title:'Northbridge',run:'WEB-1',sector:'Industrials',period:'As of 2025-03-31',first:'CP-0',modules:{
+const NORTHBRIDGE={runs:{'web-1':{folder:'web-1',issuer:'Northbridge',issuerKey:'id:northbridge',issuerHeading:'Northbridge',issuerTerms:['Northbridge'],title:'Northbridge',run:'WEB-1',sector:'Industrials',period:'As of 2025-03-31',first:'CP-0',modules:{
   'CP-0':{outputs:['web-1/deliveries/abc/CP-0.md'],inputs:[],default:'web-1/deliveries/abc/CP-0.md'},
   'CP-4A':{outputs:['web-1/CP-4A.md'],inputs:[],default:'web-1/CP-4A.md'}}}},
 outputs:{
@@ -815,8 +815,8 @@ outputs:{
   'web-1/CP-4A.md':{id:'web-1/CP-4A.md',run:'web-1',module:'CP-4A',source:'CP-4A.md',file:'web-1--CP-4A.md',href:'/files/runs/web-1/CP-4A.md?sha256=cc',label:'CP-4A',sha256:'cc'.repeat(32),case:'Northbridge · WEB-1',period:'As of 2025-03-31',scope:'Retained module output',firstHeading:null,parseError:'Body before first heading',sections:[{heading:'Unstructured handoff',level:1,line:1,blocks:[{type:'text',line:1,end:1,text:'Body <b>raw</b>'}]}]}},
 inputs:{},pins:{}};
 const NORTHBRIDGE_REPORTS={reports:[
-  {id:'abc',build:null,label:'Northbridge · as of 2025-03-31',status:null,issuer:'Northbridge',sha256:'r',scope:'s',modelPublished:false,href:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&embedded=1',download:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&download=1',files:[{name:'report.html',href:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&download=1'}],builtFrom:[{module:'CP-0',sha256:'aa'.repeat(32),run:'web-1',source:'web-1/deliveries/abc/CP-0.md',output:true},{module:'CP-9',sha256:'bb'.repeat(32),run:null,source:'CP-9.md',output:false}]},
-  {id:'orphan',build:null,label:'Gamma · as of 2024-01-31',status:null,issuer:'Gamma',sha256:'o',scope:'s',modelPublished:false,href:'/files/deliverables/orphan/report.html?sha256=o&embedded=1',download:'/files/deliverables/orphan/report.html?sha256=o&download=1',files:[],builtFrom:[{module:'CP-1',sha256:'dd'.repeat(32),run:null,source:'CP-1.md',output:false}]}],visuals:[]};
+  {id:'abc',build:null,label:'Northbridge · as of 2025-03-31',status:null,issuer:'Northbridge',issuerKey:'id:northbridge',sha256:'r',scope:'s',modelPublished:false,href:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&embedded=1',download:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&download=1',files:[{name:'report.html',href:'/files/runs/web-1/deliveries/abc/report.html?sha256=r&download=1'}],builtFrom:[{module:'CP-0',sha256:'aa'.repeat(32),run:'web-1',source:'web-1/deliveries/abc/CP-0.md',output:true},{module:'CP-9',sha256:'bb'.repeat(32),run:null,source:'CP-9.md',output:false}]},
+  {id:'orphan',build:null,label:'Gamma · as of 2024-01-31',status:null,issuer:'Gamma',issuerKey:'id:gamma',sha256:'o',scope:'s',modelPublished:false,href:'/files/deliverables/orphan/report.html?sha256=o&embedded=1',download:'/files/deliverables/orphan/report.html?sha256=o&download=1',files:[],builtFrom:[{module:'CP-1',sha256:'dd'.repeat(32),run:null,source:'CP-1.md',output:false}]}],visuals:[]};
 const EMPTY={runs:{},outputs:{},inputs:{},pins:{}};
 function appFixture(hash,store,workspace,app={workspace:'/research',policy_locked:false,issues:[],problem:''}) {
   const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only'});
@@ -929,7 +929,7 @@ test('Names from a workspace stay text on every destination',()=>{
   const bad='"><img src=x onerror=alert(1)>',store=JSON.parse(JSON.stringify(NORTHBRIDGE)),workspace=JSON.parse(JSON.stringify(NORTHBRIDGE_REPORTS));
   for(const key of ['issuer','title','run','sector','period'])store.runs['web-1'][key]=bad+key;
   for(const output of Object.values(store.outputs))for(const key of ['label','source','case','period','scope','parseError'])if(key in output)output[key]=bad+key;
-  for(const report of workspace.reports){for(const key of ['label','status','scope'])report[key]=bad+key;report.files=[{name:bad,href:'/files/x'}];for(const row of report.builtFrom||[])row.source=bad;}
+  for(const report of workspace.reports){for(const key of ['label','status','scope'])report[key]=bad+key;report.files=[{name:bad,href:'/files/x'}];for(const row of report.builtFrom||[])if(!row.output)row.source=bad;} // A matched row names a real output; only an unmatched one carries free text.
   const dom=appFixture('W-Library/cases',store,workspace,{workspace:bad,policy_locked:false,issues:[bad],problem:bad}),d=dom.window.document;
   for(const route of ['W-Library/cases','W-Overview?c=web-1','CP-0?c=web-1','CP-4A?c=web-1','W-Evidence?c=web-1','W-Calendar?c=web-1','CP-OS?c=web-1','W-Reports/list?c=web-1','W-Reports/abc?c=web-1','W-Reports/orphan','W-Settings/workspace','W-Help/help','W-NewRun/run']){
     goTo(dom,route);

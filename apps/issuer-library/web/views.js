@@ -46,7 +46,9 @@ function availability(module,context) {
 }
 const contextModules=context=>Object.keys(contexts[context].modules).filter(id=>contexts[context].modules[id].outputs.length);
 const outputCount=context=>contextModules(context).reduce((sum,id)=>sum+contexts[context].modules[id].outputs.length,0);
-const issuerReports=context=>window.DESIGN_WORKSPACE.reports.filter(r=>!context||r.issuer===contexts[context].issuer);
+// One issuer is one issuerKey, whatever names its runs were recorded under; an unrecorded issuer (null) equals nothing.
+const sameIssuer=(a,b)=>a!=null&&a===b;
+const issuerReports=context=>window.DESIGN_WORKSPACE.reports.filter(r=>!context||sameIssuer(r.issuerKey,contexts[context].issuerKey));
 const reportsBuiltFrom=context=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.run===context));
 const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.source===output));
 const tracedRun=report=>report.builtFrom.find(b=>b.run)?.run||null;
@@ -234,7 +236,7 @@ function outlineMarkup(id) {
 }
 function unavailableView(module) {
   const ctx=contexts[current.context],entry=moduleEntry(module,current.context),label=availability(module,current.context);
-  const others=Object.entries(contexts).filter(([key,run])=>key!==current.context&&run.issuer===ctx.issuer&&run.modules[module]?.outputs.length);
+  const others=Object.entries(contexts).filter(([key,run])=>key!==current.context&&sameIssuer(run.issuerKey,ctx.issuerKey)&&run.modules[module]?.outputs.length);
   const given=(entry?.inputs||[]).map(id=>store.inputs[id]);
   return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>${label}</h2><p>${entry?`This run keeps ${plural(given.length,'input file')} for ${esc(moduleNames[module])} and no saved output.`:`No ${esc(moduleNames[module])} output file was found in this run. That alone does not show the module was not run or not applicable.`}</p>${given.map(f=>`<p><a href="${esc(f.href)}" download>${esc(f.source)}</a></p>`).join('')}</div>${others.length?`<div class="available-case"><h3>Other ${esc(ctx.issuer)} runs with this module</h3>${others.map(([key,run])=>`<p><a class="text-action" href="${routeHref(module,firstSection(module,key),null,key)}">${esc(run.run)}${icon('arrow-right')}</a></p>`).join('')}</div>`:''}`;
 }
@@ -272,7 +274,7 @@ function sourceInventory(context) {
   return `<div class="source-inventory">${rows.join('')}</div>`;
 }
 function libraryRecords() {
-  return Object.entries(contexts).map(([key,run])=>({key,issuer:run.issuer,sector:run.sector,run:run.run,period:run.period,workflow:run.pathway||'none',year:/^\d{4}/.exec(run.asOf||'')?.[0]||'none',first:run.first,modules:contextModules(key),outputs:outputCount(key),reports:reportsBuiltFrom(key).map(r=>r.id)}));
+  return Object.entries(contexts).map(([key,run])=>({key,issuer:run.issuer,issuerKey:run.issuerKey,heading:run.issuerHeading,terms:run.issuerTerms,sector:run.sector,run:run.run,period:run.period,workflow:run.pathway||'none',year:/^\d{4}/.exec(run.asOf||'')?.[0]||'none',first:run.first,modules:contextModules(key),outputs:outputCount(key),reports:reportsBuiltFrom(key).map(r=>r.id)}));
 }
 // Workflow and as-of come only from what a run recorded; anything else is 'none', shown as Not recorded.
 const workflowName=record=>record.workflow==='none'?'':workflowTitle(record.workflow);
@@ -285,14 +287,15 @@ function filterLibrary(records,filters) {
     if(filters.content==='reports'&&!record.reports.length)return false;
     if(filters.content==='modules'&&!record.outputs)return false;
     if(filters.module!=='all'&&!record.modules.includes(filters.module))return false;
-    const searchable=`${record.issuer} ${record.key} ${record.run} ${record.period} ${workflowName(record)} ${record.sector} ${record.modules.join(' ')}`.toLowerCase();
+    const searchable=`${record.issuer} ${record.terms.join(' ')} ${record.key} ${record.run} ${record.period} ${workflowName(record)} ${record.sector} ${record.modules.join(' ')}`.toLowerCase();
     return terms.every(term=>searchable.includes(term));
   });
 }
 function libraryCount(records) {
-  const issuers=new Set(records.map(r=>r.issuer)).size,reports=new Set(records.flatMap(r=>r.reports)).size;
+  const issuers=new Set(records.map(r=>r.issuerKey).filter(k=>k!==null)).size,reports=new Set(records.flatMap(r=>r.reports)).size;
   return `${plural(issuers,'issuer')} · ${plural(records.length,'run')} · ${plural(reports,'report')}`;
 }
+const UNRECORDED_ISSUER='Issuer not recorded';
 const sectorLabel=sector=>sector==='Unclassified'?'Not recorded':sector;
 const badge=(kind,text)=>`<span class="badge badge-${kind}">${esc(text)}</span>`;
 const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="muted">Not recorded</span>':`<span class="badge badge-blue"><i></i>${esc(workflowTitle(v))}</span>`).join(' ');
@@ -302,13 +305,17 @@ const shortPeriod=period=>period.split(' · ')[0];
 function libraryResults(records) {
   if(!Object.keys(contexts).length)return `<div class="library-empty"><h2>No runs in this workspace yet</h2><p>Start a new run, or choose another workspace folder in Settings.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
   if(!records.length)return '<div class="library-empty"><h2>No matching issuers or runs</h2><p>Try a shorter search or remove a filter.</p></div>';
-  const runCells=r=>`<td data-label="Run"><a class="run-link" href="${routeHref('W-Overview','overview',null,r.key)}">${esc(r.run)}</a></td><td data-label="Workflow">${workflowCell([r.workflow])}</td><td data-label="Period">${esc(shortPeriod(r.period))}</td><td data-label="Reports">${reportCell([r])}</td><td class="row-open">${icon('arrow-right')}</td>`;
+  const runCells=r=>`<td data-label="Run"><a class="run-link" href="${routeHref('W-Overview','overview',null,r.key)}">${esc(r.run)}</a>${r.issuerKey!==null&&r.issuer!==r.heading?`<span class="recorded-as">Recorded as ${esc(r.issuer)}</span>`:''}</td><td data-label="Workflow">${workflowCell([r.workflow])}</td><td data-label="Period">${esc(shortPeriod(r.period))}</td><td data-label="Reports">${reportCell([r])}</td><td class="row-open">${icon('arrow-right')}</td>`;
   let rowNumber=0;const rowId=()=>`run-row-${++rowNumber}`;
-  const groups=[...new Set(records.map(r=>r.issuer))].map(issuer=>{
-    const runs=records.filter(r=>r.issuer===issuer),name=`<th scope="rowgroup"><h2>${esc(issuer)}</h2>${badge('gray',runs[0].sector==='Unclassified'?'Sector not recorded':runs[0].sector)}</th>`;
+  // Runs of one issuer share a group whatever name each recorded; runs with no recorded issuer share the last one.
+  const heading=g=>g===null?UNRECORDED_ISSUER:records.find(r=>r.issuerKey===g).heading;
+  const keys=[...new Set(records.map(r=>r.issuerKey))].sort((a,b)=>a===null?1:b===null?-1:heading(a).localeCompare(heading(b),undefined,{sensitivity:'base'}));
+  const groups=keys.map(issuer=>{
+    const runs=records.filter(r=>r.issuerKey===issuer),sectors=[...new Set(runs.map(r=>r.sector).filter(v=>v!=='Unclassified'))];
+    const name=`<th scope="rowgroup"><h2>${esc(heading(issuer))}</h2>${badge('gray',sectors.length===1?sectors[0]:sectors.length?'Sectors vary':'Sector not recorded')}</th>`;
     if(runs.length===1)return `<tbody class="run-list"><tr class="issuer-row">${name}${runCells(runs[0])}</tr></tbody>`;
-    const open=expandedIssuers.has(issuer),periods=[...new Set(runs.map(r=>shortPeriod(r.period)))];
-    return `<tbody class="run-list"><tr class="issuer-row">${name}<td data-label="Run"><button class="run-toggle" type="button" aria-expanded="${open}" aria-controls="${runs.map((_,i)=>`run-row-${rowNumber+i+1}`).join(' ')}">${plural(runs.length,'run')}${icon('chevron-down')}</button></td><td data-label="Workflow">${workflowCell(runs.map(r=>r.workflow))}</td><td data-label="Period">${periods.length===1?esc(periods[0]):'<span class="muted">Varies</span>'}</td><td data-label="Reports">${reportCell(runs)}</td><td class="row-open"></td></tr>${runs.map(r=>`<tr class="run-row" id="${rowId()}" ${open?'':'hidden'}><td></td>${runCells(r)}</tr>`).join('')}</tbody>`;
+    const groupKey=issuer??'unrecorded',open=expandedIssuers.has(groupKey),periods=[...new Set(runs.map(r=>shortPeriod(r.period)))];
+    return `<tbody class="run-list" data-group="${esc(groupKey)}"><tr class="issuer-row">${name}<td data-label="Run"><button class="run-toggle" type="button" aria-expanded="${open}" aria-controls="${runs.map((_,i)=>`run-row-${rowNumber+i+1}`).join(' ')}">${plural(runs.length,'run')}${icon('chevron-down')}</button></td><td data-label="Workflow">${workflowCell(runs.map(r=>r.workflow))}</td><td data-label="Period">${periods.length===1?esc(periods[0]):'<span class="muted">Varies</span>'}</td><td data-label="Reports">${reportCell(runs)}</td><td class="row-open"></td></tr>${runs.map(r=>`<tr class="run-row" id="${rowId()}" ${open?'':'hidden'}><td></td>${runCells(r)}</tr>`).join('')}</tbody>`;
   });
   return `<table class="case-list"><thead><tr><th scope="col">Issuer</th><th scope="col">Run</th><th scope="col">Workflow</th><th scope="col">Period</th><th scope="col">Reports</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>${groups.join('')}</table>`;
 }
@@ -338,7 +345,7 @@ function reportList(context) {
   const ctx=contexts[context],all=window.DESIGN_WORKSPACE.reports,built=reportsBuiltFrom(context),others=ctx?issuerReports(context).filter(r=>!built.includes(r)):[];
   const rest=all.filter(r=>!built.includes(r)&&!others.includes(r));
   const none='No report was built from this run’s files';
-  const row=r=>`<li class="report-row">${ctx&&r.issuer!==ctx.issuer&&!r.label.trim().startsWith(r.issuer)?`<span class="report-issuer">${esc(r.issuer)} · </span>`:''}<a class="text-action" href="${routeHref('W-Reports',r.id,null,ctx&&r.issuer===ctx.issuer?context:tracedRun(r))}">${esc(reportName(r))}${icon('arrow-right')}</a><span class="code">${esc(r.id)}</span>${r.status?`<span class="badge badge-gray">${esc(r.status)}</span>`:''}</li>`;
+  const row=r=>`<li class="report-row">${ctx&&!sameIssuer(r.issuerKey,ctx.issuerKey)&&!r.label.trim().startsWith(r.issuer)?`<span class="report-issuer">${esc(r.issuer)} · </span>`:''}<a class="text-action" href="${routeHref('W-Reports',r.id,null,ctx&&sameIssuer(r.issuerKey,ctx.issuerKey)?context:tracedRun(r))}">${esc(reportName(r))}${icon('arrow-right')}</a><span class="code">${esc(r.id)}</span>${r.status?`<span class="badge badge-gray">${esc(r.status)}</span>`:''}</li>`;
   const list=(cls,title,reports)=>reports.length?`<section class="${cls}"><h2>${esc(title)}</h2><ol class="report-list">${[...reports].sort(byBuild).map(row).join('')}</ol></section>`:'';
   if(!ctx)return `<p class="intro">${plural(all.length,'deliverable')} in this workspace.</p>${list('report-other','All deliverables',all)}${all.length?'':`<div class="missing-state"><h2>No deliverables yet</h2><p>A run writes its report here when it finishes.</p></div>`}`;
   const heading=!built.length&&!others.length?`<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>${none}</h2></div><a class="text-action" href="#W-Library/cases">Choose another case</a>`:`<p class="intro">${built.length?`${plural(built.length,'report')} built from ${esc(ctx.run)}’s files.`:`${none}.`}</p>`;

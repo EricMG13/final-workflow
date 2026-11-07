@@ -24,6 +24,7 @@ NODE_TESTS = (
     "web/context-embed.test.cjs",
     "web/report-renderer.test.cjs",
     "web/screens.test.cjs",
+    "web/library-workspace.test.cjs",
     "web/screen-css.test.cjs",
 )
 PYTHON_TESTS = (

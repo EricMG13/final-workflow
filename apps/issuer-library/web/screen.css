@@ -270,6 +270,7 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .tools-workspace.has-evidence{grid-template-columns:minmax(0,1fr) 300px}
 .tools-workspace .mobile-modules img{width:15px;height:15px}
 .report-issuer{color:var(--text-tertiary)}
+.recorded-as{display:block;color:var(--text-tertiary);font-size:var(--fs-compact)}
 @media(min-width:1051px){
 .tools-workspace.has-evidence main{grid-column:1}
 .tools-workspace.has-evidence .inspector{grid-column:2}

@@ -12,12 +12,22 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "engine"))
-from store import CURATED_REPORTS, CURATED_RUNS, built_from, collect_runs, sha256, visual_catalogue
+from store import (
+    CURATED_REPORTS,
+    CURATED_RUNS,
+    built_from,
+    collect_runs,
+    issuer_groups,
+    recorded_identity,
+    report_issuer_key,
+    sha256,
+    visual_catalogue,
+)
 
 OUT = ROOT / "artifacts/issuer-library/design-fixture"
 
 
-def prepare_reports(sources):
+def prepare_reports(sources, keys):
     """Keep original bytes, trace each handoff to its run file by hash, and add the app's presentation."""
     reports = []
     web = HERE.parent / "web"
@@ -38,6 +48,7 @@ def prepare_reports(sources):
         )
         (destination / "preview.html").write_text(html, encoding="utf-8")
         delivery = json.loads((folder / "delivery.json").read_text())
+        identity = json.loads((folder / "view.json").read_text(encoding="utf-8"))["run"]
         rows = built_from(folder, sources)
         for row in rows:
             if row["run"] is None:
@@ -53,6 +64,7 @@ def prepare_reports(sources):
                 "label": label,
                 "status": status,
                 "issuer": "TransDigm Group",
+                "issuerKey": report_issuer_key(keys, identity.get("issuer_id")),
                 "sha256": sha256(original),
                 "scope": delivery["scope"],
                 "modelPublished": delivery["cp_model_published"],
@@ -81,6 +93,18 @@ def build():
     for record in [*outputs.values(), *inputs.values()]:
         folder = record["file"].split("--")[0]
         shutil.copyfile(ROOT / "runs" / folder / record["source"], OUT / "sources" / record["file"])
+    # The same identity rules as the app; the seeded catalogue supplies the issuer IDs Go discovery would.
+    seeded = json.loads((HERE.parent / "web/legacy-catalog.json").read_text(encoding="utf-8"))
+    seeds = {run["id"]: run for run in seeded["real"]}
+    recorded = {
+        key: recorded_identity(
+            ROOT / "runs" / row[0], seeds.get(row[0], {"id": row[0], "name": row[0]}), row[1], []
+        )[:2]
+        for key, row in CURATED_RUNS.items()
+    }
+    fields, keys = issuer_groups(recorded)
+    for key, identity in fields.items():
+        runs[key].update(identity)
     store = {"runs": runs, "outputs": outputs, "inputs": inputs, "pins": pins}
     (OUT / "data.js").write_text(
         "window.DESIGN_DATA = "
@@ -88,7 +112,7 @@ def build():
         + ";\n",
         encoding="utf-8",
     )
-    reports = prepare_reports(sources)
+    reports = prepare_reports(sources, keys)
     for module, config in catalog.items():
         compare = config.get("compare")
         if compare:

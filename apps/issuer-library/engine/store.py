@@ -5,6 +5,7 @@ Every page load runs this as its own process, so it imports only the standard li
 """
 
 import csv
+import datetime
 import hashlib
 import json
 import re
@@ -97,6 +98,34 @@ CURATED_REPORTS = {
     "tdg-fy2024-snapshot-7": ("CP-8 repairs applied", "Latest build"),
 }
 SAFE_FOLDER = re.compile(r"[\w. -]+")
+MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
+
+
+def display_date(iso):
+    """`31 December 2024` for a valid YYYY-MM-DD calendar date; any other text unchanged."""
+    if not isinstance(iso, str) or not ISO_DATE.fullmatch(iso):
+        return iso
+    try:
+        day = datetime.date.fromisoformat(iso)
+    except ValueError:
+        return iso
+    return f"{day.day} {MONTHS[day.month - 1]} {day.year}"
+
+
 WEB_RUN = re.compile(r"web-[a-f0-9]{32}")
 
 
@@ -530,7 +559,9 @@ def catalogue_reports(root, catalogue, sources, keys):
             curated = name in CURATED_REPORTS
             issuer = "TransDigm Group" if curated else issuer_name
             default = (
-                artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
+                artifact["label"]
+                if artifact["label"] != name
+                else f"{issuer} · as of {display_date(as_of)}"
             )
             label, status = CURATED_REPORTS.get(
                 name, (default, "Superseded" if artifact.get("state") == "superseded" else None)
@@ -787,7 +818,7 @@ def run_row(root, run, name=None):
     identity = recorded_run(root / "runs" / folder)
     issuer = name or identity.get("issuer_name") or run["name"]
     period = (
-        f"As of {identity['as_of']}"
+        f"As of {display_date(identity['as_of'])}"
         if identity.get("as_of")
         else run.get("period") or "Period not recorded"
     )

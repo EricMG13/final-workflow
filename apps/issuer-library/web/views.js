@@ -1,4 +1,14 @@
 /* Presentation views. No analytical execution. */
+const DISPLAY_MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+// 31 December 2024 for a valid YYYY-MM-DD calendar date; anything else is returned unchanged. Never the OS locale.
+function displayDate(iso) {
+  const m=typeof iso==='string'&&/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if(!m) return iso;
+  const [year,month,day]=[Number(m[1]),Number(m[2]),Number(m[3])],check=new Date(Date.UTC(2000,month-1,day));
+  check.setUTCFullYear(year);
+  if(month<1||month>12||check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day) return iso;
+  return `${day} ${DISPLAY_MONTHS[month-1]} ${year}`;
+}
 function installDestinations() {
   const title = h => h.replace(/^Chart data: /,'').replace(/^T[\w.]+(?:\s*[–/]\s*(?:T[\w.]+|\d+))*\s*[—–]\s*/,'').replace(/^./,s=>s.toUpperCase());
   for (const [id,out] of Object.entries(data)) {

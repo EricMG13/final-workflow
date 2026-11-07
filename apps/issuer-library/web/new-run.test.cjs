@@ -7,7 +7,7 @@ const settle=()=>new Promise(resolve=>setTimeout(resolve,10));
 const ID='web-'+'a'.repeat(32);
 const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'started',spent_usd:'0.10'}};
 const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
-const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 2025-03-31 · ${ID}`;
+const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 31 March 2025 · ${ID}`;
 function reviewReply(ready){return{ok:true,id:ID,review_id:'b'.repeat(64),issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness',purpose:'Check issuer files'},{id:'CP-1',title:'Financial analysis',purpose:'Read financial statements'}],config:'sol-medium',provider:'openai',model:'gpt-6.1-sol',effort:'medium',cap_usd:'10.00',hold_usd:'1.86',max_turns:7,prices_as_of:'2026-11-01',provider_ready:ready,provider_key:'OPENAI_API_KEY',sources:[{path:'filings/annual.txt',sha256:'c'.repeat(64)}],ignored:['chart.png'],report_sections:['liquidity-runway'],omitted:['lme-chart'],scope:'User-launched run; analytical accuracy has not been independently reviewed.'};}
 async function page(t,{ready=true,startFails=false,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
   const errors=[],calls=[];let starts=0;const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
@@ -53,7 +53,7 @@ test('review sends the folder as relative paths with the launcher options, and s
 test('the review shows everything the launcher decided',async t=>{
   const p=await page(t);p.context();p.folder('N/annual.txt');await p.click('review-run');
   const text=p.doc.getElementById('run-review').textContent;
-  for(const expected of ['Northbridge Group','Covenant Refinancing','2025-03-31','openai gpt-6.1-sol · medium','USD 10.00','USD 1.86','Source readiness','chart.png','liquidity-runway','lme-chart','not been independently reviewed','not an estimate of total cost','filings/annual.txt'])assert.ok(text.includes(expected),expected);
+  for(const expected of ['Northbridge Group','Covenant Refinancing','31 March 2025','openai gpt-6.1-sol · medium','USD 10.00','USD 1.86','Source readiness','chart.png','liquidity-runway','lme-chart','not been independently reviewed','not an estimate of total cost','filings/annual.txt'])assert.ok(text.includes(expected),expected);
   assert.equal(p.doc.querySelector('.review-modules').children.length,2);
 });
 test('only an explicitly confirmed Start launches, once',async t=>{

@@ -101,7 +101,7 @@ function installNewRun(){
     }
     const head=`${status.state}: ${status.message||''}`,desc=describeModule(status,modules,titleOf);
     $('run-progress').textContent=desc?`${head} · ${desc}`:head;
-    $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${review.as_of} · ${review.id}`:review?.id||'';
+    $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${displayDate(review.as_of)} · ${review.id}`:review?.id||'';
     const spent=status.spent_usd??status.progress?.spent_usd;
     $('run-spend').textContent=spent==null?'Spend appears after CP-OS records a completed model response.':`Recorded spend: USD ${spent}`;
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
@@ -114,7 +114,7 @@ function installNewRun(){
     const details=(title,nodes)=>{const box=document.createElement('details');box.append(textNode('summary',title),...nodes);return box;};
     const list=(tag,items)=>{const node=textNode(tag,'');node.append(...items);return node;};
     const summary=document.createElement('dl');summary.className='review-summary';
-    for(const [label,value] of [['Workflow',workflowTitle(result.pathway)],['As of',result.as_of],['Model',`${result.provider} ${result.model} · ${result.effort}`],['Maximum spend',`USD ${result.cap_usd}`],['Held per call',`USD ${result.hold_usd}`],['Max turns per module',String(result.max_turns)]])summary.append(textNode('dt',label),textNode('dd',value));
+    for(const [label,value] of [['Workflow',workflowTitle(result.pathway)],['As of',displayDate(result.as_of)],['Model',`${result.provider} ${result.model} · ${result.effort}`],['Maximum spend',`USD ${result.cap_usd}`],['Held per call',`USD ${result.hold_usd}`],['Max turns per module',String(result.max_turns)]])summary.append(textNode('dt',label),textNode('dd',value));
     const readiness=textNode('p',result.provider_ready?'Model provider configured. Review the scope and budget before starting.':`Cannot start · ${result.provider_key} is not set in the launching environment. Set it, restart the app and review again.`);
     readiness.className=result.provider_ready?'matrix-note':'caution';
     const modules=list('ol',result.modules.map(id=>{const detail=result.module_details.find(item=>item.id===id),item=textNode('li',detail?.title||id);item.title=detail?`${id}: ${detail.purpose}`:id;return item;}));
@@ -123,7 +123,7 @@ function installNewRun(){
     $('run-review').replaceChildren(textNode('h3',result.issuer),summary,readiness,textNode('h4','Modules to run, in order'),modules,
       details(`Source files · ${result.sources.length} chosen, ${result.ignored.length} ignored`,[list('ul',result.sources.map(source=>textNode('li',`${source.path} · SHA-256 ${source.sha256}`))),textNode('h4','Ignored: no module can read these'),list('ul',ignored.map(name=>textNode('li',name)))]),
       details(`Report · ${result.report_sections.length} sections, ${result.omitted.length} not produced`,[textNode('h4','Sections this run fills'),list('ul',result.report_sections.map(name=>textNode('li',name))),textNode('h4','Sections it does not produce'),list('ul',(result.omitted.length?result.omitted:['None']).map(name=>textNode('li',name)))]),
-      details('Scope and limitations',[textNode('p',result.scope),textNode('p',`The spend ceiling applies to this run folder. Each call holds up to the amount shown while in flight; this is not an estimate of total cost. Prices dated ${result.prices_as_of}.`)]));
+      details('Scope and limitations',[textNode('p',result.scope),textNode('p',`The spend ceiling applies to this run folder. Each call holds up to the amount shown while in flight; this is not an estimate of total cost. Prices dated ${displayDate(result.prices_as_of)}.`)]));
   }
   async function poll(){
     if(polling)return;
@@ -151,7 +151,7 @@ function installNewRun(){
     if(event.data?.type!=='cpos:context'||running||busy||$('new-run').hidden)return;
     if(event.data.problems?.length){message('Complete the context form before continuing:\n'+event.data.problems.join('\n'));return;}
     context=event.data.context;review=null;document.body.dataset.draft='1';
-    $('context-summary').textContent=`${context.identity.issuer_name} · ${workflowTitle(context.run.pathway)} · as of ${context.run.as_of}`;
+    $('context-summary').textContent=`${context.identity.issuer_name} · ${workflowTitle(context.run.pathway)} · as of ${displayDate(context.run.as_of)}`;
     stage('source');controls();
   });
   $('use-context').addEventListener('click',()=>{$('context-editor').contentWindow.postMessage({type:'cpos:get-context'},'*');});

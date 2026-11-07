@@ -129,7 +129,7 @@ def test_runs_take_labels_from_the_catalogue_and_launcher_manifest(tmp_path):
     assert (beta["issuer"], beta["title"], beta["period"]) == (
         "Beta Group",
         "Beta Group",
-        "As of 2025-06-30",
+        "As of 30 June 2025",
     )
     assert result["runs"]["empty-001"]["first"] == "W-Overview"
     assert beta["first"] == "CP-0"
@@ -183,7 +183,7 @@ def test_reports_trace_handoffs_by_hash_and_name_what_has_no_match(tmp_path):
     assert traced["CP-9"]["run"] is None
     assert {f["name"] for f in alpha["files"]} == {"CP-1.md", "CP-9.md", "report.html", "view.json"}
     beta = reports["abc"]
-    assert beta["label"] == "Beta Group · as of 2025-06-30" and beta["issuer"] == "Beta Group"
+    assert beta["label"] == "Beta Group · as of 30 June 2025" and beta["issuer"] == "Beta Group"
     assert beta["builtFrom"][0]["run"] == "launched"
 
 
@@ -821,3 +821,20 @@ def test_an_unreadable_model_is_reported_and_the_others_stay(tmp_path):
     result = models_of(tmp_path, good, bad)
     assert [m["id"] for m in result["models"]] == ["m-1"]
     assert any(i.startswith("deliverables/m-2: could not be read") for i in result["issues"])
+
+
+@pytest.mark.parametrize(
+    ("iso", "shown"),
+    [
+        ("2024-12-31", "31 December 2024"),
+        ("2025-05-01", "1 May 2025"),
+        ("2024-02-29", "29 February 2024"),
+        ("2023-02-29", "2023-02-29"),
+        ("2024-02-30", "2024-02-30"),
+        ("05/08/2023", "05/08/2023"),
+        ("2024-12-31T00:00", "2024-12-31T00:00"),
+        ("", ""),
+    ],
+)
+def test_display_date_reads_only_a_valid_calendar_date(iso, shown):
+    assert store.display_date(iso) == shown

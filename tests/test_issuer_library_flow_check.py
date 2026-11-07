@@ -220,3 +220,16 @@ def test_manual_delivery_may_omit_a_module(tmp_path: Path) -> None:
     assert flow.run_faults(run, sources) == []
     (run / "deliveries/d1/CP-1.md").write_text("edited")  # copies it does hold are still compared
     assert len(flow.run_faults(run, sources)) == 1
+
+
+def test_corrupted_input_is_a_fault_and_not_evidence_even_with_a_good_sources_copy(
+    tmp_path: Path,
+) -> None:
+    run, sources = make_run(tmp_path)
+    (run / "inputs" / sha(SOURCE.encode())).write_text(SOURCE + "Planted 31,337.\n")
+    path = run / "requests/CP-1/fp/1.response.md"
+    path.write_text(CP1 + "Planted 31,337.\n")
+    (run / "deliveries/d1/CP-1.md").write_text(path.read_text())
+    faults = flow.run_faults(run, sources)
+    assert any("annual.txt" in f and "inputs" in f for f in faults)
+    assert any("CP-1: number 31337" in f for f in faults)

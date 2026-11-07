@@ -246,7 +246,27 @@ def _identity_issues(book: FinancialBook) -> list[str]:
     return issues
 
 
-def statement_issues(book: FinancialBook) -> tuple[str, ...]:
+def _signed_outflow_issues(book: FinancialBook) -> list[str]:
+    """S12-A02 (user ruling: fail closed): every reader of an `OUTFLOW_METRICS` account takes
+    -abs(amount), so a positive `signed` amount on a line linked to one (a printed net refund, say)
+    would turn into an outflow unseen. It is refused for the model to repair instead."""
+    return [
+        f"Positive signed amount on an outflow account: {line.line_id} {line.period_id} "
+        f"({line.statement} {line.item_id}, account {metric}) is never flipped; a source that "
+        "prints the outflow as a positive magnitude needs `sign_convention: outflow_magnitude` "
+        "with `sign_citations`, and a source that prints a net inflow (a refund) needs the value "
+        "recorded as status `missing` with a null `amount` and a `reason` saying so"
+        for line in book.statement_lines
+        if line.sign_convention == "signed"
+        and line.value.amount is not None
+        and line.value.amount > 0
+        and (metric := ACCOUNT_LINKS.get((line.statement, line.item_id))) in OUTFLOW_METRICS
+    ]
+
+
+def statement_issues(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 27, 26 branches, 70 statements at base, unchanged)
+    book: FinancialBook,
+) -> tuple[str, ...]:
     periods = {p.period_id for p in book.periods}
     instant_periods = {p.period_id for p in book.periods if p.period_type == "PERIOD_END"}
     issues: list[str] = []
@@ -337,7 +357,8 @@ def statement_issues(book: FinancialBook) -> tuple[str, ...]:
         amount = line.value.amount
         if metric is not None and line.quantity is not None and line.quantity.kind != "monetary":
             issues.append(
-                f"Canonical account link requires monetary quantity: {line.item_id} {line.period_id}"
+                "Canonical account link requires monetary quantity: "
+                f"{line.item_id} {line.period_id}"
             )
         if metric is not None and amount is not None:
             normalized = (
@@ -373,7 +394,7 @@ def statement_issues(book: FinancialBook) -> tuple[str, ...]:
             for amount in linked.get((period_id, "opex_including_da"), ())
         ):
             issues.append(f"OPEX must include SG&A and intangible amortization: {period_id}")
-    return tuple(issues)
+    return (*issues, *_signed_outflow_issues(book))
 
 
 class _AccountIndex(NamedTuple):

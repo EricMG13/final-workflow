@@ -1441,12 +1441,22 @@ def _timing(
     b.row("T2R.6", row, desc, ("trigger", "base_first", "down_first"))
 
 
+def _folded(text: str) -> str:
+    """`text` compared without case or white-space differences ("Stable" and "stable " agree)."""
+    return " ".join(text.casefold().split())
+
+
 def _outlook_match(
     b: _Book, at: tuple[str, str], pair: tuple[RegisterRow, RegisterRow], ids: tuple[str, str]
 ) -> None:
     """T2R.8's outlook cell for two rated agencies. A context row with no outlook is `Not stated`
-    and cannot be compared: the cell is not applicable and names the first such agency."""
-    unstated = next((x for x in pair if x.source == "context" and x.outlook == NOT_STATED), None)
+    and cannot be compared: the cell is not applicable and names the first such agency. Context
+    outlooks are free text, so two outlooks are compared folded (S07-cp2-gh-A07); T2R.2 shows
+    each as published."""
+    unstated = next(
+        (x for x in pair if x.source == "context" and _folded(x.outlook) == _folded(NOT_STATED)),
+        None,
+    )
     if unstated is not None:
         b.missing_text(
             (*at, "outlook_match"),
@@ -1458,15 +1468,14 @@ def _outlook_match(
     b.text(
         (*at, "outlook_match"),
         "Outlooks",
-        "Same" if pair[0].outlook == pair[1].outlook else "Different",
+        "Same" if _folded(pair[0].outlook) == _folded(pair[1].outlook) else "Different",
         derives=(f"T2R.2.{ids[0]}.outlook", f"T2R.2.{ids[1]}.outlook"),
     )
 
 
 def _rated_object(r: RegisterRow) -> str:
     """What the row rates: the page register's instrument, or the context row's rating scope."""
-    kind = (r.scope or "") if r.source == "context" else r.instrument
-    return " ".join(kind.casefold().split())
+    return _folded((r.scope or "") if r.source == "context" else r.instrument)
 
 
 def _scope_mismatch(ra: RegisterRow, rb: RegisterRow) -> str | None:

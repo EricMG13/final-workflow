@@ -1841,7 +1841,7 @@ def cashflow_of(
     income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
     capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
-    layout = cashflow_rows(tables)
+    layout = [RowSpec._make(spec) for spec in cashflow_rows(tables)]  # a plain 7-tuple row works
     columns = cashflow_columns(periods, fiscal, cases, ends)
     grid: dict[RowKey, list[Cell]] = {}
     rows = []

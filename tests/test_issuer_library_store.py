@@ -496,10 +496,8 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
 
 
 # Issuer identity: expected keys, headings and terms are written here, not computed by the store.
-def view_delivery(
-    root: Path, folder: str, run_id: str, issuer_id: str | None, name: str, available: bool = True
-) -> dict:
-    """A deliverable whose view.json says which run and issuer it belongs to; returns its catalogue artifact."""
+def view_delivery(root: Path, folder: str, run_id: str, issuer_id: str | None, name: str) -> dict:
+    """A deliverable whose view.json names its run and issuer; returns its catalogue artifact."""
     run = {"run_id": run_id, "issuer_name": name, "as_of": "2025-06-30"}
     if issuer_id is not None:
         run["issuer_id"] = issuer_id
@@ -513,13 +511,14 @@ def view_delivery(
         "folder": folder,
         "label": folder,
         "state": "final",
-        "available": available,
+        "available": True,
         "href": href,
     }
 
 
 def identity_catalogue(root: Path, runs: dict, deliveries: list) -> dict:
-    """runs: folder -> (catalogue name or None for the folder name, catalogue issuer or None, manifest or None)."""
+    """runs: folder -> (catalogue name or None for the folder name, catalogue issuer or None,
+    manifest or None)."""
     real = []
     for folder, (name, issuer, manifest) in runs.items():
         put(root, f"runs/{folder}/CP-0.md", "# CP-0\n\n## Request\n\nText.\n")
@@ -583,7 +582,10 @@ def test_deliveries_that_agree_on_the_id_but_not_the_name_disagree(tmp_path):
 
 
 def test_an_unavailable_delivery_names_nobody(tmp_path):
-    gone = view_delivery(tmp_path, "deliverables/d1", "plain-001", "AAA", "Alpha", available=False)
+    gone = {
+        **view_delivery(tmp_path, "deliverables/d1", "plain-001", "AAA", "Alpha"),
+        "available": False,
+    }
     result, runs = identities(tmp_path, {"plain-001": (None, None, None)}, [gone])
     assert runs["plain-001"]["issuerKey"] is None and runs["plain-001"]["issuer"] == "plain-001"
     assert not any("different issuers" in issue for issue in result["issues"])
@@ -695,17 +697,14 @@ FORECAST = (
 )
 
 
-def model_delivery(
-    root,
-    folder,
-    scope="Scope.",
-    forecast=FORECAST,
-    sources=None,
-    previous=None,
-    exact=None,
-    extra=None,
-):
-    """A model deliverable (model.html, no report.html); returns its catalogue artifact."""
+def model_delivery(root, folder, forecast=FORECAST, exact=None, **options):
+    """A model deliverable (model.html, no report.html); returns its catalogue artifact.
+
+    options: scope, sources, previous (the previous directory) and extra (more files by name).
+    """
+    scope = options.pop("scope", "Scope.")
+    sources, previous, extra = (options.pop(k, None) for k in ("sources", "previous", "extra"))
+    assert not options, options
     files = {
         "model.html": put(root, f"{folder}/model.html", "<html>model</html>"),
         "view.json": put(
@@ -960,7 +959,10 @@ def test_source_paths_outside_the_workspace_are_never_opened(tmp_path, monkeypat
 
 
 # The cash flow model: expected strings are written here, not computed by the store.
-REQUEST = "# CP-2G\n\n## Request\n\nTest paths. Amounts in EUR\nbillions; consolidated.\n\n## Findings\n\nUSD millions.\n"
+REQUEST = (
+    "# CP-2G\n\n## Request\n\nTest paths. Amounts in EUR\nbillions; consolidated.\n\n"
+    "## Findings\n\nUSD millions.\n"
+)
 HOSTILE = "<img src=x onerror=alert(1)>"
 ANSWER_KEY = json.loads(
     (ROOT / "apps/issuer-library/designs/forecast-answer-key.json").read_text(encoding="utf-8")
@@ -1031,7 +1033,11 @@ def calculation_record(**changes):
     return record
 
 
-QUARTER_HEAD = "| Source row | Label | 2025-10-01–2025-12-31 | 2024-10-01-2024-12-31 | 2025-01-01–2025-03-31 |\n|---|---|---|---|---|\n"
+QUARTER_HEAD = (
+    "| Source row | Label | 2025-10-01–2025-12-31 | 2024-10-01-2024-12-31 "
+    "| 2025-01-01–2025-03-31 |\n"
+    "|---|---|---|---|---|\n"
+)
 QUARTER_MD = (
     "# Quarter\n\nIntro with | a pipe that is not a table.\n\n### Income statement\n"
     + QUARTER_HEAD
@@ -1114,9 +1120,10 @@ def shown(cashflow, label):
     return [c["display"] for c in row(cashflow, label)["cells"]]
 
 
-# Security review L1-L3: model files are read only as bounded regular files; nothing hangs or drops a model.
+# Security review L1-L3: model files are read only as bounded regular files; nothing hangs or
+# drops a model.
 def within(seconds, call):
-    """Run call on a thread; a read that blocks forever (a FIFO) fails the test instead of hanging it."""
+    """Run call on a thread; a read that blocks forever (a FIFO) fails the test, not hangs it."""
     box = {}
     thread = threading.Thread(target=lambda: box.update(value=call()), daemon=True)
     thread.start()
@@ -1271,7 +1278,8 @@ def test_columns_are_quarters_then_fiscal_years_then_base_case_and_downside(tmp_
 def test_a_later_quarter_that_is_not_the_first_is_labelled_by_its_dates(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
     assert cashflow["columns"][1]["label"] == "2025-01-01–2025-03-31"
-    # The forecast's planning_start no longer decides a quarter's label: only the period register does.
+    # The forecast's planning_start no longer decides a quarter's label: only the period
+    # register does.
     forecast = exact_record()
     for case in forecast["outputs"].values():
         case["years"][0]["planning_start"] = "2025-07-01"
@@ -1406,8 +1414,11 @@ def test_cells_carry_exact_values_and_the_reason_for_every_gap(tmp_path):
     }
     assert cell("Adj EBITDA margin", 1)["exact"] == "0.5333333333333333333333333333"
     assert cell("Cash interest", 6) == {
-        "exact": None, "display": NM, "reason": "not modelled in the calculation record", "status": "nm",
-    }  # fmt: skip
+        "exact": None,
+        "display": NM,
+        "reason": "not modelled in the calculation record",
+        "status": "nm",
+    }
     assert cell("Cash taxes", 5)["display"] == NM
     gamma = cell("Gamma YoY growth", 2)
     assert (gamma["display"], gamma["reason"]) == (NA, "a component is not in the handoffs")
@@ -1561,7 +1572,10 @@ def test_a_multiple_or_percent_that_rounds_to_zero_has_no_sign(exact, kind, show
 
 
 def test_units_are_read_from_a_request_with_windows_line_endings():
-    handoff = "# CP\r\n\r\n## Request\r\n\r\nAmounts in USD\r\nmillions.\r\n\r\n## Findings\r\n\r\nEUR billions.\r\n"
+    handoff = (
+        "# CP\r\n\r\n## Request\r\n\r\nAmounts in USD\r\nmillions.\r\n\r\n"
+        "## Findings\r\n\r\nEUR billions.\r\n"
+    )
     assert store.cashflow_units(handoff) == "USD millions"
 
 
@@ -1574,7 +1588,7 @@ def test_a_stray_oversize_handoff_beside_a_report_is_never_read_and_the_library_
     result = store.workspace_store(tmp_path, catalogue)
     assert [r["id"] for r in result["reports"]] == ["r-1"]
     assert result["reports"][0]["builtFrom"] == []
-    # Built from the verified delivery.json listing, so a file it does not list is not opened at all.
+    # Built from the verified delivery.json listing, so a file it does not list is never opened.
     assert [i for i in result["issues"] if "CP-0-attempt-1.md" in i] == []
 
 
@@ -2025,7 +2039,8 @@ def test_each_handoff_is_read_once_per_page_load(tmp_path, monkeypatch):
 
 
 # Task 14: limits, Q1/YTD labelling, adjacent-year growth, debt classification, layout errors,
-# row kinds, cell status and column ytd. Expected strings are written here, not computed by the store.
+# row kinds, cell status and column ytd. Expected strings are written here, not computed by the
+# store.
 def quarter_table_head(*periods):
     return f"| Source row | Label | {' | '.join(periods)} |\n|{'---|' * (len(periods) + 2)}\n"
 
@@ -2275,7 +2290,9 @@ def test_a_register_row_with_a_carrying_value_that_is_not_classified_makes_lever
 
 
 def test_a_layout_failure_names_its_cause_and_input_failures_keep_their_file(tmp_path, monkeypatch):
-    early = ("early", "X", "Early margin", "percent", *store.every(("margin", "later")))
+    early = store.RowSpec(
+        "early", "X", "Early margin", "percent", *store.every(("margin", "later"))
+    )
     monkeypatch.setattr(store, "TAIL_ROWS", (early, *store.TAIL_ROWS))
     cashflow, issues = cashflow_issue_texts(tmp_path)
     assert cashflow is None
@@ -2290,9 +2307,10 @@ def test_a_layout_failure_names_its_cause_and_input_failures_keep_their_file(tmp
 def test_a_table_cell_keeps_its_rows_kind():
     table = {"rows": {"Margin": ["Margin", "0.25"], "A": ["A", "1"], "B": ["B", "0.5"]}}
     table["periods"] = {("fy", "FY2024"): 1}
-    ctx, column = {"tables": {"t": table}}, {"period": ("fy", "FY2024")}
-    assert store.op_table(ctx, column, 0, {}, "percent", "t", "Margin")["display"] == "25.00%"
-    summed = store.op_table_sum(ctx, column, 0, {}, "percent", "t", "A", "B")
+    column = {"period": ("fy", "FY2024")}
+    cell = store.CellContext(store.CashflowInputs({"t": table}, None, {}), column, 0, {}, "percent")
+    assert store.op_table(cell, "t", "Margin")["display"] == "25.00%"
+    summed = store.op_table_sum(cell, "t", "A", "B")
     assert summed["display"] == "150.00%"
 
 

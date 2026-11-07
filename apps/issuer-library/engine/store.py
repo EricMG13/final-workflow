@@ -16,7 +16,7 @@ import sys
 from collections import Counter
 from collections.abc import Callable, Iterator
 from pathlib import Path, PurePosixPath
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, NotRequired, TypedDict
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
@@ -27,7 +27,7 @@ HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
 OUTPUT_SEPARATORS = ("-", "_", ".", " ")
 AEROSPACE = "Aerospace & defense"
 # Reading labels written by hand. Route key: (folder under runs/, issuer, title, run label, sector, period).
-CURATED_RUNS = {
+CURATED_RUNS: dict[str, tuple[str, ...]] = {
     "tdg-002": (
         "tdg-002",
         "TransDigm Group",
@@ -121,7 +121,7 @@ MONTHS = (
 ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}", re.ASCII)
 
 
-def display_date(iso):
+def display_date(iso: Any) -> Any:
     """`31 December 2024` for a valid YYYY-MM-DD calendar date; any other text unchanged."""
     if not isinstance(iso, str) or not ISO_DATE.fullmatch(iso):
         return iso
@@ -295,7 +295,7 @@ def sha256(path: Path) -> str:
 
 
 def listed_bytes(folder: Path, delivery: dict[str, Any], name: str) -> bytes | None:
-    """The bytes of folder/name when it is a plain file, not a link, with the sha256 delivery.json lists; else None."""
+    """The bytes of folder/name when a plain file (no link) with the sha256 delivery.json lists."""
     try:
         data = b"".join(regular_chunks(folder / name, follow=False))
     except (OSError, UnreadableFile):
@@ -312,19 +312,21 @@ def describe(error: BaseException) -> str:
 
 def delivery_json(folder: Path) -> dict[str, Any]:
     """folder/delivery.json read bounded and without following a link; raises when unreadable."""
-    return json.loads(
+    loaded: dict[str, Any] = json.loads(
         b"".join(regular_chunks(folder / "delivery.json", follow=False)).decode("utf-8")
     )
+    return loaded
 
 
 def listed_view(folder: Path, delivery: dict[str, Any]) -> dict[str, Any]:
-    """folder/view.json when it is a plain file with the hash delivery.json lists; raises otherwise."""
+    """folder/view.json when a plain file with the hash delivery.json lists; raises otherwise."""
     if not isinstance(delivery.get("files"), dict):
         raise TypeError("files is not an object")
     raw = listed_bytes(folder, delivery, "view.json")
     if raw is None:
         raise UnreadableFile("view.json is not the plain file its delivery record lists")
-    return json.loads(raw.decode("utf-8"))
+    view: dict[str, Any] = json.loads(raw.decode("utf-8"))
+    return view
 
 
 def locate_quote(sections, locator, owner):
@@ -475,13 +477,19 @@ def reader_fields(sections):
     return {"summary": summary, "charts": charts, "issue": "; ".join(problems) or None}
 
 
+def sections_of(text: str) -> list[dict[str, Any]]:
+    """parse_source with typed: the one place its missing annotations are acknowledged."""
+    sections: list[dict[str, Any]] = parse_source(text)  # type: ignore[no-untyped-call]
+    return sections
+
+
 def structured(raw: bytes, strict: bool) -> tuple[list[dict[str, Any]], str | None]:
     """Typed blocks. In the app a handoff the parser refuses stays readable as one flagged block.
 
     A UTF-8 byte-order mark, which Windows editors often write, is not part of the first heading.
     """
     try:
-        return parse_source(raw.decode("utf-8-sig")), None  # type: ignore[no-untyped-call]  # legacy untyped parser
+        return sections_of(raw.decode("utf-8-sig")), None
     except ValueError as error:
         if strict:
             raise
@@ -523,7 +531,7 @@ def handoff_files(run_dir: Path) -> dict[Path, Handoff]:
             and (path.parent == run_dir or not linked(path.parent))
             and path.resolve().is_relative_to(base)
         ):
-            # Bounded: a handoff over the server's read cap raises, and the run is hidden and reported.
+            # Bounded: a handoff over the server's read cap raises; the run is hidden and reported.
             raw = b"".join(regular_chunks(path))
             digest = hashlib.sha256(raw).hexdigest()
             if digest not in seen:
@@ -729,7 +737,10 @@ def catalogue_reports(
     sources: dict[str, list[dict[str, Any]]],
     keys: dict[str, str],
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Deliverables the server verified, each once, with what it was built from; keys maps issuer IDs to group keys."""
+    """Deliverables the server verified, each once, with what it was built from.
+
+    `keys` maps issuer IDs to group keys.
+    """
     reports, seen, issues = [], set(), []
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
@@ -758,8 +769,8 @@ def catalogue_reports(
     return reports, issues
 
 
-def register_of(sections):
-    """The section whose heading names an assumption register: heading, intro text and table rows."""
+def register_of(sections: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The section whose heading names an assumption register: heading, intro, table rows."""
     for section in sections:
         if "assumption register" not in section["heading"].casefold():
             continue
@@ -774,16 +785,18 @@ def register_of(sections):
     return None
 
 
-def text_or_none(value):
+def text_or_none(value: Any) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def source_location(root, path):
-    """The file a model source names, only if it is runs/<folder>/<file> and resolves inside root."""
+def source_location(root: Path, path: Any) -> Path | None:
+    """The file a model source names, only if it is runs/<folder>/<file> inside root."""
     if not isinstance(path, str) or "\\" in path or ":" in path:
         return None
     parts = PurePosixPath(path).parts
-    if len(parts) < 3 or parts[0] != "runs" or PurePosixPath(path).is_absolute() or ".." in parts:
+    if len(parts) < 3 or parts[0] != "runs" or PurePosixPath(path).is_absolute():
+        return None
+    if ".." in parts:
         return None
     try:
         resolved = (root / path).resolve()
@@ -792,15 +805,21 @@ def source_location(root, path):
     return resolved if resolved.is_relative_to(root.resolve()) else None
 
 
-def model_sources(root, delivery, outputs, folder=None, issues=None):
-    """Each source a model declares, whether its file still has the declared bytes, and the run output holding them.
+def model_sources(
+    root: Path,
+    delivery: dict[str, Any],
+    outputs: dict[str, Any],
+    folder: str | None = None,
+    issues: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Each source a model declares, whether its file has the declared bytes, and the output.
 
     A source whose path is not a confined runs/<folder>/<file> or whose hash is not 64 lowercase hex
     keeps its row with sha256 and changed null; its file is never opened. A source that is not a
     regular file of at most 64 MiB is likewise kept with nulls and named in the issues; an absent
     file stays "changed". The issues are appended to `issues`, prefixed with `folder`.
     """
-    rows = []
+    rows: list[dict[str, Any]] = []
     issues = [] if issues is None else issues
     declared_sources = delivery.get("sources")
     for role, source in (declared_sources if isinstance(declared_sources, dict) else {}).items():
@@ -820,7 +839,7 @@ def model_sources(root, delivery, outputs, folder=None, issues=None):
             "run": None,
             "output": None,
         }
-        if valid:
+        if location is not None and valid:
             try:
                 row["changed"] = sha256(location) != declared
             except UnreadableFile:
@@ -828,7 +847,7 @@ def model_sources(root, delivery, outputs, folder=None, issues=None):
                 issues.append(f"{folder}: source {role} is not a readable file")
             except OSError:
                 row["changed"] = True
-            held = outputs.get(path.removeprefix("runs/"))
+            held = outputs.get(str(path).removeprefix("runs/"))
             match = held if held and held["sha256"] == declared else None
             if match and row["sha256"] is not None:
                 row["run"], row["output"] = match["run"], match["id"]
@@ -917,7 +936,49 @@ CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII)
 REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
 
 
-def display_amount(exact, kind):
+class Cell(TypedDict):
+    """One grid cell. `status` is value, gap (a dash), na (not available) or nm (not modelled)."""
+
+    exact: str | None
+    display: str
+    reason: str | None
+    status: str
+
+
+PeriodKey = tuple[str, ...]
+Span = tuple[str, ...]  # (start, end) ISO dates of a quarter column
+SecuredDebt = tuple[datetime.date, decimal.Decimal | None, str | None]
+Spec = tuple[Any, ...]  # (operation name, *its arguments); see CELL_OPS
+RowKey = str | tuple[str, str]
+Forecast = list[tuple[str, list[dict[str, Any]]]]  # (case name, that case's years)
+Fiscal = list[tuple[str, dict[str, Any]]]  # (fiscal year label, its values)
+
+
+class Table(TypedDict):
+    """A Markdown table: its header, rows by first-found label, and column index by period."""
+
+    header: list[str]
+    rows: dict[str, list[str]]
+    periods: dict[PeriodKey, int]
+    repeated: str | None
+
+
+class Column(TypedDict):
+    """A grid column; `prior` is the index of its prior-year column."""
+
+    label: str
+    group: str
+    kind: str
+    record: dict[str, Any] | None
+    start: str | None
+    end: str | None
+    period: PeriodKey | None
+    prior: int | None
+    ytd: bool
+    length_differs: NotRequired[bool]
+
+
+def display_amount(exact: str, kind: str) -> str:
     """An exact decimal string as the reader sees it: half-up, money in brackets when negative."""
     with decimal.localcontext(decimal.Context(prec=200)) as context:
         value = decimal.Decimal(exact)
@@ -935,8 +996,8 @@ def display_amount(exact, kind):
         return f"({-rounded:,})" if rounded < 0 else f"{rounded:,}"
 
 
-def cashflow_units(handoff):
-    """The first '<ISO currency> millions|billions|thousands' phrase of the handoff's Request section."""
+def cashflow_units(handoff: str) -> str | None:
+    """The first '<ISO currency> millions|billions|thousands' phrase of the Request section."""
     request = re.search(
         r"^## Request[ \t]*\r?\n(.*?)(?=^## |\Z)", handoff, re.MULTILINE | re.DOTALL
     )
@@ -951,33 +1012,34 @@ def cashflow_units(handoff):
 class CashflowLimit(Exception):
     """A cash flow input larger than the reader accepts; names the file and what was too large."""
 
-    def __init__(self, file, what, found, limit):
+    def __init__(self, file: str, what: str, found: int, limit: int) -> None:
         super().__init__(f"{file} exceeds the cash flow model's limits ({what}, {found} > {limit})")
 
 
-def grid_cell(exact, display, reason=None, status="value"):
-    """A cell. `status` is value, gap (a dash), na (not available) or nm (not modelled)."""
+def grid_cell(
+    exact: str | None, display: str, reason: str | None = None, status: str = "value"
+) -> Cell:
     return {"exact": exact, "display": display, "reason": reason, "status": status}
 
 
-def amount_cell(exact, kind):
+def amount_cell(exact: str, kind: str) -> Cell:
     return grid_cell(exact, display_amount(exact, kind))
 
 
-def absent_cell():
+def absent_cell() -> Cell:
     return grid_cell(None, NOT_HELD, None, "gap")
 
 
-def unavailable_cell(reason):
+def unavailable_cell(reason: str | None) -> Cell:
     return grid_cell(None, "n.a.", reason, "na")
 
 
-def not_modelled_cell():
+def not_modelled_cell() -> Cell:
     return grid_cell(None, "n.m.", "not modelled in the calculation record", "nm")
 
 
-def held_cell(held, kind, negate=False):
-    """A calculation record's {amount, reason}; an amount of null is n.a. with the record's reason."""
+def held_cell(held: dict[str, Any], kind: str, negate: bool = False) -> Cell:
+    """A calculation record's {amount, reason}; an amount of null is n.a. with its reason."""
     exact = held["amount"]
     if exact is None:
         reason = held.get("reason")
@@ -990,8 +1052,8 @@ def held_cell(held, kind, negate=False):
     return amount_cell(exact, kind)
 
 
-def checked_entries(record, skip=()):
-    """Every entry of a calculation record (but `skip`) must be {amount: text|null, reason: text|null}."""
+def checked_entries(record: dict[str, Any], skip: tuple[str, ...] = ()) -> None:
+    """Every entry of a calculation record but `skip` is {amount: text|null, reason: text|null}."""
     for key, held in record.items():
         if key in skip:
             continue
@@ -1008,7 +1070,7 @@ def checked_entries(record, skip=()):
         display_amount(exact, "percent")
 
 
-def source_cell(text, kind):
+def source_cell(text: str, kind: str) -> Cell:
     """A Markdown table cell as the handoff printed it."""
     if text == "":
         return absent_cell()
@@ -1022,11 +1084,11 @@ def source_cell(text, kind):
     return amount_cell(f"-{digits}" if negative else digits, kind)
 
 
-def table_cells(line):
+def table_cells(line: str) -> list[str]:
     return [cell.strip() for cell in line.strip().removeprefix("|").removesuffix("|").split("|")]
 
 
-def period_key(header):
+def period_key(header: str) -> PeriodKey | None:
     quarter = QUARTER_HEADER.fullmatch(header)
     if quarter:
         try:
@@ -1038,7 +1100,7 @@ def period_key(header):
     return ("fy", header) if FISCAL_HEADER.fullmatch(header) else None
 
 
-def markdown_table(lines, file):
+def markdown_table(lines: list[str], file: str) -> Table:
     """One run of '|' lines: header, optional separator, rows. Rows are found by their label."""
     header = table_cells(lines[0])
     separated = len(lines) > 1 and all(SEPARATOR_CELL.fullmatch(c) for c in table_cells(lines[1]))
@@ -1047,7 +1109,9 @@ def markdown_table(lines, file):
     body = [table_cells(line) for line in lines[1 + separated :]]
     label_header = CASHFLOW_LABELS["label_header"]
     label_column = header.index(label_header) if label_header in header else 0
-    rows, repeated, folded = {}, None, set()
+    rows: dict[str, list[str]] = {}
+    repeated: str | None = None
+    folded: set[str] = set()
     for row in body:
         if label_column < len(row):
             # Case-insensitive, as the debt classification is.
@@ -1055,7 +1119,7 @@ def markdown_table(lines, file):
                 repeated = row[label_column]
             folded.add(row[label_column].casefold())
             rows.setdefault(row[label_column], row)
-    periods = {}
+    periods: dict[PeriodKey, int] = {}
     for index, name in enumerate(header):
         key = period_key(name)
         if key is not None:
@@ -1063,9 +1127,10 @@ def markdown_table(lines, file):
     return {"header": header, "rows": rows, "periods": periods, "repeated": repeated}
 
 
-def markdown_tables(text, file):
+def markdown_tables(text: str, file: str) -> list[Table]:
     """The tables of a Markdown text, read line by line; `file` names it in a limit error."""
-    tables, run = [], []
+    tables: list[Table] = []
+    run: list[str] = []
     for line in text.split("\n"):
         if line.lstrip().startswith("|"):
             run.append(line)
@@ -1077,20 +1142,22 @@ def markdown_tables(text, file):
     return tables
 
 
-def table_holding(tables, label):
+def table_holding(tables: list[Table], label: str) -> Table | None:
     return next((table for table in tables if label in table["rows"]), None)
 
 
-def table_cell(table, label, period, kind="money"):
+def table_cell(
+    table: Table | None, label: str, period: PeriodKey | None, kind: str = "money"
+) -> Cell:
     row = None if table is None else table["rows"].get(label)
-    index = None if table is None else table["periods"].get(period)
+    index = None if table is None or period is None else table["periods"].get(period)
     if row is None or index is None or index >= len(row):
         return absent_cell()
     return source_cell(row[index], kind)
 
 
-def add_back_labels(table):
-    """The rows between 'Interest expense-net' and the pre-tax income row of an As Defined bridge."""
+def add_back_labels(table: Table | None) -> list[str]:
+    """The rows between 'Interest expense-net' and the pre-tax income row of a bridge."""
     start = CASHFLOW_LABELS["interest_net"]
     if table is None or start not in table["rows"]:
         return []
@@ -1101,7 +1168,7 @@ def add_back_labels(table):
     return [label for label in labels if label]
 
 
-def register_date(text):
+def register_date(text: str) -> datetime.date | None:
     found = REGISTER_DATE.search(text)
     if found is None or found.group(1) not in MONTHS_SHORT:
         return None
@@ -1111,23 +1178,26 @@ def register_date(text):
         return None
 
 
-def secured_debt(tables):
-    """(register date, secured carrying total, unclassified label) of the annual debt register, or None.
+def secured_debt(tables: list[Table]) -> SecuredDebt | None:
+    """(register date, secured carrying total, problem) of the annual debt register, or None.
 
     Labels match case-insensitively. Secured: the securitization, the term loans aggregate, and
-    secured notes. Unsecured: subordinated or unsecured notes. Total rows are subtotals. Any other row
-    with a `carrying <n>` value cannot be classified: the total is then None and the label returned.
-    None when the register date or a secured carrying value is missing.
+    secured notes. Unsecured: subordinated or unsecured notes. Total rows are subtotals. Any other
+    row with a `carrying <n>` value cannot be classified: the total is then None and the problem
+    names the label. None when the register date or a secured carrying value is missing.
     """
     names = CASHFLOW_LABELS
     anchor = names["secured_term_loans"].casefold()
     debt = next((t for t in tables if any(label.casefold() == anchor for label in t["rows"])), None)
-    when = register_date(debt["header"][1]) if debt and len(debt["header"]) > 1 else None
+    if debt is None or len(debt["header"]) < 2:
+        return None
+    when = register_date(debt["header"][1])
     if when is None:
         return None
     required = {names["secured_securitization"].casefold(), names["secured_term_loans"].casefold()}
     secured_notes = re.compile(r"(?<![a-z])" + re.escape(names["secured_notes"]))
-    total, named, incomplete, unclassified = decimal.Decimal(0), set(), False, None
+    total, incomplete, unclassified = decimal.Decimal(0), False, None
+    named: set[str] = set()
     for label, row in debt["rows"].items():
         low = label.casefold()
         if low.startswith(names["total_prefix"].casefold()):
@@ -1155,7 +1225,7 @@ def secured_debt(tables):
     return (when, total, None) if required <= named and not incomplete else None
 
 
-def fiscal_year_ends(tables):
+def fiscal_year_ends(tables: list[Table]) -> dict[str, str]:
     """FY label -> ISO end date from the annual period register (headed Period ... End)."""
     names = CASHFLOW_LABELS
     period_name, end_name = names["period_header"], names["period_end_header"]
@@ -1172,15 +1242,17 @@ def fiscal_year_ends(tables):
     }
 
 
-def derive(kind, operands, compute):
-    """A value computed from other cells under prec=28; n.m. or a gap in an operand carries through."""
+def derive(kind: str, operands: list[Cell], compute: Callable[..., decimal.Decimal]) -> Cell:
+    """A value from other cells under prec=28; n.m. or a gap in an operand carries through."""
     if any(operand["status"] == "nm" for operand in operands):
         return not_modelled_cell()
-    if any(operand["exact"] is None for operand in operands):
+    exacts = [operand["exact"] for operand in operands]
+    values = [decimal.Decimal(exact) for exact in exacts if exact is not None]
+    if len(values) != len(exacts):
         return unavailable_cell(COMPONENT_MISSING)
     try:
         with decimal.localcontext(decimal.Context(prec=28)):
-            result = compute(*[decimal.Decimal(operand["exact"]) for operand in operands])
+            result = compute(*values)
     except (decimal.DivisionByZero, decimal.InvalidOperation):
         return unavailable_cell("a divisor is zero")
     try:
@@ -1189,9 +1261,9 @@ def derive(kind, operands, compute):
         return unavailable_cell("the value cannot be displayed")
 
 
-def forecast_inputs(exact):
-    """(columns' source years by case, limits) of the forecast record; validated here."""
-    cases = []
+def forecast_inputs(exact: Any) -> tuple[Forecast, list[str]]:
+    """(source years by case, scope limits) of the forecast record; validated here."""
+    cases: Forecast = []
     for key, name in FORECAST_CASES:
         if key not in exact["outputs"]:
             continue
@@ -1211,14 +1283,14 @@ def forecast_inputs(exact):
     return cases, limits
 
 
-def fiscal_inputs(record):
+def fiscal_inputs(record: Any) -> Fiscal:
     """[(fiscal year label, its values)] in the record's annual_periods order; validated here."""
     labels = record["annual_periods"]
     if not isinstance(labels, list) or not all(isinstance(label, str) for label in labels):
         raise TypeError("annual_periods is not a list of text")
     if len(labels) > FISCAL_YEAR_LIMIT:
         raise CashflowLimit(CASHFLOW_FILES[1], "fiscal years", len(labels), FISCAL_YEAR_LIMIT)
-    years = []
+    years: Fiscal = []
     for label in labels:
         values = record["values"][label]
         checked_entries(values)
@@ -1226,24 +1298,26 @@ def fiscal_inputs(record):
     return years
 
 
-def span_days(start, end):
+def span_days(start: str, end: str) -> int:
     return (datetime.date.fromisoformat(end) - datetime.date.fromisoformat(start)).days
 
 
-def quarter_numbers(quarters, ends):
+def quarter_numbers(quarters: list[Span], ends: dict[str, str] | None) -> list[int | None]:
     """Per quarter, the fiscal year it opens (as Q1) or None.
 
-    A quarter opens fiscal year N+1 when it spans at most QUARTER_DAYS days and starts the day after
-    the end the period register records for FY N. Anything else is not Q1 and not year to date.
+    A quarter opens fiscal year N+1 when it spans at most QUARTER_DAYS days and starts the day
+    after the end the period register records for FY N. Anything else is neither Q1 nor year to
+    date.
     """
-    openings = {}
+    openings: dict[datetime.date, int] = {}
     for label, end in (ends or {}).items():
         try:
             day = datetime.date.fromisoformat(end) + datetime.timedelta(days=1)
             openings.setdefault(day, int(label.removeprefix("FY")) + 1)
         except (ValueError, OverflowError):
             continue  # a register row with an unreadable end opens no fiscal year
-    numbers, longest = [], {}
+    numbers: list[int | None] = []
+    longest: dict[int, tuple[int, int]] = {}
     for index, (start, end) in enumerate(quarters):
         days = span_days(start, end)
         number = (
@@ -1259,129 +1333,174 @@ def quarter_numbers(quarters, ends):
     ]
 
 
-def cashflow_columns(quarters, fiscal, cases, ends=None):
-    """Quarter, fiscal-year and forecast columns, each with its prior-year column's index.
-
-    The prior of Q1 FY<n> is Q1 FY<n-1>; other quarters have none. The prior of FY<n> is FY<n-1>, of the
-    first forecast year the fiscal year before it, of a later forecast year the same case's year before
-    it; a prior that is not the adjacent year is None.
-    """
-    columns = []
-
-    def add(label, group, kind, record, start, end, period, prior, ytd=False):
-        columns.append(
-            {
-                "label": label,
-                "group": group,
-                "kind": kind,
-                "record": record,
-                "start": start,
-                "end": end,
-                "period": period,
-                "prior": prior,
-                "ytd": ytd,
-            }
-        )
-
+def quarter_columns(quarters: list[Span], ends: dict[str, str] | None) -> list[Column]:
+    """One column per quarter; a Q1 (year to date) has the previous year's Q1 as prior."""
     numbers = quarter_numbers(quarters, ends)
-    first_quarter = {}
+    first_quarter: dict[int, int] = {}
     for index, number in enumerate(numbers):
         if number is not None:
             first_quarter.setdefault(number, index)
+    columns: list[Column] = []
     for (start, end), number in zip(quarters, numbers, strict=True):
-        label = f"{start}–{end}" if number is None else f"Q1 FY{number} (YTD)"
         prior = None if number is None else first_quarter.get(number - 1)
-        add(label, "Quarter", "q", None, start, end, ("q", start, end), prior, number is not None)
+        column = Column(
+            label=f"{start}–{end}" if number is None else f"Q1 FY{number} (YTD)",
+            group="Quarter",
+            kind="q",
+            record=None,
+            start=start,
+            end=end,
+            period=("q", start, end),
+            prior=prior,
+            ytd=number is not None,
+        )
         if prior is not None and abs(span_days(start, end) - span_days(*quarters[prior])) > (
             QUARTER_LENGTH_SLACK
         ):
-            columns[-1]["length_differs"] = True
-    fiscal_index = {}
+            column["length_differs"] = True
+        columns.append(column)
+    return columns
+
+
+def fiscal_columns(columns: list[Column], fiscal: Fiscal) -> dict[str, int]:
+    """Append one column per fiscal year; returns each label's column index."""
+    fiscal_index: dict[str, int] = {}
     for label, values in fiscal:
         found = FISCAL_HEADER.fullmatch(label)
-        prior = fiscal_index.get(f"FY{int(label[2:]) - 1}") if found else None
-        add(label, "Fiscal year", "fy", values, None, None, ("fy", label), prior)
+        columns.append(
+            Column(
+                label=label,
+                group="Fiscal year",
+                kind="fy",
+                record=values,
+                start=None,
+                end=None,
+                period=("fy", label),
+                prior=fiscal_index.get(f"FY{int(label[2:]) - 1}") if found else None,
+                ytd=False,
+            )
+        )
         fiscal_index.setdefault(label, len(columns) - 1)
+    return fiscal_index
+
+
+def forecast_columns(columns: list[Column], cases: Forecast, fiscal_index: dict[str, int]) -> None:
+    """Append one column per forecast year of each case."""
     for name, years in cases:
-        case_index = {}
+        case_index: dict[int, int] = {}
         for year in years:
             prior = case_index.get(year["year"] - 1)
             if prior is None and not case_index:
                 prior = fiscal_index.get(f"FY{year['year'] - 1}")
-            add(
-                f"FY{year['year']}E",
-                name,
-                "fc",
-                year,
-                text_or_none(year.get("planning_start")),
-                text_or_none(year.get("planning_end")),
-                None,
-                prior,
+            columns.append(
+                Column(
+                    label=f"FY{year['year']}E",
+                    group=name,
+                    kind="fc",
+                    record=year,
+                    start=text_or_none(year.get("planning_start")),
+                    end=text_or_none(year.get("planning_end")),
+                    period=None,
+                    prior=prior,
+                    ytd=False,
+                )
             )
             case_index.setdefault(year["year"], len(columns) - 1)
+
+
+def cashflow_columns(
+    quarters: list[Span], fiscal: Fiscal, cases: Forecast, ends: dict[str, str] | None = None
+) -> list[Column]:
+    """Quarter, fiscal-year and forecast columns, each with its prior-year column's index.
+
+    The prior of Q1 FY<n> is Q1 FY<n-1>; other quarters have none. The prior of FY<n> is FY<n-1>,
+    of the first forecast year the fiscal year before it, of a later forecast year the same case's
+    year before it; a prior that is not the adjacent year is None.
+    """
+    columns = quarter_columns(quarters, ends)
+    fiscal_index = fiscal_columns(columns, fiscal)
+    forecast_columns(columns, cases, fiscal_index)
     return columns
 
 
-def add_cells(cells, kind="money"):
+class CashflowInputs(NamedTuple):
+    """What every cell of one model's grid reads: tables, the debt register, fiscal-year ends."""
+
+    tables: dict[str, Table | None]
+    secured: SecuredDebt | None
+    ends: dict[str, str]
+
+
+class CellContext(NamedTuple):
+    """The one argument of a cell operation: inputs, the cell's column, position and row kind."""
+
+    inputs: CashflowInputs
+    column: Column
+    at: int
+    grid: dict[RowKey, list[Cell]]
+    kind: str
+
+
+def add_cells(cells: list[Cell], kind: str = "money") -> Cell:
     return derive(kind, cells, lambda a, b: a + b)
 
 
-def op_table(ctx, column, index, grid, kind, name, label):
-    return table_cell(ctx["tables"][name], label, column["period"], kind)
+def op_table(c: CellContext, name: str, label: str) -> Cell:
+    return table_cell(c.inputs.tables[name], label, c.column["period"], c.kind)
 
 
-def op_table_sum(ctx, column, index, grid, kind, name, first, second):
-    table = ctx["tables"][name]
-    cells = [table_cell(table, label, column["period"], kind) for label in (first, second)]
-    return add_cells(cells, kind)
+def op_table_sum(c: CellContext, name: str, first: str, second: str) -> Cell:
+    table = c.inputs.tables[name]
+    cells = [table_cell(table, label, c.column["period"], c.kind) for label in (first, second)]
+    return add_cells(cells, c.kind)
 
 
-def op_key(ctx, column, index, grid, kind, key, negate=False):
-    forecast = column["kind"] == "fc"
-    missing = not_modelled_cell if forecast else absent_cell
-    record = column["record"]
-    return held_cell(record[key], kind, negate) if key in record else missing()
+def op_key(c: CellContext, key: str, negate: bool = False) -> Cell:
+    missing = not_modelled_cell if c.column["kind"] == "fc" else absent_cell
+    record = c.column["record"] or {}
+    return held_cell(record[key], c.kind, negate) if key in record else missing()
 
 
-def op_sum(ctx, column, index, grid, kind, *rows):
-    return add_cells([grid[row][index] for row in rows], kind)
+def op_sum(c: CellContext, *rows: RowKey) -> Cell:
+    return add_cells([c.grid[row][c.at] for row in rows], c.kind)
 
 
-def op_growth(ctx, column, index, grid, kind, source):
+def op_growth(c: CellContext, source: RowKey) -> Cell:
     """YoY growth of an earlier row against the same row in the column's prior-year column."""
-    current = grid[source][index]
+    current = c.grid[source][c.at]
     if current["status"] == "nm":
         return not_modelled_cell()
-    if column["prior"] is None:
+    if c.column["prior"] is None:
         return unavailable_cell(PRIOR_MISSING)
-    if column.get("length_differs"):
+    if c.column.get("length_differs"):
         return unavailable_cell("the prior-year period has a different length")
-    return derive("percent", [current, grid[source][column["prior"]]], lambda a, b: a / b - 1)
+    prior = c.grid[source][c.column["prior"]]
+    return derive("percent", [current, prior], lambda a, b: a / b - 1)
 
 
-def op_margin(ctx, column, index, grid, kind, source):
-    return derive("percent", [grid[source][index], grid["revenue"][index]], lambda a, b: a / b)
+def op_margin(c: CellContext, source: RowKey) -> Cell:
+    return derive("percent", [c.grid[source][c.at], c.grid["revenue"][c.at]], lambda a, b: a / b)
 
 
-def op_needs_ltm(ctx, column, index, grid, kind):
+def op_needs_ltm(c: CellContext) -> Cell:
     return unavailable_cell(LTM_NEEDED)
 
 
-def op_senior(ctx, column, index, grid, kind):
-    """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date only."""
-    if ctx["secured"] is None:
+def op_senior(c: CellContext) -> Cell:
+    """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date."""
+    if c.inputs.secured is None:
         return unavailable_cell(COMPONENT_MISSING)
-    when, total, problem = ctx["secured"]
-    if ctx["ends"].get(column["label"]) != when.isoformat():
+    when, total, problem = c.inputs.secured
+    if c.inputs.ends.get(c.column["label"]) != when.isoformat():
         return unavailable_cell(
             f"secured-debt carrying values are recorded only at {display_date(when.isoformat())}"
         )
-    if problem is not None:
+    if problem is not None or total is None:
         return unavailable_cell(problem)
-    return derive("multiple", [grid["adj"][index]], lambda a: total / a)
+    return derive("multiple", [c.grid["adj"][c.at]], lambda a: total / a)
 
 
-CELL_OPS = {
+CELL_OPS: dict[str, Callable[..., Cell]] = {
     "table": op_table,
     "table-sum": op_table_sum,
     "key": op_key,
@@ -1393,21 +1512,33 @@ CELL_OPS = {
 }
 
 
-def spec_cell(spec, ctx, column, index, grid, kind):
-    """One cell from its row's spec for the column's kind (None: a dash for history, n.m. in forecast)."""
+def spec_cell(spec: Spec | None, cell: CellContext) -> Cell:
+    """One cell from its row's spec for the column's kind (None: a dash, or n.m. in forecast)."""
     if spec is None:
-        return not_modelled_cell() if column["kind"] == "fc" else absent_cell()
-    return CELL_OPS[spec[0]](ctx, column, index, grid, kind, *spec[1:])
+        return not_modelled_cell() if cell.column["kind"] == "fc" else absent_cell()
+    return CELL_OPS[spec[0]](cell, *spec[1:])
 
 
-def every(spec):
+def every(spec: Spec) -> tuple[Spec, Spec, Spec]:
     return (spec, spec, spec)
+
+
+class RowSpec(NamedTuple):
+    """A grid row as data; a None spec shows a dash (history) or n.m. (forecast)."""
+
+    key: RowKey
+    band: str
+    label: str
+    kind: str
+    quarter: Spec | None
+    fiscal: Spec | None
+    forecast: Spec | None
 
 
 # Rows as data: (id, band, label, kind, quarter spec, fiscal-year spec, forecast spec).
 INCOME = "Profitability"
 HEAD_ROWS = (
-    (
+    RowSpec(
         "revenue",
         "Revenue",
         "Revenue",
@@ -1416,8 +1547,10 @@ HEAD_ROWS = (
         ("key", "revenue"),
         ("key", "revenue"),
     ),
-    ("revenue-growth", "Revenue", "Revenue YoY growth", "percent", *every(("growth", "revenue"))),
-    (
+    RowSpec(
+        "revenue-growth", "Revenue", "Revenue YoY growth", "percent", *every(("growth", "revenue"))
+    ),
+    RowSpec(
         "cogs",
         INCOME,
         "COGS (cost of sales)",
@@ -1426,7 +1559,7 @@ HEAD_ROWS = (
         ("key", "cogs"),
         None,
     ),
-    (
+    RowSpec(
         "gp",
         INCOME,
         "Gross profit",
@@ -1435,8 +1568,8 @@ HEAD_ROWS = (
         ("key", "gross_profit"),
         None,
     ),
-    ("gp-margin", INCOME, "Gross profit margin", "percent", *every(("margin", "gp"))),
-    (
+    RowSpec("gp-margin", INCOME, "Gross profit margin", "percent", *every(("margin", "gp"))),
+    RowSpec(
         "opex",
         INCOME,
         "Opex (selling and administrative, amortization of intangibles)",
@@ -1450,7 +1583,7 @@ HEAD_ROWS = (
         ("key", "opex_magnitude"),
         None,
     ),
-    (
+    RowSpec(
         "ebit",
         INCOME,
         "EBIT (income from operations)",
@@ -1459,7 +1592,7 @@ HEAD_ROWS = (
         ("key", "ebit_reported"),
         None,
     ),
-    (
+    RowSpec(
         "da",
         INCOME,
         "D&A (depreciation and amortization)",
@@ -1468,7 +1601,7 @@ HEAD_ROWS = (
         ("key", "cash_flow_DA"),
         None,
     ),
-    (
+    RowSpec(
         "ebitda",
         INCOME,
         "EBITDA (EBIT + D&A)",
@@ -1477,7 +1610,7 @@ HEAD_ROWS = (
         ("key", "operating_ebitda"),
         None,
     ),
-    (
+    RowSpec(
         "issuer",
         INCOME,
         "Issuer EBITDA (reported)",
@@ -1493,40 +1626,138 @@ CASH = "Cash and liquidity"
 DEBT = "Debt"
 CREDIT = "Credit metrics"
 TAIL_ROWS = (
-    ("adj", ADJUSTED, "Adj EBITDA (EBITDA As Defined)", "money", ("table", "qdef", CASHFLOW_LABELS["adjusted_ebitda"]), ("key", "issuer_as_defined"), ("key", "ebitda")),
-    ("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
-    ("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
-    ("interest", PROXY, "Cash interest", "money", None, ("key", "interest_cash"), ("key", "interest")),
-    ("tax", PROXY, "Cash taxes", "money", None, ("key", "tax_cash"), None),
-    ("tax-wc", PROXY, "Cash taxes and working capital, combined", "money", None, None, ("key", "tax_wc")),
-    ("cfo", PROXY, "Model cash from operations", "money", None, None, ("key", "cfo")),
-    ("capex", PROXY, "Capital expenditure (outflow)", "money", None, ("key", "capex_signed", True), ("key", "capex")),
-    ("fcf", PROXY, "Cash proxy (not issuer free cash flow)", "money", None, None, ("key", "fcf")),
-    ("dividends", CASH, "Distributions", "money", None, None, ("key", "dividends")),
-    ("repayment", CASH, "Debt repayment", "money", None, None, ("key", "repayment")),
-    ("opening-cash", CASH, "Opening cash", "money", None, None, ("key", "opening_cash")),
-    ("closing-cash", CASH, "Closing cash", "money", None, ("key", "cash"), ("key", "closing_cash")),
-    ("undrawn", CASH, "Undrawn facility", "money", None, None, ("key", "undrawn")),
-    ("liquidity", CASH, "Accessible liquidity", "money", None, None, ("key", "liquidity")),
-    ("opening-debt", DEBT, "Opening debt", "money", None, None, ("key", "opening_debt")),
-    ("closing-debt", DEBT, "Closing debt (carrying value)", "money", None, ("key", "carrying_debt"), ("key", "closing_debt")),
-    ("net-debt", DEBT, "Net debt (all modelled cash deducted)", "money", None, ("key", "net_carrying_debt"), ("key", "net_debt")),
-    ("senior", CREDIT, "Senior secured leverage (secured debt / Adj EBITDA)", "multiple", ("ltm",), ("senior",), None),
-    ("total-leverage", CREDIT, "Total leverage (debt / Adj EBITDA)", "multiple", ("ltm",), ("key", "gross_carrying_multiple"), ("key", "total_leverage")),
-    ("net-leverage", CREDIT, "Net leverage (net debt / Adj EBITDA)", "multiple", ("ltm",), ("key", "net_carrying_multiple"), ("key", "net_leverage")),
-    ("coverage", CREDIT, "Interest coverage (Adj EBITDA / cash interest)", "multiple", None, ("key", "issuer_earnings_cash_interest"), ("key", "coverage")),
-    ("cash-to-debt", CREDIT, "Cash proxy / closing debt", "percent", None, None, ("key", "fcf_to_debt")),
-)  # fmt: skip
+    RowSpec(
+        "adj",
+        ADJUSTED,
+        "Adj EBITDA (EBITDA As Defined)",
+        "money",
+        ("table", "qdef", CASHFLOW_LABELS["adjusted_ebitda"]),
+        ("key", "issuer_as_defined"),
+        ("key", "ebitda"),
+    ),
+    RowSpec("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
+    RowSpec("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
+    RowSpec(
+        "interest",
+        PROXY,
+        "Cash interest",
+        "money",
+        None,
+        ("key", "interest_cash"),
+        ("key", "interest"),
+    ),
+    RowSpec("tax", PROXY, "Cash taxes", "money", None, ("key", "tax_cash"), None),
+    RowSpec(
+        "tax-wc",
+        PROXY,
+        "Cash taxes and working capital, combined",
+        "money",
+        None,
+        None,
+        ("key", "tax_wc"),
+    ),
+    RowSpec("cfo", PROXY, "Model cash from operations", "money", None, None, ("key", "cfo")),
+    RowSpec(
+        "capex",
+        PROXY,
+        "Capital expenditure (outflow)",
+        "money",
+        None,
+        ("key", "capex_signed", True),
+        ("key", "capex"),
+    ),
+    RowSpec(
+        "fcf", PROXY, "Cash proxy (not issuer free cash flow)", "money", None, None, ("key", "fcf")
+    ),
+    RowSpec("dividends", CASH, "Distributions", "money", None, None, ("key", "dividends")),
+    RowSpec("repayment", CASH, "Debt repayment", "money", None, None, ("key", "repayment")),
+    RowSpec("opening-cash", CASH, "Opening cash", "money", None, None, ("key", "opening_cash")),
+    RowSpec(
+        "closing-cash",
+        CASH,
+        "Closing cash",
+        "money",
+        None,
+        ("key", "cash"),
+        ("key", "closing_cash"),
+    ),
+    RowSpec("undrawn", CASH, "Undrawn facility", "money", None, None, ("key", "undrawn")),
+    RowSpec("liquidity", CASH, "Accessible liquidity", "money", None, None, ("key", "liquidity")),
+    RowSpec("opening-debt", DEBT, "Opening debt", "money", None, None, ("key", "opening_debt")),
+    RowSpec(
+        "closing-debt",
+        DEBT,
+        "Closing debt (carrying value)",
+        "money",
+        None,
+        ("key", "carrying_debt"),
+        ("key", "closing_debt"),
+    ),
+    RowSpec(
+        "net-debt",
+        DEBT,
+        "Net debt (all modelled cash deducted)",
+        "money",
+        None,
+        ("key", "net_carrying_debt"),
+        ("key", "net_debt"),
+    ),
+    RowSpec(
+        "senior",
+        CREDIT,
+        "Senior secured leverage (secured debt / Adj EBITDA)",
+        "multiple",
+        ("ltm",),
+        ("senior",),
+        None,
+    ),
+    RowSpec(
+        "total-leverage",
+        CREDIT,
+        "Total leverage (debt / Adj EBITDA)",
+        "multiple",
+        ("ltm",),
+        ("key", "gross_carrying_multiple"),
+        ("key", "total_leverage"),
+    ),
+    RowSpec(
+        "net-leverage",
+        CREDIT,
+        "Net leverage (net debt / Adj EBITDA)",
+        "multiple",
+        ("ltm",),
+        ("key", "net_carrying_multiple"),
+        ("key", "net_leverage"),
+    ),
+    RowSpec(
+        "coverage",
+        CREDIT,
+        "Interest coverage (Adj EBITDA / cash interest)",
+        "multiple",
+        None,
+        ("key", "issuer_earnings_cash_interest"),
+        ("key", "coverage"),
+    ),
+    RowSpec(
+        "cash-to-debt",
+        CREDIT,
+        "Cash proxy / closing debt",
+        "percent",
+        None,
+        None,
+        ("key", "fcf_to_debt"),
+    ),
+)
 
 
-def capped(found, what, limit, file):
+def capped(found: Any, what: str, limit: int, file: str) -> None:
     if len(found) > limit:
         raise CashflowLimit(file, what, len(found), limit)
 
 
-def listed_labels(tables):
-    """Business units (rows `Total <unit>`) of the annual then the quarter segment table, in order."""
-    units = {}
+def listed_labels(tables: dict[str, Table | None]) -> list[str]:
+    """Business units (rows `Total <unit>`) of the annual, then the quarter, segment table."""
+    units: dict[str, None] = {}
     prefix = CASHFLOW_LABELS["total_prefix"] + " "
     for name, file in (("aseg", CASHFLOW_FILES[2]), ("qseg", CASHFLOW_FILES[3])):
         table = tables[name]
@@ -1537,7 +1768,7 @@ def listed_labels(tables):
     return list(units)
 
 
-def listed_add_backs(tables):
+def listed_add_backs(tables: dict[str, Table | None]) -> list[str]:
     """The annual add-back labels in order, then any quarter-only label."""
     labels = dict.fromkeys(add_back_labels(tables["adef"]))
     capped(labels, "add-back rows", ADD_BACK_ROW_LIMIT, CASHFLOW_FILES[2])
@@ -1546,13 +1777,13 @@ def listed_add_backs(tables):
     return list(labels)
 
 
-def cashflow_rows(tables):
+def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
     """The grid's rows in presentation order: units, the fixed head, add-backs, the fixed tail."""
-    rows = []
+    rows: list[RowSpec] = []
     for unit in listed_labels(tables):
         total = f"{CASHFLOW_LABELS['total_prefix']} {unit}"
         rows.append(
-            (
+            RowSpec(
                 ("unit", unit),
                 "Revenue",
                 unit,
@@ -1563,7 +1794,7 @@ def cashflow_rows(tables):
             )
         )
         rows.append(
-            (
+            RowSpec(
                 ("growth", unit),
                 "Revenue",
                 f"{unit} YoY growth",
@@ -1574,7 +1805,7 @@ def cashflow_rows(tables):
     rows.extend(HEAD_ROWS)
     for label in listed_add_backs(tables):
         rows.append(
-            (
+            RowSpec(
                 ("add-back", label),
                 "Add-backs to issuer EBITDA",
                 label,
@@ -1587,11 +1818,17 @@ def cashflow_rows(tables):
     return rows + list(TAIL_ROWS)
 
 
-def cashflow_of(forecast, fiscal, annual, quarter, handoff):
-    """History from the parsed annual and quarter tables and the forecast record, laid out as a grid."""
+def cashflow_of(
+    forecast: tuple[Forecast, list[str]],
+    fiscal: Fiscal,
+    annual: list[Table],
+    quarter: list[Table],
+    handoff: str | None,
+) -> dict[str, Any]:
+    """History from the parsed annual and quarter tables and the forecast record, as a grid."""
     cases, limits = forecast
     names = CASHFLOW_LABELS
-    tables = {
+    tables: dict[str, Table | None] = {
         "income": table_holding(quarter, names["cogs"]),
         "qseg": table_holding(quarter, names["segment_revenue"]),
         "aseg": table_holding(annual, names["segment_revenue"]),
@@ -1600,25 +1837,32 @@ def cashflow_of(forecast, fiscal, annual, quarter, handoff):
         "adef": table_holding(annual, names["adjusted_ebitda"]),
     }
     ends = fiscal_year_ends(annual)
-    ctx = {"tables": tables, "secured": secured_debt(annual), "ends": ends}
+    inputs = CashflowInputs(tables, secured_debt(annual), ends)
     income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
     capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
     layout = cashflow_rows(tables)
     columns = cashflow_columns(periods, fiscal, cases, ends)
-    grid, rows = {}, []
-    for key, band, label, kind, *specs in layout:
-        pick = {"q": specs[0], "fy": specs[1], "fc": specs[2]}
-        grid[key] = [
-            spec_cell(pick[column["kind"]], ctx, column, index, grid, kind)
+    grid: dict[RowKey, list[Cell]] = {}
+    rows = []
+    for spec in layout:
+        pick = {"q": spec.quarter, "fy": spec.fiscal, "fc": spec.forecast}
+        grid[spec.key] = [
+            spec_cell(pick[column["kind"]], CellContext(inputs, column, index, grid, spec.kind))
             for index, column in enumerate(columns)
         ]
-        rows.append({"band": band, "label": label, "cells": grid[key]})
+        rows.append({"band": spec.band, "label": spec.label, "cells": grid[spec.key]})
     year_to_date = any(column["ytd"] for column in columns)
     return {
         "units": cashflow_units(handoff) if handoff is not None else None,
         "columns": [
-            {key: column[key] for key in ("label", "group", "start", "end", "ytd")}
+            {
+                "label": column["label"],
+                "group": column["group"],
+                "start": column["start"],
+                "end": column["end"],
+                "ytd": column["ytd"],
+            }
             for column in columns
         ],
         "rows": rows,
@@ -1627,7 +1871,7 @@ def cashflow_of(forecast, fiscal, annual, quarter, handoff):
     }
 
 
-# Errors a malformed input file or layout can raise; each is reported, never allowed to end the store.
+# Errors a malformed input file or layout can raise; each is reported, never ends the store.
 CASHFLOW_ERRORS = (
     OSError,
     ValueError,
@@ -1641,13 +1885,18 @@ CASHFLOW_ERRORS = (
 )
 
 
-def read_cashflow(files, handoff):
-    """(grid, None), or (None, (kind, text)): kind "file" (text: the input that cannot be read), "limit"
-    (text: the limit message) or "layout" (text: describe(error) of the failure while laying out).
+def read_cashflow(
+    files: dict[str, bytes], handoff: str | None
+) -> tuple[dict[str, Any] | None, tuple[str, str] | None]:
+    """(grid, None), or (None, (kind, text)).
 
-    Documented fail-open: an input the reader cannot read or lay out leaves the model listed with no
-    grid and a Workspace issue naming the file or the cause. A model too large to parse (MemoryError) or
-    nested too deep (RecursionError) is reported the same way, not allowed to end the store.
+    Kind "file" (text: the input that cannot be read), "limit" (text: the limit message) or
+    "layout" (text: describe(error) of the failure while laying out).
+
+    Documented fail-open: an input the reader cannot read or lay out leaves the model listed with
+    no grid and a Workspace issue naming the file or the cause. A model too large to parse
+    (MemoryError) or nested too deep (RecursionError) is reported the same way, not allowed to end
+    the store.
     """
     stage = CASHFLOW_FILES[0]
     try:
@@ -1670,16 +1919,25 @@ def read_cashflow(files, handoff):
         return None, ("layout", describe(error))
 
 
-def cashflow_or_issues(folder, files, inputs, handoff, issues):
-    """The model's cash flow grid, or None with one issue for each of the four files that is not usable."""
+def cashflow_or_issues(
+    folder: str,
+    files: dict[str, Any],
+    inputs: dict[str, bytes | None],
+    handoff: str | None,
+    issues: list[str],
+) -> dict[str, Any] | None:
+    """The model's cash flow grid, or None with one issue for each of the four unusable files."""
+    present: dict[str, bytes] = {}
     for name in CASHFLOW_FILES:
-        if inputs[name] is not None:
+        data = inputs[name]
+        if data is not None:
+            present[name] = data
             continue
         what = "does not match its delivery record" if name in files else "is missing or unreadable"
         issues.append(f"{folder}: {name} {what}")
-    if any(inputs[name] is None for name in CASHFLOW_FILES):
+    if len(present) != len(CASHFLOW_FILES):
         return None
-    cashflow, problem = read_cashflow(inputs, handoff)
+    cashflow, problem = read_cashflow(present, handoff)
     if problem is not None:
         kind, text = problem
         issues.append(
@@ -1692,12 +1950,13 @@ def cashflow_or_issues(folder, files, inputs, handoff, issues):
     return cashflow
 
 
-def shown_models(root, catalogue):
-    """The one available model folder shown per name (the route id), and the issues naming the others.
+def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[str]]:
+    """The one available model folder shown per name (the route id), and the issues for the others.
 
-    A folder is listed once however many runs list it. When folders share a name, the run's own delivery
-    (runs/<run_id>/deliveries/<name>, its view.json recording that run) is kept, else the first by path; each
-    dropped folder is named in an issue that says which one is shown. Only the kept folder is read in full.
+    A folder is listed once however many runs list it. When folders share a name, the run's own
+    delivery (runs/<run_id>/deliveries/<name>, its view.json recording that run) is kept, else the
+    first by path; each dropped folder is named in an issue that says which one is shown. Only the
+    kept folder is read in full.
     """
     by_name: dict[str, list[str]] = {}
     for run in catalogue["real"]:
@@ -1708,12 +1967,12 @@ def shown_models(root, catalogue):
                 if folder not in names:
                     names.append(folder)
 
-    def own(folder):
+    def own(folder: str) -> bool:
         parts = PurePosixPath(folder).parts
         if len(parts) != 4 or parts[0] != "runs" or parts[2] != "deliveries":
             return False
-        # Documented fail-open: an unreadable view.json means "not known to be the run's own"; the model
-        # read in catalogue_models reports the same failure as a Workspace issue.
+        # Documented fail-open: an unreadable view.json means "not known to be the run's own"; the
+        # model read in catalogue_models reports the same failure as a Workspace issue.
         try:
             recorded = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"][
                 "run_id"
@@ -1728,7 +1987,7 @@ def shown_models(root, catalogue):
             MemoryError,
         ):
             return False
-        return recorded == parts[1]
+        return bool(recorded == parts[1])
 
     shown: set[str] = set()
     issues: list[str] = []
@@ -1743,9 +2002,12 @@ def shown_models(root, catalogue):
     return shown, issues
 
 
-def catalogue_models(root, catalogue, outputs, keys):
-    """Published models the server verified, each once, with why it was built and what it was built from."""
-    models, done = [], set()
+def catalogue_models(
+    root: Path, catalogue: dict[str, Any], outputs: dict[str, Any], keys: dict[str, str]
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Published models the server verified, each once, with why and from what they were built."""
+    models: list[dict[str, Any]] = []
+    done: set[str] = set()
     shown, issues = shown_models(root, catalogue)
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
@@ -1756,8 +2018,8 @@ def catalogue_models(root, catalogue, outputs, keys):
             if folder not in shown or folder in done:
                 continue
             done.add(folder)
-            # Documented fail-open: reported in Settings; the other models stay readable. A model too
-            # large to parse (MemoryError) is reported the same way, not allowed to end the store.
+            # Documented fail-open: reported in Settings; the other models stay readable. A model
+            # too large to parse (MemoryError) is reported the same way, never ends the store.
             try:
                 delivery = delivery_json(root / folder)
                 view = listed_view(root / folder, delivery)
@@ -1773,7 +2035,7 @@ def catalogue_models(root, catalogue, outputs, keys):
                         issues.append(f"{folder}: forecast.md does not match its delivery record")
                     else:
                         handoff_text = handoff.decode("utf-8")
-                        register = register_of(parse_source(handoff_text))
+                        register = register_of(sections_of(handoff_text))
                 inputs = {
                     name: listed_bytes(root / folder, delivery, name) if name in files else None
                     for name in CASHFLOW_FILES
@@ -1851,13 +2113,14 @@ def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, st
         return {}
 
 
-def delivery_identities(root, catalogue):
+def delivery_identities(root: Path, catalogue: dict[str, Any]) -> list[dict[str, Any]]:
     """What each available (hash-verified) deliverable says about its own run and issuer.
 
     A deliverable whose view.json cannot be read is skipped here; catalogue_reports names it in
     Workspace issues, so the failure is reported once and no run takes an identity from it.
     """
-    found, seen = [], set()
+    found: list[dict[str, Any]] = []
+    seen: set[str] = set()
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
             folder = artifact["folder"]
@@ -1886,7 +2149,9 @@ def delivery_identities(root, catalogue):
     return sorted(found, key=lambda item: item["folder"])
 
 
-def recorded_identity(run_dir, run, curated_name, delivered):
+def recorded_identity(
+    run_dir: Path, run: dict[str, Any], curated_name: str | None, delivered: list[dict[str, Any]]
+) -> tuple[str | None, str | None, str | None]:
     """A run's recorded issuer (name, ID) and, if its deliverables disagree, the issue to report.
 
     Name: curated, else the launcher manifest, else a catalogue name unlike the folder, else what
@@ -1902,7 +2167,7 @@ def recorded_identity(run_dir, run, curated_name, delivered):
     issuer_id = manifest.get("issuer_id") or (seeded if seeded != "Unclassified" else None)
     if name:
         return name, issuer_id, None
-    said = {}
+    said: dict[tuple[str, Any], dict[str, Any]] = {}
     # In folder order, so the first deliverable's spelling of the ID is kept.
     for item in delivered:
         said.setdefault(((item["issuer_id"] or "").casefold(), item["issuer_name"]), item)
@@ -1914,36 +2179,38 @@ def recorded_identity(run_dir, run, curated_name, delivered):
     return None, issuer_id, None
 
 
-def issuer_groups(recorded):
+def issuer_groups(
+    recorded: dict[str, tuple[str | None, str | None]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """Group runs by issuer. recorded maps run key to (name or None, ID or None).
 
     Runs with a name join when they share a case-folded ID or an exact name, transitively. Returns
     the identity fields of every run and a map from each case-folded ID to its group's key.
     """
-    named = {key: pair for key, pair in recorded.items() if pair[0]}
+    named = {key: (name, issuer_id) for key, (name, issuer_id) in recorded.items() if name}
     parent = {key: key for key in named}
 
-    def root_of(key):
+    def root_of(key: str) -> str:
         while parent[key] != key:
             parent[key] = parent[parent[key]]
             key = parent[key]
         return key
 
-    first = {}
+    first: dict[tuple[str, str], str] = {}
     for key, (name, issuer_id) in named.items():
         for token in [("name", name), *([("id", issuer_id.casefold())] if issuer_id else [])]:
             parent[root_of(key)] = root_of(first.setdefault(token, key))
-    members = {}
+    members: dict[str, list[str]] = {}
     for key in named:
         members.setdefault(root_of(key), []).append(key)
-    fields = {
+    fields: dict[str, dict[str, Any]] = {
         key: {"issuerKey": None, "issuerHeading": None, "issuerTerms": []} for key in recorded
     }
-    keys = {}
+    keys: dict[str, str] = {}
     for group in members.values():
         names = Counter(named[key][0] for key in group)
         heading = min(names, key=lambda name: (-names[name], name.casefold(), name))
-        ids = {named[key][1] for key in group if named[key][1]}
+        ids = {known for key in group if (known := named[key][1])}
         folded = {issuer_id.casefold() for issuer_id in ids}
         group_key = f"id:{min(folded)}" if folded else f"name:{heading}"
         keys |= dict.fromkeys(folded, group_key)
@@ -1956,7 +2223,7 @@ def issuer_groups(recorded):
     return fields, keys
 
 
-def report_issuer_key(keys, issuer_id):
+def report_issuer_key(keys: dict[str, str], issuer_id: Any) -> str | None:
     """The key of the group holding a report's issuer ID, or one built from that ID alone."""
     if not isinstance(issuer_id, str) or not issuer_id:
         return None
@@ -1978,13 +2245,15 @@ def run_row(root: Path, run: dict[str, Any], name: str | None = None) -> tuple[s
     return (folder, issuer, issuer, label, run.get("sector") or "Unclassified", period)
 
 
-def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, Any]:
-    """Everything the app reads. A curated pin that stopped matching is dropped, not fatal."""
-    root = Path(root)
-    catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
+def shown_runs(
+    root: Path, catalogue: dict[str, Any], issues: list[str]
+) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str | None, str | None]]]:
+    """The runs to show by route key, and each one's recorded (issuer name, issuer ID).
+
+    A folder that cannot be linked or that takes a retained case's route key is named in `issues`.
+    """
     curated = {row[0]: (key, row) for key, row in CURATED_RUNS.items()}
     shown: dict[str, tuple[str, ...]] = {}
-    issues = list(catalogue.get("issues") or [])
     recorded: dict[str, tuple[str | None, str | None]] = {}
     delivered: dict[str, list[dict[str, Any]]] = {}
     for item in delivery_identities(root, catalogue):
@@ -2003,12 +2272,21 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
             continue
         key, row = curated.get(folder) or (folder, None)
         name, issuer_id, problem = recorded_identity(
-            root / "runs" / folder, run, row and row[1], delivered.get(folder, [])
+            root / "runs" / folder, run, row[1] if row else None, delivered.get(folder, [])
         )
         if problem:
             issues.append(f"runs/{folder}: {problem}")
         shown[key] = row or run_row(root, run, name)
         recorded[key] = (name, issuer_id)
+    return shown, recorded
+
+
+def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, Any]:
+    """Everything the app reads. A curated pin that stopped matching is dropped, not fatal."""
+    root = Path(root)
+    catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
+    issues = list(catalogue.get("issues") or [])
+    shown, recorded = shown_runs(root, catalogue, issues)
 
     def link(folder: str, relative: str, digest: str) -> str:
         return f"/files/{quote(f'runs/{folder}/{relative}')}?sha256={digest}"

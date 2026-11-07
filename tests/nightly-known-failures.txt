@@ -107,3 +107,8 @@ tests/prompts/test_texts_loader.py::test_the_p5_line_is_the_only_change_to_the_f
 tests/prompts/test_texts_loader.py::test_the_p5t6_changes_are_the_only_change_to_the_frozen_message[source_readiness]
 tests/prompts/test_texts_loader.py::test_the_twelve_existing_steps_compose_byte_identically
 tests/prompts/test_texts_loader.py::test_the_unit_maps_schema_is_the_only_change_to_the_frozen_message[financials]
+
+# Found by the S12-A02 fixer, confirmed on claude/quality-gate (2026-11-07)
+tests/prompts/test_coverage_rule.py::test_the_rule_list_holds_the_coverage_rule  # coverage rule text drifted from the frozen statement at base
+tests/prompts/test_coverage_rule.py::test_the_statement_is_the_frozen_text  # same
+tests/test_o2_done_when.py::test_a_line_citation_naming_the_range_key_is_not_coverage

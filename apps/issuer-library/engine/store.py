@@ -359,14 +359,17 @@ def reader_fields(sections):
     return {"summary": summary, "charts": charts, "issue": "; ".join(problems) or None}
 
 
-def structured(raw, strict):
-    """Typed blocks. In the app a handoff the parser refuses stays readable as one flagged block."""
+def structured(raw: bytes, strict: bool) -> tuple[list[dict[str, Any]], str | None]:
+    """Typed blocks. In the app a handoff the parser refuses stays readable as one flagged block.
+
+    A UTF-8 byte-order mark, which Windows editors often write, is not part of the first heading.
+    """
     try:
-        return parse_source(raw.decode("utf-8")), None
+        return parse_source(raw.decode("utf-8-sig")), None  # type: ignore[no-untyped-call]  # legacy untyped parser
     except ValueError as error:
         if strict:
             raise
-        text = raw.decode("utf-8", "replace")
+        text = raw.decode("utf-8-sig", "replace")
         block = {"type": "text", "line": 1, "end": text.count("\n") + 1, "text": text}
         return [{"heading": "Unstructured handoff", "level": 1, "line": 1, "blocks": [block]}], str(
             error

@@ -720,3 +720,21 @@ def test_a_name_that_merely_contains_request_stays_an_output(tmp_path):
         ["q/CP-1-requested-changes.md"],
         ["q/CP-1-request.md"],
     )
+
+
+def test_a_byte_order_mark_does_not_hide_the_first_heading(tmp_path):
+    # Expected by hand: the BOM is not text, so the BOM copy parses exactly like the plain fixture
+    # (its reader summary at line 17 and four chart tables), while the hash stays that of the bytes.
+    raw = READER_FIXTURE.read_bytes()
+    with_bom = b"\xef\xbb\xbf" + raw
+    assert store.structured(with_bom, strict=True) == store.structured(raw, strict=True)
+    put(tmp_path, "runs/bom-001/CP-1.md", "")
+    (tmp_path / "runs/bom-001/CP-1.md").write_bytes(with_bom)
+    result = store.workspace_store(tmp_path, {"real": [{"id": "bom-001", "name": "Bom"}]})
+    output = result["outputs"]["bom-001/CP-1.md"]
+    assert "parseError" not in output
+    assert output["summary"]["line"] == 17
+    assert len(output["charts"]) == 4
+    assert output["sha256"] == hashlib.sha256(with_bom).hexdigest()
+    # A file holding only a BOM reads as an empty file does: no sections and no parse error.
+    assert store.structured(b"\xef\xbb\xbf", strict=False) == ([], None)

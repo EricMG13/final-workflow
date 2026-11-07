@@ -385,3 +385,10 @@ def test_duration_word_glued_by_pdf_extraction_is_a_unit() -> None:
     # The sol-medium filing text reads "Operating leases ..... 5.4years".
     assert flow.numbers("lease term 5.4years and 18months, 30days") == {"5.4", "18", "30"}
     assert flow.numbers("12.6xyz 5.4yearsago") == set()
+
+
+def test_completed_record_without_modules_is_a_fault(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    record = next(run.glob("completed-*.json"))
+    record.write_text(json.dumps({"kind": "cpos-markdown-delivery/1"}))
+    assert flow.run_faults(run, sources) == [f"completed record {record.name} has no modules"]

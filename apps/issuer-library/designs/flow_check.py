@@ -97,6 +97,14 @@ def _completion(run: Path) -> dict[str, Any] | None:
     return json.loads(records[-1].read_text()) if records else None
 
 
+def _record_without_modules(run: Path) -> str | None:
+    """The fault for a newest completed record that lists no modules, else None."""
+    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
+    if records and "modules" not in json.loads(records[-1].read_text()):
+        return f"completed record {records[-1].name} has no modules"
+    return None
+
+
 def _accepted(run: Path) -> dict[str, Path]:
     """Accepted handoffs in the completed record's module order (CP-*.md by name without one)."""
     completion = _completion(run)
@@ -202,7 +210,8 @@ def _operands(node: Any) -> set[str]:
 def _read_numbers(folder: Path, base: set[str]) -> set[str]:
     """Numbers in what the module read. The engine's own replies (write_handoff, edit_handoff) are
     not reading. A calculate result counts only once every operand of its call is itself evidence,
-    iterated to a fixpoint, so chained calculations resolve; an invented operand cannot launder."""
+    iterated to a fixpoint, so chained calculations resolve; an invented operand of two or more
+    digits cannot launder (single digits are not checked, as everywhere here)."""
     calls, pending, evidence = _calls(folder), [], set(base)
     for tools in sorted(folder.glob("*.tools.json")):
         for c in json.loads(tools.read_text()):
@@ -250,6 +259,8 @@ def _received(run: Path, request: dict[str, Any]) -> set[str]:
 
 
 def run_faults(run: Path, sources: Path | None = None) -> list[str]:
+    if (missing := _record_without_modules(run)) is not None:
+        return [missing]
     accepted = _accepted(run)
     if not accepted:
         return [f"no accepted handoff found in {run}"]

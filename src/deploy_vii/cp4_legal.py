@@ -1081,6 +1081,12 @@ def _computed(
     )
 
 
+def _headroom_amount(test: _Test, result: Headroom) -> Decimal:
+    """The headroom as T4.9 shows it: percentage points (x100) for a percent threshold, else the
+    metric's own amount. T4F.3 traces this same value (S09-C05)."""
+    return result.amount * 100 if test.row.threshold_unit == "percent" else result.amount
+
+
 def _test_cells(test: _Test, out: _Composer) -> tuple[CellLike, CellLike, CellLike]:
     """Headroom, its share and the test result: computed, not calculable or not applicable."""
     if test.result is None:
@@ -1094,10 +1100,10 @@ def _test_cells(test: _Test, out: _Composer) -> tuple[CellLike, CellLike, CellLi
     ref, operand = metric.fact_id, test.operand
     upper = test.row.comparison in ("<=", "<")
     formula = f"{operand} (threshold) - {ref}" if upper else f"{ref} - {operand} (threshold)"
-    amount, unit = test.result.amount, metric.unit
+    amount, unit = _headroom_amount(test, test.result), metric.unit
     if test.row.threshold_unit == "percent":
         # Fix round 1: room between two percentages is percentage points, not a percent.
-        amount, unit, formula = amount * 100, POINTS, f"({formula}) x 100, percentage points"
+        unit, formula = POINTS, f"({formula}) x 100, percentage points"
     cited = out.binding.of(test.row)
     room = _computed(metric, cited, "Headroom", amount, unit, formula)
     share: CellLike = (
@@ -1307,17 +1313,19 @@ def _check_tables(tests: Sequence[_Test], upstream: Upstream, out: _Composer) ->
                 ),
                 Cell(str(t.operand)) if t.operand is not None else _absent("No parsed threshold"),
                 Cell(t.metric.fact_id) if t.metric else _absent("No CP-1 metric"),
-                Cell(
-                    str(t.result.amount)
-                    if t.result
-                    else f"{NOT_CALCULABLE}: {t.reason}"
-                    if not t.inapplicable
-                    else "Not applicable"
-                ),
+                Cell(_traced_result(t)),
             )
             for t in tests
         ),
     )
+
+
+def _traced_result(test: _Test) -> str:
+    """T4F.3's Result: the headroom in T4.9's unit (percentage points for a percent threshold)."""
+    if test.result is None:
+        return "Not applicable" if test.inapplicable else f"{NOT_CALCULABLE}: {test.reason}"
+    amount = _headroom_amount(test, test.result)
+    return f"{amount} {POINTS}" if test.row.threshold_unit == "percent" else str(amount)
 
 
 def _document_tables(
@@ -1678,6 +1686,19 @@ def submit_cp4_step(store: Execution, ticket_id: str, step_id: str, payload: str
     )
 
 
+def _facts_note(upstream: Upstream) -> str:
+    """The figure rule keyed on the offered figures; the facility clause only when no facility is
+    listed, since the validator accepts a listed facility id without any figure (S09-C03)."""
+    if upstream.facts:
+        return (
+            "Reference a figure only as {ref|unit} with a ref and unit listed in cp1_facts; a "
+            "test's metric_ref names one of these refs."
+        )
+    if upstream.facilities:
+        return "No CP-1 figure is offered: write no figure and name no metric_ref."
+    return "No CP-1 figure is offered: write no figure, name no metric_ref and no facility."
+
+
 def context_block(pack: PreparedPack, upstream: Upstream) -> dict[str, object]:
     """What the `legal_covenants` CONTEXT block adds to the pack facts: the citable (executed, filed
     or draft) sources, the CP-1 status and the gaps it carries, the T4.18 facility list and the CP-1
@@ -1716,12 +1737,7 @@ def context_block(pack: PreparedPack, upstream: Upstream) -> dict[str, object]:
             }
             for fact in upstream.facts
         ],
-        "cp1_facts_note": (
-            "Reference a figure only as {ref|unit} with a ref and unit listed in cp1_facts; a "
-            "test's metric_ref names one of these refs."
-            if upstream.facts
-            else "No CP-1 figure is offered: write no figure, name no metric_ref and no facility."
-        ),
+        "cp1_facts_note": _facts_note(upstream),
         "headroom_note": (
             "Python computes every headroom from the quoted threshold and the CP-1 metric; "
             "where an operand is missing it writes not calculable, never zero. State no "

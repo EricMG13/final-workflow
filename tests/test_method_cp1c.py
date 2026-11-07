@@ -914,6 +914,26 @@ def test_c3_basis_line_without_the_usd_millions_clause_is_peer_table_not_found(b
     assert cp1c.calculation_issues(case) == ("Peer table not found",)
 
 
+@pytest.mark.parametrize(
+    ("first", "second", "accepted"),
+    [
+        (BASIS, None, True),  # one Basis line that agrees
+        ("Basis: EUR; amounts in thousands.", BASIS, False),  # contradicts, then agrees
+        (BASIS, "Basis: EUR; amounts in thousands.", False),  # agrees, then contradicts
+        (BASIS, BASIS, False),  # repeated
+    ],
+)
+def test_a06_more_than_one_basis_line_is_peer_table_not_found(
+    first: str, second: str | None, accepted: bool
+) -> None:
+    # Hand-derived: only a page:1 with exactly one Basis line is read; two lines could state two
+    # currencies or scales, so any second Basis line (agreeing or not) refuses the table.
+    both = first if second is None else f"{first}\n{second}"
+    case = _with_sources("positive", _edited("positive", 1, BASIS, both))
+    expected = () if accepted else ("Peer table not found",)
+    assert cp1c.calculation_issues(case) == expected
+
+
 # Round 3 ruling 1C-x: an amount with more than one decimal place breaches the table rule.
 
 
@@ -1462,3 +1482,35 @@ def test_blank_text_twin_is_accepted(field: tuple[str, tuple[str | int, ...]]) -
     path, keys = field
     issues = _blank_adapter(keys)("", "", "The peer figures are desk-supplied.")
     assert EMPTY_TEXT.format(path=path) not in issues, issues
+
+
+def test_c08_one_compute_parses_and_composes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Hand-derived: a valid payload needs one peer-sheet parse and one composition; the
+    # composition built to check the references is the one the result is made from.
+    calls = {"parse_peer_source": 0, "_compose": 0}
+    for name in calls:
+        original = getattr(cp1c, name)
+
+        def counted(*args: object, _o: object = original, _n: str = name, **kw: object) -> object:
+            calls[_n] += 1
+            return _o(*args, **kw)  # type: ignore[operator]
+
+        monkeypatch.setattr(cp1c, name, counted)
+    case = inputs("positive")
+    assert cp1c.compute(case).facts
+    assert calls == {"parse_peer_source": 1, "_compose": 1}
+
+
+def test_c09_the_thin_universe_line_and_the_rule_wrapper_have_one_definition() -> None:
+    # The thin-universe limitation is THIN_LINE itself (the de-duplication against the EV
+    # limitations depends on the two strings being the same object's text), and cp1c/cp1d wrap
+    # tool-use rules with the product's one `_with_rules`.
+    from deploy_vii.live import submission
+    from deploy_workflow.owners import cp1d
+
+    case = inputs("positive")
+    limitations = cp1c.compute(case).limitations
+    assert sum(line == cp1c.THIN_LINE for line in limitations) <= 1
+    assert cp1c._with_rules is submission._with_rules
+    assert cp1d._with_rules is submission._with_rules
+    assert 'out.append("Medians over fewer' not in Path(cp1c.__file__).read_text()

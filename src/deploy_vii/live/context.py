@@ -152,12 +152,16 @@ def readable_sources(store: Execution, attempt: Attempt, step_id: str) -> tuple[
     return declared_sources(store, attempt, step_id, every)
 
 
-def integrity_projection(scope: cp5_integrity.ReviewScope) -> cp5_integrity.FactProjection:
+def integrity_projection(
+    scope: cp5_integrity.ReviewScope, checks: cp5_integrity.PythonChecks | None = None
+) -> cp5_integrity.FactProjection:
     """The facts of each head the CP-5 CONTEXT lists (`cp5_integrity.context_block`'s seam): the
     facts a claim names as `{ref|unit}`, every member of a cross-module identity group and
     every reference a Python check flags, in head order. The checks and the validator still read
-    every fact; a promoted CP-1 holds tens of thousands, nearly all named by nothing."""
-    checks = cp5_integrity.python_checks(scope)
+    every fact; a promoted CP-1 holds tens of thousands, nearly all named by nothing. `checks` is
+    the `python_checks(scope)` the caller already holds."""
+    if checks is None:
+        checks = cp5_integrity.python_checks(scope)
     kept: dict[str, set[str]] = {}
     for _, head in scope.heads:
         bound = prose.bind(head.facts)
@@ -182,7 +186,10 @@ def integrity_projection(scope: cp5_integrity.ReviewScope) -> cp5_integrity.Fact
 def integrity_scope(store: Execution, attempt: Attempt) -> dict[str, object]:
     """The CP-5 review scope block of `attempt`: its review scope, facts projected."""
     scope = cp5_integrity.review_scope(store, attempt)
-    return cp5_integrity.context_block(scope, facts=integrity_projection(scope))
+    checks = cp5_integrity.python_checks(scope)
+    return cp5_integrity.context_block(
+        scope, facts=integrity_projection(scope, checks), checks=checks
+    )
 
 
 def upstream_text(consumer_step_id: str, producer_step_id: str, output_json: str) -> str:

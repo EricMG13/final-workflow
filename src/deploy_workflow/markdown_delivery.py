@@ -16,6 +16,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Context, Decimal
 from pathlib import Path
+from typing import Any
 
 from deploy_vii.bindings import Binding, BindingMap, validate_bindings
 from deploy_vii.contracts import (
@@ -194,6 +195,7 @@ def gap_limitations(raw: str) -> tuple[str, ...]:
     found: list[str] = []
     paragraph: list[str] = []
     in_table = 0  # Pipe lines seen in the current table: the first two are header and separator.
+    fenced = False  # Fenced code in a Gaps section is not a gap statement.
 
     def close() -> None:
         text = plain(" ".join(paragraph))
@@ -203,13 +205,21 @@ def gap_limitations(raw: str) -> tuple[str, ...]:
 
     for _, text in section(lines, "Gaps"):
         stripped = text.strip()
+        if FENCE.match(text):
+            close()
+            fenced = not fenced
+            in_table = 0
+            continue
+        if fenced:
+            continue
         if stripped.startswith("|"):
             close()
             in_table += 1
             if in_table > 2:
                 body = stripped[1:-1] if stripped.endswith("|") else stripped[1:]
                 cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", body)]
-                found.append(plain("; ".join(cells)))
+                if any(plain(c) for c in cells):
+                    found.append(plain("; ".join(cells)))
             continue
         in_table = 0
         if not stripped or heading_of(stripped) is not None:
@@ -224,6 +234,13 @@ def literal_module(
     module_id: str, raw: bytes
 ) -> tuple[ModuleView, Source, dict[str, tuple[str, str]]]:
     """Retain tables and wrapped prose with exact physical-line citations."""
+    return _literal_view(module_id, raw)[:3]
+
+
+def _literal_view(
+    module_id: str, raw: bytes
+) -> tuple[ModuleView, Source, dict[str, tuple[str, str]], dict[str, int]]:
+    """`literal_module` plus the line of the heading that owns each table and prose entry."""
     from deploy_workflow.model_handoff_delivery import _literal_tables
 
     digest = hashlib.sha256(raw).hexdigest()
@@ -243,6 +260,7 @@ def literal_module(
             update={"title": heading + " — " + (table.row_header or "Table")}
         )
         metadata[table.table_id] = (heading, "table")
+    owner_line = dict(section_of)
     groups = _prose_groups(lines, _table_lines(tables, facts))
     section_prose: dict[int, list[str]] = {}
     for group in groups:
@@ -298,6 +316,7 @@ def literal_module(
             )
         )
         metadata[table_id] = (heading, "prose")
+        owner_line[table_id] = group.line
     descriptor = next(m for m in modules() if m.module_id == module_id)
     return (
         ModuleView(
@@ -318,6 +337,7 @@ def literal_module(
         ),
         source,
         metadata,
+        owner_line,
     )
 
 
@@ -692,6 +712,63 @@ def _registers(
     return slots
 
 
+def coverage_record(
+    module_views: list[ModuleView],
+    metadata: dict[str, dict[str, tuple[str, str]]],
+    owner_lines: dict[str, dict[str, int]],
+    routed: dict[tuple[str, str], str],
+) -> dict[str, Any]:
+    """Where each handoff table and prose section went: its routed block, else `evidence`."""
+    modules: dict[str, list[dict[str, Any]]] = {}
+    for module in (m for m in module_views if m.module_id in owner_lines):
+        lines = owner_lines[module.module_id]
+        modules[module.module_id] = [
+            {
+                "id": t.table_id,
+                "heading": metadata[module.module_id][t.table_id][0],
+                "kind": metadata[module.module_id][t.table_id][1],
+                "line": lines[t.table_id],
+                "block": routed.get((module.module_id, t.table_id), "evidence"),
+            }
+            for t in module.tables
+            if t.table_id in lines  # a typed chart table repeats its source table's section
+        ]
+    return {"schema": "delivery-coverage/1", "modules": modules}
+
+
+def _headings_with_content(raw: str, name: str) -> list[tuple[int, str]]:
+    """`##`/`###` heading lines (outside fences and comments) with content before the next
+    heading of any level; a line inside a fence is content."""
+    found: list[tuple[int, str]] = []
+    current: tuple[int, str] | None = None
+    fenced = False
+    for number, line in enumerate(hide_comments(physical_lines(raw), name), 1):
+        head = heading_of(line)
+        if fenced and head and head[0] == 2:
+            fenced = False
+        if FENCE.match(line):
+            fenced = not fenced
+        elif not fenced and head:
+            current = (number, head[1]) if head[0] in (2, 3) else None
+            continue
+        elif not line.strip() or (not fenced and line.startswith("<!--")):
+            continue
+        if current is not None and current not in found:
+            found.append(current)
+    return found
+
+
+def check_coverage(raw_by_module: dict[str, str], record: dict[str, Any]) -> None:
+    """Refuse a delivery in which a handoff section with content is in no coverage entry."""
+    for module_id, raw in raw_by_module.items():
+        presented = {entry["line"] for entry in record["modules"].get(module_id, [])}
+        for number, heading in _headings_with_content(raw, module_id):
+            if number not in presented:
+                raise ValueError(
+                    f"delivery_coverage: {module_id} line {number} {heading} is not presented"
+                )
+
+
 def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C901 40 at base)
     request: DeliveryRequest, base: Path
 ) -> dict[str, bytes]:
@@ -738,12 +815,13 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
     sources = []
     metadata = {}
     files = {}
+    owner_lines: dict[str, dict[str, int]] = {}
     for module_id, spec in request.handoffs.items():
         raw = (base / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
         require_issuer(request.run, layout.issuer_aliases, module_id, physical_lines(raw.decode()))
-        module, source, meta = literal_module(module_id, raw)
+        module, source, meta, owner_lines[module_id] = _literal_view(module_id, raw)
         module_views.append(module)
         sources.append(source)
         metadata[module_id] = meta
@@ -774,6 +852,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         metadata["CP-MODEL"] = {t.table_id: (t.title, "table") for t in publication.module.tables}
     entries: dict[str, list[Binding]] = {m.module_id: [] for m in module_views}
     used: set[tuple[str, str]] = set()
+    routed: dict[tuple[str, str], str] = {}
     yield_charts: dict[str, tuple[str, tuple[str, ...], tuple[_ChartPoint, ...]]] = {}
     strip_charts: dict[
         str, dict[str, tuple[str, str, str, tuple[str, ...], tuple[_ChartPoint, ...]]]
@@ -794,6 +873,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
                 f"{route.module_id}/{route.heading}/{route.table_header}"
             )
         table = tables[0]
+        routed.setdefault((module.module_id, table.table_id), route.block_id)
         facts = {f.fact_id: f for f in module.facts}
         selected = [
             r
@@ -1067,6 +1147,9 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
     anchor = '<div id="call-root"></div>'
     if rendered.count(anchor) != 1:
         raise ValueError("Existing renderer scope-banner location changed")
+    record_of = coverage_record(module_views, metadata, owner_lines, routed)
+    check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
+    files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(
         {
             "view.json": view.model_dump_json(indent=2).encode(),

@@ -14,6 +14,7 @@ from deploy_vii.contracts import Run
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
 from deploy_workflow.markdown_delivery import (
+    check_coverage,
     gap_limitations,
     literal_module,
     markdown_files,
@@ -522,3 +523,88 @@ def test_a_handoff_without_gaps_keeps_only_the_fixed_limitation():
     raw = "# CP-1B X\n## Request\nScope.\n## Findings\nText.\n"
     assert gap_limitations(raw) == ()
     assert gaps_of("None.\n") == ()
+
+
+def test_a_fenced_block_in_gaps_yields_no_limitation():
+    gaps = "Before.\n```\nNot a gap.\n| X | Y |\n|---|---|\n| H | hidden |\n```\nAfter.\n"
+    assert gaps_of(gaps) == ("Before.", "After.")
+
+
+def test_a_table_row_with_empty_cells_yields_no_limitation():
+    # The handoff reader refuses such a row elsewhere; gap_limitations is called on its own too.
+    raw = "## Gaps\n| ID | Item |\n|---|---|\n| | |\n|  |\n| G1 | Lease detail |\n"
+    assert gap_limitations(raw) == ("G1; Lease detail",)
+
+
+COVERED = (
+    "# CP-1B TransDigm Group Incorporated\n"  # 1
+    "## Request\nScope.\n"  # 2-3
+    "## Sources\nNone.\n"  # 4-5
+    "## Findings\n"  # 6: no content of its own
+    "### Financials\nAmounts in USD millions.\n\n"  # 7-9
+    "| Metric | FY2023 | FY2024 |\n|---|---:|---:|\n| Revenue | 1,000.5 | 1,200.0 |\n\n"  # 10-13
+    "### Notes\nMargin held.\n"  # 14-15
+    "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"  # 16-21
+)
+
+
+def coverage_of(files: dict) -> dict:
+    return json.loads(files["coverage.json"])
+
+
+def test_every_heading_with_content_is_in_the_coverage_record(tmp_path):
+    files = deliver(tmp_path, COVERED, [ROUTE])["files"]
+    entries = coverage_of(files)["modules"]["CP-1B"]
+    assert sorted(e["line"] for e in entries) == [2, 4, 7, 7, 14, 16, 18, 20]
+    assert coverage_of(files)["schema"] == "delivery-coverage/1"
+    assert "coverage.json" in json.loads(files["delivery.json"])["files"]
+
+
+def test_routed_sections_name_their_block_and_the_rest_name_evidence(tmp_path):
+    entries = coverage_of(deliver(tmp_path, COVERED, [ROUTE])["files"])["modules"]["CP-1B"]
+    seen = {(e["line"], e["kind"]): (e["heading"], e["block"]) for e in entries}
+    assert seen[(7, "table")] == ("Financials", "headline-results")
+    assert seen[(7, "prose")] == ("Financials", "evidence")
+    assert seen[(14, "prose")] == ("Notes", "evidence")
+    assert seen[(2, "prose")] == ("Request", "evidence")
+
+
+def test_a_dropped_section_fails_the_build(tmp_path, monkeypatch):
+    from deploy_workflow import markdown_delivery as md
+
+    real = md._prose_groups
+    monkeypatch.setattr(
+        md,
+        "_prose_groups",
+        lambda lines, in_table: [g for g in real(lines, in_table) if g.heading != "Notes"],
+    )
+    with pytest.raises(
+        ValueError, match=r"delivery_coverage: CP-1B line 14 Notes is not presented"
+    ):
+        deliver(tmp_path, COVERED, [ROUTE])
+
+
+def test_check_coverage_ignores_fenced_commented_and_empty_headings():
+    raw = (
+        "# T\n## A\n<!-- c -->\n### B\n"  # 1-4: A and B have no content
+        "## C\n```\n### inside\n```\n"  # 5-8: C has content; the fenced heading is code
+        "## D\n| x |\n"  # 9-10
+    )
+    with pytest.raises(ValueError, match="M line 9 D is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 5}]}})
+    check_coverage({"M": raw}, {"modules": {"M": [{"line": 5}, {"line": 9}]}})
+
+
+RECOVERY = Path(__file__).parent.parent / (
+    "runs/cpos-sol-remaining-20261105/recovery/execution/"
+    "delivery-94f5c089fa806476746a0df4d861ed406930b92f8208246f18d0cc08c2ebddca.json"
+)
+
+
+@pytest.mark.skipif(not RECOVERY.exists(), reason="retained recovery run is not checked out")
+def test_recovery_handoffs_are_fully_covered():
+    request = DeliveryRequest.model_validate_json(RECOVERY.read_text())
+    files = markdown_files(request, RECOVERY.parent)  # builds in memory; nothing is written
+    modules = coverage_of(files)["modules"]
+    assert set(modules) == set(request.handoffs)
+    assert all(modules[m] for m in modules)

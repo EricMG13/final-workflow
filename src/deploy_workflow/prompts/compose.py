@@ -514,7 +514,8 @@ def _evidence_block(request: PromptRequest) -> str | None:
     return None if body is None else data_block("CONTEXT", EVIDENCE_ID, json.dumps(body, indent=1))
 
 
-# `<` and each lookalike the fence reads as `<` (`LESS_THAN_LOOKALIKES`), as its JSON escape. None of them is JSON outside a string, so in JSON text only strings change.
+# `<` and each lookalike the fence reads as `<` (`LESS_THAN_LOOKALIKES`), as its JSON escape.
+# None of them is JSON outside a string, so in JSON text only strings change.
 _LT_ESCAPES = str.maketrans({c: f"\\u{ord(c):04x}" for c in LESS_THAN_LOOKALIKES})
 
 

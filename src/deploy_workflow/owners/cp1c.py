@@ -1396,7 +1396,7 @@ def _missing_amount_line(row: PeerRow, key: str, label: str) -> str:
     return f"{head}: every figure that needs it is Not calculable."
 
 
-def _limitations(
+def _limitations(  # noqa: PLR0913 - pre-existing signature; this change only uses THIN_LINE
     present: bool,
     pack: bool,
     absent: str,
@@ -3021,7 +3021,7 @@ def _report(
     )
 
 
-def _checked(
+def _checked(  # noqa: PLR0911 - pre-existing returns; this change reuses one composition
     pack: PreparedPack, submission: PeerBenchmarkSubmission, upstream: Upstream
 ) -> tuple[tuple[str, ...], PeerBenchmarkReport | None]:
     """(issues, None) for a refused submission, else ((), the composed report). Every check runs

@@ -38,7 +38,6 @@ def test_no_figure_but_a_listed_facility_does_not_forbid_naming_it() -> None:
     assert "facility" not in note
 
 
-
 # S09-C05: T4F.3's Result is the headroom in T4.9's unit. Hand-derived with Decimal arithmetic:
 # a "not less than 12.5%" covenant (operand 0.125) against a CP-1 fraction.
 def _traced(unit: str, comparison: str, operand: str, metric: str) -> str:

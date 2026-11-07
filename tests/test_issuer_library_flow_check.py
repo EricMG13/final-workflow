@@ -34,7 +34,9 @@ def make_run(tmp_path: Path) -> tuple[Path, Path]:
         (run / "deliveries/d1").mkdir(parents=True, exist_ok=True)
         (run / f"deliveries/d1/{module}.md").write_text(text)
     modules = {m: f"requests/{m}/fp/1.response.md" for m in handoffs}
-    (run / "completed-abc.json").write_text(json.dumps({"modules": modules}))
+    (run / "completed-abc.json").write_text(
+        json.dumps({"kind": "cpos-markdown-delivery/1", "modules": modules})
+    )
     for module, upstream in (("CP-0", {}), ("CP-1", {"CP-0": CP0})):
         folder = run / "live/modules" / sha(module.encode())
         folder.mkdir(parents=True)
@@ -207,3 +209,14 @@ def test_module_missing_from_an_existing_delivery_is_a_fault(tmp_path: Path) -> 
     (run / "deliveries/d1/CP-1.md").unlink()
     faults = flow.run_faults(run, sources)
     assert len(faults) == 1 and "CP-1" in faults[0] and "d1" in faults[0]
+
+
+def test_manual_delivery_may_omit_a_module(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    record = next(run.glob("completed-*.json"))
+    data = json.loads(record.read_text())
+    record.write_text(json.dumps({**data, "kind": "cpos-handoff-snapshot/1"}))
+    (run / "deliveries/d1/CP-0.md").unlink()
+    assert flow.run_faults(run, sources) == []
+    (run / "deliveries/d1/CP-1.md").write_text("edited")  # copies it does hold are still compared
+    assert len(flow.run_faults(run, sources)) == 1

@@ -33,6 +33,8 @@ NUMBER = re.compile(
 )
 UNIT_END = re.compile(rf"{UNIT}$")
 LEADING_ZERO = re.compile(r"0\d+")
+# The completed record does not name its delivery folder, so every folder is checked.
+LAUNCHER_KIND = "cpos-markdown-delivery/1"
 MODULE = re.compile(r"CP-[A-Z0-9]+")
 
 
@@ -84,6 +86,12 @@ def _accepted(run: Path) -> dict[str, Path]:
         modules = json.loads(records[-1].read_text())["modules"]
         return {module: run / relative for module, relative in modules.items()}
     return {p.stem: p for p in sorted(run.glob("CP-*.md")) if MODULE.fullmatch(p.stem)}
+
+
+def _launcher(run: Path) -> bool:
+    """A launcher delivery carries every executed module; a manual one carries a chosen few."""
+    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
+    return bool(records) and json.loads(records[-1].read_text()).get("kind") == LAUNCHER_KIND
 
 
 def _invocations(run: Path) -> tuple[dict[str, list[tuple[Path, dict[str, Any]]]], list[str]]:
@@ -178,7 +186,8 @@ def run_faults(run: Path, sources: Path | None = None) -> list[str]:
                 f"{module}: number {n} in the handoff is not in what the module read or received"
                 for n in sorted(numbers(data.decode("utf-8", "replace")) - evidence)
             ]
-    for folder in sorted(p for p in run.glob("deliveries/*") if p.is_dir()):
+    folders = sorted(p for p in run.glob("deliveries/*") if p.is_dir())
+    for folder in folders if _launcher(run) else []:
         faults += [
             f"{module}: no copy in delivery {folder.name}, the handoff was dropped"
             for module in handoffs

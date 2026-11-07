@@ -2246,12 +2246,16 @@ def recorded_identity(
     )
     seeded = run.get("issuer")
     issuer_id = manifest.get("issuer_id") or (seeded if seeded != "Unclassified" else None)
-    if name:
-        return name, issuer_id, None
     said: dict[tuple[str, Any], dict[str, Any]] = {}
     # In folder order, so the first deliverable's spelling of the ID is kept.
     for item in delivered:
         said.setdefault(((item["issuer_id"] or "").casefold(), item["issuer_name"]), item)
+    if name:
+        # A named run still takes the ID its deliverables agree on; if they disagree, the ID it has.
+        if len(said) == 1:
+            (agreed,) = said.values()
+            issuer_id = issuer_id or agreed["issuer_id"]
+        return name, issuer_id, None
     if len(said) > 1:
         return None, issuer_id, "deliverables name different issuers; issuer left unrecorded"
     if said:

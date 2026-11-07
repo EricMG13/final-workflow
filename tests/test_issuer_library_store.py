@@ -807,6 +807,30 @@ def test_a_model_is_listed_with_its_register_sources_and_not_as_a_report(tmp_pat
     assert (by_role["gone"]["changed"], by_role["gone"]["output"]) == (True, None)
 
 
+def test_a_named_run_without_an_id_takes_its_own_deliverables_id(tmp_path):
+    put(tmp_path, "runs/alpha-001/CP-1.md", CP1)
+    own = model_delivery(tmp_path, "runs/alpha-001/deliveries/own")  # view.json: issuer_id ALP
+    catalogue = {
+        "issues": [],
+        "real": [
+            {
+                "id": "alpha-001",
+                "name": "Alpha Holdings",
+                "issuer": "Unclassified",
+                "sector": "",
+                "period": "",
+                "artifacts": [own],
+            }
+        ],
+    }
+    result = store.workspace_store(tmp_path, catalogue)
+    run = result["runs"]["alpha-001"]
+    (model,) = result["models"]
+    assert run["issuerKey"] == "id:alp"
+    assert model["issuerKey"] == "id:alp"
+    assert model["runId"] == "alpha-001"
+
+
 def test_the_runs_own_delivery_is_kept_over_a_same_named_model_in_either_order(tmp_path):
     own = model_delivery(tmp_path, "runs/alpha-001/deliveries/m-1")
     other = model_delivery(tmp_path, "deliverables/m-1")

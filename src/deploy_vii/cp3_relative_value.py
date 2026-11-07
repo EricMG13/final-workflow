@@ -44,6 +44,7 @@ from collections import Counter
 from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import cached_property
 from typing import Any, Literal
 
 from pydantic import (
@@ -356,11 +357,13 @@ class Upstream:
     def cp2_status(self) -> str | None:
         return self.status(CP2)
 
-    @property
+    # Built once per Upstream, as CP-6's `cp2_rows` (S08-cp3-C10: a property rebuilt the
+    # catalogue for every reference it checked, 25 times in one compute).
+    @cached_property
     def catalogue(self) -> dict[str, CatalogueRow]:
         return {} if self.cp2_status == "blocked" else cp2_catalogue(self.cp2)
 
-    @property
+    @cached_property
     def facilities(self) -> dict[str, Facility]:
         return facilities(self.cp1)
 
@@ -1789,6 +1792,14 @@ def relative_value(
     issues = validate_relative_value(pack, submission, upstream)
     if issues:
         raise ValueError("; ".join(issues))
+    return _composed(pack, submission, upstream)
+
+
+def _composed(
+    pack: PreparedPack, submission: RelativeValueSubmission, upstream: Upstream
+) -> RelativeValueReport:
+    """`relative_value` of a submission `validate_relative_value` already accepted (one
+    validation per step, S08-cp3-C10)."""
     pack = PreparedPack.model_validate_json(pack.model_dump_json())
     submission = RelativeValueSubmission.model_validate_json(submission.model_dump_json())
     evidence = _bind_evidence(pack, submission, upstream)
@@ -1903,7 +1914,7 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     issues = validate_relative_value(pack, submission, upstream)
     if issues:
         return StepValidation(issues=issues)
-    return StepValidation(output=relative_value(pack, submission, upstream).model_dump_json())
+    return StepValidation(output=_composed(pack, submission, upstream).model_dump_json())
 
 
 def submit_cp3_step(store: Execution, ticket_id: str, step_id: str, payload: str) -> Attempt:

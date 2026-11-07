@@ -9,6 +9,7 @@ composition per `_validate_step`. Before the change they were 6 content checks (
 validation passes and 8 composes (CP-2H), 6 (CP-2A), 6 (CP-2D), 2 per step (CP-2, CP-3, CP-6).
 """
 
+import dataclasses
 import json
 from collections import Counter
 from collections.abc import Iterator
@@ -21,9 +22,10 @@ import test_connect_cp2a as tc2a
 import test_connect_cp2d as tc2d
 import test_connect_cp2g as tc2g
 import test_connect_cp2h as tc2h
+import test_method_cp3 as tm3
 
-from deploy_vii import cp2_synthesis, cp6_committee
-from deploy_workflow.owners import cp2a, cp2d, cp2g, cp2h
+from deploy_vii import cp2_synthesis, cp3_relative_value, cp6_committee
+from deploy_workflow.owners import cp2a, cp2d, cp2g, cp2h, cp3
 
 
 def _count(monkeypatch: pytest.MonkeyPatch, module: Any, *names: str) -> Counter[str]:
@@ -227,3 +229,55 @@ def test_cp6_public_guard_still_refuses() -> None:
     assert issues
     with pytest.raises(ValueError, match="recommendation"):
         cp6_committee.committee_challenge(pack, bad, upstream)
+
+
+def _cp3_inputs_with_ten_risks() -> Any:
+    """The finding's case: the positive CP-3 inputs with ten risks each citing T2.11.r01."""
+    inputs = tm3.make_inputs("positive")
+    risk = inputs.submission.risks[0].model_copy(update={"cp2_refs": ("T2.11.r01",)})
+    submission = inputs.submission.model_copy(update={"risks": (risk,) * 10})
+    return dataclasses.replace(inputs, submission=submission)
+
+
+def test_cp3_compute_validates_once_and_builds_the_catalogue_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = _count(
+        monkeypatch,
+        cp3_relative_value,
+        "_instrument_issues",
+        "cp2_catalogue",
+        "context_evidence",
+        "_instruments",
+    )
+    result = cp3.compute(_cp3_inputs_with_ten_risks())
+    assert result.issues == () and result.report is not None
+    # one validation pass, one catalogue for the Upstream, the context read once by the
+    # validation and once by the composer's evidence binding, one composition
+    # (was 2, 25, 3 and 1)
+    assert calls == Counter(
+        {"_instrument_issues": 1, "cp2_catalogue": 1, "context_evidence": 2, "_instruments": 1}
+    )
+
+
+def test_cp3_step_validates_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    inputs = _cp3_inputs_with_ten_risks()
+    upstream = cp3._upstream(inputs)
+    calls = _count(monkeypatch, cp3_relative_value, "_instrument_issues", "_instruments")
+    case = (inputs.pack, inputs.submission, upstream)
+    outcome = _vii_step(monkeypatch, cp3_relative_value, "cp3_upstream", case)
+    assert outcome.issues == () and outcome.output is not None
+    assert calls == Counter({"_instrument_issues": 1, "_instruments": 1})
+    assert outcome.output == cp3_relative_value.relative_value(*case).model_dump_json()
+
+
+def test_cp3_public_guard_still_refuses() -> None:
+    inputs = tm3.make_inputs("positive")
+    preference = inputs.submission.preference.model_copy(update={"ordering": ("no-such",)})
+    bad = inputs.submission.model_copy(update={"preference": preference})
+    upstream = cp3._upstream(inputs)
+    issues = cp3_relative_value.validate_relative_value(inputs.pack, bad, upstream)
+    assert "preference.ordering: no-such is not an instruments row" in issues
+    with pytest.raises(ValueError, match="not an instruments row"):
+        cp3_relative_value.relative_value(inputs.pack, bad, upstream)
+    assert cp3.compute(dataclasses.replace(inputs, submission=bad)).issues == issues

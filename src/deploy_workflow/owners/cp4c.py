@@ -2784,10 +2784,10 @@ def _known_text(row: Mapping[str, Fact], field_name: str) -> str | None:
     return fact.text if fact is not None and fact.status == "known" else None
 
 
-def _quarter_period(module: Module) -> tuple[str, tuple[str, ...]]:
+def _quarter_period(module: Module) -> tuple[str, tuple[str, ...]] | str:
     """The T4.18 period the terms are read at (manifest cp1_t418 rule): the QUARTER period at the
     latest T4.14 period end wins over its FY alias. Returns it and the other periods ending that
-    day. No period, or no single quarter at the latest end, fails closed."""
+    day. No period, or no single quarter at the latest end, is the issue text."""
     ends: dict[str, tuple[str, str]] = {}
     for row in _rows(module, "T4.14").values():
         pid = _known_text(row, "period_id")
@@ -2795,12 +2795,12 @@ def _quarter_period(module: Module) -> tuple[str, tuple[str, ...]]:
         if pid is not None and kind is not None and end is not None:
             ends[pid] = (kind, end)
     if not ends:
-        raise ValueError("CP-4C: CP-1 states no T4.14 period")
+        return "CP-4C: CP-1 states no T4.14 period"
     latest = max(end for _, end in ends.values())
     current = tuple(pid for pid, (_, end) in ends.items() if end == latest)
     quarters = tuple(pid for pid in current if ends[pid][0] == "QUARTER") or current
     if len(quarters) != 1:
-        raise ValueError(f"CP-4C: CP-1 has no single current T4.18 period at {latest}")
+        return f"CP-4C: CP-1 has no single current T4.18 period at {latest}"
     (period,) = quarters
     return period, tuple(pid for pid in current if pid != period)
 
@@ -2818,8 +2818,12 @@ def _facility_terms(module: Module) -> tuple[str, Fact, Fact] | str:
     quarter period, or the issue text when CP-1 does not show exactly one secured facility there
     (S09-A04: selected by the T4.18 secured status, not by an id; the count is named, never a
     raise or a guess). A secured row without a facility id or without both terms is an issue too;
-    an alias row of the same period end that states other terms still fails closed (ValueError)."""
-    period, aliases = _quarter_period(module)
+    an alias row of the same period end that states other terms, or a T4.14 that states no single
+    current period, is an issue too (never a ValueError: the view and the validator read it)."""
+    found = _quarter_period(module)
+    if isinstance(found, str):
+        return found
+    period, aliases = found
     secured = _secured_facility_rows(module, period)
     if len(secured) != 1:
         ids = ", ".join(_known_text(row, "facility_id") or "(no id)" for row in secured)
@@ -2845,7 +2849,7 @@ def _facility_terms(module: Module) -> tuple[str, Fact, Fact] | str:
             for term in _T418_TERMS:
                 mine, theirs = chosen[term], other.get(term)
                 if theirs is None or (mine.status, mine.text) != (theirs.status, theirs.text):
-                    raise ValueError(
+                    return (
                         f"CP-4C: {facility} {term} differs between its {period} row and its "
                         f"{alias} alias"
                     )

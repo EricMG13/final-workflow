@@ -221,10 +221,42 @@ def test_two_secured_rows_of_one_facility_are_counted_not_merged(tmp_path: Path)
 
 def test_the_alias_of_a_newly_selected_facility_must_agree(tmp_path: Path) -> None:
     # The only SECURED q4-2025 row is renamed 'senior-notes' and its fy-2025 alias (also renamed)
-    # is UNSECURED: the alias check reads the selected id, not term-loan, and still fails closed.
+    # is UNSECURED: the alias check reads the selected id, not term-loan, and refuses with a typed
+    # facility issue (hand-written below), no longer a ValueError.
     renamed = _renamed(conn.cp1_facts(alias=("UNSECURED", "SENIOR")), "term-loan", "senior-notes")
-    with pytest.raises(ValueError, match="senior-notes secured_status differs between its q4-2025"):
-        _upstream(tmp_path, renamed)
+    _, _, upstream = _upstream(tmp_path, renamed)
+    assert upstream.cp1.facility_issue == (
+        "CP-4C: senior-notes secured_status differs between its q4-2025 row and its fy-2025 alias"
+    )
+
+
+def test_an_unreadable_alias_or_period_is_refused_by_validator_and_view(tmp_path: Path) -> None:
+    # Ruling: the two former raises settle like the count issue. Alias disagreement: the validator
+    # returns exactly the one issue line (no raise) and the view offers nothing but that line.
+    cp1 = conn.cp1_facts(alias=("SECURED", "SUBORDINATED"))
+    store, attempt, upstream = _upstream(tmp_path, cp1)
+    line = (
+        "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias"
+    )
+    assert upstream.cp1.facility_issue == line
+    pack = store.pack()
+    assert cp4c.validate_restructuring(
+        pack=pack, submission=conn._submission(), upstream=upstream
+    ) == (line,)
+    block = cp4c.context_block(pack=pack, upstream=upstream)
+    assert block["context_issue"] == line
+    assert set(block) == {"upstream", "context_issue", "inherited_limitations"}
+    # No T4.14 period at all: the same shape with its own line.
+    bare = tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14")
+    _, _, none = _upstream(tmp_path / "none", bare)
+    assert none.cp1.facility_issue == "CP-4C: CP-1 states no T4.14 period"
+    # Two QUARTER periods ending on the same latest day: no single current period (2025-12-31).
+    twin = tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14") + conn._t414(
+        (("q3-2025", "QUARTER", "2025-09-30"), ("q4-2025", "QUARTER", "2025-12-31"),
+         ("q4b-2025", "QUARTER", "2025-12-31"))
+    )
+    _, _, two = _upstream(tmp_path / "two", twin)
+    assert two.cp1.facility_issue == "CP-4C: CP-1 has no single current T4.18 period at 2025-12-31"
 
 
 def test_a_rejected_attempt_has_one_repair_and_then_no_further_begin(tmp_path: Path) -> None:

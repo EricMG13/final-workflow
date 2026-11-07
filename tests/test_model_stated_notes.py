@@ -93,3 +93,24 @@ def test_unspanned_components_keep_why_gross_profit_is_missing() -> None:
         assert cells["gross_profit"].reason == "COMPONENT_MISSING"
         assert cells["gross_profit"].note == UNSPANNED
         assert cells["ebit"].note == UNSPANNED
+
+
+def test_sign_normalised_reaches_adjusted_ebitda_and_differs_stays_on_its_line() -> None:
+    # Hand-derived: gross profit 100 - 60 = 40 against CP-1's 45 -> noted both;
+    # EBIT 40 - 20 = 20 and EBITDA 20 + 5 = 25 equal CP-1's, so they carry only
+    # "sign normalised", and adjusted EBITDA (25, no add-backs) inherits it from EBITDA.
+    rows = (
+        _row("revenue", "FY25", "100"),
+        _row("cogs", "FY25", "60"),
+        _row("gross_profit", "FY25", "45"),
+        _row("opex_including_da", "FY25", "-20"),
+        _row("depreciation_amortization", "FY25", "-5"),
+        _row("ebit", "FY25", "20"),
+        _row("ebitda", "FY25", "25"),
+        _row("adjusted_ebitda", "FY25", "25"),
+    )
+    cells = _frame((FY,), rows)["FY:FY25"]
+    assert cells["gross_profit"].note == f"{SIGN_NORMALISED}; {DIFFERS}"
+    for line in ("ebit", "ebitda", "adjusted_ebitda"):
+        assert cells[line].note == SIGN_NORMALISED, line
+    assert cells["adjusted_ebitda"].value == Decimal(25)

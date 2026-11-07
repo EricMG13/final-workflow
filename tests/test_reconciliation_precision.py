@@ -252,3 +252,12 @@ def test_kernel_debt_total_ignores_the_places_of_a_converted_facility() -> None:
     printed = (_facility("a", "500", REF), _facility("b", "1085.7", REF))
     total = _kernel((_account("total_debt", "1586"),), printed)["total_debt"]
     assert total.note == DIFFERS
+
+
+def test_negative_parsed_trailing_zero_total_is_held_to_the_finest_place() -> None:
+    # Printed (1,234.0) = (1,000.0) + (233.6)? Parsed -1234, -1000, -233.6:
+    # tolerance 0.05; -1233.6 - (-1234) = 0.4 -> BLOCK.
+    tolerance, difference, status = _reconcile(
+        _parsed("-1234.0", "tot"), _parsed("-1000.0", "a"), _parsed("-233.6", "b")
+    )
+    assert (tolerance, difference, status) == (D("0.05"), D("0.4"), "BLOCK")

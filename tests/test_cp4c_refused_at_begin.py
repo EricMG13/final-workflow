@@ -595,3 +595,99 @@ def test_a_walk_killed_before_the_refusal_was_retained_recomputes_it(
     ]
     assert all(a.module_id != "CP-4C" for a in store.read().attempts)
     _check_walk(resumed)
+
+
+# --- review: a head `cp1_of` cannot read, purity, an older build's attempt -----------------------
+
+
+def _tree(root: Path) -> dict[str, bytes]:
+    """Every file under `root` with its bytes: what a read must leave unchanged."""
+    return {
+        str(p.relative_to(root)): p.read_bytes() for p in sorted(root.rglob("*")) if p.is_file()
+    }
+
+
+def _verify_refusal_at(store: Execution, refusal: RefusedBegin) -> None:
+    before = ow._snapshot(store, refusal.snapshot_sha256)
+    ow._verify_refusal(before, refusal, set(), ow._upstream_fault(store, before, refusal.module_id))
+
+
+def test_a_duplicate_cp1_coordinate_is_not_a_fault_and_cp4c_begins_as_before(
+    tmp_path: Path, activations: list[tuple[str, str, int]]
+) -> None:
+    """Two T4.18 facts at term-loan/seniority: `cp4c._rows` raises ValueError, as it does for a
+    begun CP-4C. `_upstream_fault` must not stop the run: no fault, the journal's own begin."""
+    twin = next(
+        f for f in _BASE if (f.table_id, f.row_id, f.field) == ("T4.18", "term-loan", "seniority")
+    )
+    duplicate = _BASE + (twin.model_copy(update={"fact_id": twin.fact_id + "-twin"}),)
+    store = _store(tmp_path, duplicate, requested=("CP-4C",), cp2g=True)
+    before = store.read()
+    assert ow._upstream_fault(store, before, "CP-4C") is None
+    # A forged refusal naming any text cannot pass either, and fails closed as a WorkflowError.
+    for text in (ZERO, "CP-4C: duplicate CP-1 coordinate T4.18/term-loan"):
+        forged = RefusedBegin(module_id="CP-4C", snapshot_sha256=before.content_hash(), reason=text)
+        with pytest.raises(WorkflowError, match="identity_mismatch"):
+            _verify_refusal_at(store, forged)
+    workflow = _workflow(store)
+    assert workflow._begin("CP-4C") is True and workflow._refusals == []
+    assert activations == [("CP-4C", "restructuring_fulcrum", 0)]
+
+
+def test_an_unreadable_cp1_blob_is_not_a_fault(tmp_path: Path) -> None:
+    store = _store(tmp_path, _NO_Q4, requested=("CP-4C",), cp2g=True)
+    before = store.read()
+    assert ow._upstream_fault(store, before, "CP-4C") == ZERO  # the premise
+    cp1 = next(h for h in before.heads if h.module_id == "CP-1")
+    (store.directory / "blobs" / cp1.result_sha256).unlink()
+    assert ow._upstream_fault(store, before, "CP-4C") is None
+    forged = RefusedBegin(module_id="CP-4C", snapshot_sha256=before.content_hash(), reason=ZERO)
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        ow._verify_refusal(before, forged, set(), ow._upstream_fault(store, before, "CP-4C"))
+
+
+def test_upstream_fault_only_reads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The journal's files are byte-identical after the check, in both its answers; another
+    module reads no blob at all."""
+    for cp1, expected in ((_NO_Q4, ZERO), (_BASE, None)):
+        store = _store(tmp_path / str(expected is None), cp1, requested=("CP-4C",), cp2g=True)
+        snapshot = store.read()
+        seen = _tree(store.directory)
+        assert ow._upstream_fault(store, snapshot, "CP-4C") == expected
+        assert ow._upstream_fault(store, snapshot, "CP-4C") == expected
+        assert _tree(store.directory) == seen and store.read() == snapshot
+
+    def boom(digest: str) -> None:
+        raise AssertionError("a blob was read")
+
+    monkeypatch.setattr(store, "result", boom)
+    assert ow._upstream_fault(store, store.read(), "CP-2G") is None
+
+
+def test_cp4c_is_a_blocking_input_edge_of_cp1_in_every_plan_with_cp4c() -> None:
+    """The `next()` in `_upstream_fault`: CP-1 is bound as an input wherever CP-4C is selected."""
+    from deploy_vii.execution import dependencies, edge_rule
+    from deploy_vii.registry import modules
+
+    every = tuple(m.module_id for m in modules())
+    for requested in (("CP-4C",), ("CP-4C", "CP-5"), ("CP-4C", "CP-1C", "CP-3C"), every):
+        graph = dependencies(requested)
+        assert {"CP-0", "CP-1", "CP-2G", "CP-4", "CP-2A"} <= graph["CP-4C"]
+        assert edge_rule("CP-4C", "CP-1") == "block"  # only an accepted or restricted head binds
+
+
+def test_a_cp4c_attempt_an_older_build_left_pending_is_not_refused(tmp_path: Path) -> None:
+    """Begun over the fault by a build without the rule and killed before a response: the
+    attempt stands, the fault is not read, and a refusal beside it cannot verify."""
+    store = _store(tmp_path, _NO_Q4, requested=("CP-4C",), cp2g=True)
+    store.begin("CP-4C")
+    before = store.read()
+    assert ow._upstream_fault(store, before, "CP-4C") is None
+    forged = RefusedBegin(module_id="CP-4C", snapshot_sha256=before.content_hash(), reason=ZERO)
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        _verify_refusal_at(store, forged)
+    final = before.content_hash()
+    receipt = SimpleNamespace(refusals=(forged,), begins=(), publications=())
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        ow._verify_walk(store, receipt, ("CP-4C",), ("CP-4C",), None)
+    assert final == store.read().content_hash()

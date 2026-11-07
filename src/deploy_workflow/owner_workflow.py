@@ -2690,19 +2690,20 @@ def _kind_of(refusal: RefusedBegin) -> RefusalKind:
 def _upstream_fault(store: Execution, before: ExecutionSnapshot, module_id: str) -> str | None:
     """The facility issue CP-1's head yields for a CP-4C the journal would begin afresh at
     `before` (no attempt pending, no CP-4C attempt, and `current_inputs` holds, so CP-0
-    authorizes it); None otherwise. Ruling: no model response can repair it, so `_begin` refuses
-    CP-4C with this text instead of calling the model, and the verifier recomputes it. A repair
-    an earlier run left next is begun as before."""
+    authorizes it); None otherwise, also for a head `cp1_of` cannot read (a ValueError). Ruling:
+    no model response can repair it, so `_begin` refuses CP-4C with this text instead of calling
+    the model, and the verifier recomputes it. A repair an earlier run left next is begun as
+    before."""
     if module_id != cp4c.MODULE_ID or any(
         a.module_id == module_id or a.status == "pending" for a in before.attempts
     ):
         return None
     try:
-        inputs = current_inputs(before, module_id)
-    except ValueError:  # NotAuthorized included: the ordinary retained refusal
+        inputs = current_inputs(before, module_id)  # NotAuthorized included: the ordinary refusal
+        cp1 = next(item for item in inputs if item.input_id == "CP-1")  # a required input
+        return cp4c.cp1_of(store.result(cp1.sha256), cp1.status).facility_issue
+    except ValueError:  # also a CP-1 head `cp1_of` cannot read: begun as before, it fails there
         return None
-    cp1 = next(item for item in inputs if item.input_id == "CP-1")  # a required input of CP-4C
-    return cp4c.cp1_of(store.result(cp1.sha256), cp1.status).facility_issue
 
 
 def _verify_refusal(

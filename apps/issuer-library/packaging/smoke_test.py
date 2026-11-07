@@ -1,4 +1,6 @@
 """Exercise a compiled launcher over loopback, without a browser or providers."""
+
+import http.client
 import json
 import os
 import runpy
@@ -10,6 +12,7 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 executable = Path(sys.argv[1]).resolve()
 workspace = Path(__file__).resolve().parents[3]
@@ -24,36 +27,75 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
     address = f'http://127.0.0.1:{port}'
     arguments = [str(executable), '--state-dir', str(state), '--port', str(port), '--no-browser']
 
-    def request(endpoint, payload=None, content_type='application/json'):
-        headers = {}
-        raw = None
+    def request(
+        endpoint: str, payload: object = None, content_type: str = "application/json"
+    ) -> Any:
+        headers: dict[str, str] = {}
+        raw: bytes | None = None
         if payload is not None:
             raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
-            headers = {'Content-Type': content_type, 'X-Issuer-Library': '1',
-                       'Origin': address}
-        with opener.open(urllib.request.Request(address + endpoint, raw, headers),
-                         timeout=10) as response:
+            headers = {"Content-Type": content_type, "X-Issuer-Library": "1", "Origin": address}
+        with opener.open(
+            urllib.request.Request(address + endpoint, raw, headers), timeout=10
+        ) as response:
             body = response.read()
-            return json.loads(body) if 'json' in response.headers['Content-Type'] else body
+            return json.loads(body) if "json" in response.headers["Content-Type"] else body
 
-    def ready(process):
+    def launch_status(path: str) -> tuple[int, str, str]:
+        """GET path without a cookie or a redirect: status, Location and Set-Cookie."""
+        connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+        try:
+            connection.request("GET", path)
+            response = connection.getresponse()
+            response.read()
+            location = response.getheader("Location", "")
+            return response.status, location, response.getheader("Set-Cookie", "")
+        finally:
+            connection.close()
+
+    def ready(process: subprocess.Popen[bytes]) -> None:
+        """Wait for the launcher, then exchange the one-time link it prints with --no-browser for
+        its session cookie, as the browser does when the launcher opens it. The cookie is kept on
+        the opener, in this process's memory only."""
+        opener.addheaders = [("User-agent", "issuer-library-smoke")]
         for _ in range(100):
             if process.poll() is not None:
-                raise AssertionError('Launcher exited before serving')
+                raise AssertionError("Launcher exited before serving")
             try:
-                request('/health')
-                return
-            except (urllib.error.URLError, TimeoutError):
-                time.sleep(0.1)
-        raise AssertionError('Launcher did not become ready')
+                if launch_status("/health")[0] == 200:
+                    break
+            except OSError:
+                pass
+            time.sleep(0.1)
+        else:
+            raise AssertionError("Launcher did not become ready")
+        assert process.stdout is not None
+        line = process.stdout.readline().decode().strip()
+        if not line.startswith(f"Issuer Library: {address}/launch?ticket="):
+            raise AssertionError("Launcher printed no launch link")
+        path = line.removeprefix(f"Issuer Library: {address}")
+        assert launch_status("/api/catalogue")[0] == 403, "Catalogue answered without the cookie"
+        status, location, cookie = launch_status(path)
+        assert status == 303 and location == "/", "Launch link was not exchanged"
+        assert cookie.endswith("; Path=/; HttpOnly; SameSite=Strict"), "Session cookie attributes"
+        assert launch_status(path)[0] == 403, "Launch link worked twice"
+        opener.addheaders.append(("Cookie", cookie.split(";", 1)[0]))
 
     # Every provider key the Redactor knows, from its one list: the launcher never sees one.
     redact = runpy.run_path(str(workspace / "src/deploy_workflow/model/redact.py"))
     environment = {k: v for k, v in os.environ.items() if k not in redact["KEY_ENV_NAMES"]}
-    process = subprocess.Popen(arguments + ['--workspace', str(workspace)], env=environment,
-                               stdout=subprocess.DEVNULL)
+    process = subprocess.Popen(
+        arguments + ["--workspace", str(workspace)], env=environment, stdout=subprocess.PIPE
+    )
     try:
         ready(process)
+        # A repeat launch cannot learn the running instance's secret: it says so, opens nothing.
+        repeat = subprocess.run(
+            arguments, env=environment, timeout=5, capture_output=True, check=False
+        )
+        assert repeat.returncode == 1, "Repeat launch did not refuse"
+        assert b"already running" in repeat.stderr, "Repeat launch did not say it is running"
+        assert b"/launch" not in repeat.stdout + repeat.stderr, "Repeat launch printed a link"
         catalogue = request('/api/catalogue')
         # The HTML Model deliveries hold no report, which the library does not present yet.
         assert sorted(issue.split(':')[0] for issue in catalogue['issues']) == [
@@ -65,9 +107,8 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
         assert len(reports) == len(list(workspace.glob('deliverables/*/report.html'))) + len(
             list(workspace.glob('runs/*/deliveries/*/report.html')))
         for report in reports:
-            assert b'<html' in request(report).lower()
-        subprocess.run(arguments, timeout=5, check=True)
-        request('/api/settings', {'workspace': str(other)})
+            assert b"<html" in request(report).lower()
+        request("/api/settings", {"workspace": str(other)})
         boundary = 'IssuerLibraryOfflineSmoke'
         parts = []
         context = (executable.parent / 'engine/smoke-context.json').read_bytes()
@@ -100,8 +141,10 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
         assert catalogue['real'][0]['completion'] is None
         request('/api/quit', {})
         assert process.wait(timeout=5) == 0
-        process = subprocess.Popen(arguments, env=environment, stdout=subprocess.DEVNULL)
+        earlier = opener.addheaders[-1]
+        process = subprocess.Popen(arguments, env=environment, stdout=subprocess.PIPE)
         ready(process)
+        assert opener.addheaders[-1] != earlier, "Restart kept the previous session secret"
         assert request('/api/catalogue')['workspace'] == str(other)
         request('/api/quit', {})
         assert process.wait(timeout=5) == 0

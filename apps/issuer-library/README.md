@@ -11,6 +11,7 @@ delivery folders. Candidate output remains explicitly qualified.
    Choose the appropriate Windows ZIP (amd64 for Intel/AMD, arm64 for Windows on ARM).
 2. Double-click **Issuer Library.exe**. It opens the default browser and runs
    only on `127.0.0.1`. No Python, Node, installation downloads or internet are needed.
+   The browser is signed in to this launch only (see **Local session** below).
 3. In **Settings** on the left rail, enter the full folder containing `runs/` and
    `deliverables/`, then choose **Save and reload**. The default is the Windows
    Documents known folder plus `FinalWorkflow`; existing folders are not moved.
@@ -22,7 +23,9 @@ delivery folders. Candidate output remains explicitly qualified.
    Discovery runs every 30 seconds; when it finds a change the app offers **Reload**.
    **Download original HTML** saves the standalone report.
 5. **Quit library** in Settings stops the service. Closing a tab leaves it running.
-   Launching the executable again reopens the same per-user instance. Quitting or
+   Launching the executable again does not open a window: it finds its running per-user
+   instance and says "Issuer Library is already running" and to quit it (Settings > Quit
+   library, or end Issuer Library in Task Manager) and start it again. Quitting or
    changing workspace is refused while a model run is active.
 
 The Windows binaries are cross-compiled pilot builds, not signed enterprise
@@ -110,6 +113,21 @@ locally available: disconnected network shares and cloud placeholders cannot be
 read. A moved workspace needs one configuration update. Store the canonical files
 in the workspace, not in the index; the index is disposable and rebuilt on launch.
 Per-user state must not be redirected to a shared index used by multiple users.
+
+**Local session.** Loopback is shared by every user and process on the machine, so the
+headers the app checks (Host, Origin, Sec-Fetch-Site, `X-Issuer-Library`) are not enough on
+their own. Each launch makes a random one-time ticket and a random session secret (32 bytes
+each, `crypto/rand`), held in memory only: never in `library.log`, settings, the index or a
+response body. The launcher opens `/launch?ticket=…`; the first GET exchanges the ticket for an
+`HttpOnly; SameSite=Strict; Path=/` cookie and redirects to `/`, so the ticket leaves the
+address bar (a HEAD or a wrong ticket does not spend it; a used ticket is refused). The cookie
+has no `Secure` flag because plain loopback HTTP has no TLS, and no expiry. Every request
+except `/launch` and `/health` (the instance check, which reads no workspace data) needs the
+cookie, compared in constant time; without it the answer is 403 "Open Issuer Library from its
+launcher…". A second launch asks `/health`, finds its own instance and cannot learn the secret,
+so it shows the already-running message and opens nothing. With `--no-browser` the one-time
+link is printed on standard output only, for whoever started the library. Cookies are not
+separated by port, so the cookie name carries the port.
 
 Only enumerated files under the selected workspace can be served. Pinned files
 are rechecked when opened. Reports run in an opaque sandbox with external network
@@ -204,7 +222,10 @@ A clearly fictional context is included only for the explicit offline smoke test
 
 `--state-dir` provides an isolated state directory for tests. `--port` overrides
 the stable per-user loopback port if another application occupies it. A running
-instance must be quit before changing command-line workspace settings.
+instance must be quit before changing command-line workspace settings. `--no-browser`
+prints `Issuer Library: http://127.0.0.1:<port>/launch?ticket=…`; open that link once
+(`packaging/smoke_test.py` and `designs/browser_check.py` read it from the pipe and keep
+the cookie in memory).
 
 DOM simulation tests (existing optional local jsdom installation). `designs/build.py`
 writes their fixture from the curated retained runs and fails if a curated pin goes stale:

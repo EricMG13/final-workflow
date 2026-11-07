@@ -66,7 +66,7 @@ func reviewRequest(t *testing.T, app *Application, paths string) *httptest.Respo
 	}
 	_, _ = file.Write([]byte("Synthetic source"))
 	form.Close()
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body)
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body))
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	request.Header.Set("Origin", "http://"+app.host)
@@ -192,14 +192,14 @@ func TestExplicitStartIsOneShotUnderConcurrentRequests(t *testing.T) {
 }
 func TestSourceUploadsRequireOriginAndCustomHeader(t *testing.T) {
 	app, _ := testApp(t)
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", bytes.NewBufferString("anything"))
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", bytes.NewBufferString("anything")))
 	request.Header.Set("Origin", "https://untrusted.invalid")
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	if response.Code != 403 {
 		t.Fatal("cross-origin upload accepted")
 	}
-	request = httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", nil)
+	request = withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", nil))
 	response = httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	if response.Code != 403 {
@@ -376,6 +376,7 @@ func postReviewWith(t *testing.T, server *httptest.Server, ctx context.Context, 
 	_, _ = file.Write([]byte("x"))
 	form.Close()
 	request, _ := http.NewRequestWithContext(ctx, "POST", server.URL+"/api/runs/review", &body)
+	withSession(server.Config.Handler.(*Application), request)
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	request.Header.Set("Origin", server.URL)
@@ -555,7 +556,8 @@ print('{}')
 	app.host = strings.TrimPrefix(server.URL, "http://")
 	client := &http.Client{Transport: &http.Transport{MaxConnsPerHost: 1, Proxy: nil}}
 	defer client.CloseIdleConnections()
-	response, err := client.Get(server.URL + "/api/workspace")
+	control, _ := http.NewRequest("GET", server.URL+"/api/workspace", nil)
+	response, err := client.Do(withSession(app, control))
 	if err != nil || response.StatusCode != 200 {
 		t.Fatalf("control /api/workspace failed: %v", err)
 	}
@@ -569,7 +571,7 @@ print('{}')
 	reused := false
 	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) { reused = reused || info.Reused }}
 	request, _ := http.NewRequestWithContext(httptrace.WithClientTrace(context.Background(), trace), "GET", server.URL+"/api/workspace", nil)
-	response, err = client.Do(request)
+	response, err = client.Do(withSession(app, request))
 	if !reused {
 		t.Fatal("the request was never tried on the review's connection")
 	}
@@ -942,7 +944,7 @@ func uploadOfSize(t *testing.T, app *Application, size int64) (*http.Request, st
 		written += int64(len(part))
 	}
 	form.Close()
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body)
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body))
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	return request, hex.EncodeToString(hash.Sum(nil))

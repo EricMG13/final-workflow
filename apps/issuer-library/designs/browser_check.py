@@ -4,6 +4,7 @@ Run by validate.py browser. Needs Playwright, FW_PYTHON and ISSUER_LIBRARY_BINAR
 FW_BROWSER_OUT, or to a temporary folder.
 """
 
+import http.client
 import json
 import os
 import re
@@ -32,6 +33,8 @@ ISSUER = "Northbridge Synthetic Group"
 # Every provider key the Redactor knows, from its one list; the fake engine gets a dummy key only.
 KEYS = tuple(runpy.run_path(str(R / "src/deploy_workflow/model/redact.py"))["KEY_ENV_NAMES"])
 results = []
+# Each instance's session cookie, by port, in this process's memory only.
+SESSIONS: dict[int, dict[str, Any]] = {}
 
 
 def note(ok: bool, what: str) -> None:
@@ -70,7 +73,7 @@ def serve(
             "--no-browser",
         ],
         env=env,
-        stdout=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
     )
     for _ in range(100):
@@ -78,10 +81,56 @@ def serve(
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
                 f"http://127.0.0.1:{port}/health", timeout=1
             )
-            return process
         except OSError:
             time.sleep(0.1)
+            continue
+        sign_in(process, port)
+        return process
     raise SystemExit("server did not start")
+
+
+def sign_in(process: subprocess.Popen[bytes], port: int) -> None:
+    """Exchange the one-time link the library prints with --no-browser for its session cookie."""
+    assert process.stdout is not None
+    origin = f"http://127.0.0.1:{port}"
+    line = process.stdout.readline().decode().strip()
+    if not line.startswith(f"Issuer Library: {origin}/launch?ticket="):
+        raise SystemExit("server printed no launch link")
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=10)
+    try:
+        connection.request("GET", line.removeprefix(f"Issuer Library: {origin}"))
+        response = connection.getresponse()
+        response.read()
+        cookie = response.getheader("Set-Cookie") or ""
+    finally:
+        connection.close()
+    if response.status != 303 or "=" not in cookie:
+        raise SystemExit("server refused its launch link")
+    name, value = cookie.split(";", 1)[0].split("=", 1)
+    SESSIONS[port] = {
+        "name": name,
+        "value": value,
+        "url": origin,
+        "httpOnly": True,
+        "sameSite": "Strict",
+    }
+
+
+class SignedBrowser:
+    """Opens pages holding each started instance's session cookie, as its launch leaves them.
+
+    The cookie names carry the port, so each instance reads only its own."""
+
+    def __init__(self, browser: Any) -> None:
+        self.browser = browser
+
+    def new_page(self, **options: Any) -> Any:
+        context = self.browser.new_context(**options)
+        context.add_cookies(list(SESSIONS.values()))
+        return context.new_page()
+
+    def close(self) -> None:
+        self.browser.close()
 
 
 def errors_of(page: Any) -> list[str]:
@@ -495,7 +544,7 @@ servers = [serve(R, 53901, R / "apps/issuer-library/engine")]
 try:
     with sync_playwright() as driver:
         for number, name in enumerate(only):
-            browser = getattr(driver, name).launch(**engines[name])
+            browser = SignedBrowser(getattr(driver, name).launch(**engines[name]))
             browser_results = len(results)
             try:
                 real_workspace(browser, name, 53901, full=name == "chromium")

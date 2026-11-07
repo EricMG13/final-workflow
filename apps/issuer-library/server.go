@@ -32,6 +32,9 @@ type Application struct {
 	catalogue  Catalogue
 	host       string
 	stop       func()
+	launch     sync.Mutex // guards ticket
+	ticket     string     // one-time launch ticket, in memory only; empty once exchanged
+	session    string     // this launch's session cookie value, in memory only; fixed at start
 }
 
 // discoverWorkspace is discover; a variable so tests can hold a discovery in progress.
@@ -80,6 +83,16 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin := "http://" + app.host
 	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
 		http.Error(w, "Local app requests only", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == "/launch" {
+		app.serveLaunch(w, r)
+		return
+	}
+	// Only the instance check needs no session: it names the application and a digest of its
+	// state folder, and reads no workspace data.
+	if r.URL.Path != "/health" && !app.authorized(r) {
+		http.Error(w, launcherOnly, http.StatusForbidden)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/runs/") {
@@ -371,6 +384,13 @@ func newApplication(loc Locations, override string) (*Application, error) {
 		return nil, err
 	}
 	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
+	// Without the secret nothing can be served safely, so the app does not start.
+	if app.ticket, err = randomSecret(); err != nil {
+		return nil, fmt.Errorf("could not create the launch secret: %w", err)
+	}
+	if app.session, err = randomSecret(); err != nil {
+		return nil, fmt.Errorf("could not create the launch secret: %w", err)
+	}
 	app.catalogue = app.buildCatalogue(config.Workspace)
 	app.adoptJobsLocked(config.Workspace)
 	return app, nil

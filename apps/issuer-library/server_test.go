@@ -26,8 +26,17 @@ func testApp(t *testing.T) (*Application, string) {
 	app.stop = func() {}
 	return app, root
 }
+
+// withSession adds this launch's session cookie, as the browser holds it after the launch.
+func withSession(app *Application, r *http.Request) *http.Request {
+	r.AddCookie(&http.Cookie{Name: app.cookieName(), Value: app.session})
+	return r
+}
+
+// call sends a request as the app's own page does: with the session cookie and, for a POST, the
+// custom header, JSON content type and the app's Origin.
 func call(app *Application, method, endpoint, body string) *httptest.ResponseRecorder {
-	r := httptest.NewRequest(method, "http://"+app.host+endpoint, strings.NewReader(body))
+	r := withSession(app, httptest.NewRequest(method, "http://"+app.host+endpoint, strings.NewReader(body)))
 	if method == "POST" {
 		r.Header.Set("X-Issuer-Library", "1")
 		r.Header.Set("Content-Type", "application/json")
@@ -107,7 +116,7 @@ func TestHTTPBoundaryAndChangedFile(t *testing.T) {
 		}
 	}
 	for _, header := range []struct{ key, value string }{{"Host", "attacker.invalid"}, {"Origin", "https://attacker.invalid"}, {"Sec-Fetch-Site", "cross-site"}} {
-		r := httptest.NewRequest("GET", "http://"+app.host+"/api/catalogue", nil)
+		r := withSession(app, httptest.NewRequest("GET", "http://"+app.host+"/api/catalogue", nil))
 		if header.key == "Host" {
 			r.Host = header.value
 		} else {
@@ -119,7 +128,7 @@ func TestHTTPBoundaryAndChangedFile(t *testing.T) {
 			t.Fatal("cross-origin request admitted")
 		}
 	}
-	r := httptest.NewRequest("POST", "http://"+app.host+"/api/quit", strings.NewReader("{}"))
+	r := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/quit", strings.NewReader("{}")))
 	w := httptest.NewRecorder()
 	app.ServeHTTP(w, r)
 	if w.Code != 403 {
@@ -238,7 +247,7 @@ func TestPinnedLinkCannotSilentlyOpenLaterVersion(t *testing.T) {
 
 func TestReportRangeRequests(t *testing.T) {
 	app, _ := testApp(t)
-	request := httptest.NewRequest("GET", "http://"+app.host+"/files/deliverables/report/report.html", nil)
+	request := withSession(app, httptest.NewRequest("GET", "http://"+app.host+"/files/deliverables/report/report.html", nil))
 	request.Header.Set("Range", "bytes=0-14")
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
@@ -273,7 +282,7 @@ func TestResponseUsesTheBytesThatWereVerified(t *testing.T) {
 			t.Fatal(err)
 		}
 	}}
-	request := httptest.NewRequest("GET", "http://"+app.host+"/files/deliverables/report/report.html", nil)
+	request := withSession(app, httptest.NewRequest("GET", "http://"+app.host+"/files/deliverables/report/report.html", nil))
 	app.ServeHTTP(response, request)
 	if response.Code != 200 || response.Body.String() != string(original) {
 		t.Fatal("served different bytes than the verified snapshot")
@@ -337,7 +346,7 @@ func TestEmbeddedPresentationPreservesRetainedAndExportedReportBytes(t *testing.
 	if !strings.Contains(response.Header().Get("Content-Security-Policy"), "frame-src 'self'") {
 		t.Fatal("app cannot display local reports")
 	}
-	request := httptest.NewRequest("GET", "http://"+app.host+name+"?embedded=1", nil)
+	request := withSession(app, httptest.NewRequest("GET", "http://"+app.host+name+"?embedded=1", nil))
 	request.Header.Set("Origin", "null")
 	result := httptest.NewRecorder()
 	app.ServeHTTP(result, request)
@@ -644,7 +653,7 @@ func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
 		{"GET", "/api/catalogue"},
 		{"POST", "/api/refresh"},
 	} {
-		request := httptest.NewRequest(c.method, "http://"+app.host+c.endpoint, strings.NewReader("{}"))
+		request := withSession(app, httptest.NewRequest(c.method, "http://"+app.host+c.endpoint, strings.NewReader("{}")))
 		request.Header.Set("X-Issuer-Library", "1")
 		request.Header.Set("Content-Type", "application/json")
 		w := &stalledWriter{header: http.Header{}, writing: make(chan struct{}), release: make(chan struct{})}

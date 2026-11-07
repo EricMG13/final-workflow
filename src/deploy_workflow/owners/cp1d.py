@@ -64,7 +64,7 @@ from deploy_vii.execution import (
 )
 from deploy_vii.financial_contracts import Number
 from deploy_vii.live.schema import exact_json, json_object
-from deploy_vii.live.submission import Submitted
+from deploy_vii.live.submission import Submitted, _with_rules
 from deploy_vii.live.tools import Seen, unread_citation_issues
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.prose import Run as ProseRun
@@ -2633,25 +2633,6 @@ ENTRY_VALIDATOR = _validate_step
 def _candidate(output: str, attempt: Attempt) -> Module:
     report = EarningsQualityReport.model_validate_json(output)
     return cp1d_module(report, inputs=attempt.inputs, attempt=attempt.number)
-
-
-def _with_rules(
-    validate: Callable[[PreparedPack, Attempt], StepValidation],
-    rules: Callable[[str], tuple[str, ...]],
-    payload: str,
-) -> Callable[[PreparedPack, Attempt], StepValidation]:
-    """`validate`, then the tool-use rule issues of the retained payload appended."""
-
-    def run(pack: PreparedPack, attempt: Attempt) -> StepValidation:
-        outcome = validate(pack, attempt)
-        found = rules(payload)
-        if not found:
-            return outcome
-        return StepValidation(
-            output=outcome.output, issues=tuple(dict.fromkeys((*outcome.issues, *found)))
-        )
-
-    return run
 
 
 def submit(

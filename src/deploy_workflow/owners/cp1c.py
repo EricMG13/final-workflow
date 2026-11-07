@@ -58,7 +58,7 @@ from deploy_vii.execution import (
     listed_issues,
 )
 from deploy_vii.live.schema import exact_json, json_object, normalise
-from deploy_vii.live.submission import Submitted
+from deploy_vii.live.submission import Submitted, _with_rules
 from deploy_vii.live.tools import Seen
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.readiness import citation_issues, shape_issues
@@ -1423,7 +1423,7 @@ def _limitations(
         if p.assessment.comparability == "Partly comparable"
     ]
     if present and sum(1 for p in peers if p.included) < THIN_UNIVERSE:
-        out.append("Medians over fewer than five peers move with a single peer.")
+        out.append(THIN_LINE)
     out += [
         _missing_amount_line(p.data, key, label)
         for p in peers
@@ -3317,25 +3317,6 @@ ENTRY_VALIDATOR = _validate_step
 def _candidate(output: str, attempt: Attempt) -> Module:
     report = PeerBenchmarkReport.model_validate_json(output)
     return cp1c_module(report, inputs=attempt.inputs, attempt=attempt.number)
-
-
-def _with_rules(
-    validate: Callable[[PreparedPack, Attempt], StepValidation],
-    rules: Callable[[str], tuple[str, ...]],
-    payload: str,
-) -> Callable[[PreparedPack, Attempt], StepValidation]:
-    """`validate`, then the tool-use rule issues of the retained payload appended."""
-
-    def run(pack: PreparedPack, attempt: Attempt) -> StepValidation:
-        outcome = validate(pack, attempt)
-        found = rules(payload)
-        if not found:
-            return outcome
-        return StepValidation(
-            output=outcome.output, issues=tuple(dict.fromkeys((*outcome.issues, *found)))
-        )
-
-    return run
 
 
 def submit(

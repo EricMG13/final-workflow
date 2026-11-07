@@ -1499,3 +1499,18 @@ def test_c08_one_compute_parses_and_composes_once(monkeypatch: pytest.MonkeyPatc
     case = inputs("positive")
     assert cp1c.compute(case).facts
     assert calls == {"parse_peer_source": 1, "_compose": 1}
+
+
+def test_c09_the_thin_universe_line_and_the_rule_wrapper_have_one_definition() -> None:
+    # The thin-universe limitation is THIN_LINE itself (the de-duplication against the EV
+    # limitations depends on the two strings being the same object's text), and cp1c/cp1d wrap
+    # tool-use rules with the product's one `_with_rules`.
+    from deploy_vii.live import submission
+    from deploy_workflow.owners import cp1d
+
+    case = inputs("positive")
+    limitations = cp1c.compute(case).limitations
+    assert sum(line == cp1c.THIN_LINE for line in limitations) <= 1
+    assert cp1c._with_rules is submission._with_rules
+    assert cp1d._with_rules is submission._with_rules
+    assert 'out.append("Medians over fewer' not in Path(cp1c.__file__).read_text()

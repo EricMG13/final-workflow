@@ -644,25 +644,21 @@ class SourceWorkflow:
 _BAD_LINE_ANSWER = '{"status": "refused", "error_code": "bad_arguments"}\n'
 
 
-def _drain(reader: TextIO, line: str) -> None:
-    """Read on to the end of an over-length line. If the rest of it is not UTF-8 the drain ends
-    there: the caller answers `bad_arguments` for the line, once."""
+def read_line(reader: TextIO, writer: TextIO, limit: int) -> str:
+    """The next line of a bounded JSON-lines transport (at most `limit` + 1 characters, the rest of
+    a longer line read on to its end), or "" at the end of the stream. The text reader decodes in
+    chunks, so its position after a bad byte is unknown: a line any part of which is not UTF-8 is
+    answered `bad_arguments` once and "" is returned, so the stream ends there. Shared by the
+    source, financial and owner servers."""
     try:
-        while line and not line.endswith("\n"):
-            line = reader.readline(MAX_LINE + 1)
-    except UnicodeDecodeError:
-        return
-
-
-def _read_line(reader: TextIO, writer: TextIO) -> str:
-    """The next line, or "" at the end of the stream. The text reader decodes in chunks, so its
-    position after a bad byte is unknown: answer the line that could not be read and end there."""
-    try:
-        return reader.readline(MAX_LINE + 1)
+        line = rest = reader.readline(limit + 1)
+        while len(line) > limit and rest and not rest.endswith("\n"):
+            rest = reader.readline(limit + 1)
     except UnicodeDecodeError:
         writer.write(_BAD_LINE_ANSWER)
         writer.flush()
         return ""
+    return line
 
 
 def serve_json_lines(
@@ -673,12 +669,11 @@ def serve_json_lines(
     workflow._participant = participant
     workflow._transport = "bounded-json-lines/1"
     for _ in range(MAX_MESSAGES):
-        line = _read_line(reader, writer)
+        line = read_line(reader, writer, MAX_LINE)
         if not line:
             return
         try:
             if len(line) > MAX_LINE:
-                _drain(reader, line)
                 raise WorkflowError("bad_arguments")
             request = json.loads(line)
             if type(request) is not dict:

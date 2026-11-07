@@ -73,11 +73,18 @@ def _servers(tmp_path):
     from test_financial_workflow import start
     from test_source_workflow import make_pack as source_pack
 
-    from deploy_workflow import financial_workflow, workflow
+    from deploy_workflow import financial_workflow, owner_workflow, workflow
 
     source = workflow.SourceWorkflow.create(tmp_path / "source-store", source_pack())
     financial, _ = start(tmp_path)
-    return {"source": (workflow, source), "financial": (financial_workflow, financial)}
+    owner = OwnerWorkflow.create(
+        tmp_path / "owner-store", make_pack(), publication_directory=tmp_path / "model"
+    )
+    return {
+        "source": (workflow, source),
+        "financial": (financial_workflow, financial),
+        "owner": (owner_workflow, owner),
+    }
 
 
 def _serve(tmp_path, kind, lines):
@@ -108,8 +115,9 @@ def test_bad_line_alone_is_answered_once(tmp_path, kind):
 
 @pytest.mark.parametrize("kind", ["source", "financial"])
 def test_overlong_line_with_bad_tail_is_answered_once(tmp_path, kind):
-    # Expected: the over-length line (1 byte past MAX_LINE of valid text, then a bad byte) gets one
-    # bad_arguments answer, not two; the stream ends at the undecodable byte.
+    # Expected: the over-length line (10 bytes past MAX_LINE of valid text, then a bad byte) gets
+    # one bad_arguments answer, not two; the stream ends at the undecodable byte. The bad byte is in
+    # the 8 KiB chunk the first read decodes, so the first read meets it (the drain case is below).
     from deploy_workflow import financial_workflow, workflow
 
     module = {"source": workflow, "financial": financial_workflow}[kind]
@@ -128,3 +136,21 @@ def test_bom_line_and_paired_surrogate_are_not_decode_errors(tmp_path, kind):
         b'{"operation":"\\ud800"}\n',
     ]
     assert _serve(tmp_path, kind, lines) == [_BAD, _NOPE, _NOPE]
+
+
+@pytest.mark.parametrize("kind", ["source", "financial", "owner"])
+def test_bad_byte_met_while_reading_on_past_the_limit_ends_the_stream(tmp_path, kind):
+    # Review of the followups. The bad byte sits two text-reader chunks past the first read, so it
+    # is met while the rest of the over-length line is read (the drain). Expected (hand-derived):
+    # the line is answered bad_arguments once and the stream ends; the over-length line's own last
+    # piece, {"operation":"nope"} opening a new chunk, and the whole line after it are never
+    # answered. Before the review the reader went on at an unknown position and answered both
+    # (not_permitted twice): the tail of a refused line was dispatched as a request.
+    from deploy_workflow import financial_workflow, owner_workflow, workflow
+
+    module = {"source": workflow, "financial": financial_workflow, "owner": owner_workflow}[kind]
+    chunk = io.TextIOWrapper(io.BytesIO())._CHUNK_SIZE
+    head = b"a" * (module.MAX_LINE + 2 * chunk + 5) + b"\xff"
+    request = b'{"operation":"nope"}\n'
+    stream = head + b"b" * (-len(head) % chunk) + request + request
+    assert _serve(tmp_path, kind, [stream]) == [_BAD]

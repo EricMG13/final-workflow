@@ -10,6 +10,75 @@ const WORKFLOW_ACTIVE=['running'];
 const workflowTitle=value=>String(value).replace(/_/g,' ').replace(/\b[a-z]/g,letter=>letter.toUpperCase());
 const STATE_BADGE={running:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
 const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
+// Why a run stopped, in words a reader can act on. The redacted message follows the sentence.
+const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap. Retained work is kept; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
+function stopSentence(status){return WORKFLOW_ACTIVE.includes(status.state)||status.state==='complete'?'':STOP_COPY[status.reason]||'';}
+function stopText(status){const sentence=stopSentence(status);return sentence?(status.message?`${sentence} ${status.message}`:sentence):`${status.state}: ${status.message||''}`;}
+function describeModule(status,modules,nameOf){
+  const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state);
+  if(p.step==='delivering')return 'delivering the report';
+  if(p.step==='delivered')return 'report delivered';
+  if(!moduleId)return '';
+  const index=modules.indexOf(moduleId),where=index>=0?` (${index+1} of ${modules.length})`:'',turn=p.turn&&p.max_turns?`, turn ${p.turn} of ${p.max_turns}`:'';
+  if(p.step==='running')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${turn||where}`;
+  if(p.step==='repairing')return `${active?'repairing':'stopped while repairing'} ${nameOf(moduleId)} after a rejected draft${turn}`;
+  if(p.step==='started')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${where}`;
+  if(p.step==='accepted')return `${nameOf(moduleId)} accepted${where}`;
+  if(p.step==='stopped')return `stopped during ${nameOf(moduleId)}${where}`;
+  return '';
+}
+function spendText(status){
+  const p=status.progress||{},spent=status.spent_usd??p.spent_usd;
+  if(spent==null)return 'Spend appears after CP-OS records a completed model response.';
+  if(spent==='unknown')return 'Recorded spend could not be read; it may be above zero.';
+  return p.cap_usd!=null&&p.held_usd!=null&&WORKFLOW_ACTIVE.includes(status.state)?`Recorded spend: USD ${spent} of a USD ${p.cap_usd} cap; the next call holds USD ${p.held_usd}`:`Recorded spend: USD ${spent}`;
+}
+// The app-wide run watcher: one list request at load, then every 5 s while a run is active. It sets
+// runMark (the title prefix) and the rail mark, and notifies when a run this page saw running finishes.
+let runMark='',titleBase='';
+const runWatch={timer:null,busy:false,states:new Map(),finished:null};
+const FINISH_MARK={complete:'✓ '};
+function applyTitle(){if(titleBase)document.title=`${runMark}${titleBase} · Issuer Library`;}
+function runTarget(job){return `${job.state==='complete'?'W-Reports/list':'W-Overview/overview'}?c=${encodeURIComponent(job.id)}`;}
+function reloadApp(){location.reload();}
+function describeMark(job){
+  const modules=Array.isArray(job.modules)?job.modules:[],accepted=job.progress?.accepted;
+  if(WORKFLOW_ACTIVE.includes(job.state)){
+    const count=modules.length&&Number.isInteger(accepted)?`${accepted}/${modules.length}`:'';
+    return{mark:count?`● ${count} · `:'● ',symbol:'●',label:count?`Run running, ${accepted} of ${modules.length} modules`:'Run running'};
+  }
+  const done=job.state==='complete';
+  return{mark:done?'✓ ':'! ',symbol:done?'✓':'!',label:`Run ${job.state}`};
+}
+function showRunMark(job){
+  const view=job?describeMark(job):{mark:'',symbol:'',label:''},rail=document.getElementById('run-mark');
+  runMark=view.mark;
+  if(rail){rail.hidden=!job;rail.textContent=view.symbol;rail.setAttribute('aria-label',view.label);}
+  applyTitle();
+}
+function notifyFinished(job){
+  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  const note=new Notification('Issuer Library',{body:job.state==='complete'?`${job.issuer||'The'} run complete`:stopSentence(job)||job.message||`Run ${job.state}`,tag:job.id});
+  note.onclick=()=>{window.focus();location.hash=runTarget(job);if(document.body.dataset.draft!=='1')reloadApp();};
+}
+async function watchRuns(){
+  if(runWatch.busy)return;
+  runWatch.busy=true;
+  try{
+    const jobs=await appRequest('/api/runs/list'),active=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
+    for(const job of jobs){
+      if(runWatch.states.get(job.id)==='running'&&job.state!=='running'){runWatch.finished=job.id;notifyFinished(job);}
+      runWatch.states.set(job.id,job.state);
+    }
+    // A finished run that has left the list keeps the last description seen.
+    const shown=active[0]||jobs.find(job=>job.id===runWatch.finished)||runWatch.last;
+    runWatch.last=shown;
+    showRunMark(shown);
+    if(active.length&&!runWatch.timer)runWatch.timer=setInterval(watchRuns,5000);
+    if(!active.length&&runWatch.timer){clearInterval(runWatch.timer);runWatch.timer=null;}
+  }catch(error){console.warn('Run watch failed; the next check will retry while a run is active',error);}
+  finally{runWatch.busy=false;}
+}
 // The chosen folder's name is dropped: paths are relative to it, as the launcher's --sources are.
 const folderPath=file=>(file.webkitRelativePath||file.name).split('/').slice(file.webkitRelativePath?1:0).join('/');
 // The launcher skips dot paths without listing them, so they are not worth uploading.
@@ -33,14 +102,6 @@ function installNewRun(){
     if(!wanted&&watch){clearInterval(watch);watch=null;}
   }
   function titleOf(id){return (Array.isArray(review?.module_details)?review.module_details:[]).find(item=>item?.id===id)?.title||id;}
-  function describeModule(status,modules,nameOf){
-    const p=status.progress||{},moduleId=p.module;
-    if(!moduleId)return '';
-    const index=modules.indexOf(moduleId),where=index>=0?` (${index+1} of ${modules.length})`:'';
-    if(p.step==='started')return `${WORKFLOW_ACTIVE.includes(status.state)?'running':'stopped during'} ${nameOf(moduleId)}${where}`;
-    if(p.step==='accepted')return `${nameOf(moduleId)} accepted${where}`;
-    return '';
-  }
   async function recent(){
     if(listing)return;listing=true;
     try{
@@ -85,7 +146,7 @@ function installNewRun(){
     if(modules.length){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
       bar.replaceChildren(...modules.map((id,i)=>{
-        const isComplete=runComplete||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&step==='started',isStopped=isCurrent&&!active&&status.state!=='complete';
+        const isComplete=runComplete||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
         const li=document.createElement('li');li.dataset.status=isComplete?'complete':isCurrent?'current':'incomplete';li.title=id;
         if(isStopped)li.setAttribute('data-stopped','');
         const marker=document.createElement('span');marker.className='step-marker';marker.setAttribute('aria-hidden','true');
@@ -99,16 +160,15 @@ function installNewRun(){
       const mark=runComplete?bar.lastElementChild:bar.children[current];
       if(mark)mark.setAttribute('aria-current','step');
     }
-    const head=`${status.state}: ${status.message||''}`,desc=describeModule(status,modules,titleOf);
+    const head=stopText(status),desc=describeModule(status,modules,titleOf);
     $('run-progress').textContent=desc?`${head} · ${desc}`:head;
     $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${displayDate(review.as_of)} · ${review.id}`:review?.id||'';
-    const spent=status.spent_usd??status.progress?.spent_usd;
-    $('run-spend').textContent=spent==null?'Spend appears after CP-OS records a completed model response.':spent==='unknown'?'Recorded spend could not be read; it may be above zero.':`Recorded spend: USD ${spent}`;
+    $('run-spend').textContent=spendText(status);
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
-    $('open-run').dataset.route=`${status.state==='complete'?'W-Reports/list':'W-Overview/overview'}?c=${encodeURIComponent(status.id||review?.id)}`;
+    $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});
   }
   function reviewSummary(result){
     const details=(title,nodes)=>{const box=document.createElement('details');box.append(textNode('summary',title),...nodes);return box;};
@@ -190,7 +250,9 @@ function installNewRun(){
     busy=true;controls();
     try{
       await appRequest('/api/runs/start',{id:review.id,review_id:review.review_id,confirm:true});
-      running=true;delete document.body.dataset.draft;stage('progress');$('open-run').hidden=true;$('another-run').hidden=true;await poll();
+      running=true;delete document.body.dataset.draft;stage('progress');$('open-run').hidden=true;$('another-run').hidden=true;
+      if('Notification' in window&&Notification.permission==='default')Notification.requestPermission().catch(error=>console.warn('Notification permission request failed',error));
+      watchRuns();await poll();
     }catch(error){
       message(error.message);
       // A lost response must not prompt a second paid launch. Reconnect by id.

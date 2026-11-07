@@ -14,7 +14,7 @@ async function boot({draft,newRunHidden,answer}){
     window:{confirm:()=>{calls.confirm++;return answer;}},
     location:{reload:()=>{calls.reload++;}},
     fetch:async()=>({ok:true,json:async()=>({real:[]})}),
-    setInterval:()=>0,setTimeout,console,JSON,Promise,
+    setInterval:()=>0,setTimeout,console,JSON,Promise,watchRuns:()=>{},
   });
   vm.runInContext(read('boot.js'),context);
   await settle();

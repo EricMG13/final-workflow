@@ -215,6 +215,9 @@ func foldEvents(events []runEvent) map[string]any {
 		"module_accepted": "accepted", "delivery_started": "delivering", "delivered": "delivered", "stopped": "stopped"}
 	for _, event := range events {
 		if step, known := steps[event.Event]; known {
+			if step == "stopped" {
+				progress["stopped_during"] = progress["step"] // the step the stop interrupted
+			}
 			progress["step"] = step
 		}
 		switch event.Event {

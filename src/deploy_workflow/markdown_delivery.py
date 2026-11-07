@@ -190,7 +190,11 @@ def gap_limitations(raw: str) -> tuple[str, ...]:
     `###` lines only separate groups. A bare `None.` states no gap and is not carried. No Gaps
     section gives `()`; the handoff's own text is copied, nothing is added."""
     lines = hide_comments(physical_lines(raw), "gaps")
-    if not any(line in ("## Gaps", "### Gaps") for line in lines):
+    if "## Gaps" in lines:
+        levels = (2,)  # A `### Gaps` subsection elsewhere does not compete with the section.
+    elif "### Gaps" in lines:
+        levels = (3,)
+    else:
         return ()
     found: list[str] = []
     paragraph: list[str] = []
@@ -203,7 +207,7 @@ def gap_limitations(raw: str) -> tuple[str, ...]:
             found.append(text)
         paragraph.clear()
 
-    for _, text in section(lines, "Gaps"):
+    for _, text in section(lines, "Gaps", levels):
         stripped = text.strip()
         if FENCE.match(text):
             close()

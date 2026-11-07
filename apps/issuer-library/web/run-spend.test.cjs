@@ -21,3 +21,13 @@ test('a recorded spend wins over progress, and progress is the fallback while ru
   assert.equal(spendText({state:'running',message:'x',progress:{...stale,spent_usd:'0.10'}}),'Recorded spend: USD 0.10');
   assert.equal(spendText({state:'running',message:'x'}),'Spend appears after CP-OS records a completed model response.');
 });
+test('a stop after every module was accepted reads as a delivery stop, not a module stop',()=>{
+  const context=vm.createContext({});
+  vm.runInContext([line('WORKFLOW_ACTIVE'),grab('describeModule','')].join('\n'),context);
+  const say=(state,progress)=>context.describeModule({state,progress},['CP-2','CP-6'],id=>'Title '+id);
+  assert.equal(say('failed',{module:'CP-6',step:'stopped',stopped_during:'delivering',accepted:2}),'stopped while delivering the report');
+  assert.equal(say('failed',{module:'CP-6',step:'stopped',accepted:2}),'stopped while delivering the report');
+  assert.equal(say('failed',{module:'CP-6',step:'delivering',accepted:2}),'stopped while delivering the report');
+  assert.equal(say('running',{module:'CP-6',step:'delivering',accepted:2}),'delivering the report');
+  assert.equal(say('failed',{module:'CP-6',step:'stopped',stopped_during:'running',accepted:1}),'stopped during Title CP-6 (2 of 2)');
+});

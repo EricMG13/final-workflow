@@ -1520,8 +1520,12 @@ func TestRunProgressFoldsEvents(t *testing.T) {
 		t.Fatalf("after delivery start: %v", got)
 	}
 	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"stopped","reason":"budget"}`+"\n")
-	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["turn"] != 2 {
+	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["turn"] != 2 || got["stopped_during"] != "running" {
 		t.Fatalf("after stop: %v", got)
+	}
+	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"module_accepted","module":"CP-1"}`+"\n"+`{"at":"x","event":"delivery_started"}`+"\n"+`{"at":"x","event":"stopped","reason":"other"}`+"\n")
+	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["stopped_during"] != "delivering" || got["accepted"] != 2 {
+		t.Fatalf("stop in delivery: %v", got)
 	}
 	writeEvents(t, root, eventsID, `{"at":"x","event":"module_started","module":"CP-0"}`+"\n")
 	if got, _ := runProgress(root, eventsID); got["step"] != "started" || got["accepted"] != 0 {

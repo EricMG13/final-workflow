@@ -528,6 +528,16 @@ def test_prose_gaps_comments_and_subheadings():
     )
 
 
+def test_a_gaps_subsection_elsewhere_does_not_refuse_the_gaps_section():
+    raw = (
+        "# CP-1B X\n## Findings\n### Gaps\nA subsection note.\n"
+        "## Gaps\n| ID | Item |\n|---|---|\n| G1 | Lease detail |\n\nMarket data missing.\n"
+        "## Next module\nDelivery.\n"
+    )
+    assert gap_limitations(raw) == ("G1; Lease detail", "Market data missing.")
+    assert gap_limitations("# X\n## Findings\n### Gaps\nOnly here.\n") == ("Only here.",)
+
+
 def test_a_handoff_without_gaps_keeps_only_the_fixed_limitation():
     # literal_module needs the six headings, so a handoff with no Gaps section is read directly.
     raw = "# CP-1B X\n## Request\nScope.\n## Findings\nText.\n"

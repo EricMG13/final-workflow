@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from deploy_workflow.model.adapter import LivePauseInForce
-from deploy_workflow.model.budget import BudgetExhausted, RunStopped
+from deploy_workflow.model.budget import BudgetExhausted, OverrunStop, RunStopped
 from deploy_workflow.run_events import EVENTS, append_event, read_events, stop_reason
 
 
@@ -14,7 +14,8 @@ from deploy_workflow.run_events import EVENTS, append_event, read_events, stop_r
     ("error", "reason"),
     [
         (BudgetExhausted("cap"), "budget"),
-        (RunStopped("stopped"), "budget"),
+        (OverrunStop("overrun"), "budget"),
+        (RunStopped("the run is stopped: 'call-1' has an unknown charge"), "provider"),
         (RuntimeError("cpos_live_stopped: sent_known; charge=0.5; overrun=True"), "budget"),
         (RuntimeError("cpos_live_stopped: sent_unknown; charge=None; overrun=False"), "provider"),
         (ValueError("cpos_module_failed: CP-1: bad"), "checker"),

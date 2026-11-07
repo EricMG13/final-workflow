@@ -4,7 +4,6 @@ Model residuals never enter these comparisons. Shared source observations are
 identified explicitly so a construction cannot certify itself as independent.
 """
 
-from datetime import timedelta
 from decimal import Decimal, localcontext
 from itertools import pairwise
 from typing import Literal
@@ -16,6 +15,7 @@ from deploy_vii.financial_contracts import (
     CashMovementBridge,
     FinancialBook,
     FinancialReview,
+    opening_day,
 )
 from deploy_vii.financial_periods import (
     HistoricalReport,
@@ -284,11 +284,7 @@ def _period_cash(
     any contributing source uses a bridge, every contribution must be assessed
     and its cash check must pass before the constructed check can agree.
     """
-    opening = (
-        node.start_date - timedelta(days=1)
-        if node.start_date and node.start_date.toordinal() > 1
-        else None
-    )
+    opening = opening_day(node.start_date)
     sources = _source_periods(report, node)
     assessments = {b.period_id: b for b in book.cash_movement_bridges}
     adjusted = any(pid in assessments for pid, _ in sources)

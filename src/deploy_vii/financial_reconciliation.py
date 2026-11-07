@@ -26,6 +26,7 @@ from deploy_vii.financial_contracts import (
     FinancialReview,
     Observation,
     StatementIdentity,
+    opening_day,
 )
 from deploy_vii.financial_validation import validate_financial_review
 from deploy_vii.model._cells import CONTEXT, half_unit
@@ -531,11 +532,7 @@ def cash_scope(bridge: CashMovementBridge | None) -> tuple[str, ...]:
 
 
 def _cash_movement(book: FinancialBook, period: FinancialPeriod) -> Reconciliation:
-    opening = (
-        period.start_date - timedelta(days=1)
-        if period.start_date and period.start_date.toordinal() > 1
-        else None
-    )
+    opening = opening_day(period.start_date)
     bridge = next((b for b in book.cash_movement_bridges if b.period_id == period.period_id), None)
     lines = {r.line_id: r for r in book.statement_lines if r.period_id == period.period_id}
     adjustments = tuple(
@@ -626,11 +623,7 @@ def _balance_movements(book: FinancialBook, period: FinancialPeriod) -> tuple[Re
         for movement in book.balance_movements
         if movement.period_id == period.period_id
     }
-    opening_date = (
-        period.start_date - timedelta(days=1)
-        if period.start_date and period.start_date.toordinal() > 1
-        else None
-    )
+    opening_date = opening_day(period.start_date)
     items = tuple(dict.fromkeys(("total_equity", *bridges)))
     reconciliations = []
     for item in items:

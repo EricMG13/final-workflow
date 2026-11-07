@@ -21,6 +21,7 @@ from test_statement_quantities import SHA, book, cite, period
 from deploy_vii.contracts import Citation, Run, Source, Span
 from deploy_vii.financial_adapter import kernel_registers
 from deploy_vii.financial_contracts import (
+    AccountObservation,
     Alternative,
     FinancialBook,
     FinancialPeriod,
@@ -532,3 +533,131 @@ def test_a_signed_refund_is_covered_by_the_gate_but_refused_by_validation() -> N
     signed = refund_book(withheld=frozenset())
     assert gate(signed) is None
     assert len(refused(statement_issues(signed))) == 2  # Q2 +15 and FY +13
+
+
+# --- confidence review (second model): adversarial cases, hand-derived expectations ---------------
+
+
+@pytest.mark.parametrize("amount", [Decimal("0.000000001"), Decimal("1E+17")], ids=["tiny", "huge"])
+def test_any_positive_signed_amount_is_refused_however_small_or_large(amount: Decimal) -> None:
+    # Positive is the only test: no tolerance, no rounding to zero.
+    assert len(refused(statement_issues(book((outflow_line("CFS", "capex_total", amount),))))) == 1
+
+
+def test_one_issue_per_offending_line_and_none_for_the_clean_neighbours() -> None:
+    # Five periods of cash_taxes_paid: +1 (Q1), -1 (Q2), 0 (Q3), +2 (Q4), a printed magnitude 3
+    # (FY). By hand the offending lines are Q1 and Q4: two issues, one naming each period.
+    pids = ("q1-2025", "q2-2025", "q3-2025", "q4-2025", "fy-2025")
+    amounts = (Decimal(1), Decimal(-1), Decimal(0), Decimal(2), Decimal(3))
+    lines = tuple(
+        outflow_line(
+            "CFS",
+            "cash_taxes_paid",
+            amount,
+            convention="outflow_magnitude" if pid == "fy-2025" else "signed",
+            period_id=pid,
+        )
+        for pid, amount in zip(pids, amounts, strict=True)
+    )
+    forged = flow_book("CFS", "cash_taxes_paid", lines[1]).model_copy(
+        update={"statement_lines": lines}
+    )
+    found = refused(statement_issues(forged))
+    assert len(found) == 2
+    assert " q1-2025 (" in found[0] and " q4-2025 (" in found[1]
+
+
+def test_an_explicit_account_that_agrees_with_the_flip_no_longer_hides_the_refund() -> None:
+    # The pre-fix blind spot: account cash_taxes_paid -15 and a signed +15 line normalise to the
+    # same -15, so no disagreement was raised. The +15 line is now refused on its own.
+    account = AccountObservation(
+        metric_id="cash_taxes_paid", period_id="FY2024", value=observation("acct-tax", Decimal(-15))
+    )
+    row = outflow_line("CFS", "cash_taxes_paid", Decimal(15))
+    forged = book((row,)).model_copy(update={"accounts": (account,)})
+    assert len(refused(statement_issues(forged))) == 1
+
+
+def test_an_explicit_account_row_keeps_its_documented_magnitude_reading() -> None:
+    # book.accounts rows are untouched by the ruling: +15 on an outflow account stays accepted and
+    # is read -15 (history.OUTFLOW_METRICS).
+    account = AccountObservation(
+        metric_id="cash_taxes_paid", period_id="FY2024", value=observation("acct-tax", Decimal(15))
+    )
+    forged = book().model_copy(update={"accounts": (account,)})
+    assert statement_issues(forged) == ()
+
+
+IS_UNIT = (
+    "CONSOLIDATED INCOME STATEMENT",
+    "Period  Q1 2025  Q2 2025",
+    "Cost of sales  15  15",
+)
+
+
+def _cost_of_sales_book(*, withheld: bool, cites_row: bool) -> FinancialBook:
+    locator = "line:3" if cites_row else "line:2"
+    lines = tuple(
+        StatementLine(
+            line_id="is-cost-of-sales",
+            statement="IS",
+            item_id="cogs",
+            label="Cost of sales",
+            period_id=pid,
+            display_priority=1,
+            line_kind="detail",
+            value=Observation(
+                observation_id=f"cogs-{pid}",
+                status="missing",
+                amount=None,
+                citations=(cite("Cost of sales", locator=locator),),
+                reason="withheld",
+            )
+            if withheld
+            else Observation(
+                observation_id=f"cogs-{pid}",
+                status="known",
+                amount=Decimal(15),
+                citations=(cite("Cost of sales", locator=locator),),
+            ),
+            quantity=None,
+        )
+        for pid in ("q1-2025", "q2-2025")
+    )
+    return book(lines).model_copy(update={"periods": tuple(quarter(*q) for q in QUARTERS[:2])})
+
+
+def test_an_ordinary_printed_outflow_can_be_withheld_but_only_as_a_missing_value() -> None:
+    # Accepted breadth, stated: the gate cannot tell a refund from a printed magnitude, so a model
+    # may withhold "Cost of sales 15 15". Hand-derived consequence: the value is lost, the report
+    # reads it missing (never 0, 15 or -15) and the reason is kept.
+    table = line_table(
+        {n: Span(locator=f"line:{n}", text=t) for n, t in enumerate(IS_UNIT, 1)},
+        "line:1-3",
+        "filing",
+    )
+    [row] = table.lines
+    held = _cost_of_sales_book(withheld=True, cites_row=True)
+    assert fw._uncovered_reason(table, row, "IS", (held,)) is None
+    pack, review = case(held)
+    assert validate_financial_review(pack, review) == ()
+    cells = [c for c in statement_report(pack, review, "book").cells if c.item_id == "cogs"]
+    assert {c.period_id: (c.status, c.source_amount, c.normalized_amount) for c in cells} == {
+        "q1-2025": ("missing", None, None),
+        "q2-2025": ("missing", None, None),
+    }
+    assert {c.limitation for c in cells} == {"withheld"}
+
+
+def test_a_withheld_outflow_must_still_cite_its_row() -> None:
+    # The relaxation is the amount check only: a missing line that does not cite the unit's own
+    # row (line:3) is still uncovered, as a period failure.
+    table = line_table(
+        {n: Span(locator=f"line:{n}", text=t) for n, t in enumerate(IS_UNIT, 1)},
+        "line:1-3",
+        "filing",
+    )
+    [row] = table.lines
+    elsewhere = _cost_of_sales_book(withheld=True, cites_row=False)
+    reason = fw._uncovered_reason(table, row, "IS", (elsewhere,))
+    assert reason is not None and reason.startswith("period: no IS line")

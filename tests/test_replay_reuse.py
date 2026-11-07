@@ -14,7 +14,7 @@ class _Stop(Exception):
 class _Retained:
     # Hand-derived: replay_module must use this object (its pack check raises _Stop) and must not
     # construct a new _Earlier from the path (which would raise ReplayRefused: nothing there).
-    class store:  # noqa: N801 - stand-in for the Execution
+    class store:
         @staticmethod
         def pack(snapshot):
             raise _Stop

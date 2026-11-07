@@ -51,10 +51,13 @@ from deploy_vii.report_view import (
     pathways,
 )
 from deploy_workflow.handoff_delivery import (
+    SOURCE_NUMBER,
     DeliveryRequest,
     MarkdownRoute,
     heading_of,
+    is_gap,
     names_issuer,
+    physical_lines,
     plain,
     section,
 )
@@ -107,6 +110,28 @@ def _table_lines(tables: list[ReportTable], facts: list[Fact]) -> set[int]:
     cited = {f.fact_id: int(f.citations[0].locator.split()[-1]) for f in facts if f.citations}
     spans = [[cited[fid] for row in t.rows for fid in row.fact_ids if fid in cited] for t in tables]
     return {n for rows in spans if rows for n in range(min(rows) - 2, max(rows) + 1)}
+
+
+def _hide_comments(lines: list[str]) -> list[str]:
+    """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
+    hide it, so its text is never published as prose; fenced text is left as written. Line numbers
+    are unchanged. A comment that is never closed would hide the rest of the handoff: refused."""
+    shown, fenced, opened = [], False, 0
+    for number, line in enumerate(lines, 1):
+        hide = opened > 0
+        if hide:
+            opened = 0 if "-->" in line else opened
+        else:
+            found = heading_of(line)
+            fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
+            if FENCE.match(line):
+                fenced = not fenced
+            elif not fenced and line.startswith("<!--") and "-->" not in line:
+                opened, hide = number, True
+        shown.append("" if hide else line)
+    if opened:
+        raise ValueError(f"The HTML comment opened on line {opened} is never closed by `-->`")
+    return shown
 
 
 def _prose_groups(lines: list[str], in_table: set[int]) -> list[_ProseGroup]:
@@ -187,7 +212,7 @@ def literal_module(
 
     digest = hashlib.sha256(raw).hexdigest()
     source, facts, tables, _ = _literal_tables(module_id, raw, digest)
-    lines = raw.decode("utf-8").splitlines()
+    lines = _hide_comments(physical_lines(raw.decode("utf-8")))
     headings = [(n, found[1]) for n, line in enumerate(lines, 1) if (found := heading_of(line))]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
@@ -442,6 +467,44 @@ def _token_decimals(token: str, chart_unit: str | None) -> int:
     return min(6, max(0, written - 2) if chart_unit == "%" else written)
 
 
+YEAR = re.compile(r"(?<![0-9])([0-9]{4})(?![0-9])")
+PART = re.compile(r"(?<![A-Za-z0-9])[QH]([1-4])(?![0-9])")
+
+
+def _period_key(label: str) -> tuple[int, int] | None:
+    """(year, quarter or half) read from a period label such as `FY2024` or `Q3 2024`."""
+    year, part = YEAR.search(label), PART.search(label)
+    return None if year is None else (int(year[1]), int(part[1]) if part else 0)
+
+
+def _chronological(points: tuple[_ChartPoint, ...]) -> tuple[_ChartPoint, ...]:
+    """Oldest period first, so time reads left to right whatever order the table was written in.
+
+    Only the order of the points changes, never a value or label. When any category carries no
+    year the authored order stays, and equal keys keep their authored order.
+    """
+    keys = [_period_key(p.category) for p in points]
+    if any(key is None for key in keys):
+        return points
+    ordered = sorted(zip(keys, range(len(points)), strict=True))
+    return tuple(points[i] for _, i in ordered)
+
+
+def _require_reporting_unit(
+    facts: dict[str, Fact], row: TableRow, columns: list[str], column: str, route: MarkdownRoute
+) -> None:
+    """Refuse a number its own `Reporting unit` cell places in another unit than the chart's;
+    a table without that column makes no claim. Nothing is converted or relabelled."""
+    if "Reporting unit" not in columns:
+        return
+    own = (facts[row.fact_ids[columns.index("Reporting unit")]].text or "").strip()
+    if own != route.chart_unit:
+        raise ValueError(
+            f"markdown_chart: {row.label} {column} is reported in {own or 'no unit'}, "
+            f"not {route.chart_unit}; write `Not supplied: reported in <unit>`"
+        )
+
+
 def _numeric_observations(
     module: ModuleView, table: ReportTable, route: MarkdownRoute
 ) -> tuple[ModuleView, tuple[str, ...], tuple[_ChartPoint, ...]]:
@@ -485,16 +548,10 @@ def _numeric_observations(
                     raise ValueError("markdown_chart: typed source unit/currency differs")
             else:
                 token = source.text or ""
-                missing = (
-                    missing
-                    or token in {"—", "Insufficient Information", "Not reconstructed"}
-                    or token.startswith(("Not supplied", "Not calculable"))
-                )
+                missing = missing or is_gap(token)
                 if not missing:
-                    if len(token) > 64 or not re.fullmatch(
-                        r"(?:-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?\))",
-                        token,
-                    ):
+                    _require_reporting_unit(facts, row, columns, column, route)
+                    if len(token) > 64 or not SOURCE_NUMBER.fullmatch(token):
                         raise ValueError(
                             "markdown_chart: selected value must be an exact finite number "
                             "or explicit gap"
@@ -546,8 +603,10 @@ def _numeric_observations(
             points.append(_ChartPoint(series=series, category=category, fact_id=fid))
     if not points:
         raise ValueError("markdown_chart: no selected observations")
+    all_series = tuple(dict.fromkeys(p.series for p in points))
+    chronological = _chronological(tuple(points))
     if module.module_id == "CP-MODEL":
-        return module, tuple(dict.fromkeys(p.series for p in points)), tuple(points)
+        return module, all_series, chronological
     typed = ReportTable(
         table_id=tid,
         title=route.label or table.title,
@@ -559,8 +618,8 @@ def _numeric_observations(
         module.model_copy(
             update={"facts": (*module.facts, *values), "tables": (*module.tables, typed)}
         ),
-        tuple(dict.fromkeys(p.series for p in points)),
-        tuple(points),
+        all_series,
+        chronological,
     )
 
 
@@ -642,6 +701,13 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         for route in layout.routes
     ):
         raise ValueError("markdown_layout: preserve complete table columns in a table block")
+    if any(
+        route.kind != "chart"
+        and route.block_id in STRIP_FIGURES
+        and route.block_id != "yield-against-maturity"
+        for route in layout.routes
+    ):
+        raise ValueError("markdown_layout: a chart strip block takes only chart routes")
     module_views = []
     sources = []
     metadata = {}
@@ -650,7 +716,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         raw = (base / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
-        require_issuer(request.run, layout.issuer_aliases, module_id, raw.decode().splitlines())
+        require_issuer(request.run, layout.issuer_aliases, module_id, physical_lines(raw.decode()))
         module, source, meta = literal_module(module_id, raw)
         module_views.append(module)
         sources.append(source)

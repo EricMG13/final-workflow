@@ -152,6 +152,29 @@ class DeliveryRequest(Contract):
     layout: MarkdownLayout | None = None
 
 
+SOURCE_NUMBER = re.compile(
+    r"(?:-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?"
+    r"|\((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?\))"
+)
+
+
+def is_gap(token: str) -> bool:
+    """Whether a copied table cell is an explicit gap (blank, dash or an authored not-supplied)."""
+    return token in {"", "—", "Insufficient Information", "Not reconstructed"} or token.startswith(
+        ("Not supplied", "Not calculable")
+    )
+
+
+def physical_lines(text: str) -> list[str]:
+    """The text's lines split on newlines only (`\\r\\n` and a lone `\\r` count as one), so a
+    "line N" citation is the line a reader opens; `str.splitlines()` also splits on U+2028,
+    U+2029, form feed, vertical tab, U+0085 and the separators U+001C to U+001E."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines[-1]:
+        lines.pop()
+    return lines
+
+
 def plain(text: str) -> str:
     """Remove the supported inline emphasis only; never parse/reformat figures."""
     return re.sub(r"\*\*([^*]+)\*\*|`([^`]+)`", lambda m: m[1] or m[2], text).strip()
@@ -225,10 +248,12 @@ def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, 
     return headers, result
 
 
-def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
+def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 statements at base)
+    module_id: str, raw: bytes
+) -> tuple[ModuleView, Source]:
     """Map this handoff revision's named sections without reinterpreting analysis."""
     text = raw.decode("utf-8")
-    lines = text.splitlines()
+    lines = physical_lines(text)
     if tuple(line[3:] for line in lines if line.startswith("## ")) != HEADINGS:
         raise ValueError(f"{module_id}: the six handoff headings are required once, in order")
     sha = hashlib.sha256(raw).hexdigest()
@@ -249,7 +274,7 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
     facts: list[Fact] = []
     tables: list[ReportTable] = []
 
-    def add(
+    def add(  # noqa: PLR0913 - pre-existing signature (6 arguments at base)
         table_id: str,
         title: str,
         headers: list[str],
@@ -286,7 +311,10 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
                         if cell_text
                         else "Original handoff cell is blank; not zero",
                         value_class="source",
-                        basis="Literal content of the model-authored handoff; no new analysis or arithmetic.",
+                        basis=(
+                            "Literal content of the model-authored handoff; "
+                            "no new analysis or arithmetic."
+                        ),
                         citations=(
                             Citation(
                                 source_id=source_id,

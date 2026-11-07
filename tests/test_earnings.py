@@ -363,6 +363,30 @@ def test_zero_prior_and_percentage_point_artificial_guards():
     assert p.growth is None and p.growth_status == "not_applicable"
 
 
+@pytest.mark.parametrize(
+    "values,expected",
+    [
+        # S11-C06, by hand: -10 to -5 improves by 5; (current - prior) / prior would read -50%.
+        (("-10", "-5"), ("5", None, "missing", "NEGATIVE_DENOMINATOR")),
+        # -10 to 5: delta 15; a signed base would read -150%, so growth is not meaningful.
+        (("-10", "5"), ("15", None, "missing", "NEGATIVE_DENOMINATOR")),
+        # A positive base turning negative keeps its growth: (-5 - 10) / 10 = -1.5.
+        (("10", "-5"), ("-15", "-1.5", "known", None)),
+    ],
+)
+def test_growth_on_a_negative_prior_is_not_meaningful(values, expected):
+    prior, current = values
+    delta, growth, status, reason = expected
+    module = change(fixture(), "value.ebitda.q3-2025", amount=Decimal(prior))
+    module = change(module, "value.ebitda.q4-2025", amount=Decimal(current))
+    p = point(build(module), "ebitda")
+    assert (p.prior_value, p.current_value) == (Decimal(prior), Decimal(current))
+    assert p.delta == Decimal(delta) and p.delta_status == "known"
+    assert p.growth == (None if growth is None else Decimal(growth))
+    assert p.growth_status == status
+    assert p.reason == reason
+
+
 @pytest.mark.parametrize("prior_status", ["missing", "conflicting", "not_applicable"])
 @pytest.mark.parametrize("current_status", ["missing", "conflicting", "not_applicable"])
 def test_existing_nonknown_precedence_preserves_limits(prior_status, current_status):
@@ -783,3 +807,15 @@ def test_trailing_ratio_period_on_a_quarter_is_the_ratios_own():
 )
 def test_trailing_period_elsewhere_still_refuses(fact_id, period):
     refusal(change(fixture(), fact_id, period=period), "incompatible_dimensions")
+
+
+def test_negative_prior_does_not_change_the_other_growth_rules():
+    # S11-C06 adversarial. A margin never has growth (stays not_applicable, no reason); revenue
+    # shares the rule with ebitda; a zero prior keeps its own reason.
+    module = change(fixture(), "value.ebitda_margin.q3-2025", amount=Decimal("-0.10"))
+    module = change(module, "value.revenue.q3-2025", amount=Decimal(-20))
+    report = build(module)
+    p = point(report, "ebitda_margin")
+    assert p.growth is None and p.growth_status == "not_applicable" and p.reason is None
+    p = point(report, "revenue")
+    assert p.growth is None and p.growth_status == "missing" and p.reason == "NEGATIVE_DENOMINATOR"

@@ -26,9 +26,10 @@ repeats (`repeated_row_number`), a row whose caption names another statement tha
 marker is already dropped and the values are clean), so a row whose only flag it is is composed.
 
 Before composing (R23.4) the totals the row map identifies are checked per mapped column, in
-Decimal. If a check fails nothing is composed for the unit and the issue names the check, the
-column and both sums. Where the rows are not identified the unit is composed and
-`Composition.checks_not_applied` says which check was not applied and why.
+Decimal. A CFS row the row map says is `outflow_magnitude` enters the check as -abs(cell), as
+the book reads it (`financial_reconciliation`). If a check fails nothing is composed for the unit
+and the issue names the check, the column and both sums. Where the rows are not identified the
+unit is composed and `Composition.checks_not_applied` says which check was not applied and why.
 
 A unit on a page read by OCR (`ocr=True`, R23.23) is composed only when at least one check was
 applied, none was left unapplied and none failed. Otherwise every row it would have composed is
@@ -45,7 +46,7 @@ Pure: no I/O, no model call, no global state.
 
 import re
 from collections.abc import Collection, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from itertools import pairwise
 from types import MappingProxyType
@@ -673,6 +674,15 @@ def _sums(
     return issues
 
 
+def _as_read(judgment: RowJudgment, row: ExtractedLine) -> ExtractedLine:
+    """The row with each cell as the book reads it: -abs(cell) under `outflow_magnitude` (the
+    prompts' sign rule and `financial_reconciliation`), unchanged when `signed`; a nil stays nil."""
+    if judgment.sign_convention != "outflow_magnitude":
+        return row
+    values = tuple(None if v is None else v.copy_abs().copy_negate() for v in row.values)
+    return replace(row, values=values)
+
+
 def _checks(
     kind: Kind,
     rows: Sequence[tuple[RowJudgment, ExtractedLine]],
@@ -719,6 +729,7 @@ def _checks(
             both = (TOTAL_ASSETS, TOTAL_LIABILITIES_AND_EQUITY)
             skipped.append((BS_PRINTED_TOTAL, _why_missing(found, both)))
     elif kind == "CFS":
+        rows = [(judgment, _as_read(judgment, row)) for judgment, row in rows]
         found = _identified(rows, (OPERATING, INVESTING, FINANCING, FX_EFFECT, NET_CHANGE))
         needed = (OPERATING, INVESTING, FINANCING, NET_CHANGE)
         parts = [_only(found, item) for item in needed]

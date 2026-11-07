@@ -12,6 +12,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
+from itertools import pairwise
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
@@ -157,20 +158,33 @@ def _numeric(fact: Fact, money: bool) -> None:
         raise ValueError(f"Invalid chart gap: {fact.fact_id}")
 
 
-def _check_quarters(quarters: tuple[_Period, ...]) -> None:
-    """Four quarters of one fiscal year, numbered 1 to 4 and contiguous; otherwise raise."""
-    year = _text(quarters[0].row["fiscal_year"])
-    previous_end = None
-    for number, period in zip(("1", "2", "3", "4"), quarters, strict=True):
-        start = date.fromisoformat(_text(period.row["start_date"]))
-        if (
-            _text(period.row["fiscal_year"]) != year
-            or _text(period.row["fiscal_quarter"]).removeprefix("Q") != number
-            or start > period.end
-            or (previous_end is not None and start != previous_end + timedelta(days=1))
-        ):
-            raise ValueError("Ambiguous or noncontiguous QUARTER identities")
-        previous_end = period.end
+_QUARTER_SCOPE = (
+    "Charts require four contiguous reported QUARTER periods numbered Q1 to Q4 of one fiscal "
+    "year; no periods were fabricated."
+)
+
+
+def _quarter_scope(quarters: tuple[_Period, ...]) -> str | None:
+    """None for four contiguous quarters Q1 to Q4 of one fiscal year, else the unsupported
+    reason (a trailing four quarters across a year end, a gap). Contradictory identities raise:
+    a start after its end, quarters that overlap, a quarter number outside 1 to 4, or (fiscal
+    year, quarter) labels that repeat or do not increase with the dates."""
+    labels = [
+        (_text(p.row["fiscal_year"]), _text(p.row["fiscal_quarter"]).removeprefix("Q"))
+        for p in quarters
+    ]
+    if any(n not in {"1", "2", "3", "4"} for _, n in labels) or any(
+        a >= b for a, b in pairwise(labels)
+    ):
+        raise ValueError("Ambiguous QUARTER identities")
+    spans = [(date.fromisoformat(_text(p.row["start_date"])), p.end) for p in quarters]
+    if any(start > end for start, end in spans) or any(b[0] <= a[1] for a, b in pairwise(spans)):
+        raise ValueError("Overlapping or inverted QUARTER periods")
+    contiguous = all(b[0] == a[1] + timedelta(days=1) for a, b in pairwise(spans))
+    year = labels[0][0]
+    if contiguous and labels == [(year, n) for n in ("1", "2", "3", "4")]:
+        return None
+    return _QUARTER_SCOPE
 
 
 def _kpi_metrics(module: ModuleView) -> dict[str, dict[str, Fact]]:
@@ -190,14 +204,14 @@ def _quarter_figures(
     module: ModuleView, periods: tuple[_Period, ...]
 ) -> tuple[FinancialFigureSeries, ...]:
     quarters = tuple(p for p in periods if p.kind == "QUARTER")
-    reason = None
+    reason: str | None
     if len(quarters) != 4:
         reason = "Charts require exactly four reported QUARTER periods; no periods were fabricated."
     else:
-        _check_quarters(quarters)
+        reason = _quarter_scope(quarters)
     metrics = _kpi_metrics(module)
 
-    coordinates = []
+    coordinates: list[tuple[str, str, str, str, tuple[str, ...]]] = []
     if reason is None:
         for period in quarters:
             dates = f"{_text(period.row['start_date'])} to {period.end.isoformat()}"
@@ -213,7 +227,7 @@ def _quarter_figures(
     figures = []
     for fig_id, title, series in _SERIES:
         money = fig_id in _MONEY_FIGURES
-        points = []
+        points: list[FinancialSeriesPoint] = []
         for key in series:
             if key not in metrics:
                 raise ValueError(f"Missing chart metric implementation: {key}")
@@ -317,9 +331,9 @@ def _maturity_figure(
                 # FY/Q4 are aliases only when the facility identity AND its terms agree.
                 for alias in current:
                     other = indexed.get((fid, alias.identity))
-                    if other is None:
-                        raise ValueError("Incomplete same-date facility snapshot alias")
-                    if other is row:
+                    # The selected quarter's snapshot is complete; an alias without this
+                    # facility's row has nothing to compare, and is not plotted.
+                    if other is None or other is row:
                         continue
                     for key in _FACILITY_FIELDS:
                         if key == "period_id":

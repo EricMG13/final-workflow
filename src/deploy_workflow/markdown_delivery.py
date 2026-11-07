@@ -12,7 +12,7 @@ import html
 import json
 import re
 from collections.abc import Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Context, Decimal
 from pathlib import Path
@@ -50,7 +50,14 @@ from deploy_vii.report_view import (
     build_index,
     pathways,
 )
-from deploy_workflow.handoff_delivery import DeliveryRequest, MarkdownRoute, plain, section
+from deploy_workflow.handoff_delivery import (
+    DeliveryRequest,
+    MarkdownRoute,
+    heading_of,
+    names_issuer,
+    plain,
+    section,
+)
 
 CHART_UNITS: dict[str, UnitClass] = {"x": "multiple", "US$m": "amount", "%": "percent"}
 
@@ -62,8 +69,114 @@ STRIP_FIGURES = {
 }
 
 
-def _paragraph_text(paragraph: list[tuple[int, str]]) -> str:
-    return plain(" ".join(line.strip() for _, line in paragraph))
+LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]")
+FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+
+
+@dataclass(frozen=True)
+class _Paragraph:
+    """Consecutive physical lines that one fact quotes; a fenced block's text is kept as written."""
+
+    lines: tuple[tuple[int, str], ...]
+    code: bool = False
+
+    @property
+    def text(self) -> str:
+        text = " ".join(line.strip() for _, line in self.lines)
+        return text if self.code else plain(text)
+
+
+@dataclass(frozen=True)
+class _ProseGroup:
+    """The paragraphs under one heading line; `path` is its parent headings and itself."""
+
+    line: int
+    heading: str
+    path: str
+    paragraphs: tuple[_Paragraph, ...]
+
+
+def _opens_with(text: str | None, prefix: str) -> bool:
+    """Whether a fact opens with `prefix`, as written or after its list marker (`- `, `2. `)."""
+    shown = plain(text or "")
+    return shown.startswith(prefix) or LIST_ITEM.sub("", shown, count=1).startswith(prefix)
+
+
+def _table_lines(tables: list[ReportTable], facts: list[Fact]) -> set[int]:
+    """Physical lines a recognised table consumed: header, separator and every row."""
+    cited = {f.fact_id: int(f.citations[0].locator.split()[-1]) for f in facts if f.citations}
+    spans = [[cited[fid] for row in t.rows for fid in row.fact_ids if fid in cited] for t in tables]
+    return {n for rows in spans if rows for n in range(min(rows) - 2, max(rows) + 1)}
+
+
+def _prose_groups(lines: list[str], in_table: set[int]) -> list[_ProseGroup]:
+    """Every non-blank line outside a table lands in a paragraph under its nearest heading.
+
+    Each list item (with its wrapped lines) and each pipe line that no table consumed is a
+    paragraph of its own, and a fenced block is one paragraph including its fences, so none is
+    dropped or folded into its neighbour; `#1 risk` is text, not a heading.
+    """
+    groups: dict[int, list[_Paragraph]] = {}
+    titles: dict[int, tuple[str, str]] = {0: ("Document", "Document")}
+    parents: list[tuple[int, str]] = []
+    key, code = 0, False
+    pending: list[tuple[int, str]] = []
+
+    def close() -> None:
+        nonlocal pending
+        if pending:
+            groups.setdefault(key, []).append(_Paragraph(tuple(pending), code))
+            pending = []
+
+    for number, line in enumerate(lines, 1):
+        found = heading_of(line)
+        if code and found and found[0] == 2:
+            close()  # An unclosed fence ends at the next section.
+            code = False
+        if code:
+            if line.strip():  # A blank line inside a fence has nothing to quote.
+                pending.append((number, line))
+            if FENCE.match(line):
+                close()
+                code = False
+        elif FENCE.match(line):
+            close()
+            pending, code = [(number, line)], True
+        elif found:
+            close()
+            level, text = found
+            text = text or "Untitled"
+            while parents and parents[-1][0] >= level:
+                parents.pop()
+            parents.append((level, text))
+            key = number
+            titles[key] = (text, " > ".join(t for lv, t in parents if lv > 1) or text)
+        elif not line.strip() or line.startswith("<!--") or number in in_table:
+            close()
+        elif line.startswith("|"):
+            close()
+            pending = [(number, line)]
+            close()
+        else:
+            if LIST_ITEM.match(line):
+                close()
+            pending.append((number, line))
+    close()
+    return [_ProseGroup(k, *titles[k], tuple(p)) for k, p in groups.items()]
+
+
+def _prose_labels(groups: list[_ProseGroup]) -> list[str]:
+    """Distinct labels: the heading text, else its parent path, else the path with its line."""
+    labels = []
+    for group in groups:
+        same = [g for g in groups if g.heading == group.heading]
+        if len(same) == 1:
+            labels.append(group.heading)
+        elif len([g for g in same if g.path == group.path]) == 1:
+            labels.append(group.path)
+        else:
+            labels.append(f"{group.path} (line {group.paragraphs[0].lines[0][0]})")
+    return labels
 
 
 def literal_module(
@@ -75,9 +188,7 @@ def literal_module(
     digest = hashlib.sha256(raw).hexdigest()
     source, facts, tables, _ = _literal_tables(module_id, raw, digest)
     lines = raw.decode("utf-8").splitlines()
-    headings = [
-        (n, line.lstrip("#").strip()) for n, line in enumerate(lines, 1) if line.startswith("#")
-    ]
+    headings = [(n, found[1]) for n, line in enumerate(lines, 1) if (found := heading_of(line))]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
     section_of: dict[str, int] = {}
@@ -91,31 +202,19 @@ def literal_module(
             update={"title": heading + " — " + (table.row_header or "Table")}
         )
         metadata[table.table_id] = (heading, "table")
-    paragraphs: dict[str, list[list[tuple[int, str]]]] = {}
+    groups = _prose_groups(lines, _table_lines(tables, facts))
     section_prose: dict[int, list[str]] = {}
-    heading = "Document"
-    heading_line = 0
-    pending: list[tuple[int, str]] = []
-    for number, line in enumerate([*lines, ""], 1):
-        boundary = not line.strip() or line.startswith(("#", "|", "<!--"))
-        if boundary and pending:
-            paragraphs.setdefault(heading, []).append(pending)
-            section_prose.setdefault(heading_line, []).append(_paragraph_text(pending))
-            pending = []
-        if line.startswith("#"):
-            heading = line.lstrip("#").strip()
-            heading_line = number
-        elif not boundary:
-            pending.append((number, line))
+    for group in groups:
+        section_prose[group.line] = [p.text for p in group.paragraphs]
     for i, table in enumerate(tables):
         # The unit and limitation sentences of a table's own section travel with the table, so a
         # table route does not publish the numbers without them. The cited prose stays in Evidence.
         if sentences := section_prose.get(section_of[table.table_id]):
             tables[i] = table.model_copy(update={"limitation": " ".join(sentences)})
-    for index, (heading, groups) in enumerate(paragraphs.items()):
+    for index, (group, heading) in enumerate(zip(groups, _prose_labels(groups), strict=True)):
         table_id = f"prose-{module_id}-{index}"
         rows = []
-        for number, paragraph in enumerate(groups):
+        for number, paragraph in enumerate(group.paragraphs):
             fact_id = f"{table_id}.r{number}.c0"
             facts.append(
                 Fact(
@@ -124,7 +223,7 @@ def literal_module(
                     table_id=table_id,
                     row_id=f"r{number}",
                     field="c0",
-                    text=_paragraph_text(paragraph),
+                    text=paragraph.text,
                     value_class="source",
                     basis=(
                         "Literal wrapped paragraph from the model-authored handoff; "
@@ -137,7 +236,7 @@ def literal_module(
                             locator=f"line {n}",
                             quote=line,
                         )
-                        for n, line in paragraph
+                        for n, line in paragraph.lines
                     ),
                 )
             )
@@ -180,6 +279,16 @@ def literal_module(
     )
 
 
+def _names_section(meta: tuple[str, str] | None, heading: str) -> bool:
+    """Whether prose metadata is a `heading` section, under its bare label or, where the heading
+    repeats, its path label (`Findings > heading`, `... (line 12)`), so no copy goes unseen."""
+    return (
+        meta is not None
+        and meta[1] == "prose"
+        and re.fullmatch(rf"(?:.+ > )?{re.escape(heading)}(?: \(line \d+\))?", meta[0]) is not None
+    )
+
+
 def _portfolio_call(
     module: ModuleView | None,
     metadata: dict[str, tuple[str, str]],
@@ -195,12 +304,13 @@ def _portfolio_call(
     choices = (
         r"Include|Avoid|Resize-Reduce|Resize-Increase|Maintain-Hold|Requires More Work"
         if portfolio
-        else r"Avoid|Watchlist|Starter Position|Core Hold|Add / Increase|Reduce / Trim|Exit|Requires More Work"
+        else r"Avoid|Watchlist|Starter Position|Core Hold|Add / Increase|Reduce / Trim|Exit"
+        r"|Requires More Work"
     )
     records = [
         fact
         for fact in module.facts
-        if metadata.get(fact.table_id) == (heading, "prose")
+        if _names_section(metadata.get(fact.table_id), heading)
         and (fact.text or "").startswith(prefix)
     ]
     if not records:
@@ -322,6 +432,16 @@ def _yield_observations(
     return updated, tuple(dict.fromkeys(p.series for p in points)), tuple(points)
 
 
+def _token_decimals(token: str, chart_unit: str | None) -> int:
+    """Places to show a copied source token: as many as it was written to, at most six.
+
+    A `%` chart reads the token as a fraction (0.0725 is 7.25%), so two of its places are the
+    percent scaling. A gap has no digits to show and keeps the class default.
+    """
+    written = len(found[1]) if (found := re.search(r"\.(\d+)", token)) else 0
+    return min(6, max(0, written - 2) if chart_unit == "%" else written)
+
+
 def _numeric_observations(
     module: ModuleView, table: ReportTable, route: MarkdownRoute
 ) -> tuple[ModuleView, tuple[str, ...], tuple[_ChartPoint, ...]]:
@@ -376,7 +496,8 @@ def _numeric_observations(
                         token,
                     ):
                         raise ValueError(
-                            "markdown_chart: selected value must be an exact finite number or explicit gap"
+                            "markdown_chart: selected value must be an exact finite number "
+                            "or explicit gap"
                         )
                     amount = Decimal(token.replace(",", "").replace("(", "-").replace(")", ""))
             series, category = (
@@ -405,7 +526,7 @@ def _numeric_observations(
                     period=category,
                     decimals=source.decimals
                     if source.amount is not None
-                    else (4 if route.chart_unit == "%" else 2),
+                    else _token_decimals(source.text or "", route.chart_unit),
                     citations=source.citations,
                     limitation=(source.limitation or source.text or "Missing source observation")
                     if missing
@@ -445,20 +566,11 @@ def _numeric_observations(
 
 def require_issuer(run: Run, aliases: tuple[str, ...], module_id: str, lines: list[str]) -> None:
     """The handoff's title or Request section must name the run's issuer."""
-    declaration = (
-        " ".join(lines[0].split())
-        + "\n"
-        + " ".join(" ".join(line for _, line in section(lines, "Request")).split())
-    ).casefold()
-    if not any(
-        bool(name.strip()) and " ".join(name.split()).casefold() in declaration
-        for name in (run.issuer_name, *aliases)
-    ) and not re.search(
-        r"(?<![a-z0-9])" + re.escape(run.issuer_id.casefold()) + r"(?![a-z0-9])",
-        declaration,
-    ):
+    declaration = lines[0] + "\n" + "\n".join(line for _, line in section(lines, "Request"))
+    if not names_issuer(declaration, (run.issuer_name, *aliases, run.issuer_id)):
         raise ValueError(
-            f"markdown_issuer: handoff title or Request must identify the selected issuer: {module_id}"
+            "markdown_issuer: handoff title or Request must identify the selected issuer: "
+            + module_id
         )
 
 
@@ -595,10 +707,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
             r
             for r in table.rows
             if all((module.module_id, fid) not in used for fid in r.fact_ids)
-            and (
-                route.prefix is None
-                or plain(facts[r.fact_ids[0]].text or "").startswith(route.prefix)
-            )
+            and (route.prefix is None or _opens_with(facts[r.fact_ids[0]].text, route.prefix))
         ]
         if not selected and route.kind != "chart":
             raise ValueError(f"markdown_selector: no unused content for {route.heading}")

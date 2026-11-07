@@ -280,6 +280,13 @@ def test_changed_forecast_base_and_foreign_extra_issuer_refuse() -> None:
         build_model(request.run, specs, raw, request.model)
 
 
+def test_issuer_name_inside_another_word_does_not_establish_the_model_issuer() -> None:
+    # "Digm" is the middle of "TransDigm": a name embedded in a longer word is not a match.
+    run, specs, raw, layout = annual_only()
+    with pytest.raises(ValueError, match="model_issuer: annual"):
+        build_model(run.model_copy(update={"issuer_name": "Digm"}), specs, raw, layout)
+
+
 @pytest.mark.parametrize("fault", ["bad_consumed_type", "nonfinite"])
 def test_malformed_retained_forecast_is_not_published(fault: str) -> None:
     request, specs, raw = source_inputs()
@@ -400,3 +407,69 @@ def test_incomplete_model_write_never_completes_and_resume_keeps_analysis(
             run_handoffs(manifest, directory, execute=no_execute, check=check)
     assert not list(directory.glob("completed-*.json")) and not (directory / "deliveries").exists()
     assert run_handoffs(manifest, directory, execute=no_execute, check=check).exists()
+
+
+def model_cells(publication) -> dict[tuple[str, str], str]:
+    """(row label, column) -> displayed text across the published HTML Model rows."""
+    report = json.loads(publication.files["model-report-view.json"])
+    return {
+        (row["row_id"], column): cell["text"]
+        for block in report["blocks"]
+        for row in block["rows"]
+        for column, cell in zip(block["columns"], row["cells"], strict=True)
+    }
+
+
+def test_fractional_source_amounts_are_displayed_to_the_places_they_were_written() -> None:
+    # Hand-derived from the replaced CP-1 row (columns FY2024, FY2023, FY2022): 0.4, (0.3) and
+    # 220.5 are written to one place, so they show as 0.4, (0.3) and 220.5, never 0, 0 and 221.
+    # Cash paid for taxes feeds no other row, so only its own cells change.
+    row = b"| Cash paid during period for income taxes, net of refunds | 539 | 260 | 220 |"
+    new = b"| Cash paid during period for income taxes, net of refunds | 0.4 | (0.3) | 220.5 |"
+    publication = build_model(*annual_only(row, new))
+    cells = model_cells(publication)
+    assert [cells["tax_cash", p] for p in ("FY2024", "FY2023", "FY2022")] == [
+        "0.4",
+        "(0.3)",
+        "220.5",
+    ]
+    # Whole-number sources keep zero places, and a calculated cell keeps its inputs' places.
+    assert cells["revenue", "FY2024"] == "7,940"
+    assert cells["cfo_less_capex", "FY2024"] == "1,880"
+    values = json.loads(publication.files["calculation.json"])["values"]
+    assert [values[p]["tax_cash"]["amount"] for p in ("FY2024", "FY2023", "FY2022")] == [
+        "0.4",
+        "-0.3",
+        "220.5",
+    ]
+
+
+def test_a_small_nonzero_ratio_is_not_displayed_as_zero() -> None:
+    # Hand-derived: issuer As Defined EBITDA 4173 over cash interest 1,000,000 is 0.004173, which
+    # two places would show as 0.00x. The ratio gets the fewest places (3) that show it as 0.004x.
+    row = b"| Cash paid during period for interest, net | 1,158 |"
+    new = b"| Cash paid during period for interest, net | 1,000,000 |"
+    cells = model_cells(build_model(*annual_only(row, new)))
+    assert cells["issuer_earnings_cash_interest", "FY2024"] == "0.004x"
+    # Ratios that are not near zero keep two places.
+    assert cells["gross_carrying_multiple", "FY2024"].count(".") == 1
+    assert len(cells["gross_carrying_multiple", "FY2024"].split(".")[1].rstrip("x")) == 2
+
+
+@pytest.mark.parametrize(
+    ("value", "places"),
+    [
+        # Hand-derived: two places unless half a unit in the last place exceeds |value|.
+        (None, 2),
+        (Decimal(0), 2),
+        (Decimal("4.17"), 2),
+        (Decimal("0.005"), 2),  # 0.01x at two places (half-up): not zero
+        (Decimal("0.0049"), 3),  # 0.00x at two places, 0.005x at three
+        (Decimal("-0.004"), 3),
+        (Decimal("0.00000049"), 6),  # the contract's six-place cap
+    ],
+)
+def test_ratio_places_widen_only_to_keep_a_nonzero_ratio_from_reading_zero(value, places):
+    from deploy_workflow.model_handoff_delivery import _ratio_decimals
+
+    assert _ratio_decimals(value) == places

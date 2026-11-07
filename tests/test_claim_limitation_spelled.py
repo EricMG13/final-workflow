@@ -14,12 +14,13 @@ from decimal import Decimal
 
 import test_engine_blank_text as tb
 import test_method_cp3 as t3
+import test_method_cp4 as t4
 
 from deploy_vii import cp2_synthesis as cs
 from deploy_vii import cp6_committee as c6
 from deploy_vii.contracts import Fact, Input, Module, Run
 from deploy_vii.preparation import PreparedPack
-from deploy_workflow.owners import cp3
+from deploy_workflow.owners import cp3, cp4
 
 
 def _cp2_case(
@@ -186,3 +187,54 @@ def test_cp3_claim_limitations_are_spelled_like_their_cells() -> None:
     }
     assert cells[("T3.4", "limitation")] == "Cover of 6.00x is LTM only"
     assert cells[("T3.1", "limitation")] == "Read with 6.00x"
+
+
+# CP-4 (`covenant_interpretation`): the fixture's CP-1 net leverage fact is 1.00x (the oracle's
+# "spelled" figure, cases/cp4-owner/expected.json). The T4.13 limitation cell spells each
+# reference; the "protection_score" claim must store the same text. Expected by hand:
+#   two references  -> "Cover 1.00x against 1.00x ok"   (both resolve to the same fact)
+#   None -> None in the claim (cell shows "None stated"); empty string and an unknown
+#   reference are refused by validation.
+def _cp4_report(limitation: str | None) -> cp4.Cp4Result:
+    inputs = t4.make_inputs_object("positive")
+    ref = t4.select_metric(inputs.pack, inputs.upstream)
+    text = limitation.replace("REF", "{" + ref + "|x}") if limitation else limitation
+    score = inputs.submission.protection_score
+    # a rating above Insufficient Information may carry no limitation, so None and "" can be tried
+    cites = inputs.submission.red_flags[0].citations
+    score = score.model_copy(update={"limitation": text, "rating": "Adequate", "citations": cites})
+    sub = inputs.submission.model_copy(update={"protection_score": score})
+    return cp4.compute(
+        cp4.Cp4Inputs(
+            pack=inputs.pack, submission=sub, upstream=inputs.upstream, inputs=inputs.inputs
+        )
+    )
+
+
+def _cp4_claim_and_cell(result: cp4.Cp4Result) -> tuple[str | None, str]:
+    assert result.issues == ()
+    assert result.report is not None
+    claim = next(c for c in result.report.claims if c.claim_id == "protection_score")
+    cell = next(
+        f.text for f in result.report.facts if f.table_id == "T4.13" and f.field == "limitation"
+    )
+    return claim.limitation, cell
+
+
+def test_cp4_claim_limitation_is_spelled_like_its_cell() -> None:
+    claim, cell = _cp4_claim_and_cell(_cp4_report("Cover REF against REF ok"))
+    assert claim == "Cover 1.00x against 1.00x ok" == cell
+
+
+def test_cp4_claim_limitation_none_and_empty() -> None:
+    claim, cell = _cp4_claim_and_cell(_cp4_report(None))
+    assert claim is None
+    assert cell == "None stated"
+    # an empty string is refused by validation, so it never reaches a claim
+    assert _cp4_report("").report is None
+
+
+def test_cp4_unknown_limitation_reference_is_refused() -> None:
+    result = _cp4_report("Cover {no.such.fact|x} ok")
+    assert result.report is None
+    assert result.issues

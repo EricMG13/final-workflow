@@ -5520,3 +5520,46 @@ Owner items:
 - RecursionError in `catalogue_reports`/`recorded_run`, which predates the branch
 - "Built from N handoffs" counts only the readable handoffs after a skip
 - Forecast charts, a follow-up
+
+### Same day — Forecast cash flow model extended with history, the income statement and leverage (macOS only)
+
+Commits 7fc3e24..3e62a0d implement the owner's request. The Forecast grid now has 11 columns:
+- Q1 FY2024 and Q1 FY2025, each marked YTD because a first quarter is the year to date
+- FY2022–FY2024
+- Base case (the model's reference illustration) and Downside, each for FY2025E–FY2027E
+
+It has 43 lines:
+- business-unit revenue with YoY growth, then revenue with YoY growth
+- COGS, gross profit and its margin
+- opex, EBIT, D&A, EBIT + D&A and the issuer's reported EBITDA
+- the issuer's add-backs
+- Adj EBITDA (EBITDA As Defined) with its margin and YoY growth
+- the existing cash, debt and credit rows, with senior secured, total and net leverage and interest coverage
+
+Owner rulings, 2026-11-07:
+- Forecast lines the calculation record does not project show `n.m.`; no module was re-run.
+- Leverage is computed for fiscal years only, with the model's own definitions. Senior secured debt is the term loans, secured notes and securitization at carrying value: 20,020 / 4,173 = 4.80x for FY2024.
+- Upside is not shown.
+
+History comes only from the model's own `calculation.json`, `annual.md` and `quarter.md`. Each file's hash is checked, and a malformed file is reported by name.
+
+Pro forma appears as a note, because no pro forma period is recorded. Quarter leverage is `n.a.`, because last-twelve-months EBITDA is not constructed. No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- The frozen answer key (`forecast-answer-key.json` `cashflow`, sha256 073ef11a…) is the controller's oracle, with history typed by hand and cross-checked. The surface test matches it exactly.
+- `validate.py full` passes at 253bc4f. Quick passes at 3e62a0d, with node 239 and python 380 passed and 1 deselected.
+- The mx-precise task review raised two Important findings, both fixed and re-reviewed:
+  - an issue message that named no file
+  - a duplicated date formatter
+- The whole-branch mx-architect review (confidence-review and rewrite-tournament) approved. Its one Minor, a register subtotal being double-counted, is fixed, and its probe exits 0.
+- In-app browser at 1366×768: all 11 columns fit with no horizontal scroll, and row labels wrap to at most two lines. At 683 px the labels stay sticky, and the longest wrap to six lines.
+
+Not verified:
+- Windows: cross-compiled and vetted only.
+- tdg-model-1 and tdg-model-2 individually: their inputs are byte-identical to tdg-model-3.
+- jscpd and complexipy: not installed.
+- Mutation testing.
+
+Superseded: reviewer probe `task10-display-table.py`, which asserts the Task 10 grid.
+
+The Task 12 diff is about 1,300 changed lines, over the 800-line PR cap, so whether it ships as its own PR is the owner's decision.

@@ -431,3 +431,51 @@ test('a touch or pen pointer never opens the rail by proximity',async t=>{
   const {w,rail,move}=railFixture(false);t.after(()=>w.close());
   move(66,'touch');move(66,'pen');await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
 });
+
+// Task 13: Forecast wiring and report routing (adversarial review).
+function bare(hash,models){
+  const dom=new JSDOM(html,{url:`file://${__dirname}/index.html#${hash}`,runScripts:'outside-only'}),w=dom.window;
+  w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
+  w.eval(`window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:${JSON.stringify(models)},visuals:[]};window.DESIGN_APP={workspace:'',policy_locked:false,issues:[],problem:''};`);
+  let error=null;
+  try{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}catch(e){error=e;}
+  return {w,error};
+}
+test('every route renders in a workspace with no run, whatever it holds',t=>{
+  const model={id:'m-1',issuerKey:'id:ex',mode:'candidate',qualification:null,runId:'r-1',scope:null,inputContract:null,revisionNote:null,previous:null,href:'/files/deliverables/m-1/model.html?sha256=0',download:'/files/x',files:[],sources:[],register:null,cashflow:null};
+  for(const hash of ['W-Library/cases','W-Forecast/forecast','W-Forecast/m-1','W-Reports/list','W-Reports/x','W-Settings/settings','CP-OS/activity']){
+    const {w,error}=bare(hash,[model]);t.after(()=>w.close());
+    assert.equal(error,null,`${hash}: ${error&&error.message}`);
+    assert.ok(w.document.getElementById('content').textContent.trim().length>0,hash);
+  }
+});
+test("another issuer's model, or one with no recorded issuer, is not a run's published model",async t=>{
+  const w=fixture('W-Forecast/tdg-model-1?c=tdg-002').window;t.after(()=>w.close());
+  const base=JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.models[0])),folder=w.eval('contexts["tdg-002"].folder');
+  const foreign=Object.assign(JSON.parse(JSON.stringify(base)),{id:'beta-model',runId:folder,issuerKey:'id:bet',sources:[]});
+  const unkeyed=Object.assign(JSON.parse(JSON.stringify(base)),{id:'null-model',runId:folder,issuerKey:null,sources:[]});
+  const own=Object.assign(JSON.parse(JSON.stringify(base)),{id:'own-model',runId:folder,sources:[]});
+  w.DESIGN_WORKSPACE.models.push(foreign,unkeyed,own);
+  await go(w,'W-Forecast/own-model?c=tdg-002');
+  const options=[...w.document.querySelectorAll('#model-select option')].map(o=>o.textContent);
+  assert.ok(options.some(o=>o.startsWith('own-model')),JSON.stringify(options));
+  assert.equal(options.some(o=>o.startsWith('beta-model')||o.startsWith('null-model')),false,JSON.stringify(options));
+});
+test("a report built from a run opens under that run even when its issuer differs from the run's",async t=>{
+  const w=fixture('W-Reports/list?c=tdg-002').window;t.after(()=>w.close());
+  const copy=Object.assign(JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.reports[0])),{id:'erste-parse',issuerKey:null});
+  copy.builtFrom=copy.builtFrom.map(b=>({...b,run:'tdg-002'}));
+  w.DESIGN_WORKSPACE.reports.push(copy);
+  await go(w,'W-Library/cases');await go(w,'W-Reports/list?c=tdg-002');
+  assert.ok([...w.document.querySelectorAll('.report-row a')].some(a=>a.getAttribute('href').includes('erste-parse')));
+  await go(w,'W-Reports/erste-parse?c=tdg-002');
+  assert.ok(w.document.getElementById('report-preview'),text(w.document.getElementById('content')).slice(0,120));
+  assert.equal(w.eval('current.context'),'tdg-002');
+});
+test('the rail closes 300 ms after the pointer leaves it for an embedded frame',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  rail.dispatchEvent(new w.Event('pointerleave'));
+  await settle(150);assert.equal(rail.classList.contains('rail-open'),true);
+  await settle(300);assert.equal(rail.classList.contains('rail-open'),false);
+});

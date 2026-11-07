@@ -1510,16 +1510,70 @@ def cashflow_or_issues(folder, files, inputs, handoff, issues):
     return cashflow
 
 
+def shown_models(root, catalogue):
+    """The one available model folder shown per name (the route id), and the issues naming the others.
+
+    A folder is listed once however many runs list it. When folders share a name, the run's own delivery
+    (runs/<run_id>/deliveries/<name>, its view.json recording that run) is kept, else the first by path; each
+    dropped folder is named in an issue that says which one is shown. Only the kept folder is read in full.
+    """
+    by_name: dict[str, list[str]] = {}
+    for run in catalogue["real"]:
+        for artifact in run.get("artifacts") or []:
+            folder = artifact["folder"]
+            if artifact.get("available") and artifact.get("kind") == "model":
+                names = by_name.setdefault(Path(folder).name, [])
+                if folder not in names:
+                    names.append(folder)
+
+    def own(folder):
+        parts = PurePosixPath(folder).parts
+        if len(parts) != 4 or parts[0] != "runs" or parts[2] != "deliveries":
+            return False
+        # Documented fail-open: an unreadable view.json means "not known to be the run's own"; the model
+        # read in catalogue_models reports the same failure as a Workspace issue.
+        try:
+            recorded = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"][
+                "run_id"
+            ]
+        except (
+            OSError,
+            ValueError,
+            KeyError,
+            TypeError,
+            AttributeError,
+            RecursionError,
+            MemoryError,
+        ):
+            return False
+        return recorded == parts[1]
+
+    shown: set[str] = set()
+    issues: list[str] = []
+    for name, folders in by_name.items():
+        kept = next((f for f in folders if own(f)), None) or min(folders)
+        shown.add(kept)
+        issues.extend(
+            f"{f}: another published model has the same name {name}; {kept} is shown"
+            for f in sorted(folders)
+            if f != kept
+        )
+    return shown, issues
+
+
 def catalogue_models(root, catalogue, outputs, keys):
     """Published models the server verified, each once, with why it was built and what it was built from."""
-    models, seen, issues = [], set(), []
+    models, done = [], set()
+    shown, issues = shown_models(root, catalogue)
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
             folder = artifact["folder"]
             name = Path(folder).name
-            if not artifact.get("available") or artifact.get("kind") != "model" or name in seen:
+            if not artifact.get("available") or artifact.get("kind") != "model":
                 continue
-            seen.add(name)
+            if folder not in shown or folder in done:
+                continue
+            done.add(folder)
             # Documented fail-open: reported in Settings; the other models stay readable. A model too
             # large to parse (MemoryError) is reported the same way, not allowed to end the store.
             try:

@@ -58,14 +58,15 @@ const contextModules=context=>Object.keys(contexts[context].modules).filter(id=>
 const outputCount=context=>contextModules(context).reduce((sum,id)=>sum+contexts[context].modules[id].outputs.length,0);
 // One issuer is one issuerKey, whatever names its runs were recorded under; an unrecorded issuer (null) equals nothing.
 const sameIssuer=(a,b)=>a!=null&&a===b;
-const issuerReports=context=>window.DESIGN_WORKSPACE.reports.filter(r=>!context||sameIssuer(r.issuerKey,contexts[context].issuerKey));
+const issuerReports=context=>window.DESIGN_WORKSPACE.reports.filter(r=>!context||sameIssuer(r.issuerKey,contexts[context]?.issuerKey));
 const reportsBuiltFrom=context=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.run===context));
 const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.source===output));
 // A run's published models: those recorded for its folder and those built from a file it holds.
 const publishedModels=()=>window.DESIGN_WORKSPACE.models;
 const byModelId=(a,b)=>b.id.localeCompare(a.id);
 // One order for the Model select, the section pager and the default: the default model first, then the rest by folder name, latest first.
-const runModels=context=>{const held=publishedModels().filter(m=>m.runId===contexts[context].folder||m.sources.some(s=>s.run===context)).sort(byModelId),first=modelOrder(held)[0];return first?[first,...held.filter(m=>m!==first)]:held;};
+// A model of another issuer (or of none recorded) is never a run's own, whatever run it names; no run context holds none.
+const runModels=context=>{const run=contexts[context];if(!run)return [];const held=publishedModels().filter(m=>sameIssuer(m.issuerKey,run.issuerKey)&&(m.runId===run.folder||m.sources.some(s=>s.run===context))).sort(byModelId),first=modelOrder(held)[0];return first?[first,...held.filter(m=>m!==first)]:held;};
 const modelRun=model=>Object.keys(contexts).find(key=>contexts[key].folder===model.runId)||model.sources.find(s=>s.run)?.run||null;
 // Not superseded by another listed model; one that records a predecessor comes first, then the later folder name.
 const modelOrder=models=>[...models].sort((a,b)=>(models.some(m=>m.previous===a.id)-models.some(m=>m.previous===b.id))||((b.previous!=null)-(a.previous!=null))||byModelId(a,b));
@@ -287,7 +288,8 @@ function forecastSections(context) {
   return models.length?models.map(m=>[m.id,m.id,[]]):[['none','Forecast availability',[]]];
 }
 function reportSections(context) {
-  const reports=issuerReports(context);
+  // The run's issuer reports, then any other report built from this run's files (parseRoute sends such a report to this run).
+  const reports=[...issuerReports(context),...(context?reportsBuiltFrom(context).filter(r=>!issuerReports(context).includes(r)):[])];
   return reports.length?[['list','Reports',[]],...reports.map(r=>[r.id,reportName(r),[]])]:[['none','Report availability',[]]];
 }
 function navigationSections(module,context,output=defaultOutput(module,context)) {

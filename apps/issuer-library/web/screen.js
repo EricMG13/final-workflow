@@ -505,10 +505,13 @@ window.addEventListener('hashchange',renderRoute);
       if(isOpen&&!closeTimer)closeTimer=setTimeout(()=>{closeTimer=null;rail.classList.remove('rail-open');},300);
     }
   });
-  document.documentElement.addEventListener('pointerleave',()=>{
+  // Leaving the window, or the open rail itself for an embedded frame (a pointer inside a frame sends the page nothing), starts the close delay.
+  const leave=()=>{
     clearTimeout(openTimer);openTimer=null;
     if(rail.classList.contains('rail-open')&&!closeTimer)closeTimer=setTimeout(()=>{closeTimer=null;rail.classList.remove('rail-open');},300);
-  });
+  };
+  document.documentElement.addEventListener('pointerleave',leave);
+  rail.addEventListener('pointerleave',leave);
 })();
 const newRun=installNewRun();
 installSettings();

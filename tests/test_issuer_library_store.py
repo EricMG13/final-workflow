@@ -802,6 +802,39 @@ def test_a_model_is_listed_with_its_register_sources_and_not_as_a_report(tmp_pat
     assert (by_role["gone"]["changed"], by_role["gone"]["output"]) == (True, None)
 
 
+def test_the_runs_own_delivery_is_kept_over_a_same_named_model_in_either_order(tmp_path):
+    own = model_delivery(tmp_path, "runs/alpha-001/deliveries/m-1")
+    other = model_delivery(tmp_path, "deliverables/m-1")
+    for artifacts in ((other, own), (own, other)):
+        result = models_of(tmp_path, *artifacts)
+        (model,) = result["models"]
+        assert model["href"].startswith("/files/runs/alpha-001/deliveries/m-1/")
+        assert (
+            "deliverables/m-1: another published model has the same name m-1; "
+            "runs/alpha-001/deliveries/m-1 is shown"
+        ) in result["issues"]
+
+
+def test_with_no_own_delivery_the_first_path_is_kept_and_the_other_named(tmp_path):
+    first = model_delivery(tmp_path, "deliverables/m-1")
+    second = model_delivery(tmp_path, "runs/beta-001/deliveries/m-1")
+    for artifacts in ((second, first), (first, second)):
+        result = models_of(tmp_path, *artifacts)
+        (model,) = result["models"]
+        assert model["href"].startswith("/files/deliverables/m-1/")
+        assert (
+            "runs/beta-001/deliveries/m-1: another published model has the same name m-1; "
+            "deliverables/m-1 is shown"
+        ) in result["issues"]
+
+
+def test_the_same_folder_listed_twice_is_one_model_and_no_issue(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    result = models_of(tmp_path, artifact, artifact)
+    assert len(result["models"]) == 1
+    assert not any("same name" in i for i in result["issues"])
+
+
 def test_a_model_without_a_register_section_has_none(tmp_path):
     artifact = model_delivery(
         tmp_path, "deliverables/m-1", forecast="# CP-2G\n\n## Findings\n\nx\n"

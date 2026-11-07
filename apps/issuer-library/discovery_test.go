@@ -551,6 +551,13 @@ func TestMetricMustBeAWholeNumberOfTheQuoteWithItsSignAndScale(t *testing.T) {
 		{"Umsatz 1 234,5", "1", false},
 		{"Revenue 1'234.5", "234.5", false},
 		{"Yield: .5%", ".5", false},
+		// Exponents and a parenthesis opened before the quote also hide scale or sign.
+		{"Notional 1.2e3", "1.2", false},
+		{"Notional 1.2E+3", "3", false},
+		{"Notional 1.2e-3", "-3", false},
+		{"USD 12.3)", "12.3", false},
+		{"Revenue 450 (2023: 400)", "450", true},
+		{"Revenue 450 (2023: 400)", "400", false},
 	} {
 		if got := admitsMetric(t, c.quote, c.value); got != c.admitted {
 			t.Errorf("quote %q value %q: admitted=%v, want %v", c.quote, c.value, got, c.admitted)

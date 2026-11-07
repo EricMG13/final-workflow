@@ -186,11 +186,11 @@ var trailingGroup = regexp.MustCompile(`^[0-9]{3}(?:[^0-9]|$)`)
 // statedNumbers returns the numbers a quote states, as decimal strings without thousands
 // commas. A maximal run of number characters counts only when all of it is one wholeNumber, so
 // a date, range, list or figure in another separator convention states nothing rather than a
-// fragment of itself; sentence punctuation after a number is dropped. A leading minus joined
-// to a word (COVID-19) is a hyphen, so that run states nothing. Two runs one space apart that
-// read as space-grouped thousands (1 234) state neither. Inside parentheses only the exact
-// accounting form "(x)" has a known sign, -x; any other parenthesised number, or "(x)" next to
-// a dash or digit, is not taken.
+// fragment of itself; sentence punctuation after a number is dropped. These also state nothing:
+// a minus joined to a word (COVID-19), two runs that read as space-grouped thousands (1 234) or
+// as an exponent (1.2e3), and a number closing a parenthesis the quote did not open. Inside
+// parentheses only the exact accounting form "(x)" has a known sign, -x; any other
+// parenthesised number, or "(x)" next to a dash or digit, is not taken.
 func statedNumbers(quote string) []string {
 	runes := []rune(quote)
 	type span struct {
@@ -221,8 +221,10 @@ func statedNumbers(quote string) []string {
 	}
 	grouped := make([]bool, len(runs))
 	for k := 1; k < len(runs); k++ {
-		gap := runes[runs[k-1].end:runs[k].start]
-		if len(gap) == 1 && strings.ContainsRune(" \u00a0\u2009\u202f", gap[0]) && leadingGroup.MatchString(runs[k-1].text) && trailingGroup.MatchString(runs[k].text) {
+		gap := string(runes[runs[k-1].end:runs[k].start])
+		spaced := len([]rune(gap)) == 1 && strings.Contains(" \u00a0\u2009\u202f", gap) && leadingGroup.MatchString(runs[k-1].text) && trailingGroup.MatchString(runs[k].text)
+		exponent := (gap == "e" || gap == "E" || gap == "e+" || gap == "E+") && runs[k-1].text != "" && runs[k].text != ""
+		if spaced || exponent {
 			grouped[k-1], grouped[k] = true, true
 		}
 	}
@@ -232,6 +234,9 @@ func statedNumbers(quote string) []string {
 			continue
 		}
 		number := strings.ReplaceAll(run.text, ",", "")
+		if run.depth == 0 && run.end < len(runes) && runes[run.end] == ')' {
+			continue // The end of a parenthesis opened before the quote: its sign is unknown.
+		}
 		if run.depth > 0 {
 			// The accounting form stands alone: no sign inside it and no sign or digit around it.
 			exact := runes[run.start-1] == '(' && run.end < len(runes) && runes[run.end] == ')' && number[0] != '-'

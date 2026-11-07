@@ -109,7 +109,9 @@ _LINES = {
 }
 # The PF-LTM: what each pro forma metric adds to, and the keys with no
 # pro forma meaning (the waterfall from FFO to the net cash flow, its
-# residual, and both roll-forwards).
+# residual, and both roll-forwards; the debt roll-forward keeps only its
+# closing, the pro forma total debt, because the opening, raised and
+# non-cash lines of the LTM no longer foot to it).
 _PF_TARGETS = {
     "revenue": ("revenue",),
     "ebitda": ("ebitda", "adjusted_ebitda"),
@@ -129,7 +131,9 @@ _PF_BLANK = (
     "capex",
     "fcf",
     "acquisitions_net",
+    "debt_opening",
     "debt_raised_net",
+    "debt_non_cash",
     "equity_raised_net",
     "dividends",
     "other_investing_financing",

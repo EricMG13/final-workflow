@@ -13,7 +13,12 @@ import pytest
 from deploy_vii.contracts import Run
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
-from deploy_workflow.markdown_delivery import literal_module, markdown_files, require_issuer
+from deploy_workflow.markdown_delivery import (
+    gap_limitations,
+    literal_module,
+    markdown_files,
+    require_issuer,
+)
 from deploy_workflow.model_handoff_delivery import _literal_tables
 
 TAIL = "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
@@ -469,3 +474,51 @@ def test_a_wrapped_item_line_opening_with_a_year_or_parenthesised_number_is_not_
         ("2) Second", [11]),
         ("- nested", [12]),
     ]
+
+
+FIXED = (
+    "Literal checked analytical handoff, not native contract acceptance; "
+    "source qualifications and gaps remain."
+)
+
+
+def gaps_of(gaps: str) -> tuple[str, ...]:
+    tail = "## Calculations\nNone.\n## Gaps\n" + gaps + "## Next module\nDelivery.\n"
+    view = literal_module("CP-1B", handoff("Scope.", "### F\n" + TABLE, tail).encode())[0]
+    assert view.limitations[0] == FIXED
+    return view.limitations[1:]
+
+
+def test_each_gap_row_and_paragraph_becomes_a_module_limitation():
+    gaps = (
+        "| ID | Item | Status |\n|---|---|---|\n"
+        "| G1 | Revolver availability | Not supplied |\n"
+        "| G2 | Lease detail | Not supplied |\n\n"
+        "Market inputs were not supplied.\n"
+    )
+    assert gaps_of(gaps) == (
+        "G1; Revolver availability; Not supplied",
+        "G2; Lease detail; Not supplied",
+        "Market inputs were not supplied.",
+    )
+
+
+def test_prose_gaps_comments_and_subheadings():
+    gaps = (
+        "<!-- hidden gap\n| X | Y |\n|---|---|\n| H | hidden |\n-->\n"
+        "### Assurance limits\nThe audit opinion was\nnot supplied.\n\n"
+        "### Data\n| A | B |\n|---|---|\n| **Cash** | `n/a` |\n\n"
+        "Second paragraph.\n"
+    )
+    assert gaps_of(gaps) == (
+        "The audit opinion was not supplied.",
+        "Cash; n/a",
+        "Second paragraph.",
+    )
+
+
+def test_a_handoff_without_gaps_keeps_only_the_fixed_limitation():
+    # literal_module needs the six headings, so a handoff with no Gaps section is read directly.
+    raw = "# CP-1B X\n## Request\nScope.\n## Findings\nText.\n"
+    assert gap_limitations(raw) == ()
+    assert gaps_of("None.\n") == ()

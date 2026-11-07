@@ -16,7 +16,11 @@ ORDER = ["CP-0", "CP-1", "CP-1A", "CP-2"]
 RESPONSES = {
     "CP-0": (ROOT / "runs/tdg-001/CP-0.md").read_bytes(),
     "CP-1": (ROOT / "runs/tdg-002/CP-1-attempt-2.md").read_bytes(),
-    "CP-1A": (ROOT / "runs/tdg-002/CP-1A-attempt-3.md").read_bytes(),
+    # Layout delivery needs each handoff title or Request to name the issuer; the retained CP-1A
+    # does not, so this synthetic infrastructure test uses it with the issuer added to its title.
+    "CP-1A": (ROOT / "runs/tdg-002/CP-1A-attempt-3.md")
+    .read_bytes()
+    .replace(b"# CP-1A \xe2\x80\x94 ", b"# CP-1A TransDigm Group Incorporated \xe2\x80\x94 ", 1),
     "CP-2": (ROOT / "runs/tdg-002/CP-2-attempt-2.md").read_bytes(),
 }
 
@@ -93,6 +97,7 @@ def test_explicit_live_loop_drives_existing_planner_delivery_and_resume(tmp_path
     path = job(tmp_path)
     data = json.loads(path.read_bytes())
     data.update(execution="live-provider", provider_cap_usd="10", max_attempts=1)
+    with_live_layout(data)
     path.write_text(json.dumps(data))
     adapter = LiveAdapter(
         ModelSpec("sol-medium", "openai", "gpt-6.1-sol", "medium"),
@@ -153,6 +158,28 @@ def test_live_mode_rejects_unbounded_callback(tmp_path):
     path.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="cpos_execution_mode"):
         run_handoffs(path, tmp_path / "state", execute=replay, check=checked)
+
+
+# A live run needs a delivery layout: one CP-1A table of the retained handoff in one block.
+LIVE_LAYOUT = {
+    "blocks": ["company-profile"],
+    "scope": "synthetic live-wiring regression; one retained CP-1A table",
+    "routes": [
+        {
+            "module_id": "CP-1A",
+            "heading": "Company, business and revenue model",
+            "kind": "table",
+            "table_header": "Area",
+            "block_id": "company-profile",
+        }
+    ],
+}
+
+
+def with_live_layout(data: dict) -> None:
+    """Layout delivery routes selected analytical modules only, so CP-MODEL is not requested."""
+    data["layout"] = LIVE_LAYOUT
+    data["run"]["requested_modules"] = ["CP-1", "CP-1A", "CP-2"]
 
 
 def job(tmp_path: Path) -> Path:
@@ -710,6 +737,7 @@ def live_job(tmp_path: Path) -> Path:
     path = job(tmp_path)
     data = json.loads(path.read_bytes())
     data.update(execution="live-provider", provider_cap_usd="10", max_attempts=1)
+    with_live_layout(data)
     path.write_text(json.dumps(data))
     return path
 
@@ -1199,3 +1227,31 @@ def test_a_delivered_event_that_cannot_be_written_leaves_the_run_completed(tmp_p
     assert any("delivered" in str(w.message) for w in caught)
     assert verify_delivery(next(state.glob("delivery-*.json")), report.parent) == report
     assert list(state.glob("completed-*.json"))
+
+
+def test_a_live_run_without_a_layout_is_refused_before_any_call(tmp_path, monkeypatch):
+    from decimal import Decimal
+
+    from deploy_workflow.model.adapter import LiveAdapter
+    from deploy_workflow.model.handoff import HandoffExecutor
+    from deploy_workflow.model.turn import ModelSpec
+
+    path = job(tmp_path)
+    data = json.loads(path.read_bytes())
+    data.update(execution="live-provider", provider_cap_usd="10", max_attempts=1)
+    assert "layout" not in data
+    path.write_text(json.dumps(data))
+    adapter = LiveAdapter(
+        ModelSpec("sol-medium", "openai", "gpt-6.1-sol", "medium"),
+        ROOT / "docs/rulings/2026-11-05-live-loop-tests.md",
+        environ={},
+    )
+    calls = []
+    monkeypatch.setattr(adapter, "complete", lambda request, **kwargs: calls.append(request))
+    state = tmp_path / "state"
+    executor = HandoffExecutor(state / "live", adapter=adapter, cap_usd=Decimal(10), check=checked)
+    with pytest.raises(
+        ValueError, match="cpos_layout: a live-provider run needs a delivery layout"
+    ):
+        run_handoffs(path, state, execute=executor, check=checked)
+    assert calls == []

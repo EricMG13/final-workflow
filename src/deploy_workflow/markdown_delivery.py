@@ -183,6 +183,43 @@ def _prose_labels(groups: list[_ProseGroup]) -> list[str]:
     return labels
 
 
+def gap_limitations(raw: str) -> tuple[str, ...]:
+    """One limitation per data row of each Gaps pipe table (cells joined by `; `) and one per
+    blank-line-separated Gaps paragraph, in handoff order. HTML comments are hidden first and
+    `###` lines only separate groups. A bare `None.` states no gap and is not carried. No Gaps
+    section gives `()`; the handoff's own text is copied, nothing is added."""
+    lines = hide_comments(physical_lines(raw), "gaps")
+    if not any(line in ("## Gaps", "### Gaps") for line in lines):
+        return ()
+    found: list[str] = []
+    paragraph: list[str] = []
+    in_table = 0  # Pipe lines seen in the current table: the first two are header and separator.
+
+    def close() -> None:
+        text = plain(" ".join(paragraph))
+        if text and text.rstrip(".").casefold() != "none":
+            found.append(text)
+        paragraph.clear()
+
+    for _, text in section(lines, "Gaps"):
+        stripped = text.strip()
+        if stripped.startswith("|"):
+            close()
+            in_table += 1
+            if in_table > 2:
+                body = stripped[1:-1] if stripped.endswith("|") else stripped[1:]
+                cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", body)]
+                found.append(plain("; ".join(cells)))
+            continue
+        in_table = 0
+        if not stripped or heading_of(stripped) is not None:
+            close()
+        else:
+            paragraph.append(stripped)
+    close()
+    return tuple(found)
+
+
 def literal_module(
     module_id: str, raw: bytes
 ) -> tuple[ModuleView, Source, dict[str, tuple[str, str]]]:
@@ -276,6 +313,7 @@ def literal_module(
                     "Literal checked analytical handoff, not native contract acceptance; "
                     "source qualifications and gaps remain."
                 ),
+                *gap_limitations(raw.decode("utf-8")),
             ),
         ),
         source,

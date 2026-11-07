@@ -300,6 +300,8 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         )
     ):
         raise ValueError("cpos_live_binding: executor must share this run's cap, state and checker")
+    if request.execution == "live-provider" and request.layout is None:
+        raise ValueError("cpos_layout: a live-provider run needs a delivery layout")
     if request.layout is None and (
         request.run.pathway != "credit_snapshot"
         or request.run.case_kind != "public"

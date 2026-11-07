@@ -21,6 +21,7 @@ from deploy_vii.downstream_readiness import (
 from deploy_vii.financial_contracts import FinancialReview
 from deploy_vii.financial_model import ModelBasis
 from deploy_vii.financial_periods import PeriodValue, _id
+from deploy_vii.model.dates import fiscal_year_number
 from deploy_vii.model_interface import (
     SCHEMAS,
     ModelInterface,
@@ -303,24 +304,43 @@ def _normalizations(tables: _Tables, report: DownstreamReport) -> None:
         )
 
 
+def _stub_column(kind: str | None, year: int | None, own_year: int | None, sign: int) -> int:
+    """T4.8 column of one operand (S13 C06): 0 Full-Year Component, 1 Current Stub, 2 Prior-Year
+    Stub. A full year is the full-year component; a prior-year YTD, or a stub of an earlier
+    fiscal year than the construction's own, is the prior-year stub; a stub of the
+    construction's fiscal year is the current stub, whatever its sign (Q4 = FY - 9M YTD of the
+    same year). Where either fiscal year is unknown the sign decides, as for LTM = FY + YTD -
+    PYTD."""
+    if kind == "FY":
+        return 0
+    if kind == "PYTD":
+        return 2
+    if year is not None and own_year is not None:
+        return 2 if year < own_year else 1
+    return 2 if sign < 0 else 1
+
+
 def _constructed(tables: _Tables, history: StatementHistoryReport) -> None:
     constructions = {c.construction_id: c for c in history.constructions}
     periods = {p.period_id: p for p in history.periods}
     graph = {c.computation_id: c for c in history.computations}
     for row in history.values:
         construction = constructions[row.construction_id]
+        own_year = fiscal_year_number(construction.fiscal_year)
         parts: list[list[str]] = [[], [], []]
         for operand in row.operands:
             ref = operand.reference
             node = constructions.get(ref.reference or "")
             period = periods.get(ref.reference or "")
+            source = node or period
             kind = node.kind if node else period.period_type if period else None
+            year = fiscal_year_number(source.fiscal_year) if source else None
             value = graph[operand.computation_id].value.amount
             text = (
                 f"{ref.coefficient:+d} * {ref.reference or 'missing'}: "
                 f"{value if value is not None else 'null'}; {operand.computation_id}"
             )
-            parts[2 if ref.coefficient < 0 else 0 if kind == "FY" else 1].append(text)
+            parts[_stub_column(kind, year, own_year, ref.coefficient)].append(text)
         formula = (
             "Exact-period source observation only; no nonmonetary period arithmetic"
             if row.quantity_kind != "monetary"

@@ -95,12 +95,13 @@ def shape_issues(error: ValidationError) -> tuple[str, ...]:
     No library URL and no `input_value` repr: the text is stable across library upgrades (replay
     compares it exactly) and small enough for a repair prompt. A whole-payload error (invalid
     JSON) has the path `(root)`."""
-    errors = error.errors(include_url=False, include_input=False, include_context=False)
-    echoed = _echoed(errors)
+    # ctx is read only to tell an echoed min-length error from a real one; the text is loc + msg
+    errors = error.errors(include_url=False, include_input=False, include_context=True)
+    failed = _failed_items(errors)
     return tuple(
         f"{'.'.join(str(part) for part in item['loc']) or '(root)'}: {item['msg']}"
         for item in errors
-        if not (_container_too_short(item) and item["loc"] in echoed)
+        if not _echoes(item, failed)
     )
 
 
@@ -111,19 +112,32 @@ def _container_too_short(item: ErrorDetails) -> bool:
     )
 
 
-def _echoed(errors: list[ErrorDetails]) -> set[tuple[int | str, ...]]:
-    """The locs of container min-length errors beside an error inside that container (the
-    items failed): every error's proper loc prefixes, looked up once each, so the work is
-    linear in the errors (0d-d)."""
+def _failed_items(errors: list[ErrorDetails]) -> dict[tuple[int | str, ...], set[int | str]]:
+    """For each container min-length error's loc, the distinct item keys of the errors inside
+    it. Every error's proper loc prefixes are looked up once each, so the work is linear in the
+    errors (0d-d)."""
     containers = {item["loc"] for item in errors if _container_too_short(item)}
+    failed: dict[tuple[int | str, ...], set[int | str]] = {}
     if not containers:
-        return set()
-    return {
-        item["loc"][:end]
-        for item in errors
-        for end in range(len(item["loc"]))
-        if item["loc"][:end] in containers
-    }
+        return failed
+    for item in errors:
+        loc = item["loc"]
+        for end in range(len(loc)):
+            if loc[:end] in containers:
+                failed.setdefault(loc[:end], set()).add(loc[end])
+    return failed
+
+
+def _echoes(item: ErrorDetails, failed: dict[tuple[int | str, ...], set[int | str]]) -> bool:
+    """Whether a container min-length error only echoes its failed items: Pydantic counts the
+    valid items (ctx `actual_length`), so it is an echo when those plus the failed items reach
+    `min_length`. A container shorter than that, or one with no count to compare, is reported."""
+    items = failed.get(item["loc"])
+    if not items or not _container_too_short(item):
+        return False
+    ctx = item.get("ctx") or {}
+    actual, minimum = ctx.get("actual_length"), ctx.get("min_length")
+    return isinstance(actual, int) and isinstance(minimum, int) and actual + len(items) >= minimum
 
 
 def citation_issues(

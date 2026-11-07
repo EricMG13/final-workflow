@@ -129,6 +129,7 @@ def _row_period(basis: PeriodBasis) -> dict[str, str]:
 # --- the submission schema (lease "Submission schema"; reference and judgment only) -----------
 
 View = Literal["Downgrade pressure", "Stable", "Upgrade potential", "Not assessable"]
+UPGRADE_VIEW = "Upgrade potential"
 
 
 class AgencyView(Contract):
@@ -1461,6 +1462,30 @@ def _outlook_match(
     )
 
 
+def _rated_object(r: RegisterRow) -> str:
+    """What the row rates: the page register's instrument, or the context row's rating scope."""
+    kind = (r.scope or "") if r.source == "context" else r.instrument
+    return " ".join(kind.casefold().split())
+
+
+def _scope_mismatch(ra: RegisterRow, rb: RegisterRow) -> str | None:
+    """Why two rated pairs are not on one footing (issuer BB against secured notes Ba1), or None."""
+    if _rated_object(ra) == _rated_object(rb):
+        return None
+    return (
+        f"{ra.agency} and {rb.agency} rate different instruments or scopes, so no notch "
+        "comparison is made"
+    )
+
+
+def _not_compared(b: _Book, at: tuple[str, str], period: str, why: str) -> None:
+    b.unsettled(
+        (*at, "notches"), "Notches apart", NOTCH_UNIT, why, period=period, status="not_applicable"
+    )
+    b.missing_text((*at, "lower_rated"), "Lower rated", why, status="not_applicable")
+    b.missing_text((*at, "outlook_match"), "Outlooks", why, status="not_applicable")
+
+
 def _divergence(b: _Book, source: RatingsSource, rows: Mapping[str, str]) -> list[str]:
     """T2R.8: every pair of register agencies (none for a one-agency register, round 7 item 4);
     the pair row ids."""
@@ -1487,16 +1512,9 @@ def _divergence(b: _Book, source: RatingsSource, rows: Mapping[str, str]) -> lis
                 f"{possessive(who.agency)} rating is {who.rating.lower()}, "
                 "so no notch comparison is made"
             )
-            b.unsettled(
-                (*at, "notches"),
-                "Notches apart",
-                NOTCH_UNIT,
-                why,
-                period=period,
-                status="not_applicable",
-            )
-            b.missing_text((*at, "lower_rated"), "Lower rated", why, status="not_applicable")
-            b.missing_text((*at, "outlook_match"), "Outlooks", why, status="not_applicable")
+            _not_compared(b, at, period, why)
+        elif (mismatch := _scope_mismatch(ra, rb)) is not None:
+            _not_compared(b, at, period, mismatch)
         else:
             positions = (f"T2R.2.{ia}.position", f"T2R.2.{ib}.position")
             b.number(
@@ -1779,12 +1797,75 @@ def _limitation(path: str, text: str | None, names: Sequence[str]) -> list[str]:
     ]
 
 
+def _reached(outcome: TriggerOutcome) -> bool:
+    """A trigger reached in the current year or in a forecast year of either case."""
+    hits = (outcome.fy25_reached, *outcome.base.hits, *outcome.down.hits)
+    return any(hit is True for hit in hits)
+
+
+def _direction_issues(path: str, view: AgencyView, mechanics: _Mechanics) -> list[str]:
+    """S07-A04: `Upgrade potential` needs a published upgrade trigger of the agency, and cannot
+    stand when only its downgrade triggers are reached (the computed outcomes, not the analyst,
+    say which triggers are in reach)."""
+    if view.view != UPGRADE_VIEW:
+        return []
+    outcomes = {o.row: o for o in mechanics.outcomes}
+    reached = {"Upgrade": False, "Downgrade": False}
+    published = False
+    for test in mechanics.tests:
+        if test.term.agency != view.agency:
+            continue
+        published |= test.term.direction == "Upgrade"
+        reached[test.term.direction] |= _reached(outcomes[test.row])
+    if not published:
+        return [f"{path}.view: {UPGRADE_VIEW} needs a published upgrade trigger of {view.agency}"]
+    if reached["Downgrade"] and not reached["Upgrade"]:
+        only = f"only {view.agency}'s downgrade triggers are reached"
+        return [f"{path}.view: {UPGRADE_VIEW} contradicts the computed outcomes: {only}"]
+    return []
+
+
+@dataclass(frozen=True)
+class _ViewBasis:
+    """What a view is checked against: the computed mechanics and, per context register agency,
+    the (source, locator) of its own context lines."""
+
+    mechanics: _Mechanics
+    own_lines: Mapping[str, frozenset[tuple[str, str]]]
+
+
+def _view_basis(
+    mechanics: _Mechanics, source: RatingsSource, citations: Sequence[RowCitations]
+) -> _ViewBasis:
+    own = {
+        row.agency: frozenset((c.source_id, c.locator) for c in cited.values())
+        for row, cited in zip(source.register, citations, strict=False)
+    }
+    return _ViewBasis(mechanics, own)
+
+
+def _own_evidence_issues(path: str, view: AgencyView, basis: _ViewBasis) -> list[str]:
+    """S07-A04: a view cites at least one line of its own agency: a quote that names the agency
+    (its page register or terms line) or one of its context register lines."""
+    name, lines = view.agency.casefold(), basis.own_lines.get(view.agency, frozenset())
+    if any(
+        name in " ".join(c.quote.split()).casefold() or (c.source_id, c.locator) in lines
+        for c in view.evidence
+    ):
+        return []
+    return [f"{path}.evidence: cite at least one register or terms line of {view.agency}"]
+
+
 def _view_issues(
-    sub: TriggerSubmission, source: RatingsSource, bound: Mapping[str, Fact], pack: PackScope
+    sub: TriggerSubmission,
+    source: RatingsSource,
+    bound: Mapping[str, Fact],
+    pack: PackScope,
+    basis: _ViewBasis,
 ) -> list[str]:
     """Views in register order (unknown agencies last, each by submission index): the agency,
-    the confidence rule, the rationale, the evidence, the limitation; then each register agency
-    without a view."""
+    the confidence rule, the direction against the computed outcomes, the rationale, the
+    evidence, the limitation; then each register agency without a view."""
     order = {r.agency: n for n, r in enumerate(source.register)}
     ranked = sorted(
         enumerate(sub.views), key=lambda iv: (order.get(iv[1].agency, len(order)), iv[0])
@@ -1802,7 +1883,10 @@ def _view_issues(
         seen.add(v.agency)
         if v.confidence == "High":
             issues.append(f"{path}.confidence: {HIGH}")
+        if v.agency in order:
+            issues += _direction_issues(path, v, basis.mechanics)
         issues += _prose(f"{path}.rationale", v.rationale, bound, pack.names, claim=True)
+        before = len(issues)
         for j, citation in enumerate(v.evidence):
             where = f"{path}.evidence[{j}]"
             if is_blank(citation.quote):  # round 13 addendum 3: before the page-occurrence check
@@ -1811,6 +1895,8 @@ def _view_issues(
             issues += (
                 clipped((where, ": ", x)) for x in citation_issues((citation,), pack.sources)
             )
+        if v.agency in order and len(issues) == before:
+            issues += _own_evidence_issues(path, v, basis)
         issues += _limitation(f"{path}.limitation", v.limitation, pack.names)
     issues += (
         clipped(("views: no view for agency ", r.agency))
@@ -1986,11 +2072,11 @@ def validate(inputs: TriggerInputs) -> tuple[str, ...]:
         ratings, source, citations = register_source(inputs.pack)
     except SourceIssue as issue:
         return (str(issue),)
-    book, _ = _compose(ratings, source, up, None, citations)
+    book, mechanics = _compose(ratings, source, up, None, citations)
     bound = _bound(book, up)
     names = inputs.pack.names
     issues = [
-        *_view_issues(sub, source, bound, inputs.pack),
+        *_view_issues(sub, source, bound, inputs.pack, _view_basis(mechanics, source, citations)),
         *_overall_issues(sub, bound, names),
         *_gap_issues(sub, bound, names),
     ]

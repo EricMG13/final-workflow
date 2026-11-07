@@ -17,12 +17,14 @@
   },
   {
    "id": "rating_triggers.2",
-   "statement": "Give exactly one view for each agency in `register.agencies` of the module context, its `agency` written exactly, and none for another agency or twice.",
+   "statement": "Give exactly one view for each agency in `register.agencies` of the module context, its `agency` written exactly, and none for another agency or twice. A view of Upgrade potential needs an upgrade trigger published for that agency in `triggers`, and is refused when only that agency's downgrade triggers are reached; every view cites at least one quote that names its own agency (for a context row, a line of that agency's own row).",
    "checks": [
     "oracle:cp2h:v01",
     "oracle:cp2h:v02",
     "oracle:cp2h:v03",
-    "fn:deploy_workflow.owners.cp2h:_view_issues"
+    "fn:deploy_workflow.owners.cp2h:_view_issues",
+    "fn:deploy_workflow.owners.cp2h:_direction_issues",
+    "fn:deploy_workflow.owners.cp2h:_own_evidence_issues"
    ]
   },
   {

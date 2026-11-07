@@ -15,6 +15,7 @@ import re
 from collections.abc import Mapping, Sequence
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -1729,3 +1730,106 @@ def test_reconciliation_property(case: str) -> None:
         a25 = case_inputs.upstream.cp2g.fact("a25", cell.derives_from[0].rsplit(".", 1)[1])
         metric = next(m for m in cp2h.METRICS.values() if m.field == a25.field)
         assert cell.fact.amount == a25.amount == cp1[metric.cp1_metric].amount
+
+
+def test_s07_a03_different_instruments_make_no_notch_comparison() -> None:
+    """S07-A03. Alder rates the issuer (BB) and Brook the senior secured notes (Ba1): positions
+    differ by one on the combined scale, but the two ratings are of different instruments, so
+    T2R.8 states no distance, no lower-rated agency and no outlook match (hand-derived: all three
+    cells are not_applicable and carry no value)."""
+    pages = _edited(
+        "positive",
+        [(0, "Brook Credit  Issuer rating  Ba3", "Brook Credit  Senior secured notes  Ba1")],
+    )
+    payload = copy.deepcopy(raw_payload("positive"))
+    payload["overall"]["rationale"] = payload["overall"]["rationale"].replace(
+        "differ by {T2R.8.p01.notches|notches} on the combined scale", "are not compared"
+    )
+    for view in payload["views"]:
+        for item in view["evidence"]:
+            item["quote"] = item["quote"].replace(
+                "Brook Credit  Issuer rating  Ba3", "Brook Credit  Senior secured notes  Ba1"
+            )
+    got = cp2h.compute(_over(inputs("positive", payload), pages))
+    cells = {c.fact.field: c.fact for c in got.cells if c.fact.table_id == "T2R.8"}
+    for field in ("notches", "lower_rated", "outlook_match"):
+        assert cells[field].status == "not_applicable", field
+        assert cells[field].amount is None and not cells[field].text, field
+        assert "different instruments or scopes" in str(cells[field].limitation), field
+    # same instrument still compares (the pinned positive case: issuer rating against issuer rating)
+    base = {c.fact.field: c.fact for c in report("positive").cells if c.fact.table_id == "T2R.8"}
+    assert base["notches"].status == "known"
+
+
+def test_s07_a03_a_context_issuer_and_facility_row_are_not_compared() -> None:
+    """S07-A03, context register. S&P rates the issuer (BB, position 12 on the combined scale) and
+    Moody's a facility (Ba1): the rated objects differ, so the pair is not compared."""
+    a = cp2h.RegisterRow(
+        "S&P", "Not stated", "BB", "Stable", "2025-11-01", 12, "0", None, "context", "issuer"
+    )
+    b = cp2h.RegisterRow(
+        "Moody's", "Not stated", "Ba1", "Stable", "2025-11-01", 11, "1", None, "context", "facility"
+    )
+    assert cp2h._scope_mismatch(a, b) is not None
+    same = cp2h.RegisterRow(
+        "Moody's", "Not stated", "Ba1", "Stable", "2025-11-01", 11, "1", None, "context", "Issuer"
+    )
+    assert cp2h._scope_mismatch(a, same) is None
+
+
+def test_s07_a04_upgrade_potential_needs_a_published_upgrade_trigger() -> None:
+    """S07-A04. The pinned positive case: Alder publishes two downgrade terms and no upgrade term
+    (three downgrade triggers reached in the downside), so "Upgrade potential" is refused for
+    Alder; Brook publishes an upgrade term reached in base (t05), so its view is not refused."""
+    payload = copy.deepcopy(raw_payload("positive"))
+    for view in payload["views"]:
+        view["view"] = "Upgrade potential"
+    issues = cp2h.validate(inputs("positive", payload))
+    assert issues == (
+        "views[0].view: Upgrade potential needs a published upgrade trigger of Alder Ratings",
+    )
+
+
+def test_s07_a04_upgrade_potential_cannot_stand_on_downgrade_triggers_alone() -> None:
+    """S07-A04, hand-built outcomes: Brook has an upgrade and a downgrade term; only the downgrade
+    one is reached, so "Upgrade potential" contradicts the computed outcomes; once the upgrade
+    term is also reached it stands."""
+
+    def term(direction: str) -> Any:
+        return SimpleNamespace(row=direction, term=SimpleNamespace(agency="B", direction=direction))
+
+    def outcome(row: str, reached: bool) -> Any:
+        case = SimpleNamespace(hits=(None, reached, None))
+        return SimpleNamespace(row=row, fy25_reached=False, base=case, down=case)
+
+    view: Any = SimpleNamespace(agency="B", view="Upgrade potential")
+    tests = (term("Downgrade"), term("Upgrade"))
+    only_down = SimpleNamespace(
+        tests=tests, outcomes=(outcome("Downgrade", True), outcome("Upgrade", False))
+    )
+    both = SimpleNamespace(
+        tests=tests, outcomes=(outcome("Downgrade", True), outcome("Upgrade", True))
+    )
+    assert len(cp2h._direction_issues("views[0]", view, only_down)) == 1  # type: ignore[arg-type]
+    assert cp2h._direction_issues("views[0]", view, both) == []  # type: ignore[arg-type]
+    view.view = "Stable"
+    assert cp2h._direction_issues("views[0]", view, only_down) == []  # type: ignore[arg-type]
+
+
+def test_s07_a04_a_view_must_cite_a_line_of_its_own_agency() -> None:
+    """S07-A04. Brook cites only Alder's register line and Alder only a financial-statement line:
+    each view is refused for evidence of another subject."""
+    payload = copy.deepcopy(raw_payload("positive"))
+    ratings = next(s for s in pack("positive").sources if s.source_id == "ratings")
+    alder_line = "Alder Ratings  Issuer rating  BB  Negative  2025-11-14"
+    payload["views"][1]["evidence"] = [
+        {
+            "source_id": "ratings",
+            "source_sha256": ratings.sha256,
+            "locator": "page:1",
+            "quote": alder_line,
+        }
+    ]
+    assert cp2h.validate(inputs("positive", payload)) == (
+        "views[1].evidence: cite at least one register or terms line of Brook Credit",
+    )

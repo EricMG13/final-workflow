@@ -684,7 +684,9 @@ FORECAST = (
 )
 
 
-def model_delivery(root, folder, scope="Scope.", forecast=FORECAST, sources=None, previous=None):
+def model_delivery(
+    root, folder, scope="Scope.", forecast=FORECAST, sources=None, previous=None, exact=None
+):
     """A model deliverable (model.html, no report.html); returns its catalogue artifact."""
     files = {
         "model.html": put(root, f"{folder}/model.html", "<html>model</html>"),
@@ -707,6 +709,12 @@ def model_delivery(root, folder, scope="Scope.", forecast=FORECAST, sources=None
     }
     if forecast is not None:
         files["forecast.md"] = put(root, f"{folder}/forecast.md", forecast)
+    if exact is not None:
+        files["forecast_exact.json"] = put(
+            root,
+            f"{folder}/forecast_exact.json",
+            exact if isinstance(exact, str) else json.dumps(exact),
+        )
     record = {
         "scope": scope,
         "files": files,
@@ -896,3 +904,125 @@ def test_source_paths_outside_the_workspace_are_never_opened(tmp_path, monkeypat
     assert [(r["sha256"], r["changed"]) for r in model["sources"]] == [(None, None)] * 6
     assert not [p for p in opened if "secret" in str(p) or p.name in {"link.md", "x.md"}]
     assert len([i for i in result["issues"] if "has an invalid path or hash" in i]) == 6
+
+
+# The cash flow model: expected strings are written here, not computed by the store.
+REQUEST = "# CP-2G\n\n## Request\n\nTest paths. Amounts in EUR\nbillions; consolidated.\n\n## Findings\n\nUSD millions.\n"
+
+
+def amount(value, reason=None):
+    return {"amount": value, "reason": reason}
+
+
+def exact_record(**more):
+    year = {
+        "year": 2026,
+        "planning_start": "2025-10-01",
+        "planning_end": "2026-09-30",
+        "revenue": amount("-1234.5"),
+        "ebitda": amount("2.5"),
+        "interest": amount("0.4"),
+        "cfo": amount("-0.4"),
+        "capex": amount(None, "<img src=x onerror=alert(1)>"),
+        "fcf": amount("1234567.5"),
+        "total_leverage": amount("0.125"),
+        "net_leverage": amount("0.135"),
+        "coverage": amount("2"),
+        "fcf_to_debt": amount("0.12345"),
+    }
+    record = {
+        "base": {"revenue": amount("100"), "wc": amount(None, "No operand")},
+        "outputs": {
+            "REFERENCE": {"years": [year]},
+            "STRESS_CASE": {"years": [{**year, "year": 2026}]},
+        },
+        "scope_limits": ["First <b>limit</b>", "Second limit"],
+    }
+    record.update(more)
+    return record
+
+
+def cashflow_of(tmp_path, forecast=REQUEST, **kwargs):
+    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=forecast, **kwargs)
+    result = models_of(tmp_path, artifact)
+    return result["models"][0]["cashflow"], [i for i in result["issues"] if "forecast_exact" in i]
+
+
+def row(cashflow, label):
+    return next(r for r in cashflow["rows"] if r["label"] == label)
+
+
+def test_a_cash_flow_model_shows_exact_values_rounded_half_up_with_brackets(tmp_path):
+    cashflow, issues = cashflow_of(tmp_path, exact=exact_record())
+    assert issues == []
+    assert cashflow["units"] == "EUR billions"
+    assert [(c["group"], c["label"]) for c in cashflow["columns"]] == [
+        ("Base", "FY2025"),
+        ("Reference", "FY2026E"),
+        ("Stress_Case", "FY2026E"),
+    ]
+    assert (
+        cashflow["columns"][1]["start"] == "2025-10-01"
+        and cashflow["columns"][1]["end"] == "2026-09-30"
+    )
+    assert [c["display"] for c in row(cashflow, "Revenue")["cells"]] == [
+        "100",
+        "(1,235)",
+        "(1,235)",
+    ]
+    assert row(cashflow, "Revenue")["cells"][1]["exact"] == "-1234.5"
+    assert row(cashflow, "Model earnings (operating-based EBITDA)")["cells"][1]["display"] == "3"
+    assert row(cashflow, "Cash interest")["cells"][1]["display"] == "0"
+    assert row(cashflow, "Model cash from operations")["cells"][1]["display"] == "0"
+    assert (
+        row(cashflow, "Cash proxy (not issuer free cash flow)")["cells"][1]["display"]
+        == "1,234,568"
+    )
+    assert row(cashflow, "Debt / model earnings")["cells"][1]["display"] == "0.13x"
+    assert row(cashflow, "Net debt / model earnings")["cells"][1]["display"] == "0.14x"
+    assert row(cashflow, "Model earnings / cash interest")["cells"][1]["display"] == "2.00x"
+    assert row(cashflow, "Cash proxy / closing debt")["cells"][1]["display"] == "12.35%"
+
+
+def test_a_cash_flow_cell_is_n_a_with_its_reason_or_a_dash_when_the_key_is_not_held(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path, exact=exact_record())
+    hostile = row(cashflow, "Capital expenditure")["cells"][1]
+    assert hostile == {"exact": None, "display": "n.a.", "reason": "<img src=x onerror=alert(1)>"}
+    assert row(cashflow, "Working capital")["cells"][0] == {
+        "exact": None,
+        "display": "n.a.",
+        "reason": "No operand",
+    }
+    assert row(cashflow, "Cash taxes")["cells"][1] == {
+        "exact": None,
+        "display": "\u2014",
+        "reason": None,
+    }
+    assert row(cashflow, "Opening cash")["cells"][0]["display"] == "\u2014"
+    assert cashflow["limits"] == ["First <b>limit</b>", "Second limit"]
+    assert [r["band"] for r in cashflow["rows"]][:2] == ["Operating", "Operating"]
+
+
+def test_units_are_none_when_the_request_names_none(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path, exact=exact_record(), forecast="## Request\n\nNo units.\n")
+    assert cashflow["units"] is None
+
+
+@pytest.mark.parametrize(
+    "exact", [None, "{", '{"base": 1}', '{"base": {}, "outputs": {}, "scope_limits": []}']
+)
+def test_a_missing_or_invalid_calculation_record_gives_no_cash_flow_model_and_an_issue(
+    tmp_path, exact
+):
+    cashflow, issues = cashflow_of(tmp_path, exact=exact)
+    assert cashflow is None
+    assert "deliverables/m-1: forecast_exact.json is missing or unreadable" in issues
+
+
+def test_a_non_numeric_amount_is_unreadable_not_shown(tmp_path):
+    record = exact_record()
+    record["base"]["revenue"] = amount("NaN")
+    cashflow, issues = cashflow_of(tmp_path, exact=record)
+    assert cashflow is None and issues == [
+        "deliverables/m-1: forecast_exact.json is missing or unreadable"
+    ]

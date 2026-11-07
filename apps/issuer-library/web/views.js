@@ -279,7 +279,7 @@ function calendarSections(context) {
   return context===calendarRun('CP-1A')?[['tdg','Issuer events',[]]]:context===calendarRun('CP-2E')?[['hedges','Hedge schedule',[]]]:[['unavailable','Calendar availability',[]]];
 }
 function forecastSections(context) {
-  const models=modelOrder(runModels(context));
+  const models=runModels(context);
   return models.length?models.map(m=>[m.id,m.id,[]]):[['none','Forecast availability',[]]];
 }
 function reportSections(context) {
@@ -347,6 +347,26 @@ function forecastEmpty(context) {
   const row=m=>{const run=modelRun(m);return `<li class="report-row">${run?`<a class="text-action" href="${routeHref('W-Forecast',m.id,null,run)}">${esc(m.id)}${icon('arrow-right')}</a>`:`<span>${esc(m.id)}</span>`} ${reportAcceptance(m).html}</li>`;};
   return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No forecast model was published from this run’s files</h2></div>${others.length?`<section class="forecast-other"><h2>Other ${esc(ctx.issuerHeading)} models</h2><ol class="report-list">${others.map(row).join('')}</ol></section>`:''}`;
 }
+// The calculation record as a line-item by period grid. The store formatted every cell; this only places it.
+function cashflowSection(model) {
+  const c=model.cashflow;
+  if(!c)return '<section class="forecast-cashflow"><h2>Cash flow model</h2><p>This model has no readable calculation record.</p></section>';
+  const groups=[];
+  for(const col of c.columns){const last=groups[groups.length-1];if(last&&last.name===col.group)last.span++;else groups.push({name:col.group,span:1});}
+  const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${esc(col.label)}</th>`).join('')}</tr>`;
+  const na=[],seen=new Set();
+  let band=null,body='';
+  for(const row of c.rows){
+    if(row.band!==band){band=row.band;body+=`<tr class="band-row"><th scope="colgroup" colspan="${c.columns.length+1}">${esc(band)}</th></tr>`;}
+    body+=`<tr><th scope="row">${esc(row.label)}</th>${row.cells.map(cell=>`<td${cell.exact!=null?` title="${esc(cell.exact)}"`:cell.reason!=null?` title="${esc(cell.reason)}"`:''}>${esc(cell.display)}</td>`).join('')}</tr>`;
+    for(const cell of row.cells){
+      if(cell.display!=='n.a.'||seen.has(`${row.label}\n${cell.reason}`))continue;
+      seen.add(`${row.label}\n${cell.reason}`);
+      na.push(`Not available: ${row.label}${cell.reason==null?'':` — ${cell.reason}`}`);
+    }
+  }
+  return `<section class="forecast-cashflow"><h2>Cash flow model</h2><p class="forecast-caption">${esc(`${c.units==null?'Units not recorded':c.units} · conditional illustrations from the calculation record`)}</p><div class="table-scroll"><table class="cashflow"><thead>${head}</thead><tbody>${body}</tbody></table></div>${na.length?`<ul class="cashflow-na">${na.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}</section>`;
+}
 function forecastView(context,id) {
   const models=runModels(context);
   if(!models.length)return forecastEmpty(context);
@@ -359,7 +379,7 @@ function forecastView(context,id) {
   const assumptions=`<section class="forecast-assumptions"><h2>Assumptions and their rationale</h2>${register?`<h3>${esc(register.heading)}</h3>${register.intro==null?'':`<p class="register-intro">${esc(register.intro)}</p>`}${register.headers.length?`<div class="table-scroll"><table><thead><tr>${register.headers.map(c=>`<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${register.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}${full}`:'<p>This model’s forecast handoff has no assumption register.</p>'}</section>`;
   const source=s=>s.output?`<a href="${routeHref(data[s.output].module,modules[s.output].first,null,s.run,data[s.output].source)}">${esc(s.output.split('/').at(-1))}</a>`:esc(s.path);
   const built=`<section class="forecast-built"><h2>Built from</h2><div class="table-scroll"><table><thead><tr><th scope="col">Role</th><th scope="col">Source</th><th scope="col">SHA-256 prefix</th><th scope="col">Status</th></tr></thead><tbody>${model.sources.map(s=>`<tr><th scope="row">${esc(s.role)}</th><td>${source(s)}</td><td>${s.sha256===null?'':esc(s.sha256.slice(0,12))}</td><td>${s.sha256===null?badge('attention','Invalid path or hash'):s.changed?badge('attention','Changed since publication'):''}</td></tr>`).join('')}</tbody></table></div></section>`;
-  return `<div class="forecast"><div class="report-tools forecast-tools">${select}${acceptance.html}<a href="${esc(model.download)}" download>Download original HTML</a></div>${why}${assumptions}${built}<div class="frame-host"><p class="frame-status" role="status">Loading model…</p><iframe id="model-preview" data-download="${esc(model.download)}" title="${esc(model.id)} · published model" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer" src="${esc(model.href)}"></iframe></div></div>`;
+  return `<div class="forecast"><div class="report-tools forecast-tools">${select}${acceptance.html}<a href="${esc(model.download)}" download>Download original HTML</a></div>${cashflowSection(model)}${assumptions}${model.cashflow?`<section class="forecast-limits"><h2>Model limitations</h2><ul>${model.cashflow.limits.map(l=>`<li>${esc(l)}</li>`).join('')}</ul></section>`:''}${why}${built}<div class="frame-host"><p class="frame-status" role="status">Loading model…</p><iframe id="model-preview" data-download="${esc(model.download)}" title="${esc(model.id)} · published model" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer" src="${esc(model.href)}"></iframe></div></div>`;
 }
 const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="muted">Not recorded</span>':`<span class="badge badge-blue"><i></i>${esc(workflowTitle(v))}</span>`).join(' ');
 // A report built from several runs counts once; a run with no outputs at all says so.
@@ -459,8 +479,7 @@ function leadModule(context,available) {
   }
   return null;
 }
-function summaryLead(context,available) {
-  const lead=leadModule(context,available);
+function summaryLead(lead) {
   if(lead) {
     const {module,id,summary}=lead;
     return `<section class="summary-lead"><p class="summary-owner">${esc(moduleNames[module])}</p><p class="call-quote">${rich(summary.text.replace(/\n/g,' '))}</p>${summary.kind==='summary'?readerFacts(summary):''}${sourceFooter(`${id}:${summary.line}`)}</section>`;
@@ -481,9 +500,9 @@ function summaryCard(module,context) {
   return `<article class="summary-card" data-module="${esc(module)}" ${id?`data-output="${esc(id)}"`:''}><h3>${moduleLink(module)}</h3>${body}</article>`;
 }
 function summaryView(context) {
-  const available=contextModules(context),built=reportsBuiltFrom(context),led=leadModule(context,available)?.module;
+  const available=contextModules(context),built=reportsBuiltFrom(context),lead=leadModule(context,available),led=lead?.module;
   const questions=groups.map(([title,items])=>[title,items.filter(([id])=>available.includes(id)&&id!==led)]).filter(([,items])=>items.length);
-  return `${summaryLead(context,available)}${summaryCharts(available,context)}<div class="question-map">${questions.map(([title,items])=>`<section><h2>${esc(title)}</h2><div>${items.map(([id])=>summaryCard(id,context)).join('')}</div></section>`).join('')}</div>${built.length?`<section class="summary-deliverables"><h2>Deliverables from this run</h2>${built.map(r=>`<div class="deliverable"><a class="text-action" href="${routeHref('W-Reports',r.id,null,context)}">${esc(reportName(r))}${icon('arrow-right')}</a>${reportAcceptance(r).html}</div>`).join('')}</section>`:''}`;
+  return `${summaryLead(lead)}${summaryCharts(available,context)}<div class="question-map">${questions.map(([title,items])=>`<section><h2>${esc(title)}</h2><div>${items.map(([id])=>summaryCard(id,context)).join('')}</div></section>`).join('')}</div>${built.length?`<section class="summary-deliverables"><h2>Deliverables from this run</h2>${built.map(r=>`<div class="deliverable"><a class="text-action" href="${routeHref('W-Reports',r.id,null,context)}">${esc(reportName(r))}${icon('arrow-right')}</a>${reportAcceptance(r).html}</div>`).join('')}</section>`:''}`;
 }
 function workspaceView(module,section) {
   const context=current?.context,ctx=contexts[context],available=ctx?contextModules(context):[];

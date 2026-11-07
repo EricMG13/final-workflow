@@ -218,7 +218,7 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
     assert.equal(d.querySelector('.forecast-scope').textContent,expected.scope);
     assert.equal(d.querySelector('.forecast-input').textContent,expected.inputContract);
     assert.equal(d.querySelector('.forecast-revision').textContent,expected.revisionNote);
-    assert.deepEqual([...d.querySelectorAll('.forecast > section > h2')].map(text),['Why this model was built','Assumptions and their rationale','Built from']);
+    assert.deepEqual([...d.querySelectorAll('.forecast > section > h2')].map(text),['Cash flow model','Assumptions and their rationale','Model limitations','Why this model was built','Built from']);
     const assumptions=d.querySelector('.forecast-assumptions');
     assert.equal(assumptions.querySelector('h3').textContent,expected.registerHeading);
     assert.equal(collapse(assumptions.querySelector('.register-intro').textContent),expected.registerIntro);
@@ -248,6 +248,69 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
     }
   });
 }
+
+// The cash flow model, compared with the controller's frozen oracle (cashflow in the Forecast answer key).
+const cashflow=forecast.cashflow;
+test('Forecast for tdg-002 lays the calculation record out as a cash flow model',async t=>{
+  const w=await forecastTab(workspace,'tdg-002',t),d=w.document;
+  assert.equal(d.querySelector('#model-select').value,cashflow.model);
+  const section=d.querySelector('.forecast-cashflow');
+  assert.equal(section.querySelector('h2').textContent,'Cash flow model');
+  assert.equal(section.querySelector('h2').nextElementSibling.textContent,cashflow.caption);
+  const table=section.querySelector('table');
+  const headRows=[...table.querySelectorAll('thead tr')];
+  assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(text),cashflow.groups);
+  assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(th=>Number(th.getAttribute('colspan'))),[1,3,3,3]);
+  assert.deepEqual([...headRows[1].querySelectorAll('th')].map(text),cashflow.columns);
+  const body=[...table.querySelectorAll('tbody tr')];
+  assert.deepEqual(body.filter(tr=>tr.classList.contains('band-row')).map(text),cashflow.bands);
+  const rows=body.filter(tr=>!tr.classList.contains('band-row'));
+  assert.deepEqual(rows.map(tr=>text(tr.querySelector('th'))),cashflow.rows.map(r=>r.label));
+  rows.forEach((tr,i)=>assert.deepEqual([...tr.querySelectorAll('td')].map(td=>td.textContent),cashflow.rows[i].display,cashflow.rows[i].label));
+  // Each band heading sits directly before its first row.
+  body.forEach((tr,i)=>{if(tr.classList.contains('band-row'))assert.equal(text(body[i+1].querySelector('th')),cashflow.rows.find(r=>r.band===text(tr)).label);});
+  for(const [name,exact] of Object.entries(cashflow.titles)){
+    const [label,column,group]=name.split('|');
+    const row=rows.find(tr=>text(tr.querySelector('th'))===label);
+    const index=cashflow.columns.map((c,i)=>c===column&&cashflow.columnGroups[i]===group?i:-1).find(i=>i>=0);
+    assert.equal(row.querySelectorAll('td')[index].getAttribute('title'),exact,name);
+  }
+  assert.deepEqual([...section.querySelectorAll('.cashflow-na li')].map(text),cashflow.notAvailable);
+  assert.deepEqual([...d.querySelectorAll('.forecast-limits li')].map(text),cashflow.limits);
+  assert.equal(d.querySelector('.forecast-limits h2').textContent,'Model limitations');
+});
+
+for(const run of ['tdg-model-001','tdg-003'])test(`Forecast for ${run} shows the same model's cash flow caption and first row`,async t=>{
+  const w=await forecastTab(workspace,run,t),d=w.document;
+  assert.equal(d.querySelector('#model-select').value,cashflow.model);
+  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,cashflow.caption);
+  const first=d.querySelector('.forecast-cashflow tbody tr:not(.band-row)');
+  assert.equal(text(first.querySelector('th')),cashflow.rows[0].label);
+  assert.deepEqual([...first.querySelectorAll('td')].map(td=>td.textContent),cashflow.rows[0].display);
+});
+
+test('A model with no calculation record says so in place of the table; hostile reasons and limits stay text',async t=>{
+  const bad='<img src=x onerror=alert(1)>';
+  const forged=structuredClone(workspace);
+  const models=forged.store.models;
+  const a=models.find(m=>m.id==='tdg-model-3'),b=models.find(m=>m.id==='tdg-model-2');
+  b.cashflow=null;
+  a.cashflow.limits=[bad];
+  a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad};
+  a.cashflow.units=null;
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · conditional illustrations from the calculation record');
+  assert.equal(d.querySelector('.forecast-limits li').textContent,bad);
+  assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Revenue — ${bad}`]);
+  assert.equal(d.querySelector('.forecast-cashflow img,.forecast-limits img'),null);
+  assert.equal(d.querySelector('[onerror]'),null);
+  const select=d.getElementById('model-select');
+  select.value='tdg-model-2';select.dispatchEvent(new w.Event('change',{bubbles:true}));
+  await settle();
+  assert.equal(d.querySelector('.forecast-cashflow table'),null);
+  assert.equal(d.querySelector('.forecast-cashflow p').textContent,'This model has no readable calculation record.');
+  assert.equal(d.querySelector('.forecast-limits'),null);
+});
 
 test('Choosing another model in the Forecast tab shows that model',async t=>{
   const run='tdg-002',w=await forecastTab(workspace,run,t),d=w.document;

@@ -6,6 +6,7 @@ Every page load runs this as its own process, so it imports only the standard li
 
 import csv
 import datetime
+import decimal
 import hashlib
 import json
 import re
@@ -663,6 +664,155 @@ def model_sources(root, delivery, outputs):
     return rows
 
 
+CASHFLOW_BANDS = (
+    (
+        "Operating",
+        (
+            ("Revenue", "revenue", "revenue", "money"),
+            ("Model earnings (operating-based EBITDA)", "ebitda", "ebitda", "money"),
+        ),
+    ),
+    (
+        "Earnings to cash proxy",
+        (
+            ("Cash interest", "interest", "interest", "money"),
+            ("Cash taxes", None, "taxes", "money"),
+            ("Working capital", None, "wc", "money"),
+            ("Cash taxes and working capital, combined", "tax_wc", None, "money"),
+            ("Model cash from operations", "cfo", None, "money"),
+            ("Capital expenditure", "capex", "capex", "money"),
+            ("Cash proxy (not issuer free cash flow)", "fcf", "fcf", "money"),
+        ),
+    ),
+    (
+        "Cash and liquidity",
+        (
+            ("Distributions", "dividends", None, "money"),
+            ("Debt repayment", "repayment", None, "money"),
+            ("Opening cash", "opening_cash", None, "money"),
+            ("Closing cash", "closing_cash", "cash", "money"),
+            ("Undrawn facility", "undrawn", "undrawn", "money"),
+            ("Accessible liquidity", "liquidity", None, "money"),
+        ),
+    ),
+    (
+        "Debt",
+        (
+            ("Opening debt", "opening_debt", None, "money"),
+            ("Closing debt (carrying value)", "closing_debt", "debt", "money"),
+            ("Net debt (all modelled cash deducted)", "net_debt", None, "money"),
+        ),
+    ),
+    (
+        "Credit metrics",
+        (
+            ("Debt / model earnings", "total_leverage", None, "multiple"),
+            ("Net debt / model earnings", "net_leverage", None, "multiple"),
+            ("Model earnings / cash interest", "coverage", None, "multiple"),
+            ("Cash proxy / closing debt", "fcf_to_debt", None, "percent"),
+        ),
+    ),
+)
+CASE_NAMES = {"REFERENCE": "Reference", "DOWNSIDE": "Downside", "UPSIDE": "Upside"}
+NOT_HELD = "\u2014"
+
+
+def display_amount(exact, kind):
+    """An exact decimal string as the reader sees it: half-up, money in brackets when negative."""
+    with decimal.localcontext(decimal.Context(prec=200)) as context:
+        value = decimal.Decimal(exact)
+        if not value.is_finite():
+            raise ValueError(f"not a finite decimal: {exact!r}")
+        if kind == "percent":
+            return f"{(value * 100).quantize(decimal.Decimal('0.01'), decimal.ROUND_HALF_UP, context):,.2f}%"
+        if kind == "multiple":
+            return (
+                f"{value.quantize(decimal.Decimal('0.01'), decimal.ROUND_HALF_UP, context):,.2f}x"
+            )
+        rounded = value.quantize(decimal.Decimal(1), decimal.ROUND_HALF_UP, context)
+        if rounded == 0:
+            return "0"  # a negative that rounds to zero is not shown as -0 or in brackets
+        return f"({-rounded:,})" if rounded < 0 else f"{rounded:,}"
+
+
+def cashflow_cell(record, key, kind):
+    if key is None or key not in record:
+        return {"exact": None, "display": NOT_HELD, "reason": None}
+    held = record[key]
+    exact, reason = held["amount"], held["reason"]
+    if exact is None:
+        return {"exact": None, "display": "n.a.", "reason": text_or_none(reason)}
+    if not isinstance(exact, str):
+        raise TypeError(f"amount of {key} is not a decimal string")
+    return {"exact": exact, "display": display_amount(exact, kind), "reason": None}
+
+
+def cashflow_units(handoff):
+    """The first '<ISO currency> millions|billions|thousands' phrase of the handoff's Request section."""
+    request = re.search(r"^## Request[ \t]*\n(.*?)(?=^## |\Z)", handoff, re.MULTILINE | re.DOTALL)
+    phrase = (
+        re.search(r"\b[A-Z]{3}\s+(?:millions|billions|thousands)\b", request.group(1))
+        if request
+        else None
+    )
+    return re.sub(r"\s+", " ", phrase.group(0)) if phrase else None
+
+
+def cashflow_of(exact, handoff):
+    """The calculation record's own values laid out as a line-item by period grid; nothing is recomputed."""
+    cases = [
+        (CASE_NAMES.get(key, key.title()), case["years"]) for key, case in exact["outputs"].items()
+    ]
+    first = cases[0][1][0]["year"]
+    columns = [{"label": f"FY{first - 1}", "group": "Base", "start": None, "end": None}]
+    periods = [(None, exact["base"])]
+    for name, years in cases:
+        for year in years:
+            columns.append(
+                {
+                    "label": f"FY{year['year']}E",
+                    "group": name,
+                    "start": text_or_none(year["planning_start"]),
+                    "end": text_or_none(year["planning_end"]),
+                }
+            )
+            periods.append((year, year))
+    rows = []
+    for band, lines in CASHFLOW_BANDS:
+        for label, projected, base, kind in lines:
+            cells = [
+                cashflow_cell(record, base if year is None else projected, kind)
+                for year, record in periods
+            ]
+            rows.append({"band": band, "label": label, "cells": cells})
+    limits = exact["scope_limits"]
+    if not isinstance(limits, list) or not all(isinstance(item, str) for item in limits):
+        raise TypeError("scope_limits is not a list of text")
+    return {
+        "units": cashflow_units(handoff) if handoff is not None else None,
+        "columns": columns,
+        "rows": rows,
+        "limits": limits,
+    }
+
+
+def read_cashflow(root, folder, delivery, handoff):
+    """None when the delivery's calculation record is absent or invalid; the caller reports it.
+
+    Documented fail-open: a record the reader cannot lay out leaves the model listed with
+    no grid and a Workspace issue naming the delivery.
+    """
+    try:
+        if "forecast_exact.json" not in delivery["files"]:
+            return None
+        path = (root / folder / "forecast_exact.json").resolve()
+        if not path.is_relative_to(root.resolve()):
+            return None
+        return cashflow_of(json.loads(path.read_text(encoding="utf-8")), handoff)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, ArithmeticError):
+        return None
+
+
 def catalogue_models(root, catalogue, outputs, keys):
     """Published models the server verified, each once, with why it was built and what it was built from."""
     models, seen, issues = [], set(), []
@@ -686,15 +836,19 @@ def catalogue_models(root, catalogue, outputs, keys):
                     for row in sources
                     if row["sha256"] is None
                 ]
-                register = None
+                register = handoff_text = None
                 if "forecast.md" in delivery["files"]:
                     handoff = (root / folder / "forecast.md").read_bytes()
-                    register = register_of(parse_source(handoff.decode("utf-8")))
+                    handoff_text = handoff.decode("utf-8")
+                    register = register_of(parse_source(handoff_text))
                 previous = delivery.get("previous_directory")
                 files = delivery["files"]
             except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
                 issues.append(f"{folder}: could not be read ({error!r})")
                 continue
+            cashflow = read_cashflow(root, folder, delivery, handoff_text)
+            if cashflow is None:
+                issues.append(f"{folder}: forecast_exact.json is missing or unreadable")
             mode, qualification = view.get("mode"), view.get("analytical_qualification")
             models.append(
                 {
@@ -718,6 +872,7 @@ def catalogue_models(root, catalogue, outputs, keys):
                     ],
                     "sources": sources,
                     "register": register,
+                    "cashflow": cashflow,
                 }
             )
     return models, issues

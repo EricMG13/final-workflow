@@ -400,7 +400,7 @@ function renderRoute() {
     // Search hits drive moves between analytical modules, so the query is kept there and dropped elsewhere.
     if(previous&&previous.module!==next.module&&!isAnalytical(next.module))$('module-search').value='';
     renderNavigator(next.module);
-    document.title=`${moduleNames[next.module]} · Issuer Library`;
+    titleBase=moduleNames[next.module];applyTitle();
     const creating=next.module==='W-NewRun';
     $('content').hidden=creating;
     $('new-run').hidden=!creating;

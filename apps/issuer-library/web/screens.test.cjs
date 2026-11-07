@@ -201,12 +201,12 @@ test('H2 Quit marks the library stopped',async t=>{
   p.d.getElementById('quit-library').click();await settle(60);
   assert.equal(p.d.body.dataset.quit,'1');
 });
-// Runs boot.js itself: fetch is stubbed, its discovery interval is captured, and each script load fires onload.
+// Runs boot.js itself: the scripts it loads are not run here, so the run watcher it starts is a no-op (run-watch.test.cjs covers it); fetch is stubbed, its discovery interval is captured, and each script load fires onload.
 async function bootPage(t,hash,reply){
   const errors=[],virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',e=>errors.push(e.message));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only',virtualConsole}),w=dom.window;t.after(()=>w.close());
   let tick=null;w.setInterval=fn=>{tick=fn;return 1;};w.console.warn=()=>{};
-  w.fetch=async()=>reply();
+  w.fetch=async()=>reply();w.eval('function watchRuns(){}');
   const real=w.document.createElement.bind(w.document);
   w.document.createElement=name=>{const el=real(name);if(name==='script')setTimeout(()=>el.onload&&el.onload(),0);return el;};
   vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());await settle(30);

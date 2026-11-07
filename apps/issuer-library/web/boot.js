@@ -37,4 +37,5 @@
     script.src=name;script.onload=resolve;script.onerror=reject;
     document.head.append(script);
   });
+  watchRuns();
 })();

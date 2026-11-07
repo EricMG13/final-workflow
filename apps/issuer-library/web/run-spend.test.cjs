@@ -7,7 +7,7 @@ const line=start=>{const m=source.match(new RegExp(`^const ${start}.*$`,'m'));as
 function spendText(status){
   const elements={};
   const context=vm.createContext({elements,$:id=>elements[id]??={hidden:false,textContent:'',dataset:{}},review:null});
-  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),grab('titleOf','  '),grab('describeModule','  '),grab('showStatus','  ')].join('\n'),context);
+  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),grab('stopSentence',''),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('showStatus','  ')].join('\n'),context);
   context.showStatus(status);
   return elements['run-spend'].textContent;
 }

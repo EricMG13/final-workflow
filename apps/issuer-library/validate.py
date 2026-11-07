@@ -31,6 +31,7 @@ NODE_TESTS = (
     "web/screen-css.test.cjs",
     "web/escape-sinks.test.cjs",
     "web/run-spend.test.cjs",
+    "web/run-watch.test.cjs",
     "web/draft-guard.test.cjs",
 )
 PYTHON_TESTS = (

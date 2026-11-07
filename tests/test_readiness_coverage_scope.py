@@ -227,3 +227,24 @@ def test_a_single_retained_page_called_missing_is_flagged() -> None:
     # page 7 of annual-report (pages 1-100 retained) is called missing in the source's own gap
     review = _review(gap="annual-report page:7 is missing", gap_citations=(CITE,))
     assert coverage_issues(PACK, review) == (_contradiction(7, 7),)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # nine digits is the largest page read; ten digits is skipped (no pack holds such a page)
+        ("page 999999999 is missing", ((999999999, 999999999),)),
+        ("page 1000000000 is missing", ()),
+        # an absence claim after a long unrelated lead is still read (the look-back is 200
+        # characters before the pages, not a limit on the clause); a locative inside it still holds
+        ("alpha " * 100 + "pages 3-5 missing", ((3, 5),)),
+        ("missing " + "x " * 5 + "from pages 40-60", ()),
+        # a locative further than the look-back before the pages no longer excludes them
+        ("missing from " + "w " * 150 + "pages 40-60", ((40, 60),)),
+        # lists keep each item; a reversed item is dropped, the others stay
+        ("pages 9-3, 5 and 7 missing", ((5, 5), (7, 7))),
+        ("p. 4 & 6 absent", ((4, 4), (6, 6))),
+    ],
+)
+def test_absent_pages_bounds_and_lists(text: str, expected: tuple[tuple[int, int], ...]) -> None:
+    assert absent_page_ranges(text) == expected

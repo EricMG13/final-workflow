@@ -140,18 +140,14 @@ def _echoes(item: ErrorDetails, failed: dict[tuple[int | str, ...], set[int | st
     return isinstance(actual, int) and isinstance(minimum, int) and actual + len(items) >= minimum
 
 
-# Per source id, None once its spans have been scanned for one locator, then a {locator: first
-# position} map: one call (or one `validate_review`) builds at most one map per cited source.
-Positions = dict[str, dict[str, int] | None]
+# Per source id, a {locator: first position} map built on the source's first lookup: one call (or
+# one `validate_review`) builds at most one map per cited source, however many citations name it.
+Positions = dict[str, dict[str, int]]
 
 
 def _position(positions: Positions, source: Source, locator: str) -> int | None:
-    """The first index of `locator` in `source.spans`: a scan on the source's first lookup, a
-    map built on its second and read from then on, so k lookups cost one map, not k scans."""
-    if source.source_id not in positions:
-        positions[source.source_id] = None
-        return next((i for i, item in enumerate(source.spans) if item.locator == locator), None)
-    found = positions[source.source_id]
+    """The first index of `locator` in `source.spans`, read from the source's map."""
+    found = positions.get(source.source_id)
     if found is None:
         found = positions[source.source_id] = {}
         for i, item in enumerate(source.spans):

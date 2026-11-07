@@ -88,6 +88,11 @@ def test_exact_value_in_exception_redacted() -> None:
         ("open 'file:///home/jane/x.txt'", "open 'file://<home>/x.txt'"),
         (r"C:\Users\jane and /home/bob/x", "<home> and <home>/x"),  # a space ends a name here
         (r"profile 'C:\Users\Jane Doe' set", "profile '<home>' set"),  # a quote closes the name
+        # a sentence's closing period is not part of the name; a dotted name is whole
+        ("No such file: /home/jan.", "No such file: <home>."),
+        ("/home/jan.doe/x and /Users/a.b.", "<home>/x and <home>."),
+        # not a home directory: a relative path, a system or program path, a key's own text
+        ("./home/x ../Users/y /usr/lib/x /tmp/home /opt/Users C:\\Program Files\\x", None),
         # not a home directory: a longer name, a URL host's path, a bare folder
         ("/homework/x /rootfs/y /home https://example.com/Users/jane/p", None),
     ],

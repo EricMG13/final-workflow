@@ -38,7 +38,6 @@ from deploy_vii import prose
 from deploy_vii.business_context import (
     Category,
     Confidence,
-    Severity,
     prohibited_issues,
     referencable,
     spelled,
@@ -90,7 +89,14 @@ from deploy_workflow.context import (
 from deploy_workflow.context_cites import ContextTextError, cite_all, context_text
 from deploy_workflow.owners.blank import is_blank, one_per_page
 from deploy_workflow.owners.cp1a import probe_one_step
-from deploy_workflow.owners.cp2g import cp2g_reader, fy_periods, fy_span_period, require_calendar
+from deploy_workflow.owners.cp2g import SynthesisGap as Cp2gGap
+from deploy_workflow.owners.cp2g import (
+    cp2g_reader,
+    fy_periods,
+    fy_span_period,
+    require_calendar,
+    stale_issues,
+)
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
     PeriodBasis,
@@ -150,14 +156,11 @@ class Overall(Contract):
     limitation: str | None
 
 
-class SynthesisGap(Contract):
+class SynthesisGap(Cp2gGap):
     """As the CP-2G `SynthesisGap`."""
 
-    gap: str
-    why_it_matters: str
-    affected_analysis: str
-    severity: Severity
-    action: str
+    # The fields are CP-2G's (S07-cp2-gh-C03); the docstring stays this module's own, since it is
+    # the gap row's description in the step's response schema.
 
 
 class TriggerSubmission(Contract):
@@ -1962,23 +1965,6 @@ def _gap_issues(
                 if run.kind != "text" and run.text in bound and run.text in gaps
             )
     return issues
-
-
-def stale_issues(*, bound: Sequence[Input], current: Sequence[Input] | str) -> tuple[str, ...]:
-    """Every bound upstream that changed, in the `cp2_synthesis._stale_issues` form."""
-    if isinstance(current, str):
-        return (clipped(("Stale inputs: ", current)),)
-    was = {item.input_id: item for item in bound}
-    now = {item.input_id: item for item in current}
-
-    def state(item: Input | None) -> str:
-        return "absent" if item is None else f"{item.status} {item.sha256[:12]}"
-
-    return tuple(
-        f"Stale input {key}: bound {state(was.get(key))}, current {state(now.get(key))}"
-        for key in dict.fromkeys((*was, *now))
-        if was.get(key) != now.get(key)
-    )
 
 
 def ratings_source(pack: PackScope) -> Source:

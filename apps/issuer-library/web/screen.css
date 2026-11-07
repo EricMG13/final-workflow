@@ -301,9 +301,9 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 /* One reading toolbar line: the report picker gives way before the status, the badge and the links wrap. */
 .report-tools>span,.report-tools>a,.report-tools label{white-space:nowrap}.report-tools #report-select{flex:0 1 auto;min-width:0;max-width:100%;text-overflow:ellipsis}
 /* Reading toolbars (also the Forecast one) wrap whole items at every width, so nothing clips between 1051 and 1250 px. */
-.report-tools{flex-wrap:wrap;gap:7px 18px}
+.report-tools{flex-wrap:wrap}
 /* Forecast cash flow grid: the row labels stay in view while the periods scroll; the row background hides values behind them. */
-.cashflow td{text-align:right;white-space:nowrap}.cashflow td:last-child{font-family:'Red Hat Mono',monospace}
+.cashflow td{text-align:right;white-space:nowrap;font-family:'Red Hat Mono',monospace}
 .cashflow thead tr:first-child th{height:38px;box-sizing:border-box;text-align:center}.cashflow thead tr:nth-child(2) th{top:38px;text-align:right}
 .cashflow thead tr:first-child th:first-child{left:0;z-index:3;text-align:left}
 .cashflow tbody th[scope=row],.cashflow .band-row th{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:nowrap}
@@ -311,3 +311,5 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .cashflow tbody tr:hover>th[scope=row]{background:var(--gray-25)}
 .cashflow-na{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:var(--fs-label)}
 .forecast-caption{color:var(--muted);font-size:var(--fs-label);margin:4px 0 10px}
+/* At 720 px and below the section bar sits above every sticky table cell (z-index 3 at most), and row labels wrap in a capped column. */
+@media(max-width:720px){#section-nav{z-index:5}.cashflow tbody th[scope=row]{white-space:normal;width:9.5rem;min-width:0;max-width:9.5rem}}

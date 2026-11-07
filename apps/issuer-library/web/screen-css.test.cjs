@@ -158,3 +158,13 @@ test('the rail opens as an overlay, for focus too, and stops animating under red
   assert.match(reduced, /\.rail\{[^}]*transition:none/);
   assert.match(screen, /\.rail\{[^}]*transition:width/);
 });
+
+test('at 720px and below the section bar outranks every sticky table cell and cash flow row labels are capped', () => {
+  const mobile = screen.slice(screen.lastIndexOf('@media(max-width:720px){#section-nav{z-index:5}'));
+  assert.ok(mobile.startsWith('@media(max-width:720px){#section-nav{z-index:5}'), 'no section bar z-index rule');
+  const bar = Number(mobile.match(/#section-nav\{z-index:(\d+)\}/)[1]);
+  const cells = [...screen.matchAll(/position:sticky[^}]*z-index:(\d+)/g)].map((m) => Number(m[1]));
+  assert.ok(cells.length > 0);
+  assert.ok(cells.every((z) => z < bar), `a sticky cell reaches ${Math.max(...cells)}, bar is ${bar}`);
+  assert.match(mobile, /\.cashflow tbody th\[scope=row\]\{[^}]*white-space:normal[^}]*max-width:9\.5rem/);
+});

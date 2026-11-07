@@ -1026,3 +1026,16 @@ def test_a_non_numeric_amount_is_unreadable_not_shown(tmp_path):
     assert cashflow is None and issues == [
         "deliverables/m-1: forecast_exact.json is missing or unreadable"
     ]
+
+
+@pytest.mark.parametrize(
+    ("exact", "kind", "shown"),
+    [("-0.004", "multiple", "0.00x"), ("-0.00004", "percent", "0.00%")],
+)
+def test_a_multiple_or_percent_that_rounds_to_zero_has_no_sign(exact, kind, shown):
+    assert store.display_amount(exact, kind) == shown
+
+
+def test_units_are_read_from_a_request_with_windows_line_endings():
+    handoff = "# CP\r\n\r\n## Request\r\n\r\nAmounts in USD\r\nmillions.\r\n\r\n## Findings\r\n\r\nEUR billions.\r\n"
+    assert store.cashflow_units(handoff) == "USD millions"

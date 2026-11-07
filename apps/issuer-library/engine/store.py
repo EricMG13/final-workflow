@@ -723,12 +723,12 @@ def display_amount(exact, kind):
         value = decimal.Decimal(exact)
         if not value.is_finite():
             raise ValueError(f"not a finite decimal: {exact!r}")
-        if kind == "percent":
-            return f"{(value * 100).quantize(decimal.Decimal('0.01'), decimal.ROUND_HALF_UP, context):,.2f}%"
-        if kind == "multiple":
-            return (
-                f"{value.quantize(decimal.Decimal('0.01'), decimal.ROUND_HALF_UP, context):,.2f}x"
-            )
+        if kind in ("percent", "multiple"):
+            scaled = value * 100 if kind == "percent" else value
+            two = scaled.quantize(decimal.Decimal("0.01"), decimal.ROUND_HALF_UP, context)
+            if two == 0:
+                two = abs(two)  # a negative that rounds to zero is not shown as -0.00
+            return f"{two:,.2f}{'%' if kind == 'percent' else 'x'}"
         rounded = value.quantize(decimal.Decimal(1), decimal.ROUND_HALF_UP, context)
         if rounded == 0:
             return "0"  # a negative that rounds to zero is not shown as -0 or in brackets
@@ -749,7 +749,9 @@ def cashflow_cell(record, key, kind):
 
 def cashflow_units(handoff):
     """The first '<ISO currency> millions|billions|thousands' phrase of the handoff's Request section."""
-    request = re.search(r"^## Request[ \t]*\n(.*?)(?=^## |\Z)", handoff, re.MULTILINE | re.DOTALL)
+    request = re.search(
+        r"^## Request[ \t]*\r?\n(.*?)(?=^## |\Z)", handoff, re.MULTILINE | re.DOTALL
+    )
     phrase = (
         re.search(r"\b[A-Z]{3}\s+(?:millions|billions|thousands)\b", request.group(1))
         if request

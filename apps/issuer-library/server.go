@@ -80,9 +80,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/health":
 		jsonResponse(w, map[string]string{"application": "finalworkflow-issuer-library/1", "instance": digest([]byte(app.loc.State))})
 	case "/api/catalogue":
-		app.mu.RLock()
-		defer app.mu.RUnlock()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/workspace":
 		app.serveWorkspace(w)
 	default:
@@ -92,6 +90,20 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		app.serveAsset(w, r)
 	}
+}
+
+// writeCatalogue sends the current catalogue. It is encoded under the read lock and written
+// after it: a client that stops reading must not hold the lock the refresh ticker waits for.
+func (app *Application) writeCatalogue(w http.ResponseWriter) {
+	app.mu.RLock()
+	raw, err := json.Marshal(app.catalogue)
+	app.mu.RUnlock()
+	if err != nil {
+		http.Error(w, "Could not read the library", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(append(raw, '\n'))
 }
 
 func (app *Application) serveWorkspace(w http.ResponseWriter) {
@@ -112,48 +124,25 @@ func (app *Application) serveWorkspace(w http.ResponseWriter) {
 	_, _ = w.Write(store)
 }
 
+// post handles the state-changing requests. Responses are written after app.mu is released.
 func (app *Application) post(w http.ResponseWriter, r *http.Request) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
 	switch r.URL.Path {
 	case "/api/refresh":
+		app.mu.Lock()
 		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.mu.Unlock()
+		app.writeCatalogue(w)
 	case "/api/settings":
-		if len(app.activeJobs) > 0 {
-			http.Error(w, "Wait for the active run before changing its workspace", 409)
+		if status, message := app.changeSettings(w, r); status != http.StatusOK {
+			http.Error(w, message, status)
 			return
 		}
-		if app.locked {
-			http.Error(w, "Workspace is managed by IT", http.StatusForbidden)
-			return
-		}
-		var config Config
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&config); err != nil {
-			http.Error(w, "Invalid settings", http.StatusBadRequest)
-			return
-		}
-		if !filepath.IsAbs(config.Workspace) {
-			http.Error(w, "Enter an absolute workspace folder", http.StatusBadRequest)
-			return
-		}
-		config.Workspace = filepath.Clean(config.Workspace)
-		info, err := os.Stat(config.Workspace)
-		if err != nil || !info.IsDir() {
-			http.Error(w, "The workspace folder is unavailable", http.StatusBadRequest)
-			return
-		}
-		if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
-			http.Error(w, "Could not save settings", http.StatusInternalServerError)
-			return
-		}
-		app.config = config
-		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/quit":
-		if len(app.activeJobs) > 0 {
+		app.mu.RLock()
+		active := len(app.activeJobs) > 0
+		app.mu.RUnlock()
+		if active {
 			http.Error(w, "A run is active. Keep the application open until it finishes or stops.", 409)
 			return
 		}
@@ -164,16 +153,52 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// changeSettings switches to the requested workspace and rediscovers it, refusing with an HTTP
+// status and message while a run is active, under IT policy or for an unusable folder.
+func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (int, string) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if len(app.activeJobs) > 0 {
+		return 409, "Wait for the active run before changing its workspace"
+	}
+	if app.locked {
+		return http.StatusForbidden, "Workspace is managed by IT"
+	}
+	var config Config
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&config); err != nil {
+		return http.StatusBadRequest, "Invalid settings"
+	}
+	if !filepath.IsAbs(config.Workspace) {
+		return http.StatusBadRequest, "Enter an absolute workspace folder"
+	}
+	config.Workspace = filepath.Clean(config.Workspace)
+	info, err := os.Stat(config.Workspace)
+	if err != nil || !info.IsDir() {
+		return http.StatusBadRequest, "The workspace folder is unavailable"
+	}
+	if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
+		return http.StatusInternalServerError, "Could not save settings"
+	}
+	app.config = config
+	app.refreshLocked()
+	return http.StatusOK, ""
+}
+
 func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/files/")
+	// Only the lookup holds the lock; reading, verifying and above all writing the file to a
+	// client that may stop reading happen after it is released.
 	app.mu.RLock()
-	defer app.mu.RUnlock()
 	hash, allowed := app.catalogue.Allowed[name]
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
 	if !allowed || !localPath(name) {
 		http.NotFound(w, r)
 		return
 	}
-	root, err := os.OpenRoot(app.config.Workspace)
+	root, err := os.OpenRoot(workspace)
 	if err != nil {
 		http.Error(w, "Workspace unavailable", http.StatusGone)
 		return

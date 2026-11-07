@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func testApp(t *testing.T) (*Application, string) {
@@ -612,4 +613,57 @@ func TestSettingsAcceptOneLeadingByteOrderMark(t *testing.T) {
 func jsonQuote(value string) string {
 	raw, _ := json.Marshal(value)
 	return string(raw)
+}
+
+// stalledWriter is a client that never reads: Write blocks until release is closed.
+type stalledWriter struct {
+	header  http.Header
+	writing chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (w *stalledWriter) Header() http.Header { return w.header }
+func (w *stalledWriter) WriteHeader(int)     {}
+func (w *stalledWriter) Write(p []byte) (int, error) {
+	w.once.Do(func() { close(w.writing) })
+	<-w.release
+	return len(p), nil
+}
+
+// C07: no response is written while the catalogue lock is held, so a stalled client cannot
+// stop the refresh ticker (a writer) and with it every request that reads the catalogue.
+func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
+	app, root := testApp(t)
+	put(t, root, "runs/case-a/big.txt", bytes.Repeat([]byte("a"), 1<<20))
+	call(app, "POST", "/api/refresh", "{}")
+	pinned := app.catalogue.Real[0].Artifacts[0].Href
+	for _, c := range []struct{ method, endpoint string }{
+		{"GET", "/files/runs/case-a/big.txt"},
+		{"GET", pinned + "&embedded=1"},
+		{"GET", "/api/catalogue"},
+		{"POST", "/api/refresh"},
+	} {
+		request := httptest.NewRequest(c.method, "http://"+app.host+c.endpoint, strings.NewReader("{}"))
+		request.Header.Set("X-Issuer-Library", "1")
+		request.Header.Set("Content-Type", "application/json")
+		w := &stalledWriter{header: http.Header{}, writing: make(chan struct{}), release: make(chan struct{})}
+		served := make(chan struct{})
+		go func() { app.ServeHTTP(w, request); close(served) }()
+		select {
+		case <-w.writing:
+		case <-served:
+			t.Fatalf("%s %s finished without writing", c.method, c.endpoint)
+		}
+		locked := make(chan struct{})
+		go func() { app.mu.Lock(); close(locked); app.mu.Unlock() }()
+		select {
+		case <-locked:
+		case <-time.After(2 * time.Second):
+			t.Errorf("%s %s: the catalogue lock is held while the response is written", c.method, c.endpoint)
+		}
+		close(w.release)
+		<-served
+		<-locked
+	}
 }

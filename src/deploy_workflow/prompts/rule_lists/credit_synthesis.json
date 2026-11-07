@@ -17,7 +17,7 @@
   },
   {
    "id": "credit_synthesis.c",
-   "statement": "c. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`.",
+   "statement": "c. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
    "checks": [
     "fn:deploy_vii.cp2_synthesis:validate_credit_synthesis",
     "fn:deploy_vii.cp2_synthesis:_figures"

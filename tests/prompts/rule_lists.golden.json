@@ -179,7 +179,7 @@
    },
    {
     "id": "business_context.d",
-    "statement": "d. Every text field is run text: digits only in period labels (`FY2025`, `Q3 2025`), filing and section labels (`10-K`, `Item 7A`, `page:12`) and the issuer's name. A figure is written only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` in the CONTEXT block; with no `cp1_facts`, write no figure at all. Never a bare number, never a `[ref]` chip; a figure belongs in a citation's quote, not in the text. A range or list of items uses a joiner the validator admits: `Items 10-14`, `Items 7, 7A`, `Items 7/7A` or `Items 7 and 8`; a range written with the word `to` is read as a bare figure and rejected.",
+    "statement": "d. Every text field is run text: digits only in period labels (`FY2025`, `Q3 2025`), filing and section labels (`10-K`, `Item 7A`, `page:12`) and the issuer's name. A figure is written only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` in the CONTEXT block; with no `cp1_facts`, write no figure at all. Never a bare number, never a `[ref]` chip; a figure belongs in a citation's quote, not in the text. A range or list of items uses a joiner the validator admits: `Items 10-14`, `Items 7, 7A`, `Items 7/7A` or `Items 7 and 8`; a range written with the word `to` is read as a bare figure and rejected. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "fn:deploy_vii.business_context:validate_business_context",
      "fn:deploy_vii.prose:issues"
@@ -329,7 +329,7 @@
    },
    {
     "id": "committee_challenge.d",
-    "statement": "d. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a row ref in text: refs belong in the `basis`.",
+    "statement": "d. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a row ref in text: refs belong in the `basis`. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "fn:deploy_vii.cp6_committee:_text_issues",
      "fn:deploy_vii.cp6_committee:_figures"
@@ -363,7 +363,7 @@
    },
    {
     "id": "credit_synthesis.c",
-    "statement": "c. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`.",
+    "statement": "c. Every text field is nonblank run text: digits only in period, filing and section labels and the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under `cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "fn:deploy_vii.cp2_synthesis:validate_credit_synthesis",
      "fn:deploy_vii.cp2_synthesis:_figures"
@@ -603,7 +603,7 @@
    },
    {
     "id": "downside_pathway.5",
-    "statement": "Every `rationale`, `limitation` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts`, closed and non-empty, and you state no peer ranking, instrument recommendation or recovery conclusion (phrases such as `versus peers`, `recommend` or `will recover` are refused).",
+    "statement": "Every `rationale`, `limitation` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts`, closed and non-empty, and you state no peer ranking, instrument recommendation or recovery conclusion (phrases such as `versus peers`, `recommend` or `will recover` are refused). A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp2a:v08",
      "oracle:cp2a:v09",
@@ -708,7 +708,7 @@
    },
    {
     "id": "earnings_quality.4",
-    "statement": "Each `rationale` is run text with no bare figure (digits only inside a period or filing label); a figure appears only as a reference in that fact's unit, and never as a reference to a gap. An assessment `rationale` references module facts only (as `{T1D.x.y.z|unit}`, for example a listed `claimed_ref`), and a CP-1 reference is refused there; only `overall.rationale` may reference a fact of `cp1_facts`.",
+    "statement": "Each `rationale` is run text with no bare figure (digits only inside a period or filing label); a figure appears only as a reference in that fact's unit, and never as a reference to a gap. An assessment `rationale` references module facts only (as `{T1D.x.y.z|unit}`, for example a listed `claimed_ref`), and a CP-1 reference is refused there; only `overall.rationale` may reference a fact of `cp1_facts`. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp1d:r09",
      "fn:deploy_workflow.owners.cp1d:_model_text_issues",
@@ -890,7 +890,7 @@
    },
    {
     "id": "forward_credit_model.6",
-    "statement": "Every `rationale`, `limitation` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp1d_facts`, closed and non-empty, and you state no peer ranking, instrument recommendation, recovery conclusion or probability weighting (phrases such as `versus peers`, `recommend`, `will recover` or `probability-weighted` are refused). A `limitation` is plain text: no figure and no reference.",
+    "statement": "Every `rationale`, `limitation` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp1d_facts`, closed and non-empty, and you state no peer ranking, instrument recommendation, recovery conclusion or probability weighting (phrases such as `versus peers`, `recommend`, `will recover` or `probability-weighted` are refused). A `limitation` is plain text: no figure and no reference. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp2g:v08",
      "oracle:cp2g:v09",
@@ -1019,7 +1019,7 @@
    },
    {
     "id": "legal_covenants.g",
-    "statement": "g. Every text field is nonblank run text: labels only (period, filing and section labels); a CP-1 figure only as `{ref|unit}` from `cp1_facts` and a threshold only inside its quote; never a bare number. No instrument recommendation and no recovery conclusion; recovery prospects may appear as a mechanic.",
+    "statement": "g. Every text field is nonblank run text: labels only (period, filing and section labels); a CP-1 figure only as `{ref|unit}` from `cp1_facts` and a threshold only inside its quote; never a bare number. No instrument recommendation and no recovery conclusion; recovery prospects may appear as a mechanic. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "fn:deploy_vii.cp4_legal:validate_covenant_interpretation",
      "fn:deploy_vii.cp4_legal:prohibited_issues_cp4",
@@ -1303,7 +1303,7 @@
   "narrative": [
    {
     "id": "narrative.a",
-    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose.",
+    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose. `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.narrative:validate_narrative_review"
     ]
@@ -1374,7 +1374,7 @@
    },
    {
     "id": "peer_benchmark.4",
-    "statement": "Each `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts`, closed and non-empty; a reference that resolves to no fact, or to a fact whose value is a gap, is refused. State no instrument recommendation or recovery conclusion in any text field (`rationale`, `limitation` and gap fields), and leave none blank: a blank `limitation` (of an assessment, when given, or of `overall`) or gap field (`gap`, `why_it_matters`, `affected_analysis`, `action`) is refused.",
+    "statement": "Each `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts`, closed and non-empty; a reference that resolves to no fact, or to a fact whose value is a gap, is refused. State no instrument recommendation or recovery conclusion in any text field (`rationale`, `limitation` and gap fields), and leave none blank: a blank `limitation` (of an assessment, when given, or of `overall`) or gap field (`gap`, `why_it_matters`, `affected_analysis`, `action`) is refused. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp1c:r06",
      "oracle:cp1c:r09",
@@ -1469,7 +1469,7 @@
    },
    {
     "id": "rating_triggers.4",
-    "statement": "Every `rationale` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in the module context (`cp1_facts`, the `triggers` thresholds or the `cp2g` rows), closed and non-empty, and never a reference to a value that is not settled. A `limitation` is plain text: no figure and no reference. Write no peer ranking, instrument recommendation or recovery conclusion, no rating call (`will be downgraded`, `will be upgraded`, `will downgrade`, `will upgrade`, `is certain to be`, `our rating`, `we rate`, `shadow rating`, `implied rating`) and no probability weighting (`probability-weighted`, `expected value` and similar).",
+    "statement": "Every `rationale` and gap field is nonblank prose with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in the module context (`cp1_facts`, the `triggers` thresholds or the `cp2g` rows), closed and non-empty, and never a reference to a value that is not settled. A `limitation` is plain text: no figure and no reference. Write no peer ranking, instrument recommendation or recovery conclusion, no rating call (`will be downgraded`, `will be upgraded`, `will downgrade`, `will upgrade`, `is certain to be`, `our rating`, `we rate`, `shadow rating`, `implied rating`) and no probability weighting (`probability-weighted`, `expected value` and similar). A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp2h:v04",
      "oracle:cp2h:v05",
@@ -1507,7 +1507,7 @@
   "readiness": [
    {
     "id": "readiness.a",
-    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose.",
+    "statement": "a. Every free-text field (a prose part's `text`, a `title`, `rationale`, `action` or `limitation`) is nonblank run text with no bare figure: digits appear only inside a period, filing, section, instrument, coverage-count or ordinal label (`FY2025`, `Q3 2025`, `10-K`, `Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the evidence it comes from and is never written out. Write no braces or square brackets anywhere in prose, since all are reserved for references. A space or an empty string is not prose. `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.downstream_readiness:validate_downstream_review"
     ]
@@ -1659,7 +1659,7 @@
    },
    {
     "id": "relative_value.f",
-    "statement": "f. Every text field is nonblank run text: labels only; a figure only as `{ref|unit}` from `cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip.",
+    "statement": "f. Every text field is nonblank run text: labels only; a figure only as `{ref|unit}` from `cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "fn:deploy_vii.cp3_relative_value:_text_issues",
      "fn:deploy_vii.cp3_relative_value:_figures"
@@ -1858,7 +1858,7 @@
    },
    {
     "id": "restructuring_fulcrum.9",
-    "statement": "A class `name` and valuation `label` are one line with no bare figure and no braces or brackets. Every `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp2g_facts`, closed and non-empty. No text states a peer ranking, an instrument recommendation, outcome certainty (`recovery is guaranteed`, `recovery is assured`, `recovery is certain`, `guaranteed recovery`, `assured recovery`, `plan will be confirmed`, `confirmation is assured`, `confirmation is certain`) or probability weighting (`probability-weighted`, `probability of`, `expected value` and similar).",
+    "statement": "A class `name` and valuation `label` are one line with no bare figure and no braces or brackets. Every `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp2g_facts`, closed and non-empty. No text states a peer ranking, an instrument recommendation, outcome certainty (`recovery is guaranteed`, `recovery is assured`, `recovery is certain`, `guaranteed recovery`, `assured recovery`, `plan will be confirmed`, `confirmation is assured`, `confirmation is certain`) or probability weighting (`probability-weighted`, `probability of`, `expected value` and similar). A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
     "checks": [
      "oracle:cp4c:v15",
      "oracle:cp4c:v16",
@@ -1986,7 +1986,7 @@
    },
    {
     "id": "source_readiness.h",
-    "statement": "h. `analysis`: at least one evidence-grounded read-through entry; an empty list is rejected. `analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers (`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a citation's quote, not in the text (the validator rejects a bare figure).",
+    "statement": "h. `analysis`: at least one evidence-grounded read-through entry; an empty list is rejected. `analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers (`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a citation's quote, not in the text (the validator rejects a bare figure). `N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year before a quantity word (`2024 basis points`) are bare figures.",
     "checks": [
      "fn:deploy_vii.readiness:validate_review",
      "fn:deploy_vii.prose:issues"

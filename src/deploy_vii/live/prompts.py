@@ -82,13 +82,25 @@ CITATION_RULE = (
     "as printed; never reassemble a sentence across interleaved table text. Never continue a "
     "quote onto the next page."
 )
+# S13 A04: what `prose.bare_figures` refuses beyond a numeric token outside a label.
+FIGURE_WORDS_RULE = (
+    "`N of M` is a coverage count only before a pack noun (`195 of 195 pages`); a number in "
+    "words with a quantity or a multiplier (`seven times`, `ten percent`, `halved`) and a year "
+    "before a quantity word (`2024 basis points`) are bare figures."
+)
+# S13 A05: `prose.issues` holds a fiscal-year label to the period of a figure in its clause.
+FIGURE_PERIOD_RULE = (
+    "A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside "
+    "a `{ref|unit}` must be a year of the period of a figure referenced there."
+)
 # Task 7.0: the 6.2 run-text rule (`deploy_vii.prose`), as the validator applies it to
 # `analysis[].text`; every example is a `prose.LABELS` label (a test holds them to it).
 RUN_TEXT_RULE = (
     "`analysis[].text` is run text: digits only in period labels (`FY2025`, `Q3 2025`, `LTM`), "
     "filing and section labels (`Items 7, 7A`, `page:12`, `pages 16-18`), SEC file numbers "
     "(`001-36629`) and coverage counts (`195 of 195 pages`); every other figure belongs in a "
-    "citation's quote, not in the text (the validator rejects a bare figure)."
+    "citation's quote, not in the text (the validator rejects a bare figure). "
+    f"{FIGURE_WORDS_RULE}"
 )
 # Task 7.0h (E1 batch e1-cp1-5): an indented object spent the completion budget on whitespace and
 # was cut before its last field; a cut rejects the whole submission and is never repaired.
@@ -291,7 +303,7 @@ CP1A_RUN_TEXT_RULE = (
     "`[ref]` chip; a figure belongs in a citation's quote, not in the text. "
     "A range or list of items uses a joiner the validator admits: `Items 10-14`, "
     "`Items 7, 7A`, `Items 7/7A` or `Items 7 and 8`; a range written with the word `to` "
-    "is read as a bare figure and rejected."
+    f"is read as a bare figure and rejected. {FIGURE_PERIOD_RULE}"
 )
 CP1A_CATEGORY_RULE = (
     "Every fact row carries one `category`: Documentary Fact, Management Language or Analyst "
@@ -384,7 +396,7 @@ REVIEW_PROSE_RULE = (
     "`Item 7A`, `6.50% notes due 2032`, `195 of 195 pages`, `CP-1`); a number stays in the "
     "evidence it comes from and is never written out. Write no braces or square brackets "
     "anywhere in prose, since all are reserved for references. A space or an empty string is "
-    "not prose."
+    f"not prose. {FIGURE_WORDS_RULE}"
 )
 
 
@@ -534,7 +546,8 @@ CP2_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: digits only in period, filing and section labels and "
     "the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under "
     "`cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, "
-    "and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`."
+    "and never a table id or a CP-1A ref in text: refs belong in `cp1a_refs`. "
+    f"{FIGURE_PERIOD_RULE}"
 )
 CP2_PROHIBITED_RULE = (
     "No peer ranking, no instrument recommendation and no recovery conclusion in any text field "
@@ -573,7 +586,7 @@ CP4_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: labels only (period, filing and section labels); a "
     "CP-1 figure only as `{ref|unit}` from `cp1_facts` and a threshold only inside its quote; "
     "never a bare number. No instrument recommendation and no recovery conclusion; recovery "
-    "prospects may appear as a mechanic."
+    f"prospects may appear as a mechanic. {FIGURE_PERIOD_RULE}"
 )
 CP4_ROW_RULES = (
     "A covenant's `document_id` names a `documents` row, which the covenant quotes; its "
@@ -621,7 +634,8 @@ CP3_PREFERENCE_RULE = (
 )
 CP3_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: labels only; a figure only as `{ref|unit}` from "
-    "`cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip."
+    "`cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip. "
+    f"{FIGURE_PERIOD_RULE}"
 )
 CP3_PROHIBITED_RULE = (
     "No instrument action, peer ranking or recovery conclusion in any text field: never buy, "
@@ -682,7 +696,8 @@ CP6_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: digits only in period, filing and section labels and "
     "the issuer's name; a figure only as `{ref|unit}` with a `ref` and `unit` listed under "
     "`cp1_facts` (with none listed, write no figure). Never a bare number, never a `[ref]` chip, "
-    "and never a table id or a row ref in text: refs belong in the `basis`."
+    "and never a table id or a row ref in text: refs belong in the `basis`. "
+    f"{FIGURE_PERIOD_RULE}"
 )
 CP6_PROHIBITED_RULE = (
     "No ranking against external peers, no buy, sell or switch phrase and no trade terms (a "

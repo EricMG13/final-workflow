@@ -62,7 +62,7 @@
   },
   {
    "id": "relative_value.f",
-   "statement": "f. Every text field is nonblank run text: labels only; a figure only as `{ref|unit}` from `cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip.",
+   "statement": "f. Every text field is nonblank run text: labels only; a figure only as `{ref|unit}` from `cp1_facts` or inside a verbatim quote; never a bare number or a `[ref]` chip. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
    "checks": [
     "fn:deploy_vii.cp3_relative_value:_text_issues",
     "fn:deploy_vii.cp3_relative_value:_figures"

@@ -50,7 +50,7 @@
   },
   {
    "id": "legal_covenants.g",
-   "statement": "g. Every text field is nonblank run text: labels only (period, filing and section labels); a CP-1 figure only as `{ref|unit}` from `cp1_facts` and a threshold only inside its quote; never a bare number. No instrument recommendation and no recovery conclusion; recovery prospects may appear as a mechanic.",
+   "statement": "g. Every text field is nonblank run text: labels only (period, filing and section labels); a CP-1 figure only as `{ref|unit}` from `cp1_facts` and a threshold only inside its quote; never a bare number. No instrument recommendation and no recovery conclusion; recovery prospects may appear as a mechanic. A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
    "checks": [
     "fn:deploy_vii.cp4_legal:validate_covenant_interpretation",
     "fn:deploy_vii.cp4_legal:prohibited_issues_cp4",

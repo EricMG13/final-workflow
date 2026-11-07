@@ -2671,3 +2671,90 @@ def test_a_long_unit_or_add_back_label_is_cut_to_200_characters_but_still_reads_
     assert labels == ["U" * 200, "U" * 200 + " YoY growth"]
     cells = row(cashflow, "U" * 200)["cells"]
     assert any(c["status"] != "gap" for c in cells)
+
+
+# Task 18: whole-branch review fixes.
+DEBT_HEAD = "| Instrument | Sep 30, 2024 amount / status | Terms |\n|---|---|---|\n"
+DEBT_ROWS = (
+    "| Trade receivable securitization | Gross 121; carrying 120; commitment 650 | x |\n"
+    "| Term loans aggregate | Principal 1,100; carrying 1,000 after costs | x |\n"
+    "| 6% secured notes due 2030 | Principal 500; carrying 500 | x |\n"
+)
+
+
+def secured_of(extra):
+    tables = store.markdown_tables("### Debt\n\n" + DEBT_HEAD + DEBT_ROWS + extra, "annual.md")
+    return store.secured_debt(tables)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    ["|  |  |  |\n|  |  |  |\n", "| Of which | see note | x |\n| Of which | see note | x |\n"],
+)
+def test_a_repeated_debt_label_without_a_value_does_not_void_secured_leverage(extra):
+    found = secured_of(extra)
+    assert found is not None and found[1] == 1620 and found[2] is None
+
+
+def test_a_repeated_debt_label_that_drops_a_carrying_value_still_voids_it():
+    found = secured_of("| 6% secured notes due 2030 | carrying 250 | x |\n")
+    assert found is not None and found[1] is None
+    assert found[2] == "the debt register repeats a row label: 6% secured notes due 2030"
+    found = secured_of("| Of which | see note | x |\n| Of which | carrying 5 | x |\n")
+    assert found is not None and found[2] == "the debt register repeats a row label: Of which"
+
+
+def test_the_budget_goes_first_to_a_model_a_run_lists_through_its_sources(tmp_path, monkeypatch):
+    def record_issuer():
+        manifest = {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}
+        put(tmp_path, "runs/alpha-001/workflow.json", json.dumps({"run": manifest}))
+
+    def retarget(artifact, **fields):
+        folder = tmp_path / artifact["folder"]
+        view = json.loads((folder / "view.json").read_text(encoding="utf-8"))
+        view["run"].update(fields)
+        digest = put(tmp_path, f"{artifact['folder']}/view.json", json.dumps(view))
+        record = json.loads((folder / "delivery.json").read_text(encoding="utf-8"))
+        record["files"]["view.json"] = digest
+        (folder / "delivery.json").write_text(json.dumps(record), encoding="utf-8")
+
+    def make(name, **options):
+        return model_delivery(
+            tmp_path,
+            f"deliverables/{name}",
+            forecast=REQUEST,
+            exact=exact_record(),
+            extra=cashflow_files(),
+            **options,
+        )
+
+    unlinked = [make(f"a-{k}") for k in range(2)]
+    for artifact in unlinked:
+        retarget(artifact, run_id="nobody", issuer_id="BET")
+    workspace(tmp_path)
+    digest = hashlib.sha256((tmp_path / "runs/alpha-001/CP-1.md").read_bytes()).hexdigest()
+    sourced = make("z", sources={"forecast": {"path": "runs/alpha-001/CP-1.md", "sha256": digest}})
+    retarget(sourced, run_id="nobody", issuer_id="ALP")
+    (one,) = models_of(tmp_path, sourced, edit=record_issuer)["models"]
+    assert one["sources"][0]["run"] == "alpha-001"
+    monkeypatch.setattr(store, "CASHFLOW_CELL_BUDGET", cell_count(one["cashflow"]) + 1)
+    result = models_of(tmp_path, *unlinked, sourced, edit=record_issuer)
+    grids = {m["id"]: m["cashflow"] is not None for m in result["models"]}
+    assert grids == {"a-0": False, "a-1": False, "z": True}
+
+
+def test_the_id_conflict_issue_reads_the_same_for_every_run_order():
+    import itertools
+
+    recorded = {
+        "r1": ("Alpha", "bet"),
+        "r2": ("Alpha", "BET"),
+        "r3": ("Alpha", "ALP"),
+        "r4": ("Alpha", "Zed"),
+    }
+    texts = set()
+    for order in itertools.permutations(recorded.items()):
+        issues: list[str] = []
+        store.issuer_groups(dict(order), issues)
+        texts.add(tuple(issues))
+    assert texts == {("issuer name Alpha is recorded with different issuer IDs: ALP, bet, Zed",)}

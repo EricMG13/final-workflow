@@ -1100,6 +1100,10 @@ def period_key(header: str) -> PeriodKey | None:
     return ("fy", header) if FISCAL_HEADER.fullmatch(header) else None
 
 
+def holds_carrying_value(row: list[str]) -> bool:
+    return len(row) > 1 and len(row[1]) <= 4000 and CARRYING.search(row[1]) is not None
+
+
 def markdown_table(lines: list[str], file: str) -> Table:
     """One run of '|' lines: header, optional separator, rows. Rows are found by their label."""
     header = table_cells(lines[0])
@@ -1115,9 +1119,13 @@ def markdown_table(lines: list[str], file: str) -> Table:
     for row in body:
         if label_column < len(row):
             # Case-insensitive, as the debt classification is.
-            if row[label_column].casefold() in folded and repeated is None:
-                repeated = row[label_column]
-            folded.add(row[label_column].casefold())
+            # A later row of a label already seen is dropped by `rows`: that matters when it holds a
+            # carrying value, not for a blank label or a note row.
+            label = row[label_column]
+            dropped = label.casefold() in folded and label != ""
+            if dropped and repeated is None and holds_carrying_value(row):
+                repeated = label
+            folded.add(label.casefold())
             rows.setdefault(row[label_column], row)
     periods: dict[PeriodKey, int] = {}
     for index, name in enumerate(header):
@@ -2081,16 +2089,28 @@ def read_model(
 
 
 def run_shows(
-    root: Path, artifact: dict[str, Any], keys: dict[str, str], run_keys: dict[str, str | None]
+    root: Path,
+    artifact: dict[str, Any],
+    keys: dict[str, str],
+    outputs: dict[str, Any],
+    runs: dict[str, dict[str, Any]],
 ) -> bool:
-    """Whether a run of the workspace shows this model: its run_id names a run of its issuer."""
-    folder = root / artifact["folder"]
+    """Whether a run's Forecast lists this model: the same issuer key and the run named by the
+    model's run_id or by one of its sources (the rule of views.js runModels)."""
+    folder = artifact["folder"]
     # Documented fail-open: a record that cannot be read is not shown by a run; read_model reports
     # the same failure as a Workspace issue.
     try:
-        identity = listed_view(folder, delivery_json(folder))["run"]
+        delivery = delivery_json(root / folder)
+        identity = listed_view(root / folder, delivery)["run"]
         key = report_issuer_key(keys, identity.get("issuer_id"))
-        return key is not None and run_keys.get(identity["run_id"]) == key
+        if key is None:
+            return False
+        held = {route for route, run in runs.items() if run["issuerKey"] == key}
+        if any(runs[route]["folder"] == identity["run_id"] for route in held):
+            return True
+        sources = model_sources(root, delivery, outputs, folder, [])
+        return any(row["run"] in held for row in sources)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, MemoryError):
         return False
 
@@ -2100,15 +2120,15 @@ def catalogue_models(
     catalogue: dict[str, Any],
     outputs: dict[str, Any],
     keys: dict[str, str],
-    run_keys: dict[str, str | None] | None = None,
+    runs: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Published models the server verified, each once, with why and from what they were built.
 
     The models share one budget of CASHFLOW_CELL_BUDGET grid cells. Models some run shows
-    (run_keys: run folder -> issuer key) are laid out first, then the rest, each in delivery path
+    (runs: the store's runs) are laid out first, then the rest, each in delivery path
     order; a model whose grid would pass the budget is listed without one, with an issue.
     """
-    run_keys = run_keys or {}
+    runs = runs or {}
     shown, issues = shown_models(root, catalogue)
     listed: list[dict[str, Any]] = []
     done: set[str] = set()
@@ -2122,7 +2142,7 @@ def catalogue_models(
     built: dict[int, dict[str, Any]] = {}
     cells = 0
     unshown = {
-        i for i, artifact in enumerate(listed) if not run_shows(root, artifact, keys, run_keys)
+        i for i, artifact in enumerate(listed) if not run_shows(root, artifact, keys, outputs, runs)
     }
     for position in sorted(range(len(listed)), key=lambda i: (i in unshown, listed[i]["folder"])):
         model = read_model(root, listed[position], outputs, keys, issues)
@@ -2243,7 +2263,7 @@ def recorded_identity(
 def ids_by_name(named: dict[str, tuple[str, str | None]]) -> dict[str, dict[str, str]]:
     """Each recorded name's IDs as recorded, by case-folded ID."""
     carried: dict[str, dict[str, str]] = {}
-    for name, issuer_id in named.values():
+    for _, (name, issuer_id) in sorted(named.items()):  # run-path order, not insertion order
         if issuer_id:
             carried.setdefault(name, {}).setdefault(issuer_id.casefold(), issuer_id)
     return carried
@@ -2265,7 +2285,7 @@ def issuer_groups(
     if issues is not None:
         issues.extend(
             f"issuer name {name} is recorded with different issuer IDs: "
-            + ", ".join(sorted(ids.values()))
+            + ", ".join(sorted(ids.values(), key=lambda i: (i.casefold(), i)))
             for name, ids in sorted(carried.items())
             if len(ids) > 1
         )
@@ -2402,8 +2422,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         runs[key].update(identity)
     reports, unread = catalogue_reports(root, catalogue, sources, keys)
     found += unread
-    run_keys = {run["folder"]: run["issuerKey"] for run in runs.values()}
-    models, unread = catalogue_models(root, catalogue, outputs, keys, run_keys)
+    models, unread = catalogue_models(root, catalogue, outputs, keys, runs)
     found += unread
     # A compared deliverable is a curated build, not a folder that merely has its name.
     for module, config in catalog.items():

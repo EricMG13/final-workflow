@@ -361,3 +361,53 @@ test('The model frame shows loading, then the failure with a download link when 
   w.document.getElementById('model-preview').dispatchEvent(new w.Event('load'));
   assert.equal(status.hidden,true);
 });
+
+// Security review M1/M2/P1: a model or report id reaches the address as one encoded section and is read back exactly.
+const HOSTILE='x"><b id=pwn>Continue';
+function renamed(from,to){
+  const forged=structuredClone(workspace),model=forged.store.models.find(m=>m.id===from);
+  assert.ok(model,`no model ${from}`);model.id=to;
+  for(const other of forged.store.models)if(other.previous===from)other.previous=to;
+  return forged;
+}
+test('A model id with markup in it renders no element of its own on Overview, Forecast, Library and Settings',async t=>{
+  const forged=renamed('tdg-model-3',HOSTILE);
+  for(const hash of ['W-Overview/overview?c=tdg-002','W-Forecast/forecast?c=tdg-002','W-Library/cases','W-Settings/workspace']){
+    const w=screens(forged,hash).window,d=w.document;t.after(()=>w.close());
+    await settle();
+    assert.equal(d.querySelector('[id^=pwn]'),null,hash);
+  }
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  assert.equal(d.querySelector('[id^=pwn]'),null,'Forecast tab');
+  assert.ok([...d.querySelectorAll('a')].some(a=>a.getAttribute('href')===`#W-Forecast/${encodeURIComponent(HOSTILE)}?c=tdg-002`||a.getAttribute('href').startsWith(`#W-Forecast/${encodeURIComponent(HOSTILE)}`)),'the id is one encoded section');
+});
+test('A report id with markup in it renders no element of its own',async t=>{
+  const forged=structuredClone(workspace);
+  forged.store.reports[0].id=HOSTILE;
+  for(const hash of ['W-Library/cases','W-Reports/list?c=tdg-002','W-Overview/overview?c=tdg-002']){
+    const w=screens(forged,hash).window,d=w.document;t.after(()=>w.close());
+    await settle();
+    assert.equal(d.querySelector('[id^=pwn]'),null,hash);
+  }
+});
+for(const id of ['m é 1','a%20b','Société modèle','a/b?c=1#x']){
+  test(`A model id "${id}" chosen in the Model select shows that model`,async t=>{
+    const forged=renamed('tdg-model-1',id),want=forged.store.models.find(m=>m.id===id);
+    const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+    const select=d.getElementById('model-select');
+    select.value=id;select.dispatchEvent(new w.Event('change',{bubbles:true}));
+    await settle();
+    assert.equal(d.getElementById('model-select').value,id);
+    assert.match(d.getElementById('model-preview').getAttribute('src'),new RegExp(want.href.split('?')[0].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.equal(d.querySelector('.forecast-scope')?.textContent??null,want.scope);
+    const again=w.eval('parseRoute()');
+    assert.equal(again.section,id);
+  });
+}
+test('A malformed escape in the section is an unknown section, never an error',async t=>{
+  const w=screens(workspace,'W-Overview/overview?c=tdg-002').window;t.after(()=>w.close());
+  w.location.hash='#W-Forecast/%E0%A4%A?c=tdg-002';
+  const route=w.eval('parseRoute()');
+  assert.equal(route.module,'W-Forecast');
+  assert.notEqual(route.section,'%E0%A4%A');
+});

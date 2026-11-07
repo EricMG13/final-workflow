@@ -4,8 +4,10 @@ import fnmatch
 import hashlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -950,6 +952,121 @@ def cashflow_of(tmp_path, forecast=REQUEST, **kwargs):
 
 def row(cashflow, label):
     return next(r for r in cashflow["rows"] if r["label"] == label)
+
+
+# Security review L1-L3: model files are read only as bounded regular files; nothing hangs or drops a model.
+def within(seconds, call):
+    """Run call on a thread; a read that blocks forever (a FIFO) fails the test instead of hanging it."""
+    box = {}
+    thread = threading.Thread(target=lambda: box.update(value=call()), daemon=True)
+    thread.start()
+    thread.join(seconds)
+    assert not thread.is_alive(), "the store blocked"
+    return box["value"]
+
+
+def source_model(tmp_path, role, path, prepare):
+    root = tmp_path / "ws"
+    prepare(root)
+    artifact = model_delivery(root, "deliverables/m-1")
+    record = json.loads((root / "deliverables/m-1/delivery.json").read_text(encoding="utf-8"))
+    record["sources"] = {role: {"path": path, "sha256": "a" * 64}}
+    (root / "deliverables/m-1/delivery.json").write_text(json.dumps(record), encoding="utf-8")
+    result = within(20, lambda: models_of(root, artifact))
+    return result, [m for m in result["models"] if m["id"] == "m-1"]
+
+
+def test_a_fifo_source_keeps_the_row_without_a_hash_and_is_reported(tmp_path):
+    result, (model,) = source_model(
+        tmp_path,
+        "fifo",
+        "runs/alpha-001/pipe",
+        lambda root: (
+            (root / "runs/alpha-001").mkdir(parents=True) or os.mkfifo(root / "runs/alpha-001/pipe")
+        ),
+    )
+    (row,) = model["sources"]
+    assert (row["role"], row["sha256"], row["changed"]) == ("fifo", None, None)
+    assert "deliverables/m-1: source fifo is not a readable file" in result["issues"]
+
+
+def test_a_source_over_64_mib_is_not_read_and_is_reported(tmp_path):
+    def big(root):
+        (root / "runs/alpha-001").mkdir(parents=True)
+        with open(root / "runs/alpha-001/big.bin", "wb") as f:
+            f.truncate(64 * 1024 * 1024 + 1)
+
+    result, (model,) = source_model(tmp_path, "big", "runs/alpha-001/big.bin", big)
+    (row,) = model["sources"]
+    assert (row["sha256"], row["changed"]) == (None, None)
+    assert "deliverables/m-1: source big is not a readable file" in result["issues"]
+
+
+def test_a_source_path_with_a_nul_byte_is_an_invalid_source_not_a_dropped_model(tmp_path):
+    result, (model,) = source_model(tmp_path, "nul", "runs/alpha-001/a\x00b.md", lambda root: None)
+    (row,) = model["sources"]
+    assert (row["sha256"], row["changed"]) == (None, None)
+    assert "deliverables/m-1: source nul has an invalid path or hash" in result["issues"]
+
+
+def test_forecast_md_through_a_symlink_is_not_read_even_when_its_bytes_match(tmp_path):
+    root = tmp_path / "ws"
+    artifact = model_delivery(root, "deliverables/m-1")
+    outside = tmp_path / "outside.md"
+    outside.write_text(FORECAST, encoding="utf-8")
+    (root / "deliverables/m-1/forecast.md").unlink()
+    (root / "deliverables/m-1/forecast.md").symlink_to(outside)
+    result = models_of(root, artifact)
+    (model,) = result["models"]
+    assert (model["register"], model["cashflow"]) == (None, None)
+    assert "deliverables/m-1: forecast.md does not match its delivery record" in result["issues"]
+
+
+def test_a_forecast_md_whose_hash_changed_is_not_read_and_the_model_stays(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    (model,) = models_of(
+        tmp_path,
+        artifact,
+        edit=lambda: (tmp_path / "deliverables/m-1/forecast.md").write_text(
+            FORECAST + "\nEdited.\n", encoding="utf-8"
+        ),
+    )["models"]
+    assert model["register"] is None and model["cashflow"] is None
+    result = models_of(
+        tmp_path,
+        artifact,
+        edit=lambda: (tmp_path / "deliverables/m-1/forecast.md").write_text("x", encoding="utf-8"),
+    )
+    assert "deliverables/m-1: forecast.md does not match its delivery record" in result["issues"]
+
+
+def test_forecast_exact_json_must_match_its_listed_hash_and_not_be_a_symlink(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=REQUEST, exact=exact_record())
+    path = tmp_path / "deliverables/m-1/forecast_exact.json"
+    result = models_of(tmp_path, artifact, edit=lambda: path.write_text("{}", encoding="utf-8"))
+    assert result["models"][0]["cashflow"] is None
+    assert (
+        "deliverables/m-1: forecast_exact.json does not match its delivery record"
+        in result["issues"]
+    )
+    outside = tmp_path / "outside.json"
+    outside.write_text(json.dumps(exact_record()), encoding="utf-8")
+    result = models_of(tmp_path, artifact, edit=lambda: (path.unlink(), path.symlink_to(outside)))
+    assert result["models"][0]["cashflow"] is None
+    assert (
+        "deliverables/m-1: forecast_exact.json does not match its delivery record"
+        in result["issues"]
+    )
+
+
+def test_a_model_read_error_names_its_type_and_reason_and_never_the_bytes(tmp_path):
+    good = model_delivery(tmp_path, "deliverables/m-1")
+    bad = model_delivery(tmp_path, "deliverables/m-2")
+    (tmp_path / "deliverables/m-2/view.json").write_bytes(b"\xff\xfe TOPSECRET")
+    issues = models_of(tmp_path, good, bad)["issues"]
+    (issue,) = [i for i in issues if i.startswith("deliverables/m-2: could not be read")]
+    assert "UnicodeDecodeError" in issue and "invalid start byte" in issue
+    assert "TOPSECRET" not in issue and "\\x" not in issue and "b'" not in issue
 
 
 def test_a_cash_flow_model_shows_exact_values_rounded_half_up_with_brackets(tmp_path):

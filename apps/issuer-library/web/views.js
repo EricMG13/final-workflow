@@ -239,7 +239,7 @@ function routeHref(module,section,key=null,context=current?.context,file=lastFil
   if(context)params.set('c',context);
   if(file&&`${contexts[context].folder}/${file}`!==defaultOutput(module,context))params.set('o',file);
   if(key)params.set('e',key);
-  return `#${module}/${section}${params.size?'?'+params:''}`;
+  return `#${module}/${encodeURIComponent(section)}${params.size?'?'+params:''}`;
 }
 function sectionGroups(id) {
   const result=new Map(),module=data[id].module;

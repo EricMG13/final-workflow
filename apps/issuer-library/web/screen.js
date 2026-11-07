@@ -300,7 +300,10 @@ function renderNavigator(module) {
 }
 function parseRoute() {
   const [path,query='']=location.hash.slice(1).split('?');
-  const [requestedModule,requestedSection]=path.split('/');
+  const [requestedModule,encodedSection]=path.split('/');
+  // routeHref encodes the section once; an escape that cannot be decoded names no section.
+  let requestedSection=encodedSection;
+  try{if(encodedSection!==undefined)requestedSection=decodeURIComponent(encodedSection);}catch(error){if(!(error instanceof URIError))throw error;requestedSection=null;}
   const resolved=!Object.hasOwn(moduleNames,requestedModule)&&Object.hasOwn(aliases,requestedModule)?aliases[requestedModule]:requestedModule;
   let module=Object.hasOwn(moduleNames,resolved)?resolved:'W-Library';
   const params=new URLSearchParams(query);

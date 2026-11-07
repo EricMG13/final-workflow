@@ -9,7 +9,9 @@ import datetime
 import decimal
 import hashlib
 import json
+import os
 import re
+import stat
 import sys
 from collections import Counter
 from pathlib import Path, PurePosixPath
@@ -236,8 +238,64 @@ def parse_source(text):
     return sections
 
 
+MODEL_FILE_LIMIT = 64 * 1024 * 1024  # The Go server's read cap for a delivered file.
+CHUNK = 1024 * 1024
+
+
+class UnreadableFile(Exception):
+    """A path that is not a plain, bounded file: absent is OSError; this is everything else."""
+
+
+def regular_chunks(path, follow=True, limit=MODEL_FILE_LIMIT):
+    """The bytes of a regular file of at most `limit` bytes, in chunks.
+
+    The kind and size are read from the open descriptor, so a path swapped for a FIFO after a
+    check is still refused; the open never blocks on a FIFO.
+    """
+    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NONBLOCK", 0)
+    if not follow:
+        flags |= getattr(os, "O_NOFOLLOW", 0)
+        if Path(path).is_symlink():
+            raise UnreadableFile("a link")
+    try:
+        descriptor = os.open(path, flags)
+    except ValueError as error:  # An embedded NUL.
+        raise UnreadableFile("an invalid path") from error
+    with os.fdopen(descriptor, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise UnreadableFile("not a regular file")
+        if info.st_size > limit:
+            raise UnreadableFile("over the size limit")
+        total = 0
+        while chunk := handle.read(CHUNK):
+            total += len(chunk)
+            if total > limit:
+                raise UnreadableFile("over the size limit")
+            yield chunk
+
+
 def sha256(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    digest = hashlib.sha256()
+    for chunk in regular_chunks(path):
+        digest.update(chunk)
+    return digest.hexdigest()
+
+
+def listed_bytes(folder, delivery, name):
+    """The bytes of folder/name when it is a plain file, not a link, with the sha256 delivery.json lists; else None."""
+    try:
+        data = b"".join(regular_chunks(folder / name, follow=False))
+    except (OSError, UnreadableFile):
+        return None
+    return data if hashlib.sha256(data).hexdigest() == delivery["files"][name] else None
+
+
+def describe(error):
+    """An error as its type and a short reason; never the repr, which can hold file bytes."""
+    if isinstance(error, UnicodeDecodeError):
+        return f"UnicodeDecodeError: {error.reason}"
+    return f"{type(error).__name__}: {str(error)[:80]}"
 
 
 def locate_quote(sections, locator, owner):
@@ -622,17 +680,23 @@ def source_location(root, path):
     parts = PurePosixPath(path).parts
     if len(parts) < 3 or parts[0] != "runs" or PurePosixPath(path).is_absolute() or ".." in parts:
         return None
-    resolved = (root / path).resolve()
+    try:
+        resolved = (root / path).resolve()
+    except (ValueError, OSError):  # An embedded NUL or an unresolvable path is an invalid source.
+        return None
     return resolved if resolved.is_relative_to(root.resolve()) else None
 
 
-def model_sources(root, delivery, outputs):
+def model_sources(root, delivery, outputs, folder=None, issues=None):
     """Each source a model declares, whether its file still has the declared bytes, and the run output holding them.
 
     A source whose path is not a confined runs/<folder>/<file> or whose hash is not 64 lowercase hex
-    keeps its row with sha256 and changed null; its file is never opened.
+    keeps its row with sha256 and changed null; its file is never opened. A source that is not a
+    regular file of at most 64 MiB is likewise kept with nulls and named in the issues; an absent
+    file stays "changed". The issues are appended to `issues`, prefixed with `folder`.
     """
     rows = []
+    issues = [] if issues is None else issues
     declared_sources = delivery.get("sources")
     for role, source in (declared_sources if isinstance(declared_sources, dict) else {}).items():
         source = source if isinstance(source, dict) else {}
@@ -654,12 +718,17 @@ def model_sources(root, delivery, outputs):
         if valid:
             try:
                 row["changed"] = sha256(location) != declared
+            except UnreadableFile:
+                row["sha256"] = None
+                issues.append(f"{folder}: source {role} is not a readable file")
             except OSError:
                 row["changed"] = True
             held = outputs.get(path.removeprefix("runs/"))
             match = held if held and held["sha256"] == declared else None
-            if match:
+            if match and row["sha256"] is not None:
                 row["run"], row["output"] = match["run"], match["id"]
+        else:
+            issues.append(f"{folder}: source {role} has an invalid path or hash")
         rows.append(row)
     return rows
 
@@ -798,19 +867,14 @@ def cashflow_of(exact, handoff):
     }
 
 
-def read_cashflow(root, folder, delivery, handoff):
-    """None when the delivery's calculation record is absent or invalid; the caller reports it.
+def read_cashflow(record, handoff):
+    """None when the delivery's calculation record is invalid; the caller reports it.
 
     Documented fail-open: a record the reader cannot lay out leaves the model listed with
     no grid and a Workspace issue naming the delivery.
     """
     try:
-        if "forecast_exact.json" not in delivery["files"]:
-            return None
-        path = (root / folder / "forecast_exact.json").resolve()
-        if not path.is_relative_to(root.resolve()):
-            return None
-        return cashflow_of(json.loads(path.read_text(encoding="utf-8")), handoff)
+        return cashflow_of(json.loads(record.decode("utf-8")), handoff)
     except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, ArithmeticError):
         return None
 
@@ -825,31 +889,37 @@ def catalogue_models(root, catalogue, outputs, keys):
             if not artifact.get("available") or artifact.get("kind") != "model" or name in seen:
                 continue
             seen.add(name)
-            # Documented fail-open: reported in Settings; the other models stay readable.
+            # Documented fail-open: reported in Settings; the other models stay readable. A model too
+            # large to parse (MemoryError) is reported the same way, not allowed to end the store.
             try:
                 delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
                 view = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))
                 identity = view["run"]
                 run_id = identity["run_id"]
                 issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
-                sources = model_sources(root, delivery, outputs)
-                issues += [
-                    f"{folder}: source {row['role']} has an invalid path or hash"
-                    for row in sources
-                    if row["sha256"] is None
-                ]
+                sources = model_sources(root, delivery, outputs, folder, issues)
                 register = handoff_text = None
-                if "forecast.md" in delivery["files"]:
-                    handoff = (root / folder / "forecast.md").read_bytes()
-                    handoff_text = handoff.decode("utf-8")
-                    register = register_of(parse_source(handoff_text))
-                previous = delivery.get("previous_directory")
                 files = delivery["files"]
-            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
-                issues.append(f"{folder}: could not be read ({error!r})")
+                if "forecast.md" in files:
+                    handoff = listed_bytes(root / folder, delivery, "forecast.md")
+                    if handoff is None:
+                        issues.append(f"{folder}: forecast.md does not match its delivery record")
+                    else:
+                        handoff_text = handoff.decode("utf-8")
+                        register = register_of(parse_source(handoff_text))
+                exact = (
+                    listed_bytes(root / folder, delivery, "forecast_exact.json")
+                    if "forecast_exact.json" in files
+                    else None
+                )
+                previous = delivery.get("previous_directory")
+            except (OSError, ValueError, KeyError, TypeError, AttributeError, MemoryError) as error:
+                issues.append(f"{folder}: could not be read ({describe(error)})")
                 continue
-            cashflow = read_cashflow(root, folder, delivery, handoff_text)
-            if cashflow is None:
+            cashflow = None if exact is None else read_cashflow(exact, handoff_text)
+            if "forecast_exact.json" in files and exact is None:
+                issues.append(f"{folder}: forecast_exact.json does not match its delivery record")
+            elif cashflow is None:
                 issues.append(f"{folder}: forecast_exact.json is missing or unreadable")
             mode, qualification = view.get("mode"), view.get("analytical_qualification")
             models.append(

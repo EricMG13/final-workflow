@@ -2025,3 +2025,99 @@ def test_r13_a_comma_run_in_the_quote_or_at_the_page_edge_is_no_figure(run: str)
     assert refused in size_level(inside, "1.25 percent.", "1.25")
     for ok in ("The downside is up, 1.25 percent.", "The downside is 1.25, a lot."):
         assert refused not in size_level(ok, ok, "1.25")
+
+
+Q_DECISION_LINE = (
+    "Decision: Neutral action bias with Medium confidence on the Northbridge Term Loan."
+)
+Q_ROLE_LINE = "Decision-maker role: Investment Committee."
+
+
+def requote_decision(lit: dict[str, Any], old: str, new: str, *fields: str) -> dict[str, Any]:
+    for name in fields:
+        assert lit["decision"][name]["quote"]["quote"] == old
+        lit["decision"][name]["quote"]["quote"] = new
+    return lit
+
+
+def test_s10_a03_a_confidence_word_is_a_whole_word_of_the_quote() -> None:
+    # S10-A03, hand-read: "Decision: Neutral action bias on the Northbridge Term Loan; Highly
+    # uncertain, Lower conviction." contains the letters of "High" and "Low" only inside the
+    # words "Highly" and "Lower", so it states no confidence: both words are refused (each was
+    # accepted as a substring). "Neutral" is a whole word there and stays accepted.
+    new = "Decision: Neutral action bias on the Northbridge Term Loan; Highly uncertain, Lower."
+    packed = edited_pack("prior_case", Q_DECISION_LINE, new)
+    for word in ("High", "Low"):
+        lit = requote_decision(positive(), Q_DECISION_LINE, new, "action_bias", "confidence")
+        lit["decision"]["instrument"]["quote"]["quote"] = new
+        lit["decision"]["confidence"]["text"] = word
+        assert issues_over(lit, packed) == (
+            f"decision.confidence: text {word} does not occur in the quote",
+        )
+    # a whole word still passes, also at the end of the quote and after a colon
+    ok = "Decision: Neutral action bias on the Northbridge Term Loan; confidence: High"
+    lit = requote_decision(positive(), Q_DECISION_LINE, ok, "action_bias", "confidence")
+    lit["decision"]["instrument"]["quote"]["quote"] = ok
+    lit["decision"]["confidence"]["text"] = "High"
+    assert issues_over(lit, edited_pack("prior_case", Q_DECISION_LINE, ok)) == ()
+
+
+def test_s10_c03_text_copied_with_an_em_dash_matches_the_page() -> None:
+    # S10-C03, hand-read: the page prints "Investment Committee — Europe" (U+2014); the quote
+    # normaliser reads it as "-". The model copies the page exactly, so the text is accepted and
+    # stays as the page prints it. A curly apostrophe is read the same way.
+    for printed in ("Investment Committee — Europe", "Investment Committee’s Europe desk"):
+        new = f"Decision-maker role: {printed}."
+        lit = positive()
+        lit["decision"]["decision_maker_role"] = {
+            "text": printed,
+            "quote": {"source_id": "prior_case", "locator": "page:1", "quote": new},
+        }
+        assert issues_over(lit, edited_pack("prior_case", Q_ROLE_LINE, new)) == ()
+    # a text the page does not state is still refused
+    lit = positive()
+    lit["decision"]["decision_maker_role"]["text"] = "Investment Committee — Asia"
+    refused = (
+        "decision.decision_maker_role: text Investment Committee — Asia does not occur in the quote"
+    )
+    assert issues_over(lit, pack("positive")) == (refused,)
+
+
+def test_s10_review_a_copied_text_is_stored_with_the_quotes_whitespace() -> None:
+    # S10 review, hand-read: the page prints "Investment Committee — Europe"; the model copies it
+    # with an outer space and a trailing line break. The text occurs in the quote once both are
+    # normalised, and the T7.1 cell keeps the page's em dash with single spaces and no outer
+    # whitespace: "Investment Committee — Europe".
+    new = "Decision-maker role: Investment Committee — Europe."
+    lit = positive()
+    lit["decision"]["decision_maker_role"] = {
+        "text": " Investment Committee —\nEurope\n",
+        "quote": {"source_id": "prior_case", "locator": "page:1", "quote": new},
+    }
+    report = settle(lit, packed=edited_pack("prior_case", Q_ROLE_LINE, new))
+    assert texts(report, "T7.1", "d01")["decision_maker_role"] == "Investment Committee — Europe"
+
+
+@pytest.mark.parametrize(
+    ("line", "word", "accepted"),
+    [
+        (
+            "Decision: Neutral action bias on the Northbridge Term Loan; Insufficient Information.",
+            "Insufficient Information",
+            True,
+        ),
+        ("Decision: Neutral action bias on the Northbridge Term Loan, “High”.", "High", True),
+        ("Decision: Neutral action bias on the Northbridge Term Loan; Mediumish.", "Medium", False),
+        ("Decision: Neutral action bias on the Northbridge Term Loan; HighLow.", "Low", False),
+        ("Decision: Neutral action bias on the Northbridge Term Loan; Low2 view.", "Low", False),
+    ],
+)
+def test_s10_review_whole_word_edges(line: str, word: str, accepted: bool) -> None:
+    # S10 review, hand-read: curly quotes and a two-word value are word edges; a letter or a
+    # digit directly before or after the word is not.
+    lit = requote_decision(positive(), Q_DECISION_LINE, line, "action_bias", "confidence")
+    lit["decision"]["instrument"]["quote"]["quote"] = line
+    lit["decision"]["confidence"]["text"] = word
+    refused = (f"decision.confidence: text {word} does not occur in the quote",)
+    got = issues_over(lit, edited_pack("prior_case", Q_DECISION_LINE, line))
+    assert got == (() if accepted else refused)

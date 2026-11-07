@@ -1115,3 +1115,65 @@ func shortWorkerPoll(t *testing.T) {
 	workerPoll = 10 * time.Millisecond
 	t.Cleanup(func() { workerPoll = saved })
 }
+
+// A07: a worker lock that cannot be created fails the Start closed and retryably: no process, no
+// "running" status, the start claim released; once the obstacle is gone the same run starts.
+func TestStartWithAnUncreatableWorkerLockIsRetryable(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	review := reviewRequest(t, app, `["annual.txt"]`)
+	var value map[string]any
+	_ = json.Unmarshal(review.Body.Bytes(), &value)
+	id := value["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	lock := filepath.Join(folder, "worker.lock")
+	if err := os.Symlink(lock, lock); err != nil { // opening it fails with a loop, never a lock
+		t.Skip(err)
+	}
+	payload := `{"id":"` + id + `","review_id":"review-fingerprint","confirm":true}`
+	if start := call(app, "POST", "/api/runs/start", payload); start.Code != 500 || !strings.Contains(start.Body.String(), "Start can be tried again") {
+		t.Fatalf("start with no lock: %d %s", start.Code, start.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(folder, "start.claim")); err == nil {
+		t.Error("the start claim was kept though nothing started")
+	}
+	if _, err := os.Stat(filepath.Join(folder, "synthetic-starts.txt")); err == nil {
+		t.Error("a worker started without its lock")
+	}
+	if got := jobState(t, folder); got.State == "running" {
+		t.Error("status says running though no worker exists")
+	}
+	app.mu.RLock()
+	active := len(app.activeJobs)
+	app.mu.RUnlock()
+	if active != 0 {
+		t.Errorf("%d active jobs", active)
+	}
+	if err := os.Remove(lock); err != nil {
+		t.Fatal(err)
+	}
+	if start := call(app, "POST", "/api/runs/start", payload); start.Code != 202 {
+		t.Fatalf("retry: %d %s", start.Code, start.Body.String())
+	}
+	waitIdle(t, app)
+}
+
+// A07: a lock that cannot be checked leaves its job exactly as it was, and not active.
+func TestRestartLeavesAJobWhoseLockCannotBeCheckedAsItIs(t *testing.T) {
+	_, root := testApp(t)
+	id := fmt.Sprintf("web-%032x", 9)
+	writeJob(t, root, id, "running", time.Now())
+	lock := filepath.Join(root, "intake", id, "worker.lock")
+	if err := os.Symlink(lock, lock); err != nil {
+		t.Skip(err)
+	}
+	app := restarted(t, root)
+	if got := jobState(t, filepath.Join(root, "intake", id)); got.State != "running" {
+		t.Errorf("state %q, want running left as it is", got.State)
+	}
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	if len(app.activeJobs) != 0 {
+		t.Errorf("an unchecked job counted as active: %v", app.activeJobs)
+	}
+}

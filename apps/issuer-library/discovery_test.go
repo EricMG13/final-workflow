@@ -609,3 +609,63 @@ func TestDeclaredRunDeliveryIsListedOnce(t *testing.T) {
 		t.Errorf("pins: own=%q foreign=%q", cat.Allowed[own+"/report.html"], cat.Allowed[foreign+"/report.html"])
 	}
 }
+
+// A03 review: hand-derived readings of accounting, grouping, percentage, year and currency forms,
+// and that every curated legacy metric is still stated by its own quote.
+func TestStatedNumbersAdversarial(t *testing.T) {
+	for _, c := range []struct {
+		quote string
+		want  []string
+	}{
+		{"Revenue $1,234.50 million", []string{"1234.50"}},
+		{"Loss of $(1,234)", []string{"-1234"}},
+		{"(1,234) and (567)", []string{"-1234", "-567"}},
+		{"up 12.5% from 11.9%", []string{"12.5", "11.9"}},
+		{"FY2023 revenue of 5,000 vs 4,500 in FY2022", []string{"2023", "5000", "4500", "2022"}},
+		{"EUR 1.234,56", nil},
+		{"CHF 1'234.50", nil},
+		{"INR 1,23,456", nil},
+		{"EUR -45.2m", []string{"-45.2"}},
+		{"Loss -$5", nil},
+		{"Loss −$5", nil},
+		{"Loss $-5", []string{"-5"}},
+		{"Loss -€1,200.", nil},
+		{"Gain $5", []string{"5"}},
+		{"1,000.5.", []string{"1000.5"}},
+		{"10,000,000", []string{"10000000"}},
+		{"1,000,00", nil},
+		{"1,0000", nil},
+		{"(12.5%)", nil},
+		{"rose 3.5 points (from 2.1)", []string{"3.5"}},
+		{"5 - 3", []string{"5", "3"}},
+		{"Q2 2024 EBITDA 1,200", []string{"2", "2024", "1200"}},
+		{"2023/24 sales 9", []string{"9"}},
+		{"As of 12/31/2024 cash 450", []string{"450"}},
+	} {
+		if got := statedNumbers(c.quote); !slices.Equal(got, c.want) {
+			t.Errorf("%q: %v want %v", c.quote, got, c.want)
+		}
+	}
+}
+
+func TestSeedMetricsAllStated(t *testing.T) {
+	var seeds Catalogue
+	raw, _ := resources.ReadFile("web/legacy-catalog.json")
+	if err := json.Unmarshal(raw, &seeds); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, run := range seeds.Real {
+		for k, m := range run.Metrics {
+			if m == nil {
+				continue
+			}
+			q := seeds.Sources[m.Source].Quote
+			n++
+			if !slices.Contains(statedNumbers(q), m.Value) {
+				t.Errorf("%s/%s value %q quote %q", run.ID, k, m.Value, q)
+			}
+		}
+	}
+	t.Log(n)
+}

@@ -171,13 +171,18 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 }
 
 // numberRune reports the characters that can belong to a written number: digits, decimal and
-// group separators, and dashes. A run of them is read as a whole, never in fragments.
+// group separators, dashes and the slash of a date. A run of them is read as a whole, never in
+// fragments.
 func numberRune(r rune) bool {
-	return signOrDigit(r) || strings.ContainsRune(".,'\u2019", r)
+	return signOrDigit(r) || strings.ContainsRune(".,'\u2019/", r)
+}
+
+func isDash(r rune) bool {
+	return strings.ContainsRune("-\u2010\u2011\u2012\u2013\u2014\u2212", r)
 }
 
 func signOrDigit(r rune) bool {
-	return r >= '0' && r <= '9' || strings.ContainsRune("-\u2010\u2011\u2012\u2013\u2014\u2212", r)
+	return r >= '0' && r <= '9' || isDash(r)
 }
 
 var leadingGroup = regexp.MustCompile(`^-?[0-9]{1,3}$`)
@@ -187,7 +192,7 @@ var trailingGroup = regexp.MustCompile(`^[0-9]{3}(?:[^0-9]|$)`)
 // commas. A maximal run of number characters counts only when all of it is one wholeNumber, so
 // a date, range, list or figure in another separator convention states nothing rather than a
 // fragment of itself; sentence punctuation after a number is dropped. These also state nothing:
-// a minus joined to a word (COVID-19), two runs that read as space-grouped thousands (1 234) or
+// a minus joined to a word (COVID-19) or placed before a currency symbol (-$5), two runs that read as space-grouped thousands (1 234) or
 // as an exponent (1.2e3), and a number closing a parenthesis the quote did not open. Inside
 // parentheses only the exact accounting form "(x)" has a known sign, -x; any other
 // parenthesised number, or "(x)" next to a dash or digit, is not taken.
@@ -232,6 +237,9 @@ func statedNumbers(quote string) []string {
 	for k, run := range runs {
 		if grouped[k] || !wholeNumber.MatchString(run.text) || run.text[0] == '-' && run.start > 0 && unicode.IsLetter(runes[run.start-1]) {
 			continue
+		}
+		if run.start > 1 && unicode.Is(unicode.Sc, runes[run.start-1]) && isDash(runes[run.start-2]) {
+			continue // A minus before a currency symbol (-$5) is a sign this reader does not move.
 		}
 		number := strings.ReplaceAll(run.text, ",", "")
 		if run.depth == 0 && run.end < len(runes) && runes[run.end] == ')' {

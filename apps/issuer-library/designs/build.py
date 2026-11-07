@@ -8,6 +8,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
@@ -17,8 +18,8 @@ from store import CURATED_REPORTS, CURATED_RUNS, built_from, collect_runs, sha25
 OUT = ROOT / "artifacts/issuer-library/design-fixture"
 
 
-def prepare_reports(sources):
-    """Keep original bytes, trace each handoff to its run file by hash, and add the app's presentation."""
+def prepare_reports(sources: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Keep original bytes, trace each handoff to its run file by hash, add the presentation."""
     reports = []
     web = HERE.parent / "web"
     adapter = (web / "report-adapter.js").read_text()
@@ -38,7 +39,7 @@ def prepare_reports(sources):
         )
         (destination / "preview.html").write_text(html, encoding="utf-8")
         delivery = json.loads((folder / "delivery.json").read_text())
-        rows = built_from(folder, sources)
+        rows = built_from({str(n): str(h) for n, h in delivery["files"].items()}, sources)
         for row in rows:
             if row["run"] is None:
                 raise ValueError(f"{folder.name}: {row['source']} matches no shown run file")

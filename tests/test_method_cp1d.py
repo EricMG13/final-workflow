@@ -610,8 +610,21 @@ WRONG_BASIS_PAGES = {
     "text after period": POSITIVE_PAGE1.replace(BASIS_CLAUSE, " restated" + BASIS_CLAUSE),
     "second currency": POSITIVE_PAGE1.replace(BASIS_CLAUSE, BASIS_CLAUSE + " EUR;"),
     "second scale": POSITIVE_PAGE1.replace(BASIS_CLAUSE, BASIS_CLAUSE + " amounts in thousands;"),
-    "lowercase code": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; usd; amounts in millions;"),
-    "capitalised unit clause": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; USD; Amounts in millions;"),
+    # Ruling CP-1D Basis case: only letter case is relaxed; spacing and punctuation stay exact.
+    "doubled space in the unit clause": POSITIVE_PAGE1.replace(
+        BASIS_CLAUSE, "; USD; amounts  in millions;"
+    ),
+    "no space in the unit clause": POSITIVE_PAGE1.replace(
+        BASIS_CLAUSE, "; USD; amountsin millions;"
+    ),
+    "comma for the semicolon": POSITIVE_PAGE1.replace(BASIS_CLAUSE, ", USD, amounts in millions;"),
+    "hyphenated unit clause": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; USD; amounts-in-millions;"),
+    "lowercase second currency": POSITIVE_PAGE1.replace(BASIS_CLAUSE, BASIS_CLAUSE + " eur;"),
+    "capitalised second scale": POSITIVE_PAGE1.replace(
+        BASIS_CLAUSE, BASIS_CLAUSE + " Amounts in Thousands;"
+    ),
+    "lowercase other currency": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; eur; amounts in millions;"),
+    "capitalised thousands": POSITIVE_PAGE1.replace(BASIS_CLAUSE, "; usd; Amounts in Thousands;"),
     "thousand millions": POSITIVE_PAGE1.replace(
         BASIS_CLAUSE, "; USD; amounts in thousand millions;"
     ),
@@ -646,6 +659,29 @@ def test_bridge_basis_must_state_the_run_currency_in_millions(variant: str) -> N
     ],
 )
 def test_bridge_basis_clause_spacing_and_ending_still_parse(clause: str) -> None:
+    page1 = POSITIVE_PAGE1.replace(BASIS_CLAUSE, clause)
+    assert page1 != POSITIVE_PAGE1
+    bridge = cp1d.parse_bridge([page1])
+    assert bridge is not None
+    assert [i.amount for i in bridge.items][:3] == [
+        Decimal("3.00"),
+        Decimal("1.20"),
+        Decimal("0.80"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "clause",
+    [
+        "; usd; amounts in millions;",
+        "; USD; Amounts in millions;",
+        "; Usd; AMOUNTS IN MILLIONS;",
+    ],
+)
+def test_bridge_basis_clause_matches_without_regard_to_case(clause: str) -> None:
+    """Ruling CP-1D Basis case: "USD; amounts in millions" in any letter case reads as before.
+
+    Expected: the frozen page's items 3.00, 1.20, 0.80 (page:1), unchanged by the casing."""
     page1 = POSITIVE_PAGE1.replace(BASIS_CLAUSE, clause)
     assert page1 != POSITIVE_PAGE1
     bridge = cp1d.parse_bridge([page1])

@@ -629,8 +629,10 @@ _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spac
 # "millions of dollars". A share-count clause ("shares in thousands") and a negated one ("not in
 # millions") state no monetary unit, and neither does prose such as "thousands of customers". Every
 # MILLIONS operand is stamped at scale 1e6 of the reporting currency, so its page must state
-# exactly that unit (as the CP-1 adapters refuse other scales). A page that spells its unit
-# otherwise ("USDm", "$m") states none, and its rows are refused.
+# exactly that unit (as the CP-1 adapters refuse other scales). The symbol spellings "$m",
+# "US$m" and "USDm" (a three-capital-letter code, `m` lower case, whole token) state millions
+# too (`_MILLIONS_SYMBOL`); any other spelling ("$mm", "USDmn", "000s") states none, and its
+# rows are refused.
 _UNIT_WORDS = re.compile(
     r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
     r"|(?:(?-i:\b[A-Z]{3}\s+)|[$€£]\s*)(thousands|millions|billions)\b"
@@ -638,6 +640,7 @@ _UNIT_WORDS = re.compile(
     r"(?:(?:U\.S\.|US)\s+)?(?:dollars|euros?|pounds|(?-i:[A-Z]{3}\b))",
     re.IGNORECASE,
 )
+_MILLIONS_SYMBOL = re.compile(r"(?<![A-Za-z0-9$])(?:US\$|\$|[A-Z]{3})m(?![A-Za-z0-9])")
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
 _HEDGE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,2})?")
 _RATE_PHRASE = re.compile(r"\b(floating|fixed)[\s-]+rate\b", re.IGNORECASE)
@@ -818,9 +821,9 @@ class _Check:
 
     def unit_issue(self, locator: str) -> str | None:
         """Why the page at ``locator`` (one of ``self.pages``) is not in millions, or None."""
-        found = {
-            w.lower() for groups in _UNIT_WORDS.findall(self.pages[locator]) for w in groups if w
-        }
+        page = self.pages[locator]
+        found = {w.lower() for groups in _UNIT_WORDS.findall(page) for w in groups if w}
+        found |= {"millions"} if _MILLIONS_SYMBOL.search(page) else set()
         if not found:
             return f"{locator} does not state the unit of its amounts"
         if found != {"millions"}:

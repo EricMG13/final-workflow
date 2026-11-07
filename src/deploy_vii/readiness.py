@@ -238,9 +238,14 @@ def extraction_coverage(source: Source) -> dict[str, object]:
     return record
 
 
-# A claim that pages are absent: a page range and an absence word in the same clause.
-_PAGE_RANGE = re.compile(
-    r"\bpages?\s*:?\s*([0-9]+)\s*(?:-|\u2013|\u2014|to|through)\s*(?:\[?pages?\s*:?\s*)?([0-9]+)",
+# A claim that pages are absent: pages named after "page", "pages", "p." or "pp." and an absence
+# word in the same clause. The pages are one page (`page:7`), a range (`pages 33-52`, `pp. 3-5`)
+# or a list of them (`pages 3 and 4`, `pages 3, 5-7 and 9`); each item is a (first, last) range.
+_TO = r"\s*(?:-|\u2013|\u2014|to|through)\s*(?:\[?pages?\s*:?\s*)?"
+_PAGE_ITEM = re.compile(rf"([0-9]+)(?:{_TO}([0-9]+))?", re.IGNORECASE)
+_ITEM = rf"[0-9]+(?:{_TO}[0-9]+)?"
+_PAGE_LIST = re.compile(
+    rf"(?:\bpages?|\bpp?\.)\s*:?\s*{_ITEM}(?:\s*(?:,|&|\band\b)\s*(?:pages?\s*:?\s*)?{_ITEM})*",
     re.IGNORECASE,
 )
 _ABSENT = re.compile(
@@ -268,23 +273,32 @@ _NEGATED = re.compile(
 # "missing from pages 40-60": the range says where content was looked for, on pages the claim
 # itself treats as present; that is a judgment about content, not an absence claim.
 _LOCATIVE = re.compile(r"\b(?:from|in|on|within)\s+(?:\S+\s+){0,2}$", re.IGNORECASE)
+# It is looked for in the 200 characters before the pages only, so a long claim naming many
+# pages is read in linear time (the two words a locative allows are never that long).
+_LOCATIVE_REACH = 200
 
 
 def absent_page_ranges(text: str) -> tuple[tuple[int, int], ...]:
     """Page ranges `text` says are absent (`pages 33-52 not present`, `pages 12 to 180 ... are
-    absent`; en and em dashes too). A range with no absence word in its clause is not one, nor
-    is a range introduced by a locative preposition (`missing from pages 40-60`). A negated
-    absence (`no pages missing`, `none missing`, `not missing`) or the coverage field restated
-    as empty is not an absence word."""
+    absent`; en and em dashes too), a single page as (N, N) (`page:7 is missing`) and each item of
+    a list (`pages 3 and 4`, `pp. 3-5, 9`). Pages with no absence word in their clause are not
+    one, nor are pages introduced by a locative preposition (`missing from pages 40-60`). A
+    negated absence (`no pages missing`, `none missing`, `not missing`) or the coverage field
+    restated as empty is not an absence word."""
     found: list[tuple[int, int]] = []
     for clause in _CLAUSE.split(text):
         clause = _NEGATED.sub(" ", clause)
         if _ABSENT.search(clause):
-            found += [
-                (int(m.group(1)), int(m.group(2)))
-                for m in _PAGE_RANGE.finditer(clause)
-                if int(m.group(1)) <= int(m.group(2)) and not _LOCATIVE.search(clause[: m.start()])
-            ]
+            for named in _PAGE_LIST.finditer(clause):
+                start = named.start()
+                if _LOCATIVE.search(clause, max(0, start - _LOCATIVE_REACH), start):
+                    continue
+                for item in _PAGE_ITEM.finditer(named.group(0)):
+                    digits = (item.group(1), item.group(2) or item.group(1))
+                    if max(map(len, digits)) > 9:
+                        continue  # no pack holds such a page (and int() refuses 4,300 digits)
+                    first, last = map(int, digits)
+                    found += [(first, last)] if first <= last else []
     return tuple(found)
 
 

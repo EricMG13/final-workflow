@@ -11,6 +11,8 @@ Expected issues are derived by hand from those page numbers.
 
 from datetime import date
 
+import pytest
+
 from deploy_vii.contracts import Citation, Claim, Run, Source, Span
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.readiness import (
@@ -18,6 +20,7 @@ from deploy_vii.readiness import (
     ReadinessGap,
     ReadinessReview,
     SourceAssessment,
+    absent_page_ranges,
     coverage_issues,
 )
 
@@ -193,3 +196,34 @@ def test_a_text_naming_part_of_a_file_name_or_only_a_longer_word_names_no_source
     assert _named_gap(WORD, "The report pages 1-1 not supplied") == (
         "Absence claim contradicts extraction coverage: page:1 to page:1 retained in report",
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # S15-A03: one page, a list and the "pp." form are absence claims too. Expected by hand:
+        # each named page or range is one (first, last) item, a single page (N, N).
+        ("page:7 is missing", ((7, 7),)),
+        ("Pages 3 and 4 are missing", ((3, 3), (4, 4))),
+        ("pp. 3-5 missing", ((3, 5),)),
+        ("pages 3, 5-7 and 9 not supplied", ((3, 3), (5, 7), (9, 9))),
+        ("pages 3-5 are missing", ((3, 5),)),  # unchanged
+        # not absence claims: a locative, a negation, no absence word, a reversed range
+        ("missing from page 7", ()),
+        ("no pages missing", ()),
+        ("page 7 holds the covenant table", ()),
+        ("pages 9-3 are missing", ()),
+        # a page number no pack can hold (5,000 digits) is skipped, not a ValueError from int()
+        ("pages 1-" + "1" * 5000 + " missing", ()),
+    ],
+)
+def test_absent_pages_include_single_pages_and_lists(
+    text: str, expected: tuple[tuple[int, int], ...]
+) -> None:
+    assert absent_page_ranges(text) == expected
+
+
+def test_a_single_retained_page_called_missing_is_flagged() -> None:
+    # page 7 of annual-report (pages 1-100 retained) is called missing in the source's own gap
+    review = _review(gap="annual-report page:7 is missing", gap_citations=(CITE,))
+    assert coverage_issues(PACK, review) == (_contradiction(7, 7),)

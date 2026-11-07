@@ -260,7 +260,6 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
     execute: Callable[[HandoffTask], bytes],
     check: Callable[[HandoffTask, bytes], tuple[str, ...]],
     on_handoff: Callable[[HandoffTask, bytes], None] | None = None,
-    on_start: Callable[[HandoffTask], None] | None = None,
     events: Path | None = None,
 ) -> Path:
     """CP-OS exchange: plan, retain, check, pass current handoffs, deliver.
@@ -382,8 +381,6 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
             )
             if events is not None:
                 append_event(events, "module_started", module=module_id)
-            if on_start is not None:
-                on_start(task)
             raw, path = _handoff(
                 task,
                 directory,
@@ -514,7 +511,6 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
     max_turns: int = 24,
     max_output_tokens: int = 16000,
     on_handoff: Callable[[HandoffTask, bytes], None] | None = None,
-    on_start: Callable[[HandoffTask], None] | None = None,
     config: str = "sol-medium",
     rulings_root: Path | None = None,
 ) -> Path:
@@ -551,7 +547,6 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
             execute=executor,
             check=check,
             on_handoff=on_handoff,
-            on_start=on_start,
             events=directory,
         )
     except BaseException as stop:

@@ -172,3 +172,38 @@ def test_rounded_long_results_cover_their_printed_roundings_only() -> None:
     assert flow.report_faults("ratio 4.51x and 4.52x", [long]) == [
         "report: number 4.52 is not in the handoffs or context"
     ]
+
+
+def test_input_whose_contents_no_longer_match_its_hash_is_a_fault(tmp_path: Path) -> None:
+    run, _ = make_run(tmp_path)
+    with (run / "inputs" / sha(SOURCE.encode())).open("a") as handle:
+        handle.write("x")
+    faults = flow.run_faults(run)
+    assert faults and all("annual.txt" in f for f in faults)
+
+
+def test_unicode_minus_in_call_args_keeps_each_addend_checked() -> None:
+    got = flow.numbers("sum(2456,18,999,1,\u221213)=3461")
+    assert got - flow.numbers("2456 18 1 13 3461") == {"999"}
+    assert "375" not in flow.numbers("2,045/1,375")  # no false figure from the digit-comma form
+
+
+def test_unit_suffixes_are_stripped_not_truncated() -> None:
+    assert flow.numbers("$12.6bn") == {"12.6"}
+    assert flow.numbers("a $451m loan") == {"451"}
+    assert flow.numbers("EUR 1,250.5mm and 40K and 5M") == {"1250.5", "40"}
+    assert flow.numbers("12.6xyz 3.5.1") == set()
+
+
+def test_written_dates_are_month_names_only_and_slugs_are_lowercase() -> None:
+    assert flow.numbers("as of September 30, 2024 and 31 Mar. 2025") == set()
+    assert flow.numbers("Facility 45, 7940 drawn") == {"45", "7940"}
+    assert flow.numbers("across 3 Tranches 7940 drawn") == {"7940"}
+    assert flow.numbers("Term Loan B-12 and EUR-1,250 and run-20261105") == {"12", "1250"}
+
+
+def test_module_missing_from_an_existing_delivery_is_a_fault(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    (run / "deliveries/d1/CP-1.md").unlink()
+    faults = flow.run_faults(run, sources)
+    assert len(faults) == 1 and "CP-1" in faults[0] and "d1" in faults[0]

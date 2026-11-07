@@ -17,19 +17,21 @@ ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # A page reference (pp.3,105-109,131,146) lists pages, which are not figures.
 PAGES = re.compile(r"\bpp?\.[\d,\u2013-]+", re.IGNORECASE)
 # Arguments of a call, sum(980,161), are separate numbers, not one figure with a thousands comma.
-CALL_ARGS = re.compile(r"(?<=\w\()[\d.,\s-]+(?=\))")
+CALL_ARGS = re.compile(r"(?<=\w\()[\d.,\s\u2212-]+(?=\))")
 # A digest has letters; a run of digits alone is a long decimal result, not a digest.
 # The same date written out for display: 31 March 2025, Mar 31, 2025.
-WRITTEN_DATE = re.compile(
-    r"\b\d{1,2} [A-Z][a-z]{2,8},? \d{4}\b|\b[A-Z][a-z]{2,8} \d{1,2},? \d{4}\b"
-)
+MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]{0,6}\.?"
+WRITTEN_DATE = re.compile(rf"\b\d{{1,2}} {MONTH},? \d{{4}}\b|\b{MONTH} \d{{1,2}},? \d{{4}}\b")
 HEX_RUN = re.compile(r"(?=[0-9]*[a-fA-F])[0-9a-fA-F]{16,}")
-# A standalone number: not inside a word, path or file name; a trailing "x" is a multiple (4.2x).
-# Not after "letter-" (run-20261105, tdg-20240930) and not after "digit," (a page list 38,54,106 is
-# not the figure 54,106).
+# A standalone number: not inside a word, path or file name. A trailing x, bn, mm, m or k is a
+# multiple or scale (4.2x, $12.6bn) and is stripped; the number never stops short of a decimal.
+# Not after "slug-" in lowercase (run-20261105, tdg-20240930; Term Loan B-12 stays checked) and not
+# after "digit," (a page list 38,54,106 is not the figure 54,106).
+UNIT = r"(?i:x|bn|mm|m|k)"
 NUMBER = re.compile(
-    r"(?<![\w/.])(?<![A-Za-z]-)(?<!\d,)(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:x(?!\w))?(?![\w]|\.[A-Za-z])"
+    rf"(?<![\w/.])(?<![a-z]-)(?<!\d,)(?:\d{{1,3}}(?:,\d{{3}})+|\d+)(?:\.\d+)?{UNIT}?(?!\w|\.[A-Za-z\d])"
 )
+UNIT_END = re.compile(rf"{UNIT}$")
 LEADING_ZERO = re.compile(r"0\d+")
 MODULE = re.compile(r"CP-[A-Z0-9]+")
 
@@ -39,7 +41,7 @@ def numbers(text: str) -> set[str]:
     text = PAGES.sub(" ", HEX_RUN.sub(" ", WRITTEN_DATE.sub(" ", ISO_DATE.sub(" ", text))))
     found = set()
     for match in NUMBER.findall(text):
-        value = match.removesuffix("x").replace(",", "")
+        value = UNIT_END.sub("", match).replace(",", "")
         if "." in value:
             value = value.rstrip("0").rstrip(".")
         if len(value) > 1 and not LEADING_ZERO.fullmatch(value):  # 02, 057: labels, not quantities
@@ -133,7 +135,9 @@ def _checked_inputs(
     for name, digest in request["sources"].items():
         local = sources / name if sources is not None else None
         in_sources = local is not None and local.is_file() and _sha(local.read_bytes()) == digest
-        if not in_sources and not (run / "inputs" / digest).is_file():
+        kept = run / "inputs" / digest
+        in_inputs = kept.is_file() and _sha(kept.read_bytes()) == digest
+        if not in_sources and not in_inputs:
             faults.append(f"{module}: source {name} sha256 {digest[:12]} matches no supplied file")
     return faults
 
@@ -174,6 +178,12 @@ def run_faults(run: Path, sources: Path | None = None) -> list[str]:
                 f"{module}: number {n} in the handoff is not in what the module read or received"
                 for n in sorted(numbers(data.decode("utf-8", "replace")) - evidence)
             ]
+    for folder in sorted(p for p in run.glob("deliveries/*") if p.is_dir()):
+        faults += [
+            f"{module}: no copy in delivery {folder.name}, the handoff was dropped"
+            for module in handoffs
+            if not (folder / f"{module}.md").is_file()
+        ]
     for copy in sorted(run.glob("deliveries/*/CP-*.md")):
         if copy.read_bytes() != handoffs.get(copy.stem):
             faults.append(

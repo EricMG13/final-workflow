@@ -15,8 +15,9 @@ from deploy_vii.live.prompts import CP4_METHOD
 SRC = Path(__file__).resolve().parents[1] / "src" / "deploy_vii"
 PHRASE = "executed, filed or, on a draft-documents run, draft"
 OLD_CP4_SHA = "99ec34c7a8257e15325456eb5466388eeb656fa01cf30db91e8474334bb39ff0"
-# S13 C01 restated the kpi evidence line (period_basis_id); the pin follows that edit.
-OLD_CONTEXT_SHA = "1eb8ce32bb494d604e67a797eb0a32ffd9d8f0da663bdb8f45f75eb81730d700"
+# S13 C01 restated the kpi evidence line (period_basis_id); S14-C06 passes an already-built
+# pack to the source scopes (`session_scope`); the pin follows those edits.
+OLD_CONTEXT_SHA = "723cf09d1abca82280327987cf23c9f9089fc61f8636399358a6ca0084e0646d"
 
 
 def flat(text: str) -> str:

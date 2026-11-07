@@ -66,7 +66,7 @@ func reviewRequest(t *testing.T, app *Application, paths string) *httptest.Respo
 	}
 	_, _ = file.Write([]byte("Synthetic source"))
 	form.Close()
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body)
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body))
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	request.Header.Set("Origin", "http://"+app.host)
@@ -192,14 +192,14 @@ func TestExplicitStartIsOneShotUnderConcurrentRequests(t *testing.T) {
 }
 func TestSourceUploadsRequireOriginAndCustomHeader(t *testing.T) {
 	app, _ := testApp(t)
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", bytes.NewBufferString("anything"))
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", bytes.NewBufferString("anything")))
 	request.Header.Set("Origin", "https://untrusted.invalid")
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	if response.Code != 403 {
 		t.Fatal("cross-origin upload accepted")
 	}
-	request = httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", nil)
+	request = withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", nil))
 	response = httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	if response.Code != 403 {
@@ -376,6 +376,7 @@ func postReviewWith(t *testing.T, server *httptest.Server, ctx context.Context, 
 	_, _ = file.Write([]byte("x"))
 	form.Close()
 	request, _ := http.NewRequestWithContext(ctx, "POST", server.URL+"/api/runs/review", &body)
+	withSession(server.Config.Handler.(*Application), request)
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	request.Header.Set("Origin", server.URL)
@@ -555,7 +556,8 @@ print('{}')
 	app.host = strings.TrimPrefix(server.URL, "http://")
 	client := &http.Client{Transport: &http.Transport{MaxConnsPerHost: 1, Proxy: nil}}
 	defer client.CloseIdleConnections()
-	response, err := client.Get(server.URL + "/api/workspace")
+	control, _ := http.NewRequest("GET", server.URL+"/api/workspace", nil)
+	response, err := client.Do(withSession(app, control))
 	if err != nil || response.StatusCode != 200 {
 		t.Fatalf("control /api/workspace failed: %v", err)
 	}
@@ -569,7 +571,7 @@ print('{}')
 	reused := false
 	trace := &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) { reused = reused || info.Reused }}
 	request, _ := http.NewRequestWithContext(httptrace.WithClientTrace(context.Background(), trace), "GET", server.URL+"/api/workspace", nil)
-	response, err = client.Do(request)
+	response, err = client.Do(withSession(app, request))
 	if !reused {
 		t.Fatal("the request was never tried on the review's connection")
 	}
@@ -942,7 +944,7 @@ func uploadOfSize(t *testing.T, app *Application, size int64) (*http.Request, st
 		written += int64(len(part))
 	}
 	form.Close()
-	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body)
+	request := withSession(app, httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body))
 	request.Header.Set("Content-Type", form.FormDataContentType())
 	request.Header.Set("X-Issuer-Library", "1")
 	return request, hex.EncodeToString(hash.Sum(nil))
@@ -1175,5 +1177,298 @@ func TestRestartLeavesAJobWhoseLockCannotBeCheckedAsItIs(t *testing.T) {
 	defer app.mu.RUnlock()
 	if len(app.activeJobs) != 0 {
 		t.Errorf("an unchecked job counted as active: %v", app.activeJobs)
+	}
+}
+
+// heldReviewEngine's review waits until <job>/release exists (60 s at most), then reports a
+// provider-ready review; its start records the start and exits, as fakeEngine's does.
+func heldReviewEngine(t *testing.T) Engine {
+	t.Helper()
+	engine := fakeEngine(t)
+	script := filepath.Join(t.TempDir(), "held-review.py")
+	raw := `import json,sys,pathlib,time
+folder=pathlib.Path(sys.argv[2])
+job=json.loads((folder/'job.json').read_text())
+if sys.argv[1]=='review':
+ deadline=time.time()+60
+ while not (folder/'release').exists() and time.time()<deadline: time.sleep(.01)
+ print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True}))
+else:
+ (folder/'synthetic-starts.txt').write_text('one\n')
+ (folder/'status.json').write_text(json.dumps({'state':'stopped','message':'Synthetic worker seam only; no provider called.'}))
+`
+	if err := os.WriteFile(script, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return Engine{Python: engine.Python, Script: script}
+}
+
+func inFlightReviews(app *Application) int {
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	return app.reviews
+}
+
+// waitReviews waits (5 s at most) until exactly want reviews are in flight.
+func waitReviews(t *testing.T, app *Application, want int) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); inFlightReviews(app) != want; time.Sleep(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatalf("%d reviews in flight, want %d", inFlightReviews(app), want)
+		}
+	}
+}
+
+// heldJobs waits (5 s at most) until at least want reviews in workspace have saved job.json, which
+// the handler writes after counting the review and before the held review starts, and returns
+// their folders.
+func heldJobs(t *testing.T, workspace string, want int) []string {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(5 * time.Millisecond) {
+		jobs, _ := filepath.Glob(filepath.Join(workspace, "intake", "web-*", "job.json"))
+		if len(jobs) >= want {
+			folders := []string{}
+			for _, job := range jobs {
+				folders = append(folders, filepath.Dir(job))
+			}
+			return folders
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("%d held reviews, want %d", len(jobs), want)
+		}
+	}
+}
+
+// releaseReviews waits for want held reviews in workspace, then lets every held review finish.
+func releaseReviews(t *testing.T, workspace string, want int) {
+	t.Helper()
+	for _, folder := range heldJobs(t, workspace, want) {
+		if err := os.WriteFile(filepath.Join(folder, "release"), nil, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func switchTo(app *Application, workspace string) *httptest.ResponseRecorder {
+	raw, _ := json.Marshal(Config{Workspace: workspace})
+	return call(app, "POST", "/api/settings", string(raw))
+}
+
+func currentWorkspace(app *Application) string {
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	return app.config.Workspace
+}
+
+// C08: while a review is in flight a workspace switch is refused with 409 and the message, and
+// saving the same workspace (also spelled with a trailing separator or ".") keeps today's 200.
+// Once the review ends the reviewed run starts in the workspace it was reviewed in (202, where the
+// reproduction got 409 "Review this run before starting"), and the switch is accepted.
+func TestWorkspaceSwitchIsRefusedWhileAReviewIsInFlight(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = heldReviewEngine(t)
+	t.Cleanup(func() { releaseReviews(t, root, 0) })
+	other := t.TempDir()
+	discovered := 0 // discoveries of other; only this test goroutine switches to it
+	saved := discoverWorkspace
+	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+		if folder == other {
+			discovered++
+		}
+		return saved(folder, seeds)
+	}
+	t.Cleanup(func() { discoverWorkspace = saved })
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- reviewRequest(t, app, `["annual.txt"]`) }()
+	waitReviews(t, app, 1)
+	if response := switchTo(app, other); response.Code != 409 || response.Body.String() != reviewInFlight+"\n" {
+		t.Fatalf("switch during a review: %d %q", response.Code, response.Body.String())
+	}
+	if discovered != 0 {
+		t.Fatal("a switch refused for the review still discovered the new workspace")
+	}
+	for _, same := range []string{root, root + string(filepath.Separator), filepath.Join(root, ".")} {
+		if response := switchTo(app, same); response.Code != 200 {
+			t.Fatalf("saving the same workspace %q during a review: %d %s", same, response.Code, response.Body.String())
+		}
+	}
+	if currentWorkspace(app) != root {
+		t.Fatalf("workspace moved to %s", currentWorkspace(app))
+	}
+	releaseReviews(t, root, 1)
+	review := <-done
+	var value map[string]any
+	if review.Code != 200 || json.Unmarshal(review.Body.Bytes(), &value) != nil || value["ok"] != true {
+		t.Fatalf("review: %d %s", review.Code, review.Body.String())
+	}
+	waitReviews(t, app, 0)
+	if start := call(app, "POST", "/api/runs/start", `{"id":"`+value["id"].(string)+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
+		t.Fatalf("start after the refused switch: %d %s", start.Code, start.Body.String())
+	}
+	waitIdle(t, app)
+	if response := switchTo(app, other); response.Code != 200 || currentWorkspace(app) != other {
+		t.Fatalf("switch after the review: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// C08: a review cut at the review bound (1 s here; the held review would wait 60 s) answers 503
+// and leaves no review in flight, so the switch refused during it is accepted after it.
+func TestAReviewPastTheBoundReleasesTheWorkspace(t *testing.T) {
+	shortReviewTimeout(t, time.Second)
+	app, root := testApp(t)
+	app.engine = heldReviewEngine(t)
+	t.Cleanup(func() { releaseReviews(t, root, 0) })
+	other := t.TempDir()
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- reviewRequest(t, app, `["annual.txt"]`) }()
+	waitReviews(t, app, 1)
+	if response := switchTo(app, other); response.Code != 409 {
+		t.Fatalf("switch during the review: %d", response.Code)
+	}
+	if review := <-done; review.Code != 503 {
+		t.Fatalf("review past the bound: %d %s", review.Code, review.Body.String())
+	}
+	if n := inFlightReviews(app); n != 0 {
+		t.Fatalf("%d reviews in flight after the bound", n)
+	}
+	if response := switchTo(app, other); response.Code != 200 {
+		t.Fatalf("switch after the bound: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// C08: the browser gives up on a review over real loopback. The review still runs (it is not tied
+// to the request) and still writes into the workspace, so the switch stays refused until the
+// review ends; then the handler returns and the switch is accepted.
+func TestAReviewWhoseClientWentAwayHoldsTheWorkspaceUntilItEnds(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = heldReviewEngine(t)
+	server := slowServer(t, app)
+	t.Cleanup(func() { releaseReviews(t, root, 0) }) // runs before server.Close waits for the handler
+	other := t.TempDir()
+	ctx, cancel := context.WithCancel(context.Background())
+	gone := make(chan error, 1)
+	go func() {
+		response, err := postReviewWith(t, server, ctx, &http.Client{Transport: &http.Transport{Proxy: nil}})
+		if err == nil {
+			response.Body.Close()
+		}
+		gone <- err
+	}()
+	waitReviews(t, app, 1)
+	cancel()
+	if err := <-gone; err == nil {
+		t.Fatal("the client received a response after giving up")
+	}
+	if response := switchTo(app, other); response.Code != 409 {
+		t.Fatalf("switch while the abandoned review runs: %d", response.Code)
+	}
+	releaseReviews(t, root, 1)
+	waitReviews(t, app, 0)
+	if response := switchTo(app, other); response.Code != 200 {
+		t.Fatalf("switch after the abandoned review: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// C08: the error exits. A missing runtime (503), a validator refusal (200, ok false) and an
+// upload refused before the workspace is read (400) each leave no review in flight.
+func TestReviewErrorsLeaveNoReviewInFlight(t *testing.T) {
+	app, _ := testApp(t)
+	good := fakeEngine(t)
+	refusing := filepath.Join(t.TempDir(), "refuse.py")
+	if err := os.WriteFile(refusing, []byte("import json\nprint(json.dumps({'ok':False,'problems':['synthetic refusal']}))\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		label  string
+		engine Engine
+		paths  string
+		status int
+	}{
+		{"missing runtime", Engine{Python: filepath.Join(t.TempDir(), "no-python"), Script: good.Script}, `["annual.txt"]`, 503},
+		{"validator refusal", Engine{Python: good.Python, Script: refusing}, `["annual.txt"]`, 200},
+		{"refused upload", good, `["../outside.txt"]`, 400},
+	} {
+		app.engine = c.engine
+		if response := reviewRequest(t, app, c.paths); response.Code != c.status {
+			t.Fatalf("%s: %d %s", c.label, response.Code, response.Body.String())
+		}
+		if n := inFlightReviews(app); n != 0 {
+			t.Fatalf("%s: %d reviews in flight", c.label, n)
+		}
+	}
+	if response := switchTo(app, t.TempDir()); response.Code != 200 {
+		t.Fatalf("switch after the failed reviews: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// C08 adversarial: two reviews in flight. Expected: the switch is refused while either runs (2,
+// then 1 in flight) and accepted once both have ended.
+func TestTwoReviewsInFlightRefuseTheSwitchUntilBothEnd(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = heldReviewEngine(t)
+	t.Cleanup(func() { releaseReviews(t, root, 0) })
+	other := t.TempDir()
+	done := make(chan *httptest.ResponseRecorder, 2)
+	for range 2 {
+		go func() { done <- reviewRequest(t, app, `["annual.txt"]`) }()
+	}
+	waitReviews(t, app, 2)
+	if response := switchTo(app, other); response.Code != 409 {
+		t.Fatalf("switch with two reviews: %d", response.Code)
+	}
+	jobs := heldJobs(t, root, 2)
+	if err := os.WriteFile(filepath.Join(jobs[0], "release"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if review := <-done; review.Code != 200 {
+		t.Fatalf("first review: %d", review.Code)
+	}
+	waitReviews(t, app, 1)
+	if response := switchTo(app, other); response.Code != 409 {
+		t.Fatalf("switch with one review left: %d", response.Code)
+	}
+	releaseReviews(t, root, 1)
+	if review := <-done; review.Code != 200 {
+		t.Fatalf("second review: %d", review.Code)
+	}
+	waitReviews(t, app, 0)
+	if response := switchTo(app, other); response.Code != 200 {
+		t.Fatalf("switch after both: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// C08: a review that starts while a switch is discovering the new workspace (unlocked) refuses the
+// switch when it would commit, as a Start does; the workspace and catalogue stay, and the review
+// completes into the workspace it read.
+func TestAReviewStartedDuringASwitchRefusesItAtCommit(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = heldReviewEngine(t)
+	t.Cleanup(func() { releaseReviews(t, root, 0) })
+	other := t.TempDir()
+	entered, release := blockDiscovery(t, other)
+	switched := make(chan *httptest.ResponseRecorder)
+	go func() { switched <- switchTo(app, other) }()
+	<-entered
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- reviewRequest(t, app, `["annual.txt"]`) }()
+	waitReviews(t, app, 1)
+	close(release)
+	if response := <-switched; response.Code != 409 || response.Body.String() != reviewInFlight+"\n" {
+		t.Fatalf("switch committed during a review: %d %q", response.Code, response.Body.String())
+	}
+	app.mu.RLock()
+	workspace, catalogue := app.config.Workspace, app.catalogue.Workspace
+	app.mu.RUnlock()
+	if workspace != root || catalogue != root {
+		t.Fatalf("config %s, catalogue %s; want %s", workspace, catalogue, root)
+	}
+	releaseReviews(t, root, 1)
+	review := <-done
+	var value map[string]any
+	if review.Code != 200 || json.Unmarshal(review.Body.Bytes(), &value) != nil {
+		t.Fatalf("review: %d %s", review.Code, review.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(root, "intake", value["id"].(string), "review.json")); err != nil {
+		t.Fatalf("review not retained in the workspace it read: %v", err)
 	}
 }

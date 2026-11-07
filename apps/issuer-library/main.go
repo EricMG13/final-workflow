@@ -15,6 +15,9 @@ import (
 	"time"
 )
 
+// launchBrowser opens a URL in the user's browser; a variable so tests can see what is opened.
+var launchBrowser = openBrowser
+
 func run() (err error) {
 	workspace := flag.String("workspace", "", "Workspace folder (disabled by IT policy)")
 	state := flag.String("state-dir", "", "Override per-user state directory for testing")
@@ -69,14 +72,13 @@ func run() (err error) {
 				var health map[string]string
 				decodeErr := json.NewDecoder(http.MaxBytesReader(nil, response.Body, 4096)).Decode(&health)
 				response.Body.Close()
+				// This user's instance answers. Its session secret is in its memory only, so this
+				// launch cannot sign a browser in to it: it says so and opens no window.
 				if decodeErr == nil && health["application"] == "finalworkflow-issuer-library/1" && health["instance"] == digest([]byte(loc.State)) {
 					if *workspace != "" {
 						return fmt.Errorf("library is already running; change its workspace in Settings or quit it first")
 					}
-					if !*noBrowser {
-						return openBrowser(address)
-					}
-					return nil
+					return errAlreadyRunning
 				}
 			}
 			time.Sleep(200 * time.Millisecond)
@@ -111,15 +113,20 @@ func run() (err error) {
 			}
 		}
 	}()
-	if !*noBrowser {
+	// The one-time launch link goes to the browser, or with --no-browser to standard output for
+	// whoever started the library; never to library.log.
+	launch := app.launchURL()
+	if *noBrowser {
+		fmt.Println("Issuer Library:", launch)
+	} else {
+		fmt.Println("Issuer Library:", address)
 		go func() {
-			if err := openBrowser(address); err != nil {
+			if err := launchBrowser(launch); err != nil {
 				log.Printf("Open browser: %v", err)
-				showError("Open " + address + " in your browser.\n" + err.Error())
+				showError("Open this link in your browser; it works once:\n" + launch + "\n" + err.Error())
 			}
 		}()
 	}
-	fmt.Println("Issuer Library:", address)
 	log.Printf("Listening at %s", address)
 	err = server.Serve(listener)
 	if err == http.ErrServerClosed {

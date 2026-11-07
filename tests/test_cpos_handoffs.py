@@ -1177,3 +1177,25 @@ def test_a_run_without_an_events_folder_writes_no_events(tmp_path):
     state = tmp_path / "state"
     run_handoffs(path, state, execute=replay, check=checked)
     assert not list(state.rglob("events.jsonl"))
+
+
+def test_a_delivered_event_that_cannot_be_written_leaves_the_run_completed(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from deploy_workflow import run_events
+
+    real = run_events.os.fsync
+
+    def fsync_unless_delivered(fd):
+        if (tmp_path / "state" / "events.jsonl").read_bytes().endswith(b'"delivered"}\n'):
+            raise OSError(28, "No space left on device")
+        real(fd)
+
+    monkeypatch.setattr(run_events, "os", SimpleNamespace(fsync=fsync_unless_delivered))
+    path = job(tmp_path)
+    state = tmp_path / "state"
+    with pytest.warns(RuntimeWarning, match="run event not recorded") as caught:
+        report = run_handoffs(path, state, execute=replay, check=checked, events=state)
+    assert any("delivered" in str(w.message) for w in caught)
+    assert verify_delivery(next(state.glob("delivery-*.json")), report.parent) == report
+    assert list(state.glob("completed-*.json"))

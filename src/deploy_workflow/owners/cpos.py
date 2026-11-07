@@ -504,15 +504,6 @@ def _release(adapter: "LiveAdapter | CopilotAdapter") -> None:
         adapter.close()
 
 
-def _log_stop(directory: Path, stop: Exception) -> None:
-    """Record why a live run stopped. Documented fail-open: the event log is advisory, so a
-    failure to write it is warned about and must not replace the stop it describes."""
-    try:
-        append_event(directory, "stopped", reason=stop_reason(stop))
-    except OSError as failure:
-        warnings.warn(f"stop event not recorded: {failure}", RuntimeWarning, stacklevel=2)
-
-
 def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes every run option
     manifest: Path,
     directory: Path,
@@ -567,7 +558,7 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
         # Documented fail-open: a release failure must not mask the stop it follows; it is
         # recorded as a note on the propagating exception.
         if isinstance(stop, Exception):
-            _log_stop(directory, stop)
+            append_event(directory, "stopped", reason=stop_reason(stop))
         try:
             _release(adapter)
         except Exception as failure:  # noqa: BLE001 -- noted on the propagating stop

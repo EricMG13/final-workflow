@@ -183,24 +183,25 @@ class SignedBrowser:
 def errors_of(page: Any) -> list[str]:
     """Console and page errors, returned for the walk's own check; every fault is also recorded."""
     errors: list[str] = []
+    walk = WALK  # bound now: a page left open by a failed walk keeps its own walk's name
 
     def console(message: Any) -> None:
         if message.type == "error":
             errors.append(message.text)
-            FAULTS.add(WALK, "console", message.text, page.url)
+            FAULTS.add(walk, "console", message.text, page.url)
 
     def pageerror(error: Any) -> None:
         errors.append(str(error))
-        FAULTS.add(WALK, "pageerror", str(error), page.url)
+        FAULTS.add(walk, "pageerror", str(error), page.url)
 
     def response(received: Any) -> None:
         parts = urlparse(received.url)
         if parts.hostname == "127.0.0.1" and http_fault(received.status, parts.path, EXPECTED_HTTP):
-            FAULTS.add(WALK, "http", f"{received.status} {parts.path}", received.url)
+            FAULTS.add(walk, "http", f"{received.status} {parts.path}", received.url)
 
     def failed(request: Any) -> None:
         if request_fault(request.failure):
-            FAULTS.add(WALK, "requestfailed", str(request.failure), request.url)
+            FAULTS.add(walk, "requestfailed", str(request.failure), request.url)
 
     page.on("console", console)
     page.on("pageerror", pageerror)

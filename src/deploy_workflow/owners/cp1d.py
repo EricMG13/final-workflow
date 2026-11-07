@@ -418,6 +418,7 @@ _TYPES = ("Saving", "Cost")
 # MILLIONS in the run's currency, so page:1 must state exactly that.
 _BASIS_UNIT_CLAUSE = "amounts in millions"
 _CURRENCY_CODE = re.compile(r"[A-Z]{3}")
+_CURRENCY_CLAUSE = re.compile(r"[A-Z]{3}", re.IGNORECASE)
 # Round 4 (k): an amount is the product `financial_contracts.Number` (-1e18 < x < 1e18, 28
 # digits, 10 places). Bridge amounts, quoted basis amounts and CP-1 amount operands hold it, so
 # every sum and product here is exact and every value spells exactly (`display.format_value`).
@@ -492,16 +493,22 @@ def _bridge_amount(token: str) -> Decimal | None:
 
 def _states_basis(lines: Sequence[str], basis_line: str, currency: str) -> bool:
     """Whether page:1 states the run's basis: at least one line starts with `basis_line`, and
-    every such line continues `; <currency>; amounts in millions` (cp1c's round 2 C3 clause),
+    every such line continues `; <currency>; amounts in millions` (cp1c's round 2 C3 clause; the
+    clause is matched without regard to letter case, nothing else relaxed),
     since that clause is what makes each bridge amount a `currency` MILLIONS amount. Another
     currency, another scale, a missing clause or a second currency or scale clause later on the
     line is not the run's basis (fail closed)."""
     stated = [line for line in lines if line.startswith(basis_line)]
     for line in stated:
         clauses = [part.strip().rstrip(".") for part in line[len(basis_line) :].split(";")]
-        if clauses[:3] != ["", currency, _BASIS_UNIT_CLAUSE]:
+        # Only letter case is relaxed ("usd", "Amounts in Millions"); spacing and punctuation
+        # stay exact, so the clause is still compared as a whole after the split on ";".
+        if [c.casefold() for c in clauses[:3]] != ["", currency.casefold(), _BASIS_UNIT_CLAUSE]:
             return False
-        if any(_CURRENCY_CODE.fullmatch(c) or c.startswith("amounts in") for c in clauses[3:]):
+        if any(
+            _CURRENCY_CLAUSE.fullmatch(c) or c.casefold().startswith("amounts in")
+            for c in clauses[3:]
+        ):
             return False
     return bool(stated)
 

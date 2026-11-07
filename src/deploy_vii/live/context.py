@@ -51,7 +51,7 @@ from deploy_vii.contracts import Fact, Module
 from deploy_vii.cp1_workflow import FinancialStage
 from deploy_vii.downstream_readiness import DownstreamInputs
 from deploy_vii.execution import Attempt, Execution
-from deploy_vii.narrative import EvidenceRecord
+from deploy_vii.narrative import EvidenceRecord, financial_dimensions
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.registry import FULL as FULL
 from deploy_vii.registry import NARRATIVE_EVIDENCE as NARRATIVE_EVIDENCE
@@ -475,10 +475,13 @@ def narrative_evidence(stage: FinancialStage) -> str:
     inputs, model = stage.narrative_inputs, stage.model
     ledger = inputs.ledger
     lines = [
-        f"projection={NARRATIVE_EVIDENCE}: the retained CP-1 financial stage as the narrative "
-        "review may reference it. Python keeps the full stage and recomputes from it; amounts "
-        "are the registers' own, statement amounts in their period's unit and currency.",
+        (
+            f"projection={NARRATIVE_EVIDENCE}: the retained CP-1 financial stage as the narrative "
+            "review may reference it. Python keeps the full stage and recomputes from it; amounts "
+            "are the registers' own, statement amounts in their period's unit and currency."
+        ),
         f"scope: {_line(inputs.scope)}",
+        f"financial_dimensions: {_line(financial_dimensions(ledger))}",
         f"calculation_status: {_line(ledger.calculation_status)}",
         f"calculation_issues: {_line(ledger.calculation_issues)}",
         f"limitations: {_line(ledger.limitations)}",

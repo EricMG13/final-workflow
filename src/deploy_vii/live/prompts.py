@@ -428,7 +428,8 @@ NARRATIVE_COVERAGE_RULE = (
     "`rationale` holds a prose part. When the scope line reads `data_quality_only`, no finding "
     "takes a financial dimension ("
     + ", ".join(f"`{d}`" for d in _DIMENSIONS if d in _FINANCIAL)
-    + ")."
+    + "). Under `financial_synthesis`, a financial dimension the `financial_dimensions` line "
+    "leaves out takes no finding either."
 )
 NARRATIVE_FUNDING_RULE = (
     "`funding`: `reviewed_statement_ids` and `material_statement_ids` name only evidence ids of "

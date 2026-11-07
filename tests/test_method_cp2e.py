@@ -783,9 +783,42 @@ def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
         # A prose "thousands of" is no unit; a lower-case word before "millions" is no currency.
         ("amounts in millions; thousands of customers;", ()),
         ("amounts in millions; some of the millions;", ()),
-        # Abbreviations state no unit, and the row cannot be read: the page is refused, not guessed.
-        ("USDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
-        ("$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        # Ruling S06-A04 (widened): the whole tokens "$m", "US$m", "USDm" and "(in millions)"
+        # state millions, so none of them is refused.
+        ("USDm;", ()),
+        ("$m;", ()),
+        ("US$m;", ()),
+        ("(in $m);", ()),
+        ("(in millions);", ()),
+        # Anything else is no millions statement: the page is refused, not guessed.
+        ("$mm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("USDmn;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("US$mn;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("$m5;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("$M;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("usdm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("(000s);", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        # Review of the ruling: only the USD spellings were ruled in. Another code + "m" (and an
+        # acronym such as "NAVm") states no unit, and "USDm" glued to a letter is no whole token.
+        ("EURm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("GBPm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("NAVm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("XUSDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("A$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("(USDm);", ()),
+        (
+            "thousands of customers;",
+            ("earnings.ebitda: page:2 does not state the unit of its amounts",),
+        ),
+        # A symbol spelling beside another unit still conflicts.
+        (
+            "USDm; weighted shares (in thousands);",
+            ("earnings.ebitda: page:2 states amounts in millions, thousands, not millions",),
+        ),
+        (
+            "$m; USD billions;",
+            ("earnings.ebitda: page:2 states amounts in billions, millions, not millions",),
+        ),
         ("(not in millions);", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         # A second monetary unit on the page conflicts with the first.
         (

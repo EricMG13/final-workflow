@@ -406,12 +406,16 @@ def test_a_line_read_over_five_lines_and_over_the_byte_bound_is_refused() -> Non
     assert tools.read == set()
 
 
-def test_a_read_of_five_lines_is_allowed_even_when_one_line_exceeds_the_bound() -> None:  # (j)
+def test_a_read_of_five_lines_is_refused_when_one_line_exceeds_the_bound() -> None:  # (j)
+    # S14-A02: the five-line read was allowed before, whatever its size; it is measured now
     key = _window()
     tools = _window_tools(["z" * (key["max_line_read_bytes"] + 1000), "short"])
-    body = tools.read_pages({"source_id": FIN, "first_page": 1, "last_page": 2})
-    assert body.count("<<<SOURCE ") == 2
-    assert tools.read == {(FIN, "line:1"), (FIN, "line:2")}
+    with pytest.raises(ToolError) as refused:
+        tools.read_pages({"source_id": FIN, "first_page": 1, "last_page": 2})
+    assert str(refused.value) == key["line_refusal"]
+    assert tools.read == set()
+    body = tools.read_pages({"source_id": FIN, "first_page": 2, "last_page": 2})
+    assert body.count("<<<SOURCE ") == 1 and tools.read == {(FIN, "line:2")}
 
 
 def test_a_page_source_still_refuses_six_pages_with_the_old_text() -> None:  # (k)
@@ -512,8 +516,7 @@ def test_a_200_line_read_totalling_32769_bytes_is_refused() -> None:
     with pytest.raises(ToolError) as refused:
         tools.read_pages({"source_id": FIN, "first_page": 1, "last_page": 200})
     assert str(refused.value) == (
-        "bad arguments: on a line source, at most 5 lines, or at most 200 lines totalling "
-        "32768 bytes, per call"
+        "bad arguments: on a line source, at most 200 lines totalling 32768 bytes, per call"
     )
     assert tools.read == set()
 
@@ -525,6 +528,36 @@ def test_a_read_valid_at_the_old_bound_stays_valid() -> None:
     over_old = _bytes_lines(8193, 6)  # refused before CP1H-R10, allowed now
     body = _window_tools(over_old).read_pages({"source_id": FIN, "first_page": 1, "last_page": 6})
     assert body.count("<<<SOURCE ") == 6
+
+
+# --- S14-A02: a read of five lines or fewer is measured too --------------------------------------
+
+LINE_REFUSAL = "bad arguments: on a line source, at most 200 lines totalling 32768 bytes, per call"
+
+
+@pytest.mark.parametrize(
+    ("lines", "last"),
+    [
+        (["x" * 1_000_000] * 5, 5),  # five 1 MB lines: 5,000,000 bytes > 32768
+        (_bytes_lines(32769, 5), 5),  # five lines one byte over the bound
+        (["y" * 32769], 1),  # one line one byte over the bound
+        (["z" * 10_000_000], 1),  # a 10 MB one-line source
+    ],
+)
+def test_a_short_line_read_over_the_byte_bound_is_refused(lines: list[str], last: int) -> None:
+    tools = _window_tools(lines)
+    with pytest.raises(ToolError) as refused:
+        tools.read_pages({"source_id": FIN, "first_page": 1, "last_page": last})
+    assert str(refused.value) == LINE_REFUSAL
+    assert tools.read == set()
+
+
+def test_a_short_line_read_of_exactly_the_byte_bound_is_allowed() -> None:
+    for lines in (_bytes_lines(32768, 5), ["w" * 32768]):  # 32768 bytes: within the bound
+        tools = _window_tools(lines)
+        body = tools.read_pages({"source_id": FIN, "first_page": 1, "last_page": len(lines)})
+        assert body.count("<<<SOURCE ") == len(lines)
+        assert len(tools.read) == len(lines)
 
 
 def test_the_read_tool_description_states_32768_bytes() -> None:

@@ -630,9 +630,10 @@ _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spac
 # millions") state no monetary unit, and neither does prose such as "thousands of customers". Every
 # MILLIONS operand is stamped at scale 1e6 of the reporting currency, so its page must state
 # exactly that unit (as the CP-1 adapters refuse other scales). The symbol spellings "$m",
-# "US$m" and "USDm" (a three-capital-letter code, `m` lower case, whole token) state millions
-# too (`_MILLIONS_SYMBOL`); any other spelling ("$mm", "USDmn", "000s") states none, and its
-# rows are refused.
+# "US$m" and "USDm" (`m` lower case, whole token) state millions too (`_MILLIONS_SYMBOL`); any
+# other spelling ("$mm", "USDmn", "000s", "EURm") states none, and its rows are refused. This
+# check reads no currency, so another code + "m" is not accepted: a "EURm" page on a USD book
+# would otherwise pass as USD millions.
 _UNIT_WORDS = re.compile(
     r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
     r"|(?:(?-i:\b[A-Z]{3}\s+)|[$€£]\s*)(thousands|millions|billions)\b"
@@ -640,7 +641,7 @@ _UNIT_WORDS = re.compile(
     r"(?:(?:U\.S\.|US)\s+)?(?:dollars|euros?|pounds|(?-i:[A-Z]{3}\b))",
     re.IGNORECASE,
 )
-_MILLIONS_SYMBOL = re.compile(r"(?<![A-Za-z0-9$])(?:US\$|\$|[A-Z]{3})m(?![A-Za-z0-9])")
+_MILLIONS_SYMBOL = re.compile(r"(?<![A-Za-z0-9$])(?:US\$|\$|USD)m(?![A-Za-z0-9])")
 _ROW_NUM = re.compile(r"[0-9]+(?:\.[0-9]+)?|\([0-9]+(?:\.[0-9]+)?\)")  # parentheses balanced
 _HEDGE_NUM = re.compile(r"[0-9]{1,3}(?:\.[0-9]{1,2})?")
 _RATE_PHRASE = re.compile(r"\b(floating|fixed)[\s-]+rate\b", re.IGNORECASE)

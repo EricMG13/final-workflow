@@ -798,6 +798,14 @@ def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
         ("$M;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         ("usdm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         ("(000s);", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        # Review of the ruling: only the USD spellings were ruled in. Another code + "m" (and an
+        # acronym such as "NAVm") states no unit, and "USDm" glued to a letter is no whole token.
+        ("EURm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("GBPm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("NAVm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("XUSDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("A$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("(USDm);", ()),
         (
             "thousands of customers;",
             ("earnings.ebitda: page:2 does not state the unit of its amounts",),

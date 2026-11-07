@@ -32,6 +32,23 @@ KEY_PATTERN = re.compile(
 )
 _KEY_PATTERN_BYTES = re.compile(KEY_PATTERN.pattern.encode("ascii"))
 _KEY_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-%"
+_NAME = r"[^\s\\/:*?\"'<>|(),;]"  # one character of a path segment
+# A home directory: "/home/<user>", "/var/home/<user>", "/Users/<user>", "/root", and on Windows
+# "<drive>:\Users\<user>", a UNC share's "\\host\share\Users\<user>" or WSL's
+# "/mnt/<drive>/Users/<user>", in either slash, repr-escaped or not. A Windows user name may hold
+# spaces when a backslash follows it ("C:\Users\Jane Doe\AppData"). A path inside a longer name or
+# a URL's host part ("example.com/home/x") is not one; "file:///home/<user>" is.
+_HOME_PATH = re.compile(
+    r"(?<![\w.-])(?:(?:[A-Za-z]:|\\\\[^\s\\/]+[\\/]+[^\s\\/]+|/mnt/[A-Za-z])[\\/]+|[\\/])"
+    rf"(?:(?i:users|home|var[\\/]+home)[\\/]+(?:{_NAME}+(?: {_NAME}+)*(?=\\)|{_NAME}+)"
+    rf"|root(?!{_NAME}))"
+)
+
+
+def home_paths(text: str) -> str:
+    """``text`` with each home directory (and so the user name in it) replaced by ``<home>``; the
+    rest of each path, and all other text, is kept. Reads no environment."""
+    return _HOME_PATH.sub("<home>", text)
 
 
 def _suffixed(key: Any, n: int) -> Any:
@@ -157,8 +174,9 @@ class Redactor:
         return value
 
     def exception(self, exc: BaseException) -> str:
-        """Format the full chain (cause and context; cycle-safe in the stdlib) then redact."""
-        return self.text("".join(traceback.format_exception(exc)))
+        """Format the full chain (cause and context; cycle-safe in the stdlib) then redact keys and
+        home directories; the types, messages and frames are kept."""
+        return home_paths(self.text("".join(traceback.format_exception(exc))))
 
     def redact_stream(self, stream: TextIO) -> TextIO:
         return cast(TextIO, _RedactingStream(self, stream))

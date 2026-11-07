@@ -147,7 +147,7 @@ function installNewRun(){
       if(Number.isFinite(height)&&height>0&&height<=50000)$('context-editor').style.height=height+'px';
       return;
     }
-    if(event.data?.type==='cpos:ready'){$('context-readiness').textContent=event.data.ready?'Required fields complete. Continue when ready.':'Complete the required fields above to continue.';return;}
+    if(event.data?.type==='cpos:ready'){$('context-editor').contentWindow.postMessage({type:'cpos:names',names:moduleNames},'*');$('context-readiness').textContent=event.data.ready?'Required fields complete. Continue when ready.':'Complete the required fields above to continue.';return;}
     if(event.data?.type!=='cpos:context'||running||busy||$('new-run').hidden)return;
     if(event.data.problems?.length){message('Complete the context form before continuing:\n'+event.data.problems.join('\n'));return;}
     context=event.data.context;review=null;document.body.dataset.draft='1';

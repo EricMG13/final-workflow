@@ -229,6 +229,20 @@ body>details { margin:var(--rb-s-5); }
 .panel>summary { display:none; }
 .panel .sig li { border-left-width:1px; }
 @media(max-width:650px) { #sec1 .cards,.grid { grid-template-columns:minmax(0,1fr); } }
+/* The app's look: 40 px controls, 16 px text, 8 px corners, the xs shadow. */
+.f input[type=text],.f input[type=date],.f select { height:40px; min-height:40px; padding:0 12px; font-size:16px; line-height:24px; border:1px solid #CFD3DD; border-radius:8px; background-color:#fff; box-shadow:0 1px 2px rgba(0,5,51,.05); color:#0B1030; }
+.f textarea { min-height:40px; padding:8px 12px; font-size:16px; line-height:24px; border:1px solid #CFD3DD; border-radius:8px; box-shadow:0 1px 2px rgba(0,5,51,.05); }
+.f select { appearance:none; -webkit-appearance:none; padding-right:36px; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none' stroke='%234F566B' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M5 7.5l5 5 5-5'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; background-size:20px 20px; }
+.f input:focus,.f select:focus,.f textarea:focus { outline:none; border-color:#0017E5; box-shadow:0 1px 2px rgba(0,5,51,.05),0 0 0 4px rgba(0,23,229,.16); }
+.f input[aria-invalid=true],.f select[aria-invalid=true],.f textarea[aria-invalid=true] { border-color:var(--rb-neg); background-color:var(--rb-neg-tint); }
+.filebtn input::file-selector-button { height:40px; margin-right:12px; padding:0 14px; border:1px solid #CFD3DD; border-radius:8px; background:#fff; box-shadow:0 1px 2px rgba(0,5,51,.05); color:#3A4056; font-size:14px; line-height:20px; font-weight:600; font-family:inherit; cursor:pointer; }
+.filebtn input::file-selector-button:hover { background:#F8F9FB; color:#0B1030; }
+/* Labels: grey pills; no green or red label (validation error styling above stays). */
+.rtag,.tag { border-radius:999px; padding:0 8px; letter-spacing:0; }
+.rtag.req { background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; }
+.rtag.rec { background:transparent; border:1px solid #CFD3DD; color:#3A4056; }
+.rtag.opt { background:transparent; border:1px solid #E4E6EC; color:#4F566B; }
+.tag.def { background:#E7ECFF; color:#0017E5; }
 </style></head>
 <body>
 
@@ -299,7 +313,7 @@ body>details { margin:var(--rb-s-5); }
   <p class="stepline"></p>
   <p class="intro">Set the as-of date, reporting periods and currency the run is anchored to.</p>
   <div class="grid">
-    <div class="f"><label for="s3-as_of">As-of date</label><input type="date" id="s3-as_of" data-k="as_of" aria-describedby="s3-as_of-h"><p class="help" id="s3-as_of-h">Sources and quotes dated after this are refused. Format YYYY-MM-DD, for example 2026-10-31.</p></div>
+    <div class="f"><label for="s3-as_of">As-of date</label><input type="date" id="s3-as_of" data-k="as_of" aria-describedby="s3-as_of-h"><p class="help" id="s3-as_of-h">Sources and quotes dated after this are refused. Choose the date; it is saved as YYYY-MM-DD.</p></div>
     <div class="f"><label for="s3-cutoff">Research cutoff</label><input type="date" id="s3-cutoff" data-k="cutoff" aria-describedby="s3-cutoff-h"><p class="help" id="s3-cutoff-h">Research items published after this are refused; not after the as-of date. Optional.</p></div>
     <div class="f"><label for="s3-current_period">Current period</label><input type="text" id="s3-current_period" placeholder="e.g. q3-2026" data-k="current_period" aria-describedby="s3-current_period-h"><p class="help" id="s3-current_period-h">For example q3-2026 or fy-2025. Required for Earnings update. Format q3-2026, h1-2026 or fy-2025. On an Earnings update: quarters or fiscal years, same kind.</p></div>
     <div class="f"><label for="s3-prior_period">Prior period</label><input type="text" id="s3-prior_period" placeholder="e.g. q2-2026" data-k="prior_period" aria-describedby="s3-prior_period-h"><p class="help" id="s3-prior_period-h">Must be earlier than the current period (same kind: quarter, half or year). On an Earnings update: quarters or fiscal years, same kind.</p></div>
@@ -1445,6 +1459,43 @@ update();
     }
     parent.postMessage({type:'cpos:context',context,problems:errs.map(error=>error.msg)}, '*');
   });
+  // Show module names for the CP- codes the form prints. Text nodes only: attributes, input values and
+  // option text (which is the option's value) keep codes, so the emitted context is unchanged.
+  let names = null;
+  const shown = new WeakMap(), skipped = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION']);
+  const codePattern = /\bCP-[A-Z0-9]+\b/g;
+  const observer = new MutationObserver(() => applyNames());
+  const watchBody = () => observer.observe(document.body, {childList:true, characterData:true, subtree:true});
+  function applyNames() {
+    if (!names) return;
+    observer.disconnect();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const host = node.parentElement;
+      if (!host || skipped.has(host.tagName) || host.closest('option')) continue;
+      const known = shown.get(node);
+      const original = known && known.text === node.nodeValue ? known.original : node.nodeValue;
+      const found = [];
+      const text = original.replace(codePattern, code => {
+        if (!Object.hasOwn(names, code)) return code;
+        found.push(code); return names[code];
+      });
+      if (!found.length) continue;
+      node.nodeValue = text;
+      shown.set(node, {original, text});
+      host.title = found.join(', ');
+    }
+    watchBody();
+  }
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (event.source !== parent || data?.type !== 'cpos:names' || !data.names || typeof data.names !== 'object') return;
+    const entries = Object.entries(data.names);
+    if (!entries.every(([, value]) => typeof value === 'string')) return;
+    names = Object.fromEntries(entries);
+    applyNames();
+  });
+
   new ResizeObserver(resize).observe(document.body);
   document.addEventListener('toggle', resize, true);
   update(); resize();

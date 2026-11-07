@@ -66,6 +66,43 @@
     }
     parent.postMessage({type:'cpos:context',context,problems:errs.map(error=>error.msg)}, '*');
   });
+  // Show module names for the CP- codes the form prints. Text nodes only: attributes, input values and
+  // option text (which is the option's value) keep codes, so the emitted context is unchanged.
+  let names = null;
+  const shown = new WeakMap(), skipped = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION']);
+  const codePattern = /\bCP-[A-Z0-9]+\b/g;
+  const observer = new MutationObserver(() => applyNames());
+  const watchBody = () => observer.observe(document.body, {childList:true, characterData:true, subtree:true});
+  function applyNames() {
+    if (!names) return;
+    observer.disconnect();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const host = node.parentElement;
+      if (!host || skipped.has(host.tagName) || host.closest('option')) continue;
+      const known = shown.get(node);
+      const original = known && known.text === node.nodeValue ? known.original : node.nodeValue;
+      const found = [];
+      const text = original.replace(codePattern, code => {
+        if (!Object.hasOwn(names, code)) return code;
+        found.push(code); return names[code];
+      });
+      if (!found.length) continue;
+      node.nodeValue = text;
+      shown.set(node, {original, text});
+      host.title = found.join(', ');
+    }
+    watchBody();
+  }
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (event.source !== parent || data?.type !== 'cpos:names' || !data.names || typeof data.names !== 'object') return;
+    const entries = Object.entries(data.names);
+    if (!entries.every(([, value]) => typeof value === 'string')) return;
+    names = Object.fromEntries(entries);
+    applyNames();
+  });
+
   new ResizeObserver(resize).observe(document.body);
   document.addEventListener('toggle', resize, true);
   update(); resize();

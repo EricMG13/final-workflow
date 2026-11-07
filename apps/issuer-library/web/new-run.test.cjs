@@ -191,6 +191,15 @@ test('context height messages are source checked and bounded',async t=>{
   const send=(source,height)=>p.win.dispatchEvent(new p.win.MessageEvent('message',{source,data:{type:'cpos:height',height}}));
   send(p.win,1800);assert.equal(frame.style.height,'');send(frame.contentWindow,1800);assert.equal(frame.style.height,'1800px');send(frame.contentWindow,Infinity);send(frame.contentWindow,50001);assert.equal(frame.style.height,'1800px');
 });
+test('the context form is sent the module names when it reports ready, and only then',async t=>{
+  const p=await page(t),frame=p.doc.getElementById('context-editor'),sent=[];
+  frame.contentWindow.postMessage=(data,origin)=>sent.push([data,origin]);
+  const say=(source,data)=>p.win.dispatchEvent(new p.win.MessageEvent('message',{source,data}));
+  say(p.win,{type:'cpos:ready',ready:true});assert.deepEqual(sent,[]);
+  say(frame.contentWindow,{type:'cpos:ready',ready:false});
+  const names=sent.find(([data])=>data.type==='cpos:names');assert.ok(names);
+  assert.equal(names[0].names['CP-0'],'Source readiness');assert.ok(Object.values(names[0].names).every(value=>typeof value==='string'));
+});
 test('an issuer folder is required before review',async t=>{
   const p=await page(t);p.context();await p.click('review-run');
   assert.match(p.doc.getElementById('new-run-message').textContent,/Choose the issuer folder/);

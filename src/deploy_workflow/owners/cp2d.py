@@ -1709,6 +1709,54 @@ def _claims(o: Operands, b: Bridge, tables: tuple[Table, ...]) -> tuple[ClaimTex
 # --- the module calculation -------------------------------------------------------------------
 
 
+SECTION_NAMES: Mapping[Section, str] = MappingProxyType(
+    {
+        "liquidity_runway": "Liquidity runway",
+        "maturity_wall": "Maturity wall",
+        "funding_gap": "Funding gap",
+    }
+)
+ANALYST_GAP = "{section}: {limitation}"
+"""S06-C02: an Insufficient Information assessment's own limitation, carried verbatim into
+CP-2D's limitations (T2E.7 kind Gap) after the section's name."""
+
+
+def _analyst_rows(submission: LiquidityBridgeSubmission) -> list[tuple[str, str]]:
+    """S06-C02: the analyst's own words, verbatim, after the five category rows of T2E.6: the
+    minimum-cash rationale (or the absence reason and follow-up), then per section in lease order
+    its text, its credit implication and any limitation. Validation has already refused blank,
+    figure-bearing or conclusion-bearing text, so nothing here is Python's analysis."""
+    rows: list[tuple[str, str]] = []
+    if submission.minimum_cash is not None:
+        rows.append(("Minimum cash rationale", submission.minimum_cash.rationale))
+    absence = submission.minimum_cash_absence
+    if absence is not None:
+        rows += [
+            ("Minimum cash not assessed: reason", absence.reason),
+            ("Minimum cash not assessed: follow-up", absence.follow_up),
+        ]
+    by_section = {a.section: a for a in submission.assessments}
+    for section in SECTIONS:
+        a, name = by_section[section], SECTION_NAMES[section]
+        rows.append((f"{name} assessment", a.text))
+        rows.append((f"{name} credit implication", a.credit_implication))
+        if a.limitation is not None:
+            rows.append((f"{name} limitation", a.limitation))
+    return rows
+
+
+def _analyst_limitations(submission: LiquidityBridgeSubmission) -> list[tuple[str, str, str]]:
+    """(T2E.7 label, kind, text) of each assessment's stated limitation, in lease order."""
+    by_section = {a.section: a for a in submission.assessments}
+    stated: list[tuple[str, str, str]] = []
+    for section in SECTIONS:
+        limitation, name = by_section[section].limitation, SECTION_NAMES[section]
+        if limitation is not None:
+            text = ANALYST_GAP.format(section=name, limitation=limitation)
+            stated.append((f"{name} assessment", "Gap", text))
+    return stated
+
+
 def _judgments(b: Bridge, submission: LiquidityBridgeSubmission) -> Ledger:
     categories = {a.section: a.category for a in submission.assessments}
     minimum = (
@@ -1719,9 +1767,8 @@ def _judgments(b: Bridge, submission: LiquidityBridgeSubmission) -> Ledger:
     rows = (
         ("Horizon", _months_text(b.horizon_months)),
         ("Minimum cash", minimum),
-        ("Liquidity runway", categories["liquidity_runway"]),
-        ("Maturity wall", categories["maturity_wall"]),
-        ("Funding gap", categories["funding_gap"]),
+        *((SECTION_NAMES[s], categories[s]) for s in SECTIONS),
+        *_analyst_rows(submission),
     )
     return Ledger("T2E.6", "Analyst judgments", "Judgment", ("value", "Value"), rows)
 
@@ -1741,7 +1788,10 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
     if issues:
         raise ValueError("; ".join(issues))
     bridge = bridge_of(inputs)
-    limitations = _limitations(operands=o, bridge=bridge, pinned=inputs.pinned)
+    limitations = (
+        *_limitations(operands=o, bridge=bridge, pinned=inputs.pinned),
+        *_analyst_limitations(inputs.submission),
+    )
     tables = (
         _sources_and_uses(o, bridge),
         _position(o, bridge),

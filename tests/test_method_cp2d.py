@@ -237,8 +237,11 @@ def test_derived_values_equal_oracle(case: str) -> None:
 
 @pytest.mark.parametrize("case", list(CASES))
 def test_own_limitations_equal_oracle(case: str) -> None:
+    """The bridge's own limitations; the module's list adds the analyst's stated limitations
+    (`analyst_limitations`, S06-C02), which only a submission carries."""
     got = cp2d.own_limitations(operands=_operands(case), bridge=_bridge(case))
-    assert list(got) == CASES[case]["own_limitations"]
+    analyst = CASES[case].get("analyst_limitations", [])
+    assert list(got) == [t for t in CASES[case]["own_limitations"] if t not in analyst]
 
 
 def test_compose_bridge_refuses_horizon_outside_bound() -> None:
@@ -527,6 +530,28 @@ def test_a_minimum_cash_at_or_above_the_cp1_amount_bound_is_refused(
     assert issues == ()
     rows = dict(cp2d.compute(inputs).judgments.rows)
     assert rows["Minimum cash"].startswith("1,000,000,000,000,000,000 ")
+
+
+def test_the_analysts_words_and_limitation_reach_the_module() -> None:
+    """S06-C02: T2E.6 kept only each section's category, so the analyst's text, credit
+    implication, limitation and the minimum-cash absence reason were lost. Hand-derived from
+    submissions.json#cp2d.gap_minimum_cash: rows 6-7 are the absence reason and follow-up, then
+    each section's text and credit implication, and the funding_gap limitation as its own row;
+    the limitation also ends own_limitations and T2E.7 as ("Funding gap assessment", "Gap")."""
+    sub = SUBMISSIONS["cp2d"]["gap_minimum_cash"]
+    result = cp2d.compute(_inputs("gap_minimum_cash"))
+    rows = dict(result.judgments.rows)
+    absence = sub["minimum_cash_absence"]
+    assert rows["Minimum cash not assessed: reason"] == absence["reason"]
+    assert rows["Minimum cash not assessed: follow-up"] == absence["follow_up"]
+    by = {a["section"]: a for a in sub["assessments"]}
+    assert rows["Maturity wall assessment"] == by["maturity_wall"]["text"]
+    assert rows["Funding gap credit implication"] == by["funding_gap"]["credit_implication"]
+    limitation = by["funding_gap"]["limitation"]
+    assert rows["Funding gap limitation"] == limitation
+    assert result.own_limitations[-1] == "Funding gap: " + limitation
+    assert result.gaps_ledger.rows[-1] == ("Funding gap assessment", "Gap")
+    assert "Liquidity runway limitation" not in rows  # a null limitation adds no row
 
 
 # --- calculation-level refusals ---------------------------------------------------------------

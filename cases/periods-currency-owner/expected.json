@@ -7383,6 +7383,7 @@
           "Minimum cash is an analyst assumption, not a source figure.",
           "Months until cash reaches minimum cash use run-rate cash flow alone and exclude maturities and amortisation; the maturity wall and funding gap tables show their effect."
         ],
+        "analyst_limitations": [],
         "tables": {
           "T2E.1": {
             "title": "Liquidity sources and uses",
@@ -7970,6 +7971,34 @@
           [
             "Funding gap",
             "Analyst Interpretation"
+          ],
+          [
+            "Minimum cash rationale",
+            "A cash cushion of this size is held as an analyst assumption for operating needs and is not a source figure."
+          ],
+          [
+            "Liquidity runway assessment",
+            "Cash is the only liquidity source because there is no revolving credit facility, so the runway rests on operating cash flow covering capital spending and distributions."
+          ],
+          [
+            "Liquidity runway credit implication",
+            "Distributions absorb the free cash flow the business generates, leaving little internal capacity to build a liquidity cushion or reduce debt early."
+          ],
+          [
+            "Maturity wall assessment",
+            "The single term loan is the whole debt stack and falls due on one date after the horizon assessed, so no repayment is scheduled inside it."
+          ],
+          [
+            "Maturity wall credit implication",
+            "Debt service inside the horizon is limited to interest, because no principal falls due before the horizon ends."
+          ],
+          [
+            "Funding gap assessment",
+            "Cash alone covers the assumed minimum cash with room to spare, so no external funding need is identified inside the horizon."
+          ],
+          [
+            "Funding gap credit implication",
+            "The absence of committed undrawn funding means any shortfall beyond the horizon would depend on lender consent, so headroom should be monitored each period."
           ]
         ],
         "T2E.7_rows": [
@@ -20717,6 +20746,7 @@
           "Minimum cash is an analyst assumption, not a source figure.",
           "Months until cash reaches minimum cash use run-rate cash flow alone and exclude maturities and amortisation; the maturity wall and funding gap tables show their effect."
         ],
+        "analyst_limitations": [],
         "tables": {
           "T2E.1": {
             "title": "Liquidity sources and uses",
@@ -21304,6 +21334,34 @@
           [
             "Funding gap",
             "Analyst Interpretation"
+          ],
+          [
+            "Minimum cash rationale",
+            "A cash cushion of this size is held as an analyst assumption for operating needs and is not a source figure."
+          ],
+          [
+            "Liquidity runway assessment",
+            "Cash is the only liquidity source because there is no revolving credit facility, so the runway rests on operating cash flow covering capital spending and distributions."
+          ],
+          [
+            "Liquidity runway credit implication",
+            "Distributions absorb the free cash flow the business generates, leaving little internal capacity to build a liquidity cushion or reduce debt early."
+          ],
+          [
+            "Maturity wall assessment",
+            "The single term loan is the whole debt stack and falls due on one date after the horizon assessed, so no repayment is scheduled inside it."
+          ],
+          [
+            "Maturity wall credit implication",
+            "Debt service inside the horizon is limited to interest, because no principal falls due before the horizon ends."
+          ],
+          [
+            "Funding gap assessment",
+            "Cash alone covers the assumed minimum cash with room to spare, so no external funding need is identified inside the horizon."
+          ],
+          [
+            "Funding gap credit implication",
+            "The absence of committed undrawn funding means any shortfall beyond the horizon would depend on lender consent, so headroom should be monitored each period."
           ]
         ],
         "T2E.7_rows": [

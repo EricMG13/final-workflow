@@ -23,7 +23,10 @@ var resources embed.FS
 type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
+	reviews    int  // reviews in flight, each writing into the workspace it read; guarded by mu
+	quitting   bool // set when the library agrees to quit for a relaunch; guarded by mu
 	mu         sync.RWMutex
+	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations
 	config     Config
 	locked     bool
@@ -31,16 +34,41 @@ type Application struct {
 	catalogue  Catalogue
 	host       string
 	stop       func()
+	launch     sync.Mutex // guards ticket
+	ticket     string     // one-time launch ticket, in memory only; empty once exchanged or expired
+	expires    time.Time  // when the ticket stops working; fixed at start
+	session    string     // this launch's session cookie value, in memory only; fixed at start
 }
 
-func (app *Application) refreshLocked() {
-	app.catalogue = discover(app.config.Workspace, app.seed)
-	app.catalogue.PolicyLocked = app.locked
+// discoverWorkspace is discover; a variable so tests can hold a discovery in progress.
+var discoverWorkspace = discover
+
+// buildCatalogue discovers workspace and saves the disposable index. It takes no lock and reads
+// only fields fixed at start, so the slow part of a refresh (hashing every pinned file) runs
+// while requests are served from the previous catalogue. Callers hold app.refreshing.
+func (app *Application) buildCatalogue(workspace string) Catalogue {
+	catalogue := discoverWorkspace(workspace, app.seed)
+	catalogue.PolicyLocked = app.locked
 	// The persisted index is a disposable snapshot, never an authority on restart.
-	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), app.catalogue); err != nil {
+	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), catalogue); err != nil {
 		log.Printf("Index cache: %v", err)
-		app.catalogue.Issues = append(app.catalogue.Issues, "Search index could not be saved; live browsing is still available.")
+		catalogue.Issues = append(catalogue.Issues, "Search index could not be saved; live browsing is still available.")
 	}
+	return catalogue
+}
+
+// refresh rediscovers the current workspace and swaps the result in under a short lock. The
+// workspace only changes under app.refreshing, so the result always belongs to it.
+func (app *Application) refresh() {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
+	catalogue := app.buildCatalogue(workspace)
+	app.mu.Lock()
+	app.catalogue = catalogue
+	app.mu.Unlock()
 }
 
 func jsonResponse(w http.ResponseWriter, value any) {
@@ -56,8 +84,18 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	origin := "http://" + app.host
-	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || foreignSite(r) {
 		http.Error(w, "Local app requests only", http.StatusForbidden)
+		return
+	}
+	if r.URL.Path == "/launch" {
+		app.serveLaunch(w, r)
+		return
+	}
+	// Only the instance check needs no session: it names the application and a digest of its
+	// state folder, and reads no workspace data.
+	if r.URL.Path != "/health" && !app.authorized(r) {
+		http.Error(w, launcherOnly, http.StatusForbidden)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/api/runs/") {
@@ -80,9 +118,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/health":
 		jsonResponse(w, map[string]string{"application": "finalworkflow-issuer-library/1", "instance": digest([]byte(app.loc.State))})
 	case "/api/catalogue":
-		app.mu.RLock()
-		defer app.mu.RUnlock()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/workspace":
 		app.serveWorkspace(w)
 	default:
@@ -92,6 +128,33 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		app.serveAsset(w, r)
 	}
+}
+
+// foreignSite reports whether the browser says r comes from another origin. Sec-Fetch-Site is
+// accepted only as same-origin (the app's own page and frames), none (an address the user or the
+// launcher opened) or absent. same-site is refused too: a page on another 127.0.0.1 port is the
+// same site, and the SameSite=Strict cookie goes with its requests.
+func foreignSite(r *http.Request) bool {
+	for _, site := range r.Header.Values("Sec-Fetch-Site") {
+		if site != "same-origin" && site != "none" {
+			return true
+		}
+	}
+	return false
+}
+
+// writeCatalogue sends the current catalogue. It is encoded under the read lock and written
+// after it: a client that stops reading must not hold the lock the refresh ticker waits for.
+func (app *Application) writeCatalogue(w http.ResponseWriter) {
+	app.mu.RLock()
+	raw, err := json.Marshal(app.catalogue)
+	app.mu.RUnlock()
+	if err != nil {
+		http.Error(w, "Could not read the library", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(append(raw, '\n'))
 }
 
 func (app *Application) serveWorkspace(w http.ResponseWriter) {
@@ -112,48 +175,23 @@ func (app *Application) serveWorkspace(w http.ResponseWriter) {
 	_, _ = w.Write(store)
 }
 
+// post handles the state-changing requests. Responses are written after app.mu is released.
 func (app *Application) post(w http.ResponseWriter, r *http.Request) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
 	switch r.URL.Path {
 	case "/api/refresh":
-		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.refresh()
+		app.writeCatalogue(w)
 	case "/api/settings":
-		if len(app.activeJobs) > 0 {
-			http.Error(w, "Wait for the active run before changing its workspace", 409)
+		if status, message := app.changeSettings(w, r); status != http.StatusOK {
+			http.Error(w, message, status)
 			return
 		}
-		if app.locked {
-			http.Error(w, "Workspace is managed by IT", http.StatusForbidden)
-			return
-		}
-		var config Config
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&config); err != nil {
-			http.Error(w, "Invalid settings", http.StatusBadRequest)
-			return
-		}
-		if !filepath.IsAbs(config.Workspace) {
-			http.Error(w, "Enter an absolute workspace folder", http.StatusBadRequest)
-			return
-		}
-		config.Workspace = filepath.Clean(config.Workspace)
-		info, err := os.Stat(config.Workspace)
-		if err != nil || !info.IsDir() {
-			http.Error(w, "The workspace folder is unavailable", http.StatusBadRequest)
-			return
-		}
-		if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
-			http.Error(w, "Could not save settings", http.StatusInternalServerError)
-			return
-		}
-		app.config = config
-		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/quit":
-		if len(app.activeJobs) > 0 {
+		app.mu.RLock()
+		active := len(app.activeJobs) > 0
+		app.mu.RUnlock()
+		if active {
 			http.Error(w, "A run is active. Keep the application open until it finishes or stops.", 409)
 			return
 		}
@@ -164,16 +202,82 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// reviewInFlight refuses a workspace switch while a review writes into the current workspace.
+const reviewInFlight = "A run review is in progress; wait for it to finish before changing the workspace"
+
+// switchesDuringReviewLocked reports whether moving to workspace would switch it while a review
+// is in flight. Saving the same workspace is not a switch. The caller holds app.mu.
+func (app *Application) switchesDuringReviewLocked(workspace string) bool {
+	return app.reviews > 0 && workspace != filepath.Clean(app.config.Workspace)
+}
+
+// changeSettings switches to the requested workspace, refusing with an HTTP status and message
+// while a run is active, while a review is in flight (for a switch), under IT policy or for an
+// unusable folder. The new workspace is discovered without app.mu; the settings, configuration
+// and catalogue then change together.
+func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (int, string) {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	active := len(app.activeJobs) > 0
+	app.mu.RUnlock()
+	if active {
+		return 409, "Wait for the active run before changing its workspace"
+	}
+	if app.locked {
+		return http.StatusForbidden, "Workspace is managed by IT"
+	}
+	var config Config
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&config); err != nil {
+		return http.StatusBadRequest, "Invalid settings"
+	}
+	if !filepath.IsAbs(config.Workspace) {
+		return http.StatusBadRequest, "Enter an absolute workspace folder"
+	}
+	config.Workspace = filepath.Clean(config.Workspace)
+	app.mu.RLock()
+	reviewing := app.switchesDuringReviewLocked(config.Workspace)
+	app.mu.RUnlock()
+	if reviewing {
+		return 409, reviewInFlight
+	}
+	info, err := os.Stat(config.Workspace)
+	if err != nil || !info.IsDir() {
+		return http.StatusBadRequest, "The workspace folder is unavailable"
+	}
+	catalogue := app.buildCatalogue(config.Workspace)
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if len(app.activeJobs) > 0 { // A run started while the new workspace was being read.
+		return 409, "Wait for the active run before changing its workspace"
+	}
+	if app.switchesDuringReviewLocked(config.Workspace) { // Likewise a review.
+		return 409, reviewInFlight
+	}
+	if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
+		return http.StatusInternalServerError, "Could not save settings"
+	}
+	app.config = config
+	app.catalogue = catalogue
+	app.adoptJobsLocked(config.Workspace)
+	return http.StatusOK, ""
+}
+
 func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/files/")
+	// Only the lookup holds the lock; reading, verifying and above all writing the file to a
+	// client that may stop reading happen after it is released.
 	app.mu.RLock()
-	defer app.mu.RUnlock()
 	hash, allowed := app.catalogue.Allowed[name]
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
 	if !allowed || !localPath(name) {
 		http.NotFound(w, r)
 		return
 	}
-	root, err := os.OpenRoot(app.config.Workspace)
+	root, err := os.OpenRoot(workspace)
 	if err != nil {
 		http.Error(w, "Workspace unavailable", http.StatusGone)
 		return
@@ -231,14 +335,38 @@ func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, path.Base(name), time.Time{}, bytes.NewReader(raw))
 }
 
+// lastBodyClose returns the offset in html of its final "</body>", matched with an
+// ASCII-only fold so the offset always indexes the original bytes (Unicode lower-casing
+// changes lengths); len(html) when there is none.
+func lastBodyClose(html []byte) int {
+	const tag = "</body>"
+	for i := len(html) - len(tag); i >= 0; i-- {
+		if html[i] != '<' {
+			continue
+		}
+		match := true
+		for j := 1; j < len(tag); j++ {
+			c := html[i+j]
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != tag[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return i
+		}
+	}
+	return len(html)
+}
+
 func reportPresentation(original []byte) []byte {
 	style, _ := resources.ReadFile("web/report-adapter.css")
 	brand, _ := resources.ReadFile("web/brand.css")
 	script, _ := resources.ReadFile("web/report-adapter.js")
-	position := bytes.LastIndex(bytes.ToLower(original), []byte("</body>"))
-	if position < 0 {
-		position = len(original)
-	}
+	position := lastBodyClose(original)
 	return bytes.Join([][]byte{original[:position], []byte("<style data-library-presentation>"), style, brand,
 		[]byte("</style><script data-library-presentation>"), script, []byte("</script>"), original[position:]}, nil)
 }
@@ -292,6 +420,16 @@ func newApplication(loc Locations, override string) (*Application, error) {
 		return nil, err
 	}
 	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
-	app.refreshLocked()
+	// Without the secret nothing can be served safely, so the app does not start.
+	if app.ticket, err = randomSecret(); err != nil {
+		return nil, fmt.Errorf("could not create the launch secret: %w", err)
+	}
+	if app.session, err = randomSecret(); err != nil {
+		return nil, fmt.Errorf("could not create the launch secret: %w", err)
+	}
+	app.catalogue = app.buildCatalogue(config.Workspace)
+	app.adoptJobsLocked(config.Workspace)
+	// Counted from here, once the library is ready, so a slow first discovery does not use it up.
+	app.expires = clock().Add(ticketLifetime)
 	return app, nil
 }

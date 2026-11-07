@@ -152,9 +152,96 @@ class DeliveryRequest(Contract):
     layout: MarkdownLayout | None = None
 
 
+SOURCE_NUMBER = re.compile(
+    r"(?:-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?"
+    r"|\((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?\))"
+)
+
+
+def is_gap(token: str) -> bool:
+    """Whether a copied table cell is an explicit gap (blank, dash or an authored not-supplied)."""
+    return token in {"", "—", "Insufficient Information", "Not reconstructed"} or token.startswith(
+        ("Not supplied", "Not calculable")
+    )
+
+
+def physical_lines(text: str) -> list[str]:
+    """The text's lines split on newlines only (`\\r\\n` and a lone `\\r` count as one), so a
+    "line N" citation is the line a reader opens; `str.splitlines()` also splits on U+2028,
+    U+2029, form feed, vertical tab, U+0085 and the separators U+001C to U+001E."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines[-1]:
+        lines.pop()
+    return lines
+
+
 def plain(text: str) -> str:
     """Remove the supported inline emphasis only; never parse/reformat figures."""
     return re.sub(r"\*\*([^*]+)\*\*|`([^`]+)`", lambda m: m[1] or m[2], text).strip()
+
+
+HEADING_LINE = re.compile(r"(#{1,6})(?:[ \t]+(.*?))?[ \t]*")
+
+
+def heading_of(line: str) -> tuple[int, str] | None:
+    """Level and text of an ATX heading; `#1 risk` and seven or more hashes are prose."""
+    found = HEADING_LINE.fullmatch(line)
+    return None if found is None else (len(found[1]), found[2] or "")
+
+
+FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+
+
+def comment_opener(line: str) -> int | None:
+    """Index of the `<!--` that is still open at the end of `line`, else None: the first `<!--`
+    after the last `-->`, anywhere in the line (a later nested one is inside the comment). Inline
+    code spans are blanked first, as Markdown reads `<!--` inside them literally."""
+    plain_text = re.sub(r"(`+).+?\1", lambda m: "x" * len(m[0]), line)
+    closed = plain_text.rfind("-->")
+    opener = plain_text.find("<!--", 0 if closed < 0 else closed + 3)
+    return None if opener < 0 else opener
+
+
+def hide_comments(lines: list[str], name: str) -> list[str]:
+    """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
+    hide it, so no table or prose inside it is published; fenced text is left as written. A
+    comment may open anywhere in a line; the opening line keeps the text before its `<!--` (blank
+    when that is only spaces). Line numbers are unchanged. A comment that is never closed would
+    hide the rest of the handoff: refused."""
+    shown, fenced, opened = [], False, 0
+    for number, line in enumerate(lines, 1):
+        if opened:  # Inside a comment: hidden through its `-->`, and another may open after it.
+            _, closed, rest = line.partition("-->")
+            opened = (number if comment_opener(rest) is not None else 0) if closed else opened
+            shown.append("")
+            continue
+        found = heading_of(line)
+        fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
+        if FENCE.match(line):
+            fenced = not fenced
+        start = None if fenced else comment_opener(line)
+        if start is None or FENCE.match(line):
+            shown.append(line)
+        else:
+            opened = number
+            shown.append(line[:start] if line[:start].strip() else "")
+    if opened:
+        raise ValueError(f"{name}: the HTML comment opened on line {opened} is never closed by -->")
+    return shown
+
+
+def names_issuer(text: str, names: tuple[str, ...]) -> bool:
+    """Whether any non-blank name occurs in `text` as whole words, ignoring case and spacing.
+
+    `Ford` is not in `Stanford` and the alias `AB` is not in `lab`: a name must not touch a
+    letter or digit on either side.
+    """
+    haystack = " ".join(text.split()).casefold()
+    return any(
+        re.search(rf"(?<![^\W_]){re.escape(wanted)}(?![^\W_])", haystack) is not None
+        for name in names
+        if (wanted := " ".join(name.split()).casefold())
+    )
 
 
 def section(lines: list[str], title: str) -> list[tuple[int, str]]:
@@ -202,10 +289,12 @@ def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, 
     return headers, result
 
 
-def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
+def mapped_module(  # noqa: C901, PLR0915 - pre-existing size (C901 18, 62 statements at base)
+    module_id: str, raw: bytes
+) -> tuple[ModuleView, Source]:
     """Map this handoff revision's named sections without reinterpreting analysis."""
     text = raw.decode("utf-8")
-    lines = text.splitlines()
+    lines = physical_lines(text)
     if tuple(line[3:] for line in lines if line.startswith("## ")) != HEADINGS:
         raise ValueError(f"{module_id}: the six handoff headings are required once, in order")
     sha = hashlib.sha256(raw).hexdigest()
@@ -225,8 +314,9 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
     )
     facts: list[Fact] = []
     tables: list[ReportTable] = []
+    key_risks: list[str] = []
 
-    def add(
+    def add(  # noqa: PLR0913 - pre-existing signature (6 arguments at base)
         table_id: str,
         title: str,
         headers: list[str],
@@ -263,7 +353,10 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
                         if cell_text
                         else "Original handoff cell is blank; not zero",
                         value_class="source",
-                        basis="Literal content of the model-authored handoff; no new analysis or arithmetic.",
+                        basis=(
+                            "Literal content of the model-authored handoff; "
+                            "no new analysis or arithmetic."
+                        ),
                         citations=(
                             Citation(
                                 source_id=source_id,
@@ -359,6 +452,9 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
             if not rows:
                 raise ValueError(f"CP-2: missing ranked {name}")
             add(f"cp2.{name.lower()}", name, ["Item", "Text"], rows)
+        # The shipped CP-2 bindings hold strengths and weaknesses only; the rated key-risk line
+        # is kept literally among the module's limitations rather than dropped.
+        key_risks = [plain(line) for _, line in ranked if line.startswith("**Key risks")]
         gap_id = "T2.12"
     headers, gaps = table(section(lines, "Gaps"))
     add(gap_id, "Gaps and restrictions from the handoff", headers, gaps)
@@ -374,6 +470,7 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
         limitations=(
             source.limitation or "",
             *tuple(plain("; ".join(values)) for _, _, values in gaps),
+            *key_risks,
         ),
     ), source
 
@@ -391,12 +488,11 @@ def prepare(manifest: Path) -> tuple[View, ReportView, dict[str, bytes]]:
     module_views = []
     sources = []
     copies = {}
-    issuer_name = " ".join(request.run.issuer_name.casefold().split())
     for module_id, spec in request.handoffs.items():
         raw = (manifest.parent / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
-        if not issuer_name or issuer_name not in " ".join(raw.decode().casefold().split()):
+        if not names_issuer(raw.decode(), (request.run.issuer_name,)):
             raise ValueError(f"Issuer name is not established in {module_id}")
         module, source = mapped_module(module_id, raw)
         module_views.append(module)
@@ -410,7 +506,10 @@ def prepare(manifest: Path) -> tuple[View, ReportView, dict[str, bytes]]:
                 aliases=(),
                 status="blocked",
                 limitations=(
-                    "CP-MODEL HTML/chart/calculation-JSON publication has not run. This narrative snapshot does not replace it.",
+                    (
+                        "CP-MODEL HTML/chart/calculation-JSON publication has not run. "
+                        "This narrative snapshot does not replace it."
+                    ),
                 ),
             )
         )

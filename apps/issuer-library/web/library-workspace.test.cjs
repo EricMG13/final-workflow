@@ -41,12 +41,18 @@ async function readWorkspace(){
   const port=await freePort(),base=`http://127.0.0.1:${port}`;
   const env={...process.env,ISSUER_LIBRARY_PYTHON:python,ISSUER_LIBRARY_ENGINE_ROOT:path.join(app,'engine')};
   for(const name of PROVIDER_KEYS)delete env[name];
-  const child=spawn(binary(temp),['--workspace',repo,'--state-dir',path.join(temp,'state'),'--no-browser','--port',String(port)],{env,stdio:['ignore','ignore','pipe']});
+  const child=spawn(binary(temp),['--workspace',repo,'--state-dir',path.join(temp,'state'),'--no-browser','--port',String(port)],{env,stdio:['ignore','pipe','pipe']});
+  let printed='';child.stdout.on('data',chunk=>{printed+=chunk;});
   let exited=null,stderr='';child.stderr.on('data',chunk=>{stderr+=chunk;});
   const gone=new Promise(resolve=>child.on('exit',code=>{exited=code;resolve();}));
   try{
     await until(async()=>(await fetch(`${base}/health`)).ok,'server not serving',30000,()=>exited===null?null:`server exited ${exited}: ${stderr}`);
-    const read=async url=>{const response=await fetch(base+url,{cache:'no-store'});if(!response.ok)assert.fail(`${url}: ${response.status} ${await response.text()}`);return response.json();};
+    // The library answers only a browser holding its session: exchange the one-time link it prints for the cookie.
+    const link=await until(async()=>printed.split('\n').find(line=>line.startsWith(`Issuer Library: ${base}/launch?ticket=`)),'no launch link printed',30000,()=>exited===null?null:`server exited ${exited}: ${stderr}`);
+    const launched=await fetch(link.slice('Issuer Library: '.length),{redirect:'manual'});
+    const cookie=(launched.headers.get('set-cookie')||'').split(';')[0];
+    assert.equal(launched.status,303,'the launch link was refused');assert.ok(cookie.includes('='),'no session cookie');
+    const read=async url=>{const response=await fetch(base+url,{cache:'no-store',headers:{cookie}});if(!response.ok)assert.fail(`${url}: ${response.status} ${await response.text()}`);return response.json();};
     const catalogue=await read('/api/catalogue'),store=await read('/api/workspace');
     return {catalogue,store};
   }finally{

@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import asdict
@@ -235,17 +236,20 @@ class ModuleTools:
         src = self.sources[source_id]
         if not isinstance(query, str):
             return "ERROR: query must be text"
-        needle = query.lower().strip()
+        needle = query.strip()
         if not needle:
             return "ERROR: empty query"
+        # Matched on the page itself: positions in page.lower() are not positions in the page
+        # when a letter lowercases to two code points (U+0130, in Turkish text).
+        pattern = re.compile(re.escape(needle), re.IGNORECASE)
         hits: list[str] = []
         for n, page in enumerate(src["pages"], 1):
-            low = page.lower()
-            pos = low.find(needle)
-            while pos >= 0 and len(hits) < MAX_HITS:
-                snippet = page[max(0, pos - 80) : pos + len(needle) + 80].replace("\n", " ")
+            for found in pattern.finditer(page):
+                if len(hits) >= MAX_HITS:
+                    break
+                start, end = found.span()
+                snippet = page[max(0, start - 80) : end + 80].replace("\n", " ")
                 hits.append(f"page {n}: …{snippet}…")
-                pos = low.find(needle, pos + len(needle))
             if len(hits) >= MAX_HITS:
                 break
         return "\n".join(hits) or "no hits"

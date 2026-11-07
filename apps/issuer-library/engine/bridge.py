@@ -11,6 +11,7 @@ import warnings
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import Any
 
 COMPLETE_MESSAGE = (
     "Report written. Automated checks only: review the handoffs against the "
@@ -30,8 +31,11 @@ from deploy_workflow.owners.cpos import run_live_handoffs, with_notes
 from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, checker, prepare
 from deploy_workflow.platform_io import replace
 
-# Room a run needs beyond this job's folder: requests/<module>/<hash>/<n>.request.json under runs/.
-RUN_PATH_ROOM = 100
+RETAINED_NOTE = "Retained work is in the run folder; no automatic paid retry was made."
+UNKNOWN_SPEND_NOTE = "Recorded spend could not be read and may be above zero."
+# Room a run needs beyond this job's folder: the longest name written under it, a retained file's
+# `.pending-<32 hex>` temp (S01-A02) or a recheck's requests/<module>/<hash>/<n>.review-<hash>.json.
+RUN_PATH_ROOM = 160
 
 
 def write_file(path: Path, raw: bytes) -> None:
@@ -168,6 +172,29 @@ def review(directory: Path) -> dict:
     }
 
 
+def redact(text: str) -> str:
+    """Never return provider response bodies or environment key values."""
+    text = Redactor.from_environ(os.environ).text(text)
+    for key in KEY_VARIABLES.values():
+        secret = os.environ.get(key)
+        if secret:
+            text = text.replace(secret, "[redacted]")
+    return text
+
+
+def reported_failure(directory: Path) -> bool:
+    """True when start already wrote its own failed status, with the retained-work note."""
+    try:
+        status = json.loads((directory / "status.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return (
+        isinstance(status, dict)
+        and status.get("state") == "failed"
+        and RETAINED_NOTE in str(status.get("message"))
+    )
+
+
 def start(directory: Path) -> None:
     approved = json.loads((directory / "review.json").read_text())
     current = review(directory)
@@ -189,13 +216,21 @@ def start(directory: Path) -> None:
     def spent() -> str:
         return str(Budget(prepared.plan.provider_cap_usd, run_dir / "live").spent)
 
-    def started(task) -> None:
+    def final_spend() -> tuple[str, list[str]]:
+        """The ledger's spend for status.json. An unreadable ledger is "unknown" with a note,
+        never left out: the app would fall back to progress.json's earlier, lower figure."""
+        try:
+            return spent(), []
+        except Exception:  # noqa: BLE001 -- any ledger fault
+            return "unknown", [UNKNOWN_SPEND_NOTE]
+
+    def started(task: Any) -> None:
         write_json(
             run_dir / "progress.json",
             {"module": task.module_id, "step": "started", "spent_usd": spent()},
         )
 
-    def progress(task, raw) -> None:
+    def progress(task: Any, raw: bytes) -> None:
         # Accepted handoffs are retained here so a stopped run still shows what it paid for.
         write_file(run_dir / f"{task.module_id}.md", raw)
         write_json(
@@ -220,17 +255,21 @@ def start(directory: Path) -> None:
                 on_start=started,
                 config=job["config"],
             )
-    except (ValueError, RuntimeError) as error:
-        message = f"{with_notes(error)} Retained work is in the run folder; no automatic paid retry was made."
+    except Exception as error:  # Any failure after launch may follow paid calls.
+        stopped = isinstance(error, (ValueError, RuntimeError))
+        amount, notes = final_spend()
         write_json(
             directory / "status.json",
             {
-                "state": "stopped",
-                "message": Redactor.from_environ(os.environ).text(message),
-                "spent_usd": spent(),
+                "state": "stopped" if stopped else "failed",
+                "message": redact(" ".join([with_notes(error), RETAINED_NOTE, *notes])),
+                "spent_usd": amount,
             },
         )
+        if not stopped:
+            raise  # main prints the redacted problems; it keeps this status, which holds the spend
         return
+    amount, notes = final_spend()
     write_json(
         directory / "status.json",
         {
@@ -239,9 +278,10 @@ def start(directory: Path) -> None:
                 [
                     COMPLETE_MESSAGE,
                     *(str(w.message) for w in caught if issubclass(w.category, RuntimeWarning)),
+                    *notes,
                 ]
             ),
-            "spent_usd": spent(),
+            "spent_usd": amount,
             "run_id": job["id"],
         },
     )
@@ -249,7 +289,6 @@ def start(directory: Path) -> None:
 
 def main() -> None:
     directory = Path(sys.argv[2]).resolve()
-    redactor = Redactor.from_environ(os.environ)
     try:
         if sys.argv[1] == "review":
             print(json.dumps(review(directory)))
@@ -259,13 +298,8 @@ def main() -> None:
             raise ValueError("unknown CP-OS operation")
     except Exception as error:  # noqa: BLE001 -- isolate/redact the worker process boundary
         problems = list(getattr(error, "problems", (with_notes(error),)))
-        # Never return arbitrary provider response bodies or environment values.
-        cleaned = [redactor.text(str(problem)) for problem in problems]
-        for key in KEY_VARIABLES.values():
-            secret = os.environ.get(key)
-            if secret:
-                cleaned = [text.replace(secret, "[redacted]") for text in cleaned]
-        if sys.argv[1] == "start":
+        cleaned = [redact(str(problem)) for problem in problems]
+        if sys.argv[1] == "start" and not reported_failure(directory):
             write_json(
                 directory / "status.json", {"state": "failed", "message": "; ".join(cleaned)}
             )

@@ -168,3 +168,12 @@ test('at 720px and below the section bar outranks every sticky table cell and ca
   assert.ok(cells.every((z) => z < bar), `a sticky cell reaches ${Math.max(...cells)}, bar is ${bar}`);
   assert.match(mobile, /\.cashflow tbody th\[scope=row\]\{[^}]*white-space:normal[^}]*max-width:9\.5rem/);
 });
+
+test('every custom property screen.css reads without a fallback is defined in screen.css', () => {
+  // index.html loads screen.css alone, so a token from another stylesheet (such as the report's
+  // --rb-ink-2) would silently fall back to the inherited colour. --band-h has a fallback (set by JS).
+  const defined = new Set([...screen.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
+  const bare = [...screen.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(bare.filter((name) => !defined.has(name)))], []);
+  assert.match(screen, /\.ref\{[^}]*color:var\(--muted\)/);
+});

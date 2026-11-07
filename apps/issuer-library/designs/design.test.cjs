@@ -1145,13 +1145,13 @@ test('Summary leads with the reader section: bottom line, confidence and limitat
   assert.equal(lead.querySelector('.source-link').dataset.evidence,'web-1/CP-1.md:17');
   dom.window.close();
 });
-test('Summary draws chart tables with their exact values and shows a gap as not available',()=>{
+test('Summary draws chart tables with their exact values and shows a gap with its stated reason',()=>{
   const dom=appFixture('W-Overview?c=web-1',readerStore(),NORTHBRIDGE_REPORTS),d=dom.window.document;
   const charts=[...d.querySelectorAll('.summary-chart')];
   assert.deepEqual(charts.map(c=>norm(c.querySelector('h2').textContent)),['Leverage','Interest cover','Liquidity','Debt maturities']);
   const rows=c=>[...c.querySelectorAll('.chart-row')].map(r=>[norm(r.querySelector('.chart-label').textContent),norm(r.querySelector('strong').textContent)]);
   assert.deepEqual(rows(charts[0]),[['FY2023Total debt / EBITDA','4.20'],['FY2023Net debt / EBITDA','3.85'],['FY2024Total debt / EBITDA','3.60'],['FY2024Net debt / EBITDA','3.25']]);
-  assert.deepEqual(rows(charts[3]),[['FY2026Debt maturing','500'],['FY2027Debt maturing','Not available'],['FY2028Debt maturing','1,250']]);
+  assert.deepEqual(rows(charts[3]),[['FY2026Debt maturing','500'],['FY2027Debt maturing','Not supplied: the schedule stops here'],['FY2028Debt maturing','1,250']]);
   dom.window.close();
 });
 test('A handoff with a reader section opens on it, and hostile text stays text',()=>{

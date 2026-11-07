@@ -1,0 +1,471 @@
+"""Synthetic regressions for what a routed section carries across the handoff boundary.
+
+Scope: hand-written CP-1B handoffs through markdown_files; no retained model response and no
+analytical run. Expected texts are written out from the handoff text below, not computed.
+"""
+
+import hashlib
+import json
+from pathlib import Path
+
+import pytest
+
+from deploy_vii.contracts import Run
+from deploy_vii.report_view import ReportView
+from deploy_workflow.handoff_delivery import DeliveryRequest
+from deploy_workflow.markdown_delivery import literal_module, markdown_files, require_issuer
+from deploy_workflow.model_handoff_delivery import _literal_tables
+
+TAIL = "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
+
+
+def handoff(request: str, findings: str, tail: str = TAIL) -> str:
+    return (
+        "# CP-1B TransDigm Group Incorporated\n## Request\n"
+        + request
+        + "\n## Sources\nNone.\n## Findings\n"
+        + findings
+        + "\n"
+        + tail
+    )
+
+
+def deliver(tmp_path: Path, text: str, routes: list[dict]) -> dict:
+    raw = text.encode()
+    path = tmp_path / "CP-1B.md"
+    path.write_bytes(raw)
+    request = DeliveryRequest.model_validate_json(
+        json.dumps(
+            {
+                "run": {
+                    "run_id": "r1",
+                    "issuer_id": "TDG",
+                    "issuer_name": "TransDigm Group Incorporated",
+                    "as_of": "2024-12-28",
+                    "case_kind": "public",
+                    "pathway": "earnings_update",
+                    "requested_modules": ["CP-1B"],
+                },
+                "handoffs": {
+                    "CP-1B": {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
+                },
+                "layout": {
+                    "blocks": ["headline-results"],
+                    "routes": [
+                        {"module_id": "CP-1B", "block_id": "headline-results", **r} for r in routes
+                    ],
+                    "scope": "synthetic regression",
+                },
+            }
+        )
+    )
+    files = markdown_files(request, Path("/"))
+    report = ReportView.model_validate_json(files["report-view.json"])
+    return {"block": report.blocks[0], "files": files}
+
+
+TABLE = "| Metric | FY2023 | FY2024 |\n|---|---:|---:|\n| Revenue | 1,000.5 | 1,200.0 |\n"
+ROUTE = {"heading": "Financials", "kind": "table", "table_header": "Metric", "label": "Financials"}
+
+
+def test_unit_and_limitation_sentences_of_the_routed_section_stay_with_the_table(tmp_path):
+    # Hand-derived: the section's two paragraphs, one before and one after the table, are
+    # joined in handoff order after the route label; the table is untouched.
+    findings = (
+        "### Financials\nAll amounts in EUR thousands.\n\n"
+        + TABLE
+        + "\nFY2024 is unaudited,\nsubject to restatement.\n"
+    )
+    got = deliver(tmp_path, handoff("Scope.", findings), [ROUTE])["block"]
+    assert got.note == (
+        "Financials · All amounts in EUR thousands. FY2024 is unaudited, subject to restatement."
+    )
+    assert got.columns == ("FY2023", "FY2024")
+    assert [[c.text for c in r.cells] for r in got.rows] == [["1,000.5", "1,200.0"]]
+
+
+def test_section_prose_is_not_removed_from_the_cited_evidence(tmp_path):
+    findings = "### Financials\nAll amounts in EUR thousands.\n\n" + TABLE
+    files = deliver(tmp_path, handoff("Scope.", findings), [ROUTE])["files"]
+    view = json.loads(files["view.json"])
+    facts = [f for m in view["modules"] for f in m["facts"] if f["table_id"].startswith("prose-")]
+    cited = {f["text"]: [c["quote"] for c in f["citations"]] for f in facts}
+    assert cited["All amounts in EUR thousands."] == ["All amounts in EUR thousands."]
+
+
+def test_same_heading_in_two_sections_takes_only_its_own_prose(tmp_path):
+    # Two "### Values" headings with different tables: each note holds its own section's line.
+    findings = "### Values\nUnit one: USD millions.\n\n| Metric | A |\n|---|---|\n| X | 1 |\n"
+    tail = (
+        "## Calculations\n### Values\nUnit two: EUR thousands.\n\n"
+        "| Item | B |\n|---|---|\n| Y | 2 |\n## Gaps\nNone.\n## Next module\nDelivery.\n"
+    )
+    text = handoff("Scope.", findings, tail)
+    route = {"heading": "Values", "kind": "table", "table_header": "Metric"}
+    assert deliver(tmp_path, text, [route])["block"].note == "Unit one: USD millions."
+    route["table_header"] = "Item"
+    assert deliver(tmp_path, text, [route])["block"].note == "Unit two: EUR thousands."
+
+
+def test_table_section_without_prose_has_only_the_route_label(tmp_path):
+    got = deliver(tmp_path, handoff("Scope.", "### Financials\n" + TABLE), [ROUTE])["block"]
+    assert got.note == "Financials"
+    unlabelled = {k: v for k, v in ROUTE.items() if k != "label"}
+    got = deliver(tmp_path, handoff("Scope.", "### Financials\n" + TABLE), [unlabelled])["block"]
+    assert got.note is None
+
+
+PARAGRAPHS = "Earnings view: first.\n\nEarnings view: second.\n\nScope note, not selected.\n"
+PROSE = {"heading": "Request", "kind": "prose", "prefix": "Earnings view"}
+
+
+def test_partial_row_selection_is_one_register_not_one_tab_per_row(tmp_path):
+    # Hand-derived: two of three paragraphs match, so they form the block's one register of two
+    # rows in handoff order; the third paragraph is not shown here (it stays in Evidence).
+    findings = "### Financials\n" + TABLE
+    got = deliver(tmp_path, handoff(PARAGRAPHS, findings), [{**PROSE, "label": "View"}])["block"]
+    assert got.tabs == () and got.tab_label is None
+    assert [[c.text for c in r.cells] for r in got.rows] == [
+        ["Earnings view: first."],
+        ["Earnings view: second."],
+    ]
+    assert got.note == "View"
+
+
+def test_two_partial_routes_with_different_labels_stay_two_tabs(tmp_path):
+    text = handoff("Alpha one.\n\nBeta one.\n\nAlpha two.\n", "### Financials\n" + TABLE)
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "A"},
+        {"heading": "Request", "kind": "prose", "prefix": "Beta", "label": "B"},
+    ]
+    got = deliver(tmp_path, text, routes)["block"]
+    assert got.tab_label == "A" and [t.label for t in got.tabs] == ["B"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["Alpha one."], ["Alpha two."]]
+    assert [[c.text for c in r.cells] for r in got.tabs[0].rows] == [["Beta one."]]
+
+
+def test_full_selection_still_binds_the_whole_table(tmp_path):
+    text = handoff("Earnings view: first.\n\nEarnings view: second.\n", "### Financials\n" + TABLE)
+    got = deliver(tmp_path, text, [{**PROSE, "label": "View"}])["block"]
+    assert got.tabs == ()
+    assert [r.cells[0].text for r in got.rows] == [
+        "Earnings view: first.",
+        "Earnings view: second.",
+    ]
+
+
+def test_unselected_prefix_still_refuses(tmp_path):
+    text = handoff("Other.\n", "### Financials\n" + TABLE)
+    with pytest.raises(ValueError, match="markdown_selector"):
+        deliver(tmp_path, text, [PROSE])
+
+
+def test_two_routes_on_one_table_with_one_label_share_a_register_in_route_order(tmp_path):
+    # Hand-derived: rows follow route order (Gamma route first), and no row is shown twice.
+    text = handoff("Alpha one.\n\nGamma one.\n\nAlpha two.\n\nBeta.\n", "### Financials\n" + TABLE)
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Gamma"},
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha"},
+    ]
+    got = deliver(tmp_path, text, routes)["block"]
+    assert got.tabs == ()
+    assert [r.cells[0].text for r in got.rows] == ["Gamma one.", "Alpha one.", "Alpha two."]
+
+
+# Second-model review adversarial cases. Expected values are written out from the handoff text.
+
+
+def test_two_tables_in_one_section_carry_its_sentences_once(tmp_path):
+    # Both registers sit under one "### Financials": its two paragraphs appear once, in handoff
+    # order, after the route labels; nothing is repeated per tab.
+    findings = (
+        "### Financials\nAmounts in USD millions.\n\n"
+        + TABLE
+        + "\nRatios are historical.\n\n| Item | FY2024 |\n|---|---:|\n| Cover | 2.5x |\n"
+    )
+    routes = [
+        {"heading": "Financials", "kind": "table", "table_header": "Metric", "label": "P"},
+        {"heading": "Financials", "kind": "table", "table_header": "Item", "label": "Q"},
+    ]
+    got = deliver(tmp_path, handoff("Scope.", findings), routes)["block"]
+    assert got.tab_label == "P" and [t.label for t in got.tabs] == ["Q"]
+    assert got.note == "P · Q · Amounts in USD millions. Ratios are historical."
+    assert [[c.text for c in r.cells] for r in got.tabs[0].rows] == [["2.5x"]]
+
+
+def test_tables_from_two_sections_keep_route_order_in_the_note(tmp_path):
+    findings = (
+        "### Financials\nAmounts in USD millions.\n\n"
+        + TABLE
+        + "\n### Cover\nCover uses cash interest.\n\n"
+        + "| Item | FY2024 |\n|---|---:|\n| Cover | 2.5x |\n"
+    )
+    routes = [
+        {"heading": "Cover", "kind": "table", "table_header": "Item", "label": "Q"},
+        {"heading": "Financials", "kind": "table", "table_header": "Metric", "label": "P"},
+    ]
+    got = deliver(tmp_path, handoff("Scope.", findings), routes)["block"]
+    assert got.tab_label == "Q" and [t.label for t in got.tabs] == ["P"]
+    # Each section's sentences are one note element; elements are joined by " · ".
+    assert got.note == "Q · P · Cover uses cash interest. · Amounts in USD millions."
+
+
+def test_subsection_after_the_table_is_its_own_section(tmp_path):
+    # "#### Other" starts a new section: its line is not in the note and stays cited in Evidence.
+    findings = "### Financials\n**USD millions.**\n\n" + TABLE + "\n#### Other\nUnrelated line.\n"
+    out = deliver(tmp_path, handoff("Scope.", findings), [ROUTE])
+    assert out["block"].note == "Financials · USD millions."
+    view = json.loads(out["files"]["view.json"])
+    facts = [f for m in view["modules"] for f in m["facts"]]
+    texts = [f["text"] for f in facts if f["table_id"].startswith("prose-")]
+    assert "Unrelated line." in texts and "USD millions." in texts
+
+
+def test_merged_register_rows_keep_their_own_citations(tmp_path):
+    # Request lines: 3 Alpha one, 5 Beta one, 7 Gamma one, 9 Alpha two, 11 Omega.
+    # Routes Alpha->X, Beta->Y, Gamma->X: X holds Alpha one, Alpha two, Gamma one (route order);
+    # Y holds Beta one. Each cell cites its own paragraph line.
+    request = "Alpha one.\n\nBeta one.\n\nGamma one.\n\nAlpha two.\n\nOmega.\n"
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "X"},
+        {"heading": "Request", "kind": "prose", "prefix": "Beta", "label": "Y"},
+        {"heading": "Request", "kind": "prose", "prefix": "Gamma", "label": "X"},
+    ]
+    out = deliver(tmp_path, handoff(request, "### Financials\n" + TABLE), routes)
+    got = out["block"]
+    assert got.tab_label == "X" and [t.label for t in got.tabs] == ["Y"]
+    assert got.note == "X · Y"
+    report = json.loads(out["files"]["report-view.json"])
+    fact_of = {ref: e["coord"]["fact_id"] for e in report["index"]["facts"] for ref in e["ref_ids"]}
+    view = json.loads(out["files"]["view.json"])
+    line_of = {
+        f["fact_id"]: [c["locator"] for c in f["citations"]]
+        for m in view["modules"]
+        for f in m["facts"]
+    }
+
+    def shown(rows):
+        return [(r.cells[0].text, line_of[fact_of[r.cells[0].ref_id]]) for r in rows]
+
+    assert shown(got.rows) == [
+        ("Alpha one.", ["line 3"]),
+        ("Alpha two.", ["line 9"]),
+        ("Gamma one.", ["line 7"]),
+    ]
+    assert shown(got.tabs[0].rows) == [("Beta one.", ["line 5"])]
+
+
+def test_one_label_on_two_different_tables_still_refuses(tmp_path):
+    # The merge is per table: the same label on registers of two tables is a real clash.
+    findings = "### Financials\nAlpha f.\n\nOther f.\n\n" + TABLE
+    routes = [
+        {"heading": "Request", "kind": "prose", "prefix": "Alpha", "label": "X"},
+        {"heading": "Financials", "kind": "prose", "prefix": "Alpha", "label": "X"},
+    ]
+    with pytest.raises(ValueError, match="Tab labels are distinct"):
+        deliver(tmp_path, handoff("Alpha r.\n\nBeta r.\n", findings), routes)
+
+
+ISSUER_RUN = Run.model_validate_json(
+    json.dumps(
+        {
+            "run_id": "r1",
+            "issuer_id": "FRD",
+            "issuer_name": "Ford",
+            "as_of": "2024-12-28",
+            "case_kind": "public",
+            "pathway": "earnings_update",
+            "requested_modules": ["CP-1B"],
+        }
+    )
+)
+
+
+@pytest.mark.parametrize(
+    ("issuer", "aliases", "title", "body"),
+    [
+        # "Ford" is the last four letters of "Stanford" and "AB" the middle of "lab": a name
+        # touching a letter on either side is another word, not this issuer.
+        ("Ford", (), "# CP-1B Stanford Health Care", "Analyse Stanford bonds."),
+        ("Ford", (), "# CP-1B Fordham Capital", "Analyse Fordham bonds."),
+        ("Absolute Lab Inc", ("AB",), "# CP-1B Acme Corp", "Analyse Acme lab capacity."),
+    ],
+)
+def test_issuer_name_or_alias_inside_another_word_is_refused(issuer, aliases, title, body):
+    run = ISSUER_RUN.model_copy(update={"issuer_name": issuer})
+    lines = [title, "## Request", body]
+    with pytest.raises(ValueError, match="markdown_issuer"):
+        require_issuer(run, aliases, "CP-1B", lines)
+
+
+@pytest.mark.parametrize(
+    ("aliases", "title", "body"),
+    [
+        ((), "# CP-1B Ford Motor", "x"),
+        ((), "# CP-1B Analysis", "Credit view of FORD,\nthe automaker."),
+        (("AB",), "# CP-1B Analysis", "AB (the issuer) reported."),
+    ],
+)
+def test_issuer_name_or_alias_as_whole_words_is_accepted(aliases, title, body):
+    lines = [title, "## Request", *body.splitlines()]
+    run = ISSUER_RUN if aliases == () else ISSUER_RUN.model_copy(update={"issuer_name": "Other"})
+    require_issuer(run, aliases, "CP-1B", lines)
+
+
+def prose_of(text: str, heading: str) -> list[tuple[str, list[str]]]:
+    """(text, cited line numbers) of every prose fact under `heading`, in handoff order."""
+    module, _, meta = literal_module("CP-1B", text.encode())
+    return [
+        (f.text, [int(c.locator.split()[-1]) for c in f.citations])
+        for f in module.facts
+        if meta.get(f.table_id) == (heading, "prose")
+    ]
+
+
+def test_list_items_are_one_fact_each_and_a_prefix_route_reaches_an_item(tmp_path):
+    # Hand-derived: line 7 is "### Watch", so its four items sit on lines 8 to 11, one fact each.
+    # plain() drops the backticks of line 9 only; the "- " and "1. " markers stay in the text.
+    findings = (
+        "### Watch\n- Track cash interest\n- Track `covenant` headroom\n1. First\n2. Second\n"
+    )
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Watch") == [
+        ("- Track cash interest", [8]),
+        ("- Track covenant headroom", [9]),
+        ("1. First", [10]),
+        ("2. Second", [11]),
+    ]
+    route = {"heading": "Watch", "kind": "prose", "prefix": "Track covenant"}
+    got = deliver(tmp_path, text, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["- Track covenant headroom"]]
+    route["prefix"] = "2. Sec"
+    got = deliver(tmp_path, text, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["2. Second"]]
+
+
+def test_fenced_block_is_one_fact_kept_as_written(tmp_path):
+    # Hand-derived: lines 8 "Before.", 9-11 the fence with its JSON line, 12 "After.". The fenced
+    # text keeps its backticks; the fences are part of the quoted lines.
+    findings = '### Cfg\nBefore.\n```json\n{"a": 1}\n```\nAfter.\n'
+    assert prose_of(handoff("Scope.", findings), "Cfg") == [
+        ("Before.", [8]),
+        ('```json {"a": 1} ```', [9, 10, 11]),
+        ("After.", [12]),
+    ]
+
+
+def test_pipe_lines_outside_a_table_are_kept_as_prose_not_dropped():
+    # Hand-derived: lines 8-10 have no |---| separator, so they form no table. Each stays a fact
+    # of its own with its line; the real table (lines 11-13) is a table, not prose.
+    findings = (
+        "### Covenants\n| Covenant | Headroom |\n| Net leverage 7.25x | ROW-ONE |\n"
+        "|Pipe-led caveat\n| Real | Value |\n|---|---|\n| A | 1 |\n"
+    )
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Covenants") == [
+        ("| Covenant | Headroom |", [8]),
+        ("| Net leverage 7.25x | ROW-ONE |", [9]),
+        ("|Pipe-led caveat", [10]),
+    ]
+    module, _, meta = literal_module("CP-1B", text.encode())
+    tables = [t for t in module.tables if meta[t.table_id] == ("Covenants", "table")]
+    assert [(t.row_header, [r.label for r in t.rows]) for t in tables] == [("Real", ["A"])]
+
+
+def test_hash_without_a_space_is_text_not_a_heading():
+    # Hand-derived: "#1 risk ..." (line 8) and "#NoSpace" (line 10) are paragraph text under
+    # "### Risks"; seven hashes is not a heading either. Lines 8-9 wrap into one paragraph.
+    findings = "### Risks\n#1 risk is the 2027 wall.\nSecond sentence.\n\n#NoSpace\n####### seven\n"
+    assert prose_of(handoff("Scope.", findings), "Risks") == [
+        ("#1 risk is the 2027 wall. Second sentence.", [8, 9]),
+        ("#NoSpace ####### seven", [11, 12]),
+    ]
+
+
+NOTES = (
+    "# CP-1B TransDigm Group Incorporated\n## Request\nScope.\n## Sources\nNone.\n"
+    "## Findings\n### Notes\nFindings note one.\n## Calculations\n### Notes\n"
+    "Calculation note two.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
+)
+
+
+def test_same_named_subsections_stay_apart_and_routes_address_the_path(tmp_path):
+    # Hand-derived: "### Notes" is on line 7 (under Findings) and line 10 (under Calculations).
+    module, _, meta = literal_module("CP-1B", NOTES.encode())
+    found = {
+        meta[t.table_id][0]: [f.text for f in module.facts if f.table_id == t.table_id]
+        for t in module.tables
+        if t.table_id.startswith("prose-")
+    }
+    assert found["Findings > Notes"] == ["Findings note one."]
+    assert found["Calculations > Notes"] == ["Calculation note two."]
+    assert "Notes" not in found
+    with pytest.raises(ValueError, match="markdown_selector"):
+        deliver(tmp_path, NOTES, [{"heading": "Notes", "kind": "prose"}])
+    route = {"heading": "Findings > Notes", "kind": "prose", "label": "Findings notes"}
+    got = deliver(tmp_path, NOTES, [route])["block"]
+    assert [[c.text for c in r.cells] for r in got.rows] == [["Findings note one."]]
+    assert got.note == "Findings notes"
+
+
+def test_a_repeated_heading_path_is_told_apart_by_its_line(tmp_path):
+    # Hand-derived: two "### Notes" under one "## Findings" (lines 7 and 9) share a path, so the
+    # label adds the first line of each group (8 and 10).
+    text = NOTES.replace("## Calculations\n### Notes\nCalculation", "### Notes\nCalculation")
+    text = text.replace("## Gaps", "## Calculations\nNone.\n## Gaps")
+    module, _, meta = literal_module("CP-1B", text.encode())
+    labels = [meta[t.table_id][0] for t in module.tables if "Notes" in meta[t.table_id][0]]
+    assert labels == ["Findings > Notes (line 8)", "Findings > Notes (line 10)"]
+
+
+def test_raw_table_titles_follow_the_nearest_heading_not_earlier_bold_prose():
+    # Hand-derived: each table is titled by the heading line before it (## resets the title);
+    # a bold lead-in that is only part of a line never becomes a title, a whole-line bold does.
+    raw = (
+        "# CP-2 TDG\n## Request\nTDG.\n## Sources\nNone.\n## Findings\n"
+        "**Assessment —** Leverage is high.\n| M | FY |\n|---|---|\n| R | 1 |\n"
+        "**Metrics**\n| N | FY |\n|---|---|\n| S | 2 |\n"
+        "## Calculations\n| C | V |\n|---|---|\n| X | 3 |\n"
+        "### Detail\n| D | V |\n|---|---|\n| Y | 4 |\n"
+        "## Gaps\nNone.\n## Next module\nDelivery.\n"
+    ).encode()
+    _, _, tables, _ = _literal_tables("current_synthesis", raw, hashlib.sha256(raw).hexdigest())
+    assert [t.title for t in tables] == [
+        "current_synthesis: Findings",
+        "current_synthesis: Metrics",
+        "current_synthesis: Calculations",
+        "current_synthesis: Detail",
+    ]
+
+
+def test_wrapped_list_item_stays_whole_and_an_unclosed_fence_ends_at_its_section():
+    # Hand-derived: line 8 starts an item that wraps onto line 9; line 10 is the next item.
+    # The fence opened on line 13 is never closed (its blank line 15 is not quoted); the
+    # "## Calculations" heading ends it, so Calculations still holds its own "None.".
+    findings = "### Watch\n- Track cash\n  interest.\n- Second.\n\n### Code\n```\nx = 1\n\ny = 2\n"
+    text = handoff("Scope.", findings)
+    assert prose_of(text, "Watch") == [("- Track cash interest.", [8, 9]), ("- Second.", [10])]
+    assert prose_of(text, "Code") == [("``` x = 1 y = 2", [13, 14, 16])]
+    assert [t for t, _ in prose_of(text, "Calculations")] == ["None."]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Ford's notes are secured.", "Ford’s notes are secured.", "Ford-owned notes.", "FORD, Inc."],
+)
+def test_issuer_name_beside_a_possessive_hyphen_or_comma_is_accepted(text):
+    require_issuer(ISSUER_RUN, (), "CP-1B", ["# CP-1B Analysis", "## Request", text])
+
+
+def test_a_wrapped_item_line_opening_with_a_year_or_parenthesised_number_is_not_a_new_item():
+    # Hand-derived: "2024." has four digits, so line 9 continues the item on line 8; "1)" and
+    # "2)" (lines 10 and 11) are items of their own; "  - nested" (line 12) is a new item.
+    findings = (
+        "### Watch\n- Leverage fell in\n2024. Revenue rose.\n1) First\n2) Second\n  - nested\n"
+    )
+    assert prose_of(handoff("Scope.", findings), "Watch") == [
+        ("- Leverage fell in 2024. Revenue rose.", [8, 9]),
+        ("1) First", [10]),
+        ("2) Second", [11]),
+        ("- nested", [12]),
+    ]

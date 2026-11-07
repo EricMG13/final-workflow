@@ -51,7 +51,7 @@ def prepare_reports(sources, keys):
         delivery = json.loads((folder / "delivery.json").read_text())
         view = json.loads((folder / "view.json").read_text(encoding="utf-8"))
         identity = view["run"]
-        rows = built_from(folder, sources)
+        rows = built_from({str(n): str(h) for n, h in delivery["files"].items()}, sources)
         for row in rows:
             if row["run"] is None:
                 raise ValueError(f"{folder.name}: {row['source']} matches no shown run file")

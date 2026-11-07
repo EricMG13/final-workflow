@@ -257,3 +257,23 @@ test('a null module detail does not break the row',async t=>{
   const cells=p.doc.querySelectorAll('#recent-jobs tbody tr td');
   assert.equal(cells[1].textContent,'running Financial analysis (2 of 2)');
 });
+test('a status reply for a run the reader has left changes neither the screen nor polling',async t=>{
+  const OTHER='web-'+'c'.repeat(32),rowB={...ROW_RUNNING,id:OTHER,issuer:'Eastgate Plc'};
+  const p=await page(t,{list:[ROW_RUNNING,rowB]});
+  await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
+  const pick=id=>[...p.doc.querySelectorAll('#recent-jobs button')].find(b=>b.title===id);
+  const held=[],asked=[],inner=p.win.fetch;
+  p.win.fetch=(url,options)=>{
+    if(!url.startsWith('/api/runs/status'))return inner(url,options);
+    asked.push(decodeURIComponent(url.split('id=')[1]));
+    return new Promise(resolve=>held.push(()=>resolve({ok:true,json:async()=>({state:'complete',message:'Done A',run_available:true,progress:{module:'CP-1',step:'accepted'}})})));
+  };
+  pick(ID).click();await settle();            // A's status request is now in flight
+  assert.equal(asked.at(-1),ID);
+  pick(OTHER).click();await settle();         // the reader moves to B before A's reply
+  held.shift()();await settle();              // A's reply arrives: A finished
+  assert.doesNotMatch(p.doc.getElementById('run-progress').textContent,/Done A/);
+  const before=asked.length;
+  await p.tick();
+  assert.ok(asked.slice(before).includes(OTHER),'B is still polled');
+});

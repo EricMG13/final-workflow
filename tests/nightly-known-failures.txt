@@ -1,0 +1,117 @@
+# Failures the nightly full-suite run tolerates (tools/nightly_tests.py report --known).
+# One pytest node id (or a test file, for a collection error) per line; text after '#' is ignored.
+# Seeded 2026-11-06 from the base failures documented in the review handoff (docs/review-handoff/
+# FINAL-REPORT.md). The first nightly run lists any other existing failure as "new": confirm each is
+# pre-existing, then add it here with a reason. Remove a line once its test passes again.
+
+# Collection errors at base
+tests/product/test_inputs_portfolio.py  # no module named 'scripts'
+tests/product/test_inputs_portfolio_library_half.py  # no module named 'scripts'
+tests/test_owner_rendering.py  # docs/OWNER-RENDERING-LEASE.md missing
+
+# Failing at base
+tests/test_method_cp5.py::test_upstream_oracles_are_the_manifest_pins  # methodology.json pin drift
+tests/test_method_cp3c.py::test_oracle_files_match_the_lease_pins  # methodology.json pin drift
+tests/test_connect_cp2d.py::test_module_trace_lists_every_offered_cp1_fact  # "19 US$" vs "19 US$ m"
+tests/test_connect_cp2d.py::test_view_offers_a_missing_fact_with_its_status_and_a_gap_word  # same
+tests/research/test_contracts.py::test_decision_amendment_states_two_anchors  # docs/decisions/0007 missing
+tests/test_connect_cpl10.py::test_navigator_with_cp1_unrun_equals_the_oracle_state
+tests/test_connect_cp1d.py::test_no_reader_is_named_by_the_lease  # docs/CP1D-OWNER-LEASE.md missing
+tests/test_connect_cp3d.py::test_relative_value_composition_holds_the_one_block_and_can_take_more
+tests/test_cp1_absent_input.py::test_public_disagreeing_cash_check_still_blocks
+tests/test_czr_cash_scope.py::test_czr_cash_movement_agrees_with_the_declared_scope
+tests/test_financial_workflow.py::test_partial_publication_quarantined_repair_and_history
+tests/test_financial_workflow.py::test_finish_and_interrupt_failure_still_quarantines
+tests/test_financial_workflow.py::test_invalid_repair_cannot_disappear_from_sealed_audit
+tests/prompts/test_rules.py::test_every_content_refusal_is_covered[source_context]
+tests/prompts/test_rules.py::test_an_existing_step_carries_its_contract_rules_whole[financials]
+tests/prompts/test_rules.py::test_an_existing_step_carries_its_contract_rules_whole[relative_value]
+tests/prompts/test_rules.py::test_prompt_names_every_rule[financials]
+tests/prompts/test_rules.py::test_prompt_names_every_rule[relative_value]
+tests/prompts/test_rules.py::test_deleting_one_rules_text_from_the_contract_fails_the_prompt_check[financials]
+tests/prompts/test_rules.py::test_the_golden_file_pins_every_rule_id_check_and_statement
+tests/prompts/test_prompt_set.py::test_the_prompt_set_digest_is_the_golden  # PROMPT_SET_SHA256 drift at base (confirmed 2026-11-07)
+
+# Found failing at base during the fix waves (2026-11-07), confirmed on the base tree
+tests/test_connect_cpl10.py::test_navigator_with_cp1_settled_equals_the_oracle_state
+tests/test_ocr_units.py::test_the_submit_entry_hands_the_ocr_pages_to_the_expansion  # SimpleNamespace lacks media_type
+tests/test_note_reference_guard_wiring.py::test_the_submit_entry_hands_the_note_pages_and_note_rows_to_the_expansion  # same
+tests/test_line_locators.py::test_extract_statements_rebases_rows_to_their_own_line
+tests/test_line_locators.py::test_a_page_pack_is_byte_identical_to_base
+tests/test_connect_cp1c.py::test_spec_row_is_appended_to_the_relative_value_composition  # fails at base (S05 medium fixer)
+
+# tests/test_model_testing_run.py: 14 fail at base (VERIFICATION.md 2026-11-05 notes them; upstream on_start fires for resumed modules)
+tests/test_model_testing_run.py::test_offline_pilot_scores
+tests/test_model_testing_run.py::test_score_and_report_commands_rebuild_the_outputs
+tests/test_model_testing_run.py::test_report_counts_settlements
+tests/test_model_testing_run.py::test_report_command_accounts_row_applies_settlements
+tests/test_model_testing_run.py::test_distressed_is_skipped_when_the_cap_is_short
+tests/test_model_testing_run.py::test_a_stage_rerun_into_the_same_out_gets_new_run_ids
+tests/test_model_testing_run.py::test_a_rerun_that_would_run_a_frozen_module_live_is_refused_before_the_first_run
+tests/test_model_testing_run.py::test_key_shaped_settlement_text_never_reaches_the_report
+tests/test_model_testing_run.py::test_the_lock_is_released_when_the_command_ends_and_score_report_take_none
+tests/test_model_testing_run.py::test_the_report_states_the_resolved_runs_root
+tests/test_model_testing_run.py::test_score_out_lets_a_defect_in_the_scorer_propagate
+tests/test_model_testing_run.py::test_scores_that_no_longer_match_the_runs_are_a_named_refusal
+tests/test_model_testing_run.py::test_report_ignores_a_sibling_folders_settlement
+tests/test_model_testing_run.py::test_report_refuses_a_settlement_naming_an_out_run_but_no_record
+
+# tests/test_method_cpdr.py: fail at base (shallow history and pinned hashes; confirmed on the base tree 2026-11-07)
+tests/test_method_cpdr.py::test_shipped_maps_carry_cpdr_with_unchanged_slots
+tests/test_method_cpdr.py::test_d12_record_carries_the_file_sha256[src/deploy_vii/methods/cpdr.md-path0]
+tests/test_method_cpdr.py::test_d12_record_carries_the_file_sha256[src/deploy_vii/bindings/cpdr.py-path1]
+tests/test_method_cpdr.py::test_d12_record_for_execution_py
+tests/test_method_cpdr.py::test_methodology_chain_runs_7d164d11_to_the_current_file
+tests/test_method_cpdr.py::test_d12_records_for_the_vii_files_are_chained_after_d1b_and_cite_the_end_batch
+
+# tests/model: the live-pause ruling files are not in docs/rulings at base (confirmed on the base tree 2026-11-07)
+tests/model/test_o5_done_when.py::test_the_live_pause_refuses_and_touches_no_environment  # docs/rulings/2026-10-31-context-plan.md missing
+tests/model/test_gate.py::test_only_the_model_testing_ruling_lifts_the_pause  # same
+tests/model/test_gate.py::test_good_ruling_construction_touches_nothing_and_complete_reads_the_three_key_variables_once  # same
+
+# tests/prompts: fail at base (confirmed on the base tree 2026-11-07)
+tests/prompts/test_compose.py::test_an_existing_contract_appears_verbatim[financials]  # financials contract drift, as financials.k above
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[carriage-return-header]  # the form refuses it earlier with ContextRefused, not FenceError
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[end]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[end-prefix]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-context]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-evidence]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-repair]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-source]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[indented-header]  # same
+
+# tests/prompts frozen-message digests: fail at base (confirmed on claude/quality-gate 2026-11-07; found by the branch review)
+tests/prompts/test_g8.py::test_every_stripped_span_comes_from_the_merge  # the frozen message drifted from the imported text at base
+tests/prompts/test_g8.py::test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message[committee_challenge]
+tests/prompts/test_g8.py::test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_g8.py::test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_g8.py::test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message[source_readiness]
+tests/prompts/test_texts_loader.py::test_the_absence_line_is_the_only_change_to_the_frozen_message[source_context]
+tests/prompts/test_texts_loader.py::test_the_b29_wording_is_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_texts_loader.py::test_the_b30_wording_is_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_texts_loader.py::test_the_b34_wording_is_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_texts_loader.py::test_the_coverage_line_is_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_texts_loader.py::test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message[committee_challenge]
+tests/prompts/test_texts_loader.py::test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_texts_loader.py::test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_texts_loader.py::test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message[source_context]
+tests/prompts/test_texts_loader.py::test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message[source_readiness]
+tests/prompts/test_texts_loader.py::test_the_invoke_budget_is_the_only_change_to_the_frozen_message[committee_challenge]
+tests/prompts/test_texts_loader.py::test_the_invoke_budget_is_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_texts_loader.py::test_the_invoke_budget_is_the_only_change_to_the_frozen_message[relative_value]
+tests/prompts/test_texts_loader.py::test_the_invoke_budget_is_the_only_change_to_the_frozen_message[source_context]
+tests/prompts/test_texts_loader.py::test_the_invoke_budget_is_the_only_change_to_the_frozen_message[source_readiness]
+tests/prompts/test_texts_loader.py::test_the_map_coverage_rule_is_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_texts_loader.py::test_the_merged_restricted_cash_change_is_the_only_change_to_the_frozen_message[financials]
+tests/prompts/test_texts_loader.py::test_the_p5_line_is_the_only_change_to_the_frozen_message[source_readiness]
+tests/prompts/test_texts_loader.py::test_the_p5t6_changes_are_the_only_change_to_the_frozen_message[source_readiness]
+tests/prompts/test_texts_loader.py::test_the_twelve_existing_steps_compose_byte_identically
+tests/prompts/test_texts_loader.py::test_the_unit_maps_schema_is_the_only_change_to_the_frozen_message[financials]
+
+# Found by the S12-A02 fixer, confirmed on claude/quality-gate (2026-11-07)
+tests/prompts/test_coverage_rule.py::test_the_rule_list_holds_the_coverage_rule  # coverage rule text drifted from the frozen statement at base
+tests/prompts/test_coverage_rule.py::test_the_statement_is_the_frozen_text  # same
+tests/test_o2_done_when.py::test_a_line_citation_naming_the_range_key_is_not_coverage
+tests/test_financial_workflow.py::test_full_component_promotes_and_publishes_actual_model  # fixture errors with publication_refused at base (found by the S12-A02 review)
+tests/research/test_consumer_block.py::test_attachments_supersedes_is_the_replayed_run  # stub has no delivery_scope (run_pathway) at base; found by the CP-8 review
+tests/research/test_consumer_block.py::test_a_stop_after_cp_dr_records_the_heads_state  # same

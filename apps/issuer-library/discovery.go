@@ -8,13 +8,17 @@ import (
 	"os"
 	"path"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
-var numericToken = regexp.MustCompile(`-?[0-9][0-9,]*(?:\.[0-9]+)?`)
+// wholeNumber is one number in full: an optional leading minus, digits with thousands commas
+// grouping exactly three digits, and an optional decimal part.
+var wholeNumber = regexp.MustCompile(`^-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?$`)
 var sourceKey = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 func verifySource(root *os.Root, source Source) (Source, error) {
@@ -86,13 +90,7 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 		if err != nil || math.IsInf(value, 0) || math.IsNaN(value) || !ok || metric.Unit == "" || metric.Period == "" || metric.Basis == "" {
 			return run, fmt.Errorf("metric requires finite exact value, unit, period, basis and pinned source")
 		}
-		found := false
-		for _, token := range numericToken.FindAllString(source.Quote, -1) {
-			if strings.ReplaceAll(token, ",", "") == metric.Value {
-				found = true
-			}
-		}
-		if !found {
+		if !slices.Contains(statedNumbers(source.Quote), metric.Value) {
 			return run, fmt.Errorf("metric value absent from source excerpt")
 		}
 	}
@@ -170,6 +168,94 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 		run.SectorSource = id + "." + run.SectorSource
 	}
 	return run, nil
+}
+
+// numberRune reports the characters that can belong to a written number: digits, decimal and
+// group separators, dashes and the slash of a date. A run of them is read as a whole, never in
+// fragments.
+func numberRune(r rune) bool {
+	return signOrDigit(r) || strings.ContainsRune(".,'\u2019/", r)
+}
+
+func isDash(r rune) bool {
+	return strings.ContainsRune("-\u2010\u2011\u2012\u2013\u2014\u2212", r)
+}
+
+func signOrDigit(r rune) bool {
+	return r >= '0' && r <= '9' || isDash(r)
+}
+
+var leadingGroup = regexp.MustCompile(`^-?[0-9]{1,3}$`)
+var trailingGroup = regexp.MustCompile(`^[0-9]{3}(?:[^0-9]|$)`)
+
+// statedNumbers returns the numbers a quote states, as decimal strings without thousands
+// commas. A maximal run of number characters counts only when all of it is one wholeNumber, so
+// a date, range, list or figure in another separator convention states nothing rather than a
+// fragment of itself; sentence punctuation after a number is dropped. These also state nothing:
+// a minus joined to a word (COVID-19) or placed before a currency symbol (-$5), two runs that read as space-grouped thousands (1 234) or
+// as an exponent (1.2e3), and a number closing a parenthesis the quote did not open. Inside
+// parentheses only the exact accounting form "(x)" has a known sign, -x; any other
+// parenthesised number, or "(x)" next to a dash or digit, is not taken.
+func statedNumbers(quote string) []string {
+	runes := []rune(quote)
+	type span struct {
+		start, end, depth int
+		text              string
+	}
+	var runs []span
+	depth := 0
+	for i := 0; i < len(runes); {
+		if !numberRune(runes[i]) {
+			if runes[i] == '(' {
+				depth++
+			} else if runes[i] == ')' && depth > 0 {
+				depth--
+			}
+			i++
+			continue
+		}
+		start := i
+		for i < len(runes) && numberRune(runes[i]) {
+			i++
+		}
+		end := i
+		for end > start && (runes[end-1] == '.' || runes[end-1] == ',') {
+			end--
+		}
+		runs = append(runs, span{start, end, depth, string(runes[start:end])})
+	}
+	grouped := make([]bool, len(runs))
+	for k := 1; k < len(runs); k++ {
+		gap := string(runes[runs[k-1].end:runs[k].start])
+		spaced := len([]rune(gap)) == 1 && strings.Contains(" \u00a0\u2009\u202f", gap) && leadingGroup.MatchString(runs[k-1].text) && trailingGroup.MatchString(runs[k].text)
+		exponent := (gap == "e" || gap == "E" || gap == "e+" || gap == "E+") && runs[k-1].text != "" && runs[k].text != ""
+		if spaced || exponent {
+			grouped[k-1], grouped[k] = true, true
+		}
+	}
+	var numbers []string
+	for k, run := range runs {
+		if grouped[k] || !wholeNumber.MatchString(run.text) || run.text[0] == '-' && run.start > 0 && unicode.IsLetter(runes[run.start-1]) {
+			continue
+		}
+		if run.start > 1 && unicode.Is(unicode.Sc, runes[run.start-1]) && isDash(runes[run.start-2]) {
+			continue // A minus before a currency symbol (-$5) is a sign this reader does not move.
+		}
+		number := strings.ReplaceAll(run.text, ",", "")
+		if run.depth == 0 && run.end < len(runes) && runes[run.end] == ')' {
+			continue // The end of a parenthesis opened before the quote: its sign is unknown.
+		}
+		if run.depth > 0 {
+			// The accounting form stands alone: no sign inside it and no sign or digit around it.
+			exact := runes[run.start-1] == '(' && run.end < len(runes) && runes[run.end] == ')' && number[0] != '-'
+			if !exact || run.start > 1 && signOrDigit(runes[run.start-2]) || run.end+1 < len(runes) && signOrDigit(runes[run.end+1]) {
+				continue
+			}
+			number = "-" + number
+		}
+		numbers = append(numbers, number)
+	}
+	return numbers
 }
 
 func assessChecklist(checklist Checklist, sources map[string]Source) (Counts, error) {
@@ -309,6 +395,46 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 	return artifact, view, files
 }
 
+// runDeliveryIdentityIssue checks a delivery kept inside runs/<id>/deliveries against
+// that run. The launcher names the folder web-<hex> but stamps its deliveries with the
+// run identity recorded in the run's own workflow.json, so either the folder id or the
+// recorded run id is accepted; an issuer recorded by the launcher or admitted from the
+// run manifest must match exactly. It returns "" when the delivery belongs to the run.
+func runDeliveryIdentityIssue(root *os.Root, folder, id string, run Run, view deliveryView) string {
+	var recorded struct {
+		Run struct {
+			RunID    string `json:"run_id"`
+			IssuerID string `json:"issuer_id"`
+		} `json:"run"`
+	}
+	if readJSON(root, folder+"/workflow.json", &recorded) != nil {
+		// Unreadable or malformed: fall back to the folder id alone. A type error leaves a
+		// partial decode (run_id kept, issuer_id dropped), so none of it may be used.
+		recorded.Run.RunID, recorded.Run.IssuerID = "", ""
+	}
+	if view.Run.RunID != id && (recorded.Run.RunID == "" || view.Run.RunID != recorded.Run.RunID) {
+		return "Delivery run identity does not match this run"
+	}
+	if recorded.Run.IssuerID != "" && view.Run.IssuerID != recorded.Run.IssuerID {
+		return "Delivery issuer does not match run"
+	}
+	if run.Issuer != "" && run.Issuer != "Unclassified" && view.Run.IssuerID != run.Issuer {
+		return "Delivery issuer does not match run"
+	}
+	return ""
+}
+
+// declaredAs is a verified delivery under the label and relationship its run manifest declared;
+// a declared superseded state is kept.
+func declaredAs(declared, artifact Artifact) Artifact {
+	artifact.Label = declared.Label
+	artifact.Relationship = declared.Relationship
+	if declared.State == "superseded" {
+		artifact.State = declared.State
+	}
+	return artifact
+}
+
 func discover(workspace string, seeds Catalogue) Catalogue {
 	cat := Catalogue{Real: []Run{}, Illustrative: []Run{}, Sources: map[string]Source{}, Issues: []string{}, Allowed: map[string]string{}, Workspace: workspace, Live: true, BuiltAt: time.Now().UTC().Format("02 Jan 2006, 15:04:05 UTC")}
 	root, err := os.OpenRoot(workspace)
@@ -380,15 +506,37 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 		// A launcher run keeps its verified deliveries inside the run; run files stay unverified.
 		runDeliveries, _ := folders(root, folder+"/deliveries")
 		for _, delivered := range runDeliveries {
-			artifact, _, files := verifyDelivery(root, delivered)
+			artifact, view, files := verifyDelivery(root, delivered)
+			if artifact.Available {
+				// A delivery copied in from another run or issuer must not pass for this one.
+				if issue := runDeliveryIdentityIssue(root, folder, id, run, view); issue != "" {
+					artifact.Available = false
+					artifact.Href = ""
+					artifact.Issue = issue
+				}
+			}
 			if !artifact.Available {
 				cat.Issues = append(cat.Issues, delivered+": "+artifact.Issue)
+				for i := range run.Artifacts {
+					if run.Artifacts[i].Folder == delivered {
+						run.Artifacts[i].Issue = artifact.Issue
+					}
+				}
 				continue
 			}
 			for name, hash := range files {
 				cat.Allowed[name] = hash
 			}
-			run.Artifacts = append(run.Artifacts, artifact)
+			declared := false
+			for i, old := range run.Artifacts {
+				if old.Folder == delivered {
+					run.Artifacts[i] = declaredAs(old, artifact)
+					declared = true
+				}
+			}
+			if !declared {
+				run.Artifacts = append(run.Artifacts, artifact)
+			}
 		}
 		cat.Real = append(cat.Real, run)
 	}
@@ -403,12 +551,7 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 			run := &cat.Real[i]
 			for j, old := range run.Artifacts {
 				if old.Folder == folder {
-					updated := artifact
-					updated.Label = old.Label
-					updated.Relationship = old.Relationship
-					if old.State == "superseded" {
-						updated.State = old.State
-					}
+					updated := declaredAs(old, artifact)
 					if artifact.Available && view.Run.IssuerID != run.Issuer {
 						updated.Available = false
 						updated.Href = ""

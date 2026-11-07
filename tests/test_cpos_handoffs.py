@@ -3,6 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -884,3 +885,219 @@ def test_release_failure_after_a_successful_run_keeps_the_result_and_warns(tmp_p
             rulings_root=root,
         )
     assert report == tmp_path / "report.html"
+
+
+def test_failed_response_write_leaves_no_torn_answer_and_never_redispatches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """S01-A02/C02: a response write that fails (EIO/ENOSPC on sync) must leave no final
+    `1.response.md`. Before the fix `_put` wrote in place, so resume read the torn bytes as the
+    retained answer, skipped the executor and delivered them. Expected, by hand: CP-1's final
+    response is absent, no `.pending-*` temp remains, resume refuses with `cpos_interrupted`
+    without a single executor call, and no completion record exists."""
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+    real_open = Path.open
+    armed = []
+
+    class HalfWrite:  # the disk fills after half the bytes of the next created file
+        def __init__(self, stream: Any) -> None:
+            self.stream = stream
+
+        def __enter__(self) -> Any:
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            self.stream.close()
+
+        def write(self, raw: bytes) -> int:
+            self.stream.write(raw[: len(raw) // 2])
+            self.stream.flush()
+            raise OSError(28, "No space left on device")
+
+    def opening(self: Path, mode: str = "r", *args: Any, **kwargs: Any) -> Any:
+        stream = real_open(self, mode, *args, **kwargs)
+        if mode == "xb" and armed:
+            armed.clear()
+            return HalfWrite(stream)
+        return stream
+
+    def execute(task: HandoffTask) -> bytes:
+        if task.module_id == "CP-1":
+            armed.append(True)  # the next created file is CP-1's response
+        return replay(task)
+
+    monkeypatch.setattr(Path, "open", opening)
+    with pytest.raises(OSError, match="No space left"):
+        run_handoffs(path, directory, execute=execute, check=checked)
+    monkeypatch.setattr(Path, "open", real_open)
+    folder = next(directory.glob("requests/CP-1/*"))
+    assert sorted(p.name for p in folder.iterdir()) == ["1.request.json"]
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="cpos_interrupted: response not retained for CP-1"):
+        run_handoffs(
+            path, directory, execute=lambda t: calls.append(t.module_id) or b"", check=checked
+        )
+    assert calls == []
+    assert not list(directory.glob("completed-*"))
+
+
+def test_put_publishes_whole_bytes_once_beside_a_stale_temp_file(tmp_path: Path) -> None:
+    """A temp file a killed writer left behind is neither read nor reused. Expected, by hand: the
+    target holds exactly b"complete answer\\n", the stale `.pending-` file is untouched (it is not
+    `_put`'s to remove), an identical rewrite is a no-op, a different one is `identity_mismatch`,
+    and no new temp file remains after either."""
+    from deploy_workflow.workflow import WorkflowError, _put
+
+    stale = tmp_path / ".pending-0123456789abcdef0123456789abcdef"
+    stale.write_bytes(b"compl")
+    target = tmp_path / "1.response.md"
+    _put(target, b"complete answer\n")
+    _put(target, b"complete answer\n")
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        _put(target, b"complete answer\nplus more\n")
+    assert target.read_bytes() == b"complete answer\n"
+    assert sorted(p.name for p in tmp_path.iterdir()) == [stale.name, target.name]
+
+
+def test_fixed_checker_accepts_a_falsely_rejected_retained_answer_without_execution(
+    tmp_path: Path,
+) -> None:
+    """S01-C05: one attempt (as in live mode); a buggy checker falsely rejects CP-1's correct
+    answer. Before the fix, rerunning the same directory with the fixed checker died with
+    `identity_mismatch` (the new verdict could not be written over `1.review.json`). Expected, by
+    hand: the rerun completes with no executor call for CP-0 or CP-1 (both retained), the false
+    verdict stays in `1.review.json` and the new one, {"issues": [], "response_sha256":
+    sha256(CP-1 answer)}, is kept beside it as `1.review-<its sha256>.json`."""
+    path = job(tmp_path)
+    data = json.loads(path.read_text())
+    data["max_attempts"] = 1
+    path.write_text(json.dumps(data))
+    directory = tmp_path / "state"
+
+    def buggy(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+        return ("false rejection",) if task.module_id == "CP-1" else checked(task, response)
+
+    with pytest.raises(ValueError, match="cpos_module_failed: CP-1: false rejection"):
+        run_handoffs(path, directory, execute=replay, check=buggy)
+    seen: list[str] = []
+
+    def execute(task: HandoffTask) -> bytes:
+        seen.append(task.module_id)
+        return replay(task)
+
+    assert run_handoffs(path, directory, execute=execute, check=checked).exists()
+    assert seen == ["CP-1A", "CP-2"]
+    folder = next(directory.glob("requests/CP-1/*"))
+    first = json.loads((folder / "1.review.json").read_bytes())
+    assert first["issues"] == ["false rejection"]
+    expected = {"issues": [], "response_sha256": hashlib.sha256(RESPONSES["CP-1"]).hexdigest()}
+    raw = json.dumps(expected, sort_keys=True, indent=2).encode()
+    assert (folder / f"1.review-{hashlib.sha256(raw).hexdigest()}.json").read_bytes() == raw
+    # A second rerun with the same checker adds nothing.
+    assert run_handoffs(path, directory, execute=execute, check=checked).exists()
+    assert seen == ["CP-1A", "CP-2"]
+    assert len(list(folder.glob("1.review*.json"))) == 2
+
+
+def test_a_changed_recheck_verdict_cannot_reuse_the_next_attempts_answer(tmp_path: Path) -> None:
+    """Two attempts: CP-1's first answer was rejected with issue A and attempt 2 answered A. A
+    checker that now rejects attempt 1 with issue B would send attempt 2 other feedback, so the
+    retained attempt-2 answer cannot stand for it. Expected, by hand: `cpos_feedback_changed:
+    CP-1`, no executor call, no completion record."""
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+
+    def first_attempt_rejected(issue: str) -> Any:
+        def check(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+            if task.module_id == "CP-1" and task.attempt == 1:
+                return (issue,)
+            return checked(task, response)
+
+        return check
+
+    run_handoffs(path, directory, execute=replay, check=first_attempt_rejected("issue A"))
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="cpos_feedback_changed: CP-1"):
+        run_handoffs(
+            path,
+            directory,
+            execute=lambda t: calls.append(t.module_id) or b"",
+            check=first_attempt_rejected("issue B"),
+        )
+    assert calls == []
+    assert len(list(directory.glob("completed-*.json"))) == 1  # the first run's only
+
+
+def test_put_failures_leave_a_complete_target_or_none_and_no_temp_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review of S01-A02/C02. Expected, by hand: a filesystem without hard links (`os.link` refused)
+    publishes nothing and leaves no temp file; a directory sync that fails after the link leaves the
+    complete target, no temp file, and an identical retry succeeds."""
+    from deploy_workflow import workflow
+
+    target = tmp_path / "a" / "1.response.md"
+    with monkeypatch.context() as patch:
+        patch.setattr(workflow.os, "link", lambda *_: (_ for _ in ()).throw(OSError(1, "no links")))
+        with pytest.raises(OSError, match="no links"):
+            workflow._put(target, b"whole\n")
+    assert list(target.parent.iterdir()) == []
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            workflow, "fsync_directory", lambda *_: (_ for _ in ()).throw(OSError(5, "EIO"))
+        )
+        with pytest.raises(OSError, match="EIO"):
+            workflow._put(target, b"whole\n")
+    assert [p.name for p in target.parent.iterdir()] == [target.name]
+    assert target.read_bytes() == b"whole\n"
+    workflow._put(target, b"whole\n")
+    assert [p.name for p in target.parent.iterdir()] == [target.name]
+
+
+def test_review_revisions_are_kept_once_per_distinct_verdict(tmp_path: Path) -> None:
+    """Review of S01-C05. Verdicts A, B, A, C, B arrive for one attempt. Expected, by hand: the
+    first stays in `1.review.json`; B and C are each kept once as
+    `1.review-<sha256 of its bytes>.json`; returning to A or B writes nothing: three files, the
+    original unchanged."""
+    from deploy_workflow.owners.cpos import _retain_review
+
+    def verdict(issue: str) -> bytes:
+        return json.dumps({"issues": [issue], "response_sha256": "r"}, sort_keys=True).encode()
+
+    base = tmp_path / "1.review.json"
+    for issue in ("A", "B", "A", "C", "B"):
+        _retain_review(base, verdict(issue))
+    names = sorted(p.name for p in tmp_path.iterdir())
+    expected = sorted(
+        ["1.review.json"]
+        + [f"1.review-{hashlib.sha256(verdict(i)).hexdigest()}.json" for i in ("B", "C")]
+    )
+    assert names == expected
+    assert base.read_bytes() == verdict("A")
+
+
+def test_a_fixed_checker_accepting_the_first_attempt_selects_it_without_execution(
+    tmp_path: Path,
+) -> None:
+    """Review of S01-C05, two attempts. A checker falsely rejects CP-1 attempt 1; attempt 2 is
+    accepted. Rerun with a checker accepting attempt 1. Expected, by hand: no executor call (the
+    request for attempt 2 is never reached), CP-1's selected response is `1.response.md`, and the
+    retained verdict for attempt 2 stays untouched."""
+    path = job(tmp_path)
+    directory = tmp_path / "state"
+
+    def buggy(task: HandoffTask, response: bytes) -> tuple[str, ...]:
+        if task.module_id == "CP-1" and task.attempt == 1:
+            return ("false rejection",)
+        return checked(task, response)
+
+    run_handoffs(path, directory, execute=replay, check=buggy)
+    folder = next(directory.glob("requests/CP-1/*"))
+    second = (folder / "2.review.json").read_bytes()
+    calls: list[str] = []
+    run_handoffs(path, directory, execute=lambda t: calls.append(t.module_id) or b"", check=checked)
+    assert calls == []
+    assert (folder / "2.review.json").read_bytes() == second
+    modules = [json.loads(p.read_bytes())["modules"]["CP-1"] for p in directory.glob("completed-*")]
+    assert sorted(m.rsplit("/", 1)[1] for m in modules) == ["1.response.md", "2.response.md"]

@@ -5818,7 +5818,7 @@ Scope: offline gates and a fake-engine rehearsal; no provider was called. Method
 - Not run: the paid live walk (awaits owner approval). The answer key on retained live-002 fails `delivery_changed: view.json`: current delivery code no longer byte-reproduces that retained delivery.
 
 Owner items (predate this change):
-- `web/library-workspace.test.cjs` (PR #24) is flaky: 1 of 8 standalone runs failed ("The model frame shows loading, then the failure…", 20 ms frame timeout).
+- `web/library-workspace.test.cjs` (PR #24) is flaky: 1 of 8 standalone runs failed ("The model frame shows loading, then the failure…", 20 ms frame timeout). Fixed 2026-11-07: the test read the loading state after `go()`'s 10 ms `settle()`, so on a busy machine the 20 ms failure timer fired first (7/30 failed under 10-way concurrency; `screens.test.cjs`'s report-frame test had the same race, 11/30). Both now read it in the render's own task, with a 40 ms busy hashchange listener standing in for the load (old pattern 5/5 red; fixed 0/80 and 0/50 under load; both files 3× green; `validate.py quick` PASS). Test-only; app code unchanged.
 - Recorded spend can end slightly above the cap (offline: 10.10 at cap 10); the engine retries a 5xx or cut stream once and resends after a 402, within the cap.
 - Unrelated environment secrets reach the server and worker.
 

@@ -371,7 +371,12 @@ test('Model text from a workspace stays text, and a source that changed says so'
 test('The model frame shows loading, then the failure with a download link when the page never arrives',async t=>{
   const w=screens(workspace,'W-Overview/overview?c=tdg-002').window;t.after(()=>w.close());
   w.DESIGN_FRAME_TIMEOUT_MS=20;
-  await go(w,'W-Forecast/forecast?c=tdg-002');
+  // The render arms the 20 ms timer synchronously, so the loading state is read in that same task, before
+  // any timer can fire. A busy listener after the app's stands in for a loaded machine: awaiting go()'s
+  // settle() here would read the status after the timer had already failed it. jsdom's own later
+  // hashchange for the same route does not re-render (renderRoute's `changed`), so `status` stays live.
+  w.addEventListener('hashchange',()=>{for(const end=Date.now()+40;Date.now()<end;);});
+  w.location.hash='W-Forecast/forecast?c=tdg-002';w.dispatchEvent(new w.Event('hashchange'));
   const status=w.document.querySelector('.forecast .frame-status');
   assert.equal(text(status),'Loading model…');
   await until(()=>/did not load/.test(status.textContent),'the model frame never reported failure',2000);

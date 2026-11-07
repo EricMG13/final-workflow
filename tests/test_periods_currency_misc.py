@@ -697,7 +697,10 @@ def test_cp2e_refuses_the_fy_2025_header_under_fy_2026() -> None:
     pages = {s.locator: s.text for s in pack.sources[0].spans}
     old = {k: v.replace("FY 2026", "FY 2025") for k, v in pages.items()}
     issues = cp2e.validate_macro_fx(
-        submission=_cp2e_submission("EUR"), pages=old, periods=cp2e.periods_of(pack)
+        submission=_cp2e_submission("EUR"),
+        pages=old,
+        periods=cp2e.periods_of(pack),
+        currency=cp2e.context_facts(pack).run.reporting_currency,  # as `_validate_step` reads it
     )
     assert issues and all("page header does not end in the FY column" in x for x in issues)
 

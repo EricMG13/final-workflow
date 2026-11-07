@@ -8,6 +8,37 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — First nightly run triaged (branch `claude/nightly-disk`)
+
+Scope: nightly run 42351518717 on main 3bff5e8, its runner faults and its 94 failures not on
+`tests/nightly-known-failures.txt`. Offline in this container; CI reruns only, no provider call.
+- Runner: two shards' disks filled (each workflow store holds about 120 MB of issuer sources and
+  pytest kept every `tmp_path`); one shard ended with exit -11 (no trace: its log is an artifact the
+  proxy cannot fetch). Fix: a passing test's `tmp_path` is deleted, unused runner toolchains are
+  dropped, 8 shards instead of 6, and each shard prints its log's last 400 lines to the job log.
+  Module and session fixtures' directories stay (some are shared across modules). A
+  `workflow_dispatch` with `tests` (and `ref`) reruns only those ids. The full-run fix itself is not
+  yet proven: it needs the next full run.
+- Triage: CI reruns of the 92 slow failures on this branch (42369485755) and at 5dd01ec, before
+  the review fixes (42369487867). 89 fail at 5dd01ec with the same message, most of them fixtures
+  whose publication is refused in the CP-OS and S1A suites; they go on the known list. One fast
+  failure fails at 5dd01ec too (known list).
+- Regressions from the review fixes, fixed: CP-2D's pinned-assumptions label now follows the
+  analyst's stated limitations (S06-C02; T4 L2/L3); the CP-2E FY-header test passes the pack's
+  currency; the CP-DR off byte-identity test undoes the deliberate S13-A04/C07 and S14-C04 CP-0
+  sentences with their strip helpers, and run.json and the run tree then equal the unchanged
+  checkpoint 65d1a180 fixture.
+- Review (model matrix): a Sonnet review of each commit. It added the rerun-id guard; its module
+  fixture cleanup was reverted because it deleted directories later modules reuse
+  (`tests/cpdr_runs.py` `closed_run`, the session prompt pack). The second review confirmed.
+- Checks (fast, `timeout 300`): `tests/test_nightly_tests.py` 10 passed;
+  `tests/test_periods_currency_misc.py` passed; the three regression nodes 9 passed;
+  `tests/test_method_cp2d.py` and `tests/test_connect_cp2d.py` 434 passed, 2 failed (known list);
+  `cases/pins.py --check` 219 paths; quality gate 0 findings. Not run: the workflow YAML lint (the
+  linter download was refused); the full suite (next scheduled run).
+- Schedule (user ruling, 2026-11-07): weekly, Sunday 01:00 UTC, since a full run takes about 17
+  runner-hours of this private repository's Actions minutes.
+
 ## 2026-11-07 — Confidence review of the whole app
 
 Scope: 14 slices of the app at a313b50, each reviewed by a Sonnet agent and checked in the main

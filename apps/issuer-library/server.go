@@ -39,6 +39,22 @@ type Application struct {
 	ticket     string     // one-time launch ticket, in memory only; empty once exchanged or expired
 	expires    time.Time  // when the ticket stops working; fixed at start
 	session    string     // this launch's session cookie value, in memory only; fixed at start
+	storeCache storeCache
+}
+
+// storeCache holds the last workspace store output. mu is held while the store runs, so
+// concurrent requests share one run; it is never taken with app.mu or app.refreshing held, and
+// neither is taken while it is held, so the three cannot deadlock.
+type storeCache struct {
+	mu   sync.Mutex
+	key  string
+	body []byte
+}
+
+func (cache *storeCache) clear() {
+	cache.mu.Lock()
+	cache.key, cache.body = "", nil
+	cache.mu.Unlock()
 }
 
 // discoverWorkspace is discover; swappable so tests can hold a discovery in progress. It is atomic
@@ -167,19 +183,41 @@ func (app *Application) writeCatalogue(w http.ResponseWriter) {
 func (app *Application) serveWorkspace(w http.ResponseWriter) {
 	app.mu.RLock()
 	catalogue, err := json.Marshal(app.catalogue)
+	snapshot := app.catalogue
 	workspace := app.config.Workspace
 	app.mu.RUnlock()
 	if err != nil {
 		http.Error(w, "Could not read the library", http.StatusInternalServerError)
 		return
 	}
-	store, err := app.engine.library(workspace, catalogue)
+	store, err := app.workspaceStore(workspace, snapshot, catalogue)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(store)
+	_, _ = w.Write(store) // written with storeCache.mu released: a stalled client holds nothing
+}
+
+// workspaceStore returns the store output, rerunning the store only when its fingerprint changed.
+// The returned slice is never modified. A failed fingerprint or store is not cached.
+func (app *Application) workspaceStore(workspace string, snapshot Catalogue, catalogue []byte) ([]byte, error) {
+	app.storeCache.mu.Lock()
+	defer app.storeCache.mu.Unlock()
+	key, keyErr := workspaceFingerprint(workspace, snapshot, filepath.Dir(app.engine.Script))
+	if keyErr != nil {
+		log.Printf("Workspace fingerprint: %v; running the store uncached", keyErr)
+	} else if key == app.storeCache.key && app.storeCache.body != nil {
+		return app.storeCache.body, nil
+	}
+	body, err := app.engine.library(workspace, catalogue)
+	if err != nil {
+		return nil, err
+	}
+	if keyErr == nil {
+		app.storeCache.key, app.storeCache.body = key, body
+	}
+	return body, nil
 }
 
 // post handles the state-changing requests. Responses are written after app.mu is released.
@@ -187,9 +225,12 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/api/refresh":
 		app.refresh()
+		app.storeCache.clear()
 		app.writeCatalogue(w)
 	case "/api/settings":
-		if status, message := app.changeSettings(w, r); status != http.StatusOK {
+		status, message := app.changeSettings(w, r)
+		app.storeCache.clear() // after the locks are released; the key also names the workspace
+		if status != http.StatusOK {
 			http.Error(w, message, status)
 			return
 		}

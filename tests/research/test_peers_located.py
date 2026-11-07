@@ -172,7 +172,9 @@ def test_a_declared_basis_the_span_and_basis_line_do_not_state_is_refused(case: 
     ]
 
 
-@pytest.mark.parametrize("currency", ["usd", "US", "USDX", "XYZ"])
+# "USD|x", "USD\n" and "USD " are S16 C03: a pipe or line break would make peer_sheet refuse the
+# whole pack after settle, and a trailing space would drop the peer, so review refuses them.
+@pytest.mark.parametrize("currency", ["usd", "US", "USDX", "XYZ", "USD|x", "USD\n", "USD "])
 def test_a_currency_that_is_not_an_iso_code_is_refused(case: Case, currency: str) -> None:
     got = [str(i) for i in case.issues(_figure(case, 0, currency=currency))]
     assert got == [REVENUE + p.NOT_A_CODE]

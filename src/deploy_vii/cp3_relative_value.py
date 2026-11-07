@@ -20,7 +20,8 @@ restated) or a `{ref|unit}` reference to a referencable fact of the bound CP-1 h
   `third_party` source; an `observed` row never quotes indicative talk; indicative talk is never
   worded as a market level; a market observation cites a market-evidence quote;
 - the ordering: each instrument exactly once, or no ordering with explicit insufficient
-  evidence and a limitation;
+  evidence and a limitation; an Insufficient Information preference has no ordering (ruling
+  S08-cp3-C09);
 - gap propagation (decision 0007, ruling 4): no observed or indicative evidence makes the
   preference Insufficient Information; a CP-2 that is not `accepted`, any blocked bound input
   (a blocked optional CP-1A or CP-4 included) or talk-only evidence caps its confidence below
@@ -1267,6 +1268,11 @@ def _instrument_issues(
 
 
 TALK_BASIS_CAP = "the preference's market basis is indicative talk only"
+# Ruling S08-cp3-C09: an Insufficient Information preference ranks nothing (rule e).
+INSUFFICIENT_ORDERING = (
+    "preference.ordering: an Insufficient Information preference has an empty ordering; empty "
+    "it, or state the basis and a confidence other than Insufficient Information"
+)
 
 
 def _cap_reasons(upstream: Upstream, evidence: _Evidence, basis: Basis) -> list[str]:
@@ -1301,10 +1307,12 @@ def _preference_issues(
             issues.append(f"preference.ordering: {facility_id} is not an instruments row")
         elif ranked[facility_id] > 1:
             issues.append(f"preference.ordering: {facility_id} appears more than once")
-    if row.ordering or not insufficient:
+    if not insufficient:
         for facility_id in dict.fromkeys(instruments):
             if facility_id not in ranked:
                 issues.append(f"preference.ordering: {facility_id} is missing")
+    elif row.ordering:  # ruling S08-cp3-C09: no ranking without a basis and a confidence
+        issues.append(INSUFFICIENT_ORDERING)
     if insufficient and not row.limitation:
         issues.append("preference: an Insufficient Information preference states its limitation")
     strength = evidence.strength()

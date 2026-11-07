@@ -632,6 +632,8 @@ CP3_PREFERENCE_RULE = (
     "When a ranking is supported, `preference.ordering` lists every instrument's `facility_id` "
     "exactly once and nothing else, most preferred first. If evidence does not support a ranking, "
     "return an empty ordering with Insufficient Information confidence and an explicit limitation. "
+    "An Insufficient Information preference has an empty `preference.ordering`; to order the "
+    "instruments, state the basis and a confidence other than Insufficient Information. "
     "Unless its `confidence` "
     "is Insufficient Information it cites a market quote or a context row named in "
     "`basis.context_rows`; with no observed or indicative "

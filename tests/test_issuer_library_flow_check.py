@@ -53,7 +53,41 @@ def make_run(tmp_path: Path) -> tuple[Path, Path]:
         tools = [{"call_id": "1", "name": "read_pages", "text": SOURCE}]
         tools.append({"call_id": "2", "name": "write_handoff", "text": "999,999"})
         (folder / "0.tools.json").write_text(json.dumps(tools))
+        (folder / "1.draft.md").write_text(handoffs[module])
+        (folder / "1.review.json").write_text(json.dumps({"issues": []}))
     return run, sources
+
+
+def set_handoff(run: Path, module: str, text: str, *, draft: bool = True) -> None:
+    """Replace a module's accepted handoff and its delivered copy; its draft follows by default."""
+    (run / f"requests/{module}/fp/1.response.md").write_text(text)
+    (run / f"deliveries/d1/{module}.md").write_text(text)
+    if draft:
+        (run / "live/modules" / sha(module.encode()) / "1.draft.md").write_text(text)
+
+
+def add_calls(run: Path, module: str, calls: list[tuple[str, list[str], str]]) -> None:
+    """Record calculate calls as the real layout does: the result in N.tools.json, the arguments in
+    the assistant message of the next request."""
+    folder = run / "live/modules" / sha(module.encode())
+    tools = json.loads((folder / "0.tools.json").read_text())
+    tools += [
+        {"call_id": cid, "name": "calculate", "text": json.dumps({"value": out, "reason": None})}
+        for cid, _, out in calls
+    ]
+    (folder / "0.tools.json").write_text(json.dumps(tools))
+    assistant = {
+        "role": "assistant",
+        "tool_calls": [
+            {
+                "call_id": cid,
+                "name": "calculate",
+                "arguments": {"operation": "sum", "values": values},
+            }
+            for cid, values, _ in calls
+        ],
+    }
+    (folder / "1.request.json").write_text(json.dumps({"messages": [{}, {}, assistant]}))
 
 
 def test_numbers_normalises_and_ignores_digests_and_dates() -> None:
@@ -84,18 +118,14 @@ def test_clean_synthetic_run_has_no_faults(tmp_path: Path) -> None:
 
 def test_number_absent_from_what_the_module_read_is_a_fault(tmp_path: Path) -> None:
     run, sources = make_run(tmp_path)
-    path = run / "requests/CP-1/fp/1.response.md"
-    path.write_text(CP1 + "Planted 7,941.\n")
-    (run / "deliveries/d1/CP-1.md").write_text(CP1 + "Planted 7,941.\n")
+    set_handoff(run, "CP-1", CP1 + "Planted 7,941.\n")
     faults = flow.run_faults(run, sources)
     assert len(faults) == 1 and "CP-1" in faults[0] and "7941" in faults[0]
 
 
 def test_write_handoff_text_is_not_evidence(tmp_path: Path) -> None:
     run, sources = make_run(tmp_path)
-    path = run / "requests/CP-1/fp/1.response.md"
-    path.write_text(CP1 + "Only in the draft 999,999.\n")
-    (run / "deliveries/d1/CP-1.md").write_text(path.read_text())
+    set_handoff(run, "CP-1", CP1 + "Only in the draft 999,999.\n")
     assert any("999999" in f for f in flow.run_faults(run, sources))
 
 
@@ -158,11 +188,11 @@ def test_superseded_attempt_is_not_checked_against_the_accepted_upstream(tmp_pat
         json.dumps({"messages": [{}, {"text": json.dumps(request)}]})
     )
     (stale / "0.tools.json").write_text("[]")
-    assert (
-        flow.run_faults(run, sources) != []
-    )  # no draft says which attempt produced CP-1: all checked
+    (run / "live/modules" / sha(b"CP-1") / "1.draft.md").unlink()
+    faults = flow.run_faults(run, sources)
+    assert len(faults) == 1 and "not a draft the model submitted" in faults[0]
     (run / "live/modules" / sha(b"CP-1") / "1.draft.md").write_text(CP1)
-    assert flow.run_faults(run, sources) == []
+    assert flow.run_faults(run, sources) == []  # the draft CP-1 was accepted from names its attempt
 
 
 def test_rounded_long_results_cover_their_printed_roundings_only() -> None:
@@ -227,9 +257,138 @@ def test_corrupted_input_is_a_fault_and_not_evidence_even_with_a_good_sources_co
 ) -> None:
     run, sources = make_run(tmp_path)
     (run / "inputs" / sha(SOURCE.encode())).write_text(SOURCE + "Planted 31,337.\n")
-    path = run / "requests/CP-1/fp/1.response.md"
-    path.write_text(CP1 + "Planted 31,337.\n")
-    (run / "deliveries/d1/CP-1.md").write_text(path.read_text())
+    set_handoff(run, "CP-1", CP1 + "Planted 31,337.\n")
     faults = flow.run_faults(run, sources)
     assert any("annual.txt" in f and "inputs" in f for f in faults)
     assert any("CP-1: number 31337" in f for f in faults)
+
+
+def test_handoff_altered_after_the_model_wrote_it_is_a_fault(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    set_handoff(run, "CP-1", CP1.replace("against 7,940", "against 1,234"), draft=False)
+    faults = flow.run_faults(run, sources)
+    assert len(faults) == 1
+    assert (
+        "CP-1" in faults[0]
+        and "not a draft the model submitted and the checker accepted" in faults[0]
+    )
+
+
+def test_handoff_equal_only_to_a_draft_with_open_review_issues_is_a_fault(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    review = run / "live/modules" / sha(b"CP-1") / "1.review.json"
+    review.write_text(json.dumps({"issues": ["Use the current registry recipient role"]}))
+    assert any("CP-1" in f and "not a draft" in f for f in flow.run_faults(run, sources))
+    review.unlink()  # no review record: acceptance cannot be shown
+    assert any("CP-1" in f and "not a draft" in f for f in flow.run_faults(run, sources))
+
+
+def test_invented_operand_does_not_launder_a_calculate_result(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    add_calls(run, "CP-1", [("c1", ["5000", "2941"], "7941")])  # 2941 is nowhere
+    set_handoff(run, "CP-1", CP1 + "Adjusted 7,941 (calculated).\n")
+    faults = flow.run_faults(run, sources)
+    assert len(faults) == 1 and "number 7941" in faults[0]
+
+
+def test_calculate_over_evidenced_operands_is_evidence_and_chains(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    add_calls(
+        run,
+        "CP-1",
+        [
+            ("c1", ["7940", "1234"], "9174"),
+            ("c2", ["9174", "1234"], "10408"),
+            ("c3", ["10408", "7940"], "18348"),
+        ],
+    )
+    set_handoff(run, "CP-1", CP1 + "Total 18,348 (calculated).\n")
+    assert flow.run_faults(run, sources) == []
+    add_calls(run, "CP-1", [("c4", ["18348", "777"], "19125")])  # 777 is nowhere: stops the chain
+    set_handoff(run, "CP-1", CP1 + "Total 19,125.\n")
+    assert any("number 19125" in f for f in flow.run_faults(run, sources))
+
+
+def test_calculate_result_without_recorded_arguments_is_not_evidence(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    add_calls(run, "CP-1", [("c1", ["7940", "1234"], "9174")])
+    (run / "live/modules" / sha(b"CP-1") / "1.request.json").unlink()
+    set_handoff(run, "CP-1", CP1 + "Total 9,174.\n")
+    assert any("number 9174" in f for f in flow.run_faults(run, sources))
+
+
+def test_run_with_no_accepted_handoff_is_a_fault_and_exits_1(tmp_path: Path, capsys) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert flow.run_faults(empty) == [f"no accepted handoff found in {empty}"]
+    assert flow.main([str(empty)]) == 1
+    assert flow.main([str(tmp_path / "nope")]) == 1
+    assert "flow: 1 fault(s)" in capsys.readouterr().out
+
+
+def test_module_must_have_received_every_module_accepted_before_it(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    folder = run / "live/modules" / sha(b"CP-1")
+    request = json.loads(json.loads((folder / "0.request.json").read_text())["messages"][1]["text"])
+    request["handoffs"] = {}
+    (folder / "0.request.json").write_text(
+        json.dumps({"messages": [{}, {"text": json.dumps(request)}]})
+    )
+    faults = flow.run_faults(run, sources)
+    assert (
+        len(faults) == 1
+        and "CP-1" in faults[0]
+        and "CP-0" in faults[0]
+        and "never received" in faults[0]
+    )
+
+
+def test_only_sources_the_requests_name_are_evidence(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    (sources / "_scratch.txt").write_text("working figure 31,337\n")
+    set_handoff(run, "CP-1", CP1 + "Planted 31,337.\n")
+    assert any("number 31337" in f for f in flow.run_faults(run, sources))
+    assert any("number 31337" in f for f in flow.run_faults(run, None))
+
+
+def test_converted_source_name_maps_to_its_original_file(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    (sources / "filing.htm").write_text("only in the filing 31,337\n")
+    for file in (run / "live/modules").glob("*/0.request.json"):
+        outer = json.loads(file.read_text())
+        request = json.loads(outer["messages"][1]["text"])
+        request["sources"]["filing.htm.jsonl"] = "0" * 64  # the converted copy the module was given
+        outer["messages"][1]["text"] = json.dumps(request)
+        file.write_text(json.dumps(outer))
+    set_handoff(run, "CP-1", CP1 + "Planted 31,337.\n")
+    faults = flow.run_faults(run, sources)
+    assert not any("number 31337" in f for f in faults)
+
+
+def test_edit_handoff_reply_is_not_evidence(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    folder = run / "live/modules" / sha(b"CP-1")
+    tools = json.loads((folder / "0.tools.json").read_text())
+    tools.append({"call_id": "e", "name": "edit_handoff", "text": "REJECTED\nFigure 7,941"})
+    (folder / "0.tools.json").write_text(json.dumps(tools))
+    set_handoff(run, "CP-1", CP1 + "Planted 7,941.\n")
+    assert any("number 7941" in f for f in flow.run_faults(run, sources))
+
+
+def test_thousands_figure_in_call_arguments_stays_whole() -> None:
+    assert flow.numbers("sum(7,941)") == {"7941"}
+    assert flow.numbers("ratio(7,941, 1,234)") == {"7941", "1234"}
+    assert flow.numbers("sum(980,161)") == {"980", "161"}  # not the one figure 980161
+
+
+def test_duration_word_glued_by_pdf_extraction_is_a_unit() -> None:
+    # The sol-medium filing text reads "Operating leases ..... 5.4years".
+    assert flow.numbers("lease term 5.4years and 18months, 30days") == {"5.4", "18", "30"}
+    assert flow.numbers("12.6xyz 5.4yearsago") == set()
+
+
+def test_completed_record_without_modules_is_a_fault(tmp_path: Path) -> None:
+    run, sources = make_run(tmp_path)
+    record = next(run.glob("completed-*.json"))
+    record.write_text(json.dumps({"kind": "cpos-markdown-delivery/1"}))
+    assert flow.run_faults(run, sources) == [f"completed record {record.name} has no modules"]

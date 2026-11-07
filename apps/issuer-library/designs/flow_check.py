@@ -17,17 +17,21 @@ ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 # A page reference (pp.3,105-109,131,146) lists pages, which are not figures.
 PAGES = re.compile(r"\bpp?\.[\d,\u2013-]+", re.IGNORECASE)
 # Arguments of a call, sum(980,161), are separate numbers, not one figure with a thousands comma.
+# The exception is a lone digit before a three-digit group, sum(7,941): a single digit is no
+# addend (numbers() drops it), so that pair is one figure. sum(12,345) is read as 12 and 345.
 CALL_ARGS = re.compile(r"(?<=\w\()[\d.,\s\u2212-]+(?=\))")
+ARG_COMMA = re.compile(r"(?<![\d.])(\d),(?=\d{3}(?!\d))|,")
 # A digest has letters; a run of digits alone is a long decimal result, not a digest.
 # The same date written out for display: 31 March 2025, Mar 31, 2025.
 MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]{0,6}\.?"
 WRITTEN_DATE = re.compile(rf"\b\d{{1,2}} {MONTH},? \d{{4}}\b|\b{MONTH} \d{{1,2}},? \d{{4}}\b")
 HEX_RUN = re.compile(r"(?=[0-9]*[a-fA-F])[0-9a-fA-F]{16,}")
 # A standalone number: not inside a word, path or file name. A trailing x, bn, mm, m or k is a
-# multiple or scale (4.2x, $12.6bn) and is stripped; the number never stops short of a decimal.
+# multiple or scale (4.2x, $12.6bn), and a year, month or day word glued on by PDF text extraction
+# (5.4years) is a unit; each is stripped; the number never stops short of a decimal.
 # Not after "slug-" in lowercase (run-20261105, tdg-20240930; Term Loan B-12 stays checked) and not
 # after "digit," (a page list 38,54,106 is not the figure 54,106).
-UNIT = r"(?i:x|bn|mm|m|k)"
+UNIT = r"(?i:x|bn|mm|m|k|years?|months?|days?)"
 NUMBER = re.compile(
     rf"(?<![\w/.])(?<![a-z]-)(?<!\d,)(?:\d{{1,3}}(?:,\d{{3}})+|\d+)(?:\.\d+)?{UNIT}?(?!\w|\.[A-Za-z\d])"
 )
@@ -39,7 +43,7 @@ MODULE = re.compile(r"CP-[A-Z0-9]+")
 
 
 def numbers(text: str) -> set[str]:
-    text = CALL_ARGS.sub(lambda m: m[0].replace(",", " "), text)
+    text = CALL_ARGS.sub(lambda m: ARG_COMMA.sub(lambda k: k[0] if k[1] else " ", m[0]), text)
     text = PAGES.sub(" ", HEX_RUN.sub(" ", WRITTEN_DATE.sub(" ", ISO_DATE.sub(" ", text))))
     found = set()
     for match in NUMBER.findall(text):
@@ -69,33 +73,50 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _decode(path: Path) -> str:
-    # Binary sources (PDF, images) carry no checkable text; they are skipped, not guessed at. A
-    # missing input is reported by _checked_inputs, so it adds no text here.
-    if not path.is_file():
-        return ""
+def _text(data: bytes) -> str:
+    # Binary sources (PDF, images) carry no checkable text; they are skipped, not guessed at.
     try:
-        return path.read_bytes().decode("utf-8")
+        return data.decode("utf-8")
     except UnicodeDecodeError:
         return ""
 
 
+def _decode(path: Path) -> str:
+    # A missing input is reported by _checked_inputs, so it adds no text here.
+    return _text(path.read_bytes()) if path.is_file() else ""
+
+
 def _verified(path: Path, digest: str) -> str:
-    return _decode(path) if path.is_file() and _sha(path.read_bytes()) == digest else ""
+    data = path.read_bytes() if path.is_file() else b""
+    return _text(data) if _sha(data) == digest else ""
+
+
+def _completion(run: Path) -> dict[str, Any] | None:
+    """The newest completed record of the run, or None when it has none."""
+    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
+    return json.loads(records[-1].read_text()) if records else None
+
+
+def _record_without_modules(run: Path) -> str | None:
+    """The fault for a newest completed record that lists no modules, else None."""
+    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
+    if records and "modules" not in json.loads(records[-1].read_text()):
+        return f"completed record {records[-1].name} has no modules"
+    return None
 
 
 def _accepted(run: Path) -> dict[str, Path]:
-    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
-    if records:
-        modules = json.loads(records[-1].read_text())["modules"]
-        return {module: run / relative for module, relative in modules.items()}
+    """Accepted handoffs in the completed record's module order (CP-*.md by name without one)."""
+    completion = _completion(run)
+    if completion is not None:
+        return {module: run / relative for module, relative in completion["modules"].items()}
     return {p.stem: p for p in sorted(run.glob("CP-*.md")) if MODULE.fullmatch(p.stem)}
 
 
 def _launcher(run: Path) -> bool:
     """A launcher delivery carries every executed module; a manual one carries a chosen few."""
-    records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
-    return bool(records) and json.loads(records[-1].read_text()).get("kind") == LAUNCHER_KIND
+    completion = _completion(run)
+    return completion is not None and completion.get("kind") == LAUNCHER_KIND
 
 
 def _invocations(run: Path) -> tuple[dict[str, list[tuple[Path, dict[str, Any]]]], list[str]]:
@@ -112,32 +133,102 @@ def _invocations(run: Path) -> tuple[dict[str, list[tuple[Path, dict[str, Any]]]
     return by_module, faults
 
 
-def _read(folder: Path) -> str:
-    parts = []
-    for tools in sorted(folder.glob("*.tools.json")):
-        parts += [c["text"] for c in json.loads(tools.read_text()) if c["name"] != "write_handoff"]
-    return "\n".join(parts)
+def _accepted_draft(draft: Path) -> bool:
+    """The checker passed this draft: its N.review.json lists no issues. A missing or unreadable
+    review means acceptance cannot be shown."""
+    review = draft.with_name(draft.name.removesuffix(".draft.md") + ".review.json")
+    try:
+        record = json.loads(review.read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(record, dict) and record.get("issues") == []
 
 
 def _producing(
-    invocations: list[tuple[Path, dict[str, Any]]], handoff: str
+    invocations: list[tuple[Path, dict[str, Any]]], handoff: bytes
 ) -> list[tuple[Path, dict[str, Any]]]:
-    """The invocations whose drafts hold the accepted text; earlier attempts of a re-run module
-    received superseded upstreams and are not what produced it. Without a match, all are checked."""
-    drafted = [
+    """The invocations holding a draft that byte-equals the accepted handoff and passed review;
+    earlier attempts of a re-run module received superseded upstreams and did not produce it."""
+    return [
         (folder, request)
         for folder, request in invocations
-        if any(d.read_text().strip() == handoff.strip() for d in folder.glob("*.draft.md"))
+        if any(
+            d.read_bytes() == handoff and _accepted_draft(d)
+            for d in sorted(folder.glob("*.draft.md"))
+        )
     ]
-    return drafted or invocations
 
 
-def _shared_numbers(run: Path, sources: Path | None) -> set[str]:
+def _source_names(by_module: dict[str, list[tuple[Path, dict[str, Any]]]]) -> set[str]:
+    return {
+        name for invocations in by_module.values() for _, r in invocations for name in r["sources"]
+    }
+
+
+def _named_source(sources: Path | None, name: str) -> Path:
+    path = (sources or Path()) / name
+    if sources is not None and not path.is_file() and name.endswith(".jsonl"):
+        path = sources / name.removesuffix(".jsonl")
+    return path
+
+
+def _shared_numbers(run: Path, sources: Path | None, names: set[str]) -> set[str]:
+    """Numbers any module may cite: the run's own text copies and context, and, given a sources
+    folder, the files some request names. A request names the converted copy (x.htm.jsonl) of a
+    source file x.htm, so a name ending .jsonl with no such file maps to the file without it."""
     texts = [_decode(p) for p in sorted(run.glob("source-text/*.jsonl"))]
     texts += [_decode(run / "context.json")] if (run / "context.json").exists() else []
-    if sources is not None:
-        texts += [_decode(p) for p in sorted(sources.rglob("*")) if p.is_file()]
+    for name in sorted(names) if sources is not None else []:
+        texts.append(_decode(_named_source(sources, name)))
     return set().union(*(numbers(t) for t in texts)) if texts else set()
+
+
+def _calls(folder: Path) -> dict[str, Any]:
+    """Tool-call arguments by call id. The newest request carries the whole assistant history. An
+    unreadable record yields no calls, so no calculate result of that invocation counts."""
+    requests = sorted(folder.glob("*.request.json"), key=lambda p: int(p.name.split(".")[0]))
+    try:
+        messages = json.loads(requests[-1].read_text())["messages"] if requests else []
+        return {
+            c["call_id"]: c["arguments"]
+            for m in messages
+            if m.get("role") == "assistant"
+            for c in m.get("tool_calls", [])
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+def _operands(node: Any) -> set[str]:
+    if isinstance(node, dict):
+        return set().union(*(_operands(v) for k, v in node.items() if k != "operation"))
+    if isinstance(node, list):
+        return set().union(*(_operands(v) for v in node))
+    return numbers(str(node))
+
+
+def _read_numbers(folder: Path, base: set[str]) -> set[str]:
+    """Numbers in what the module read. The engine's own replies (write_handoff, edit_handoff) are
+    not reading. A calculate result counts only once every operand of its call is itself evidence,
+    iterated to a fixpoint, so chained calculations resolve; an invented operand of two or more
+    digits cannot launder (single digits are not checked, as everywhere here)."""
+    calls, pending, evidence = _calls(folder), [], set(base)
+    for tools in sorted(folder.glob("*.tools.json")):
+        for c in json.loads(tools.read_text()):
+            if c["name"] == "calculate":
+                pending.append(c)
+            elif c["name"] not in ("write_handoff", "edit_handoff"):
+                evidence |= numbers(c["text"])
+    changed = True
+    while changed:
+        changed, known = False, rounded(evidence)
+        for c in list(pending):
+            arguments = calls.get(c["call_id"])
+            if arguments is not None and _operands(arguments) <= known:
+                evidence |= numbers(c["text"])
+                pending.remove(c)
+                changed = True
+    return evidence
 
 
 def _checked_inputs(
@@ -168,16 +259,33 @@ def _received(run: Path, request: dict[str, Any]) -> set[str]:
 
 
 def run_faults(run: Path, sources: Path | None = None) -> list[str]:
+    if (missing := _record_without_modules(run)) is not None:
+        return [missing]
     accepted = _accepted(run)
+    if not accepted:
+        return [f"no accepted handoff found in {run}"]
     handoffs = {module: path.read_bytes() for module, path in accepted.items()}
     by_module, faults = _invocations(run)
-    shared = _shared_numbers(run, sources)
-    for module, data in handoffs.items():
-        invocations = _producing(by_module.get(module, []), data.decode("utf-8", "replace"))
-        if not invocations:
+    shared = _shared_numbers(run, sources, _source_names(by_module))
+    # The completed record lists modules in the order they were accepted; each must have received
+    # all that came before it. Without a record (CP-*.md files) no order is recorded: not checked.
+    ordered = list(handoffs) if _completion(run) is not None else []
+    for index, (module, data) in enumerate(handoffs.items()):
+        invocations = _producing(by_module.get(module, []), data)
+        if not by_module.get(module):
             faults.append(f"{module}: no invocation record to check the handoff against")
+        elif not invocations:
+            faults.append(
+                f"{module}: accepted {module} is not a draft the model submitted "
+                "and the checker accepted"
+            )
         evidence = set(shared)
         for folder, request in invocations:
+            faults += [
+                f"{module}: upstream {before} never received, though accepted before it"
+                for before in ordered[:index]
+                if before not in request["handoffs"]
+            ]
             for upstream, sent in request["handoffs"].items():
                 want = handoffs.get(upstream)
                 if (
@@ -189,7 +297,7 @@ def run_faults(run: Path, sources: Path | None = None) -> list[str]:
                         f"{module}: upstream {upstream} received differs from its accepted handoff"
                     )
             faults += _checked_inputs(run, request, sources, module)
-            evidence |= numbers(_read(folder)) | _received(run, request)
+            evidence |= _read_numbers(folder, shared | _received(run, request))
         evidence = rounded(evidence)
         if invocations:
             faults += [

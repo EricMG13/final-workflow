@@ -26,6 +26,7 @@ import pytest
 import test_cp1_coverage_gate as gate
 from czr_runs import make_pack
 
+from deploy_vii.contracts import Span
 from deploy_vii.cp1_workflow import FinancialSubmission
 from deploy_vii.financial_contracts import StatementLine
 from deploy_vii.statement_extract import (
@@ -35,6 +36,7 @@ from deploy_vii.statement_extract import (
 )
 from deploy_workflow import financial_workflow as fw
 from deploy_workflow import statement_compose as sc
+from deploy_workflow.statement_lines import line_table
 
 REPO = Path(__file__).resolve().parents[1]
 ROWS = json.loads((REPO / "cases/statement-rows/shc-earnings-update.json").read_text("utf-8"))
@@ -512,6 +514,71 @@ def test_an_outflow_magnitude_row_cites_itself_for_the_sign() -> None:
     assert len(result.lines) == 3
     for line in result.lines:
         assert line.sign_citations == line.value.citations != ()
+
+
+def _magnitude_cfs(lines: Sequence[str], signs: Sequence[str]) -> sc.Composition:
+    """A two-year CFS page whose rows 3-6 are operating, investing, financing and net change,
+    mapped as totals with the given sign conventions (S11 C05)."""
+    page = ["CONSOLIDATED STATEMENTS OF CASH FLOWS", "2024 2023", *lines]
+    spans = {i: Span(locator=f"line:{i}", text=text) for i, text in enumerate(page, 1)}
+    table = line_table(spans, f"line:1-{len(page)}", "s")
+    items = (sc.OPERATING, sc.INVESTING, sc.FINANCING, sc.NET_CHANGE)
+    row_map = {
+        row.line_no: sc.RowJudgment(f"l{row.line_no}", item, "total", sign)
+        for row, item, sign in zip(table.lines, items, signs, strict=True)
+    }
+    return _compose(table, "0" * 64, "CFS", ["fy2024", "fy2023"], row_map)
+
+
+MAGNITUDES = (
+    "Net cash provided by operating activities 400 300",
+    "Net cash used in investing activities 250 200",
+    "Net cash used in financing activities 100 50",
+    "Net increase in cash 50 50",
+)
+
+
+@pytest.mark.parametrize(
+    "lines,signs",
+    [
+        # By hand: 400 - 250 - 100 = 50 and 300 - 200 - 50 = 50, the printed net change.
+        (MAGNITUDES, ("signed", "outflow_magnitude", "outflow_magnitude", "signed")),
+        # A printed (250) under outflow_magnitude is still read as -abs: 400 - 250 - 100 = 50.
+        (
+            (MAGNITUDES[0], "Net cash used in investing activities (250) (200)", *MAGNITUDES[2:]),
+            ("signed", "outflow_magnitude", "outflow_magnitude", "signed"),
+        ),
+        # A net decrease printed as a magnitude: 100 - 250 + 100 = -50 = -abs(50); 300 - 200
+        # - 150 = -50.
+        (
+            (
+                "Net cash provided by operating activities 100 300",
+                MAGNITUDES[1],
+                "Net cash provided by financing activities 100 (150)",
+                "Net decrease in cash 50 50",
+            ),
+            ("signed", "outflow_magnitude", "signed", "outflow_magnitude"),
+        ),
+    ],
+)
+def test_the_cash_flow_check_reads_outflow_magnitudes_as_negative(lines, signs) -> None:
+    result = _magnitude_cfs(lines, signs)
+    assert result.issues == ()
+    assert result.checks_applied == (sc.CFS_NET_CHANGE,)
+    assert len(result.lines) == 8
+    # The lines keep the printed cell; only the check reads it as -abs.
+    investing = [line.value.amount for line in result.lines if line.item_id == sc.INVESTING]
+    assert [abs(a) for a in investing] == [Decimal(250), Decimal(200)]
+
+
+def test_magnitudes_mapped_as_signed_still_fail_the_cash_flow_check() -> None:
+    # By hand: 400 + 250 + 100 = 750 != 50 in fy2024 (300 + 200 + 50 = 550 != 50 in fy2023).
+    result = _magnitude_cfs(MAGNITUDES, ("signed",) * 4)
+    assert [(i.check, i.period_id, i.lhs, i.rhs) for i in result.issues] == [
+        (sc.CFS_NET_CHANGE, "fy2024", Decimal(750), Decimal(50)),
+        (sc.CFS_NET_CHANGE, "fy2023", Decimal(550), Decimal(50)),
+    ]
+    assert result.lines == ()
 
 
 def test_a_balance_sheet_outflow_magnitude_and_a_malformed_entry_are_refused_per_row() -> None:

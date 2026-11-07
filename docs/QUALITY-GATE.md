@@ -86,3 +86,17 @@ once its test passes again. GitHub runs scheduled workflows from the default bra
 this private repository the run uses the account's Actions minutes: the first full run
 (2026-11-07) took about 17 runner-hours with three shards cut short, so the schedule is
 weekly (user ruling, 2026-11-07). The names `nightly-tests` and `nightly-known-failures.txt` stay.
+
+### CI runs of the issuer library gates
+
+- `quality-gate.yml`, job `issuer-library-quick`, on every pull request: `validate.py quick`
+  (retained-data check, fixture build, the Node tests under jsdom, the issuer library's Python
+  tests) with Node 24 and `uv sync --group dev` set up first (no Go: that job builds no server).
+- `issuer-library-browser.yml`, job `issuer-library-browser`, on the weekly schedule (with the
+  nightly suite), by hand, and on pull requests touching `apps/issuer-library/**`, `src/**` or the
+  workflow itself (about 10 minutes of Actions per matching PR): `validate.py browser` builds the
+  Go server and runs `designs/browser_check.py` in chromium and firefox. On failure it uploads
+  `$RUNNER_TEMP/browser` (including `faults.json`) as an artifact for 14 days.
+- Decision record: jsdom 26.1.0 and Playwright 1.64.0 are the test-only tools `validate.py`
+  already requires. CI installs those pinned versions outside the project lock (`npm install
+  --no-save`, a separate `uv venv`); they are not runtime dependencies. No job sets a provider key.

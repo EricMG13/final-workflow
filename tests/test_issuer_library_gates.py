@@ -57,3 +57,8 @@ def test_the_nightly_runner_strips_the_same_keys() -> None:
     from tools import nightly_tests
 
     assert set(nightly_tests.KEYS) == set(KEY_ENV_NAMES)
+
+
+def test_report_prints_every_fail_line(capsys: pytest.CaptureFixture[str]) -> None:
+    validate.report("x", False, "FAIL early\n" + "ok\n" * 60)
+    assert "FAIL early" in capsys.readouterr().out

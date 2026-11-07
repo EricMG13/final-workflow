@@ -5,6 +5,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 REAL = Path(os.environ["CHECK_ROOT"]) / "apps/issuer-library/engine/bridge.py"
 FIXTURE = Path(os.environ["CHECK_ROOT"]) / "apps/issuer-library/designs/reader-fixture/CP-1.md"
@@ -14,11 +15,12 @@ spec.loader.exec_module(bridge)
 
 from deploy_workflow.model.adapter import AdapterReply, LiveAdapter
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
+from deploy_workflow.owners.cpos_launch import OPENING  # type: ignore[import-not-found]  # src/ layout, not on the gate's mypy path
 
 calls = []
 
 
-def complete(self, request, **kwargs):
+def complete(self: LiveAdapter, request: Any, **kwargs: Any) -> AdapterReply:
     context = json.loads(request.messages[1].text)
     job = json.loads((Path(sys.argv[2]) / "job.json").read_text())
     plan = json.loads((Path(job["workspace"]) / "runs" / job["id"] / "workflow.json").read_text())
@@ -35,15 +37,23 @@ def complete(self, request, **kwargs):
     lines += [f"- {n} {h}" for n, h in context["sources"].items()]
     lines += [f"- {n} {h['sha256']}" for n, h in context["handoffs"].items()]
     lines += ["", "## Findings", ""]
+    opening = (
+        [f"### {OPENING[context['module_id']]}", "", "A fake engine view only.", ""]
+        if context["module_id"] in OPENING
+        else []
+    )
     if context["module_id"] == "CP-1":
-        # The synthetic fixture holds this module's reader section and all four chart tables.
+        # The synthetic fixture holds this module's reader section and all four chart tables; the
+        # opening view goes directly after its reader summary, before the first chart table.
         fixture = FIXTURE.read_text(encoding="utf-8")
-        lines += [fixture[fixture.index("### Reader summary") : fixture.index("## Calculations")]]
+        start, charts = fixture.index("### Reader summary"), fixture.index("### Chart data:")
+        lines += [fixture[start:charts].rstrip(), ""] + opening
+        lines += [fixture[charts : fixture.index("## Calculations")]]
     else:
         lines += ["### Reader summary", "", "| Bottom line | Confidence | Main limitation |"]
         lines += ["| --- | --- | --- |", "| A fake engine finding only. | Low | Fake data. |", ""]
         lines += ["| Finding | Creditor impact | Confidence |", "| --- | --- | --- |"]
-        lines += ["| One item was observed. | None. | Low |", ""]
+        lines += ["| One item was observed. | None. | Low |", ""] + opening
     for route in plan["layout"]["routes"]:
         if route["module_id"] == context["module_id"]:
             lines += [f"### {route['heading']}", ""]

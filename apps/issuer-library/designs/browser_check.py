@@ -13,32 +13,46 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
+
+from faults import Faults, crashes, http_fault, redact, request_fault
 
 MODULE_CODE = re.compile(r"\bCP-[A-Z0-9]+\b(?![-.][A-Za-z0-9])")
 
 HERE = Path(__file__).resolve().parent
 R = HERE.parents[2]
-S = Path(os.environ.get("FW_BROWSER_OUT") or tempfile.mkdtemp(prefix="issuer-library-browser-"))
-S.mkdir(parents=True, exist_ok=True)
-PY = os.environ["FW_PYTHON"]
-APP = os.environ["ISSUER_LIBRARY_BINARY"]
+# Set by main(): importing this module creates nothing and starts nothing.
+S = Path()
+PY = ""
+APP = ""
 ISSUER = "Northbridge Synthetic Group"
 # Every provider key the Redactor knows, from its one list; the fake engine gets a dummy key only.
 KEYS = tuple(runpy.run_path(str(R / "src/deploy_workflow/model/redact.py"))["KEY_ENV_NAMES"])
-results = []
+# HTTP statuses the walk deliberately provokes, as (status, path), each with a reason. None yet.
+EXPECTED_HTTP: frozenset[tuple[int, str]] = frozenset()
+SCOPE = "offline: retained workspace and fake-provider runs; no provider called"
+results: list[tuple[bool, str]] = []
+FAULTS = Faults()
+WALK = ""  # the walk now running, for the fault record
+# Each server's log file and the thread copying its stdout into it, by port.
+LOGS: dict[int, Path] = {}
+DRAINS: list[threading.Thread] = []
 # Each instance's session cookie, by port, in this process's memory only.
 SESSIONS: dict[int, dict[str, Any]] = {}
 
 
-def note(ok: bool, what: str) -> None:
+def note(ok: bool, what: str, fault: bool = True) -> None:
     results.append((ok, what))
+    if not ok and fault:
+        FAULTS.add(WALK, "check", what)
     print(("PASS " if ok else "FAIL ") + what, flush=True)
 
 
@@ -61,6 +75,9 @@ def serve(
     env |= extra or {}
     state = S / f"state-{port}"
     shutil.rmtree(state, ignore_errors=True)
+    LOGS[port] = S / f"server-{port}.log"
+    LOGS[port].write_bytes(b"")  # stdout and stderr both append, so neither overwrites the other
+    stderr = LOGS[port].open("ab")
     process = subprocess.Popen(
         [
             APP,
@@ -74,8 +91,18 @@ def serve(
         ],
         env=env,
         stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
+        stderr=stderr,
     )
+    stderr.close()  # the child holds its own copy
+    try:
+        return wait_ready(process, port)
+    except BaseException:
+        process.terminate()
+        process.wait()
+        raise
+
+
+def wait_ready(process: subprocess.Popen[bytes], port: int) -> subprocess.Popen[bytes]:
     for _ in range(100):
         try:
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
@@ -85,8 +112,25 @@ def serve(
             time.sleep(0.1)
             continue
         sign_in(process, port)
+        drain = threading.Thread(target=copy_log, args=(process, LOGS[port]), daemon=True)
+        drain.start()
+        DRAINS.append(drain)
         return process
     raise SystemExit("server did not start")
+
+
+def secrets() -> list[str]:
+    """Every provider key value in this environment, and the dummy key the fake engine gets."""
+    return [os.environ[k] for k in KEYS if k in os.environ] + ["not-a-real-key"]
+
+
+def copy_log(process: subprocess.Popen[bytes], log: Path) -> None:
+    """Copy the server's stdout after the launch line into its log, so the pipe never fills."""
+    assert process.stdout is not None
+    with log.open("ab") as out:
+        for line in process.stdout:
+            out.write(redact(line.decode(errors="replace"), secrets()).encode())
+            out.flush()
 
 
 def sign_in(process: subprocess.Popen[bytes], port: int) -> None:
@@ -123,20 +167,46 @@ class SignedBrowser:
 
     def __init__(self, browser: Any) -> None:
         self.browser = browser
+        self.pages: list[Any] = []
 
     def new_page(self, **options: Any) -> Any:
         context = self.browser.new_context(**options)
         context.add_cookies(list(SESSIONS.values()))
-        return context.new_page()
+        page = context.new_page()
+        self.pages.append(page)
+        return page
 
     def close(self) -> None:
         self.browser.close()
 
 
 def errors_of(page: Any) -> list[str]:
+    """Console and page errors, returned for the walk's own check; every fault is also recorded."""
     errors: list[str] = []
-    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-    page.on("pageerror", lambda e: errors.append(str(e)))
+    walk = WALK  # bound now: a page left open by a failed walk keeps its own walk's name
+
+    def console(message: Any) -> None:
+        if message.type == "error":
+            errors.append(message.text)
+            FAULTS.add(walk, "console", message.text, page.url)
+
+    def pageerror(error: Any) -> None:
+        errors.append(str(error))
+        FAULTS.add(walk, "pageerror", str(error), page.url)
+
+    def response(received: Any) -> None:
+        parts = urlparse(received.url)
+        if parts.hostname == "127.0.0.1" and http_fault(received.status, parts.path, EXPECTED_HTTP):
+            FAULTS.add(walk, "http", f"{received.status} {parts.path}", received.url)
+
+    def failed(request: Any) -> None:
+        if request_fault(request.failure):
+            FAULTS.add(walk, "requestfailed", str(request.failure), request.url)
+
+    page.on("console", console)
+    page.on("pageerror", pageerror)
+    page.on("response", response)
+    page.on("requestfailed", failed)
     return errors
 
 
@@ -152,13 +222,29 @@ def real_workspace(browser: Any, name: str, port: int, full: bool) -> None:
     page.close()
 
 
+def expand_groups(page: Any, name: str) -> None:
+    """Open every collapsed issuer group through its toggle, asserting the toggle reports it."""
+    toggles = page.locator("#library-results .run-toggle")
+    for index in range(toggles.count()):
+        toggle = toggles.nth(index)
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+        note(
+            toggle.get_attribute("aria-expanded") == "true",
+            f"{name}: issuer group {index + 1} opens with its run toggle",
+        )
+
+
 def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
-    page.wait_for_selector("#library-results .run-list a", timeout=30000)
+    page.wait_for_selector("#library-results .issuer-row", timeout=30000)
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
+    # libraryResults renders exactly one a.run-link per run (single or grouped, hidden or not).
     note(
-        page.locator(".run-list a").count() == want, f"{name}: library lists all {want} run folders"
+        page.locator("#library-results a.run-link").count() == want,
+        f"{name}: library lists all {want} run folders, one link each",
     )
+    expand_groups(page, name)
     note(
         "cpos-launch-live-002".upper() in page.inner_text("#library-results")
         or "TransDigm Group Incorporated" in page.inner_text("#library-results"),
@@ -208,7 +294,7 @@ def library_and_report(page: Any, name: str, port: int) -> None:
 
 EVERY_SECTION_JS = """async()=>{
   const bad=[];
-  const extra=['W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','CP-MODEL'];
+  const extra=['W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','W-Forecast'];
   const content=()=>document.getElementById('content').textContent;
   for(const [key,run] of Object.entries(contexts))
   for(const module of [...Object.keys(run.modules),...extra]) {
@@ -291,7 +377,7 @@ def fitted_screens(page: Any, name: str, port: int) -> None:
     page.set_viewport_size({"width": 390, "height": 800})
     page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
     page.reload()
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
     note(
         page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
         f"{name}: no horizontal overflow at 390 wide (library)",
@@ -531,7 +617,8 @@ def new_run(  # noqa: PLR0915, RUF100
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
     page.click(".rail a[data-place='Issuer library']")
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
+    expand_groups(page, name)
     note(
         ISSUER in page.inner_text("#library-results"),
         f"{name}: the library lists the new run under its issuer",
@@ -542,7 +629,8 @@ def new_run(  # noqa: PLR0915, RUF100
     (added / "CP-0.md").write_text("# CP-0\n\nAdded later.\n")
     expect(page.locator("#workspace-updated")).to_be_visible(timeout=70000)
     page.click("#reload-workspace")
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
+    expand_groups(page, name)
     note(
         "ADDED-001" in page.inner_text("#library-results"),
         f"{name}: a run added on disk is offered, then listed after Reload",
@@ -551,54 +639,127 @@ def new_run(  # noqa: PLR0915, RUF100
     page.close()
 
 
-context = json.loads((R / "cases/cpdr-context-cutoff/context.json").read_text())
-context["run"].update(pathway="credit_snapshot", as_of="2025-03-31", cutoff="")
-context["identity"].update(issuer_name=ISSUER, issuer_id="nbg")
-(S / "context.json").write_text(json.dumps(context))
-issuer = S / "issuer"
-(issuer / "filings").mkdir(parents=True, exist_ok=True)
-(issuer / "annual.txt").write_text("Net sales were 100 and debt was 0.\n")
-(issuer / "filings/notes.md").write_text("Notes mature in 2030.\n")
-(issuer / "chart.png").write_bytes(b"\x89PNG")
-(issuer / ".DS_Store").write_bytes(b"\0")
-home = Path.home() / "Library/Caches/ms-playwright"
-firefox = next((p for p in home.glob("firefox-*/**/firefox") if p.is_file()), None)
-engines = {"chromium": {}, "firefox": {"executable_path": str(firefox)} if firefox else {}}
-only = sys.argv[1:] or list(engines)
-servers = [serve(R, 53901, R / "apps/issuer-library/engine")]
-try:
-    with sync_playwright() as driver:
-        for number, name in enumerate(only):
-            browser = SignedBrowser(getattr(driver, name).launch(**engines[name]))
-            browser_results = len(results)
+def attempt(walk: str, browser: SignedBrowser, action: Any) -> None:
+    """Run one walk. A failure is recorded with the page it left open, and the next walk still runs.
+
+    The broad catch is deliberate and not silent: any exception, including a walk's own bug, becomes
+    an "exception" fault with a screenshot and the page source, and the gate then exits 1."""
+    global WALK
+    WALK = walk
+    opened = len(browser.pages)
+    try:
+        action()
+    except (Exception, SystemExit) as error:  # noqa: BLE001
+        artifacts: list[str] = []
+        detail = f"{type(error).__name__}: {str(error)[:600]}"
+        # Only pages this walk opened; a name already used gets a number, so nothing is overwritten.
+        page = next((p for p in reversed(browser.pages[opened:]) if not p.is_closed()), None)
+        if page is not None:
             try:
-                real_workspace(browser, name, 53901, full=name == "chromium")
-                workspace = S / f"ws-{name}"
-                shutil.rmtree(workspace, ignore_errors=True)
-                workspace.mkdir()
-                port = 53902 + number
-                servers.append(serve(workspace, port, HERE / "fake_engine", key="not-a-real-key"))
-                new_run(browser, name, port, workspace, start=True)
-                if name == "chromium":
-                    stopped = S / "ws-stopped"
-                    shutil.rmtree(stopped, ignore_errors=True)
-                    stopped.mkdir()
-                    servers.append(
-                        serve(
-                            stopped,
-                            53910,
-                            HERE / "fake_engine",
-                            key="not-a-real-key",
-                            extra={"FAKE_REJECT_AFTER": "1"},
-                        )
-                    )
-                    new_run(browser, "stopped", 53910, stopped, start="stop")
-            except (PlaywrightError, AssertionError, OSError) as error:
-                note(False, f"{name}: stopped: {str(error)[:600]}")
-            browser.close()
-finally:
-    for server in servers:
-        server.terminate()
-failed = [what for ok, what in results if not ok]
-print(f"{len(results) - len(failed)} passed, {len(failed)} failed")
-sys.exit(bool(failed))
+                taken = len(list(S.glob(f"{walk}-failure*.png")))
+                stem = f"{walk}-failure" + (f"-{taken + 1}" if taken else "")
+                png, html = S / f"{stem}.png", S / f"{stem}.html"
+                page.screenshot(path=str(png))
+                html.write_text(redact(page.content(), secrets()))
+                artifacts = [str(png), str(html)]
+            except PlaywrightError as capture:
+                detail += f" (page capture failed: {str(capture)[:200]})"
+        note(False, f"{walk}: stopped: {detail}", fault=False)
+        FAULTS.add(walk, "exception", detail, page.url if page is not None else "", artifacts)
+
+
+def scan_server_logs() -> None:
+    """Redact every provider key value in each server log, then record each crash it shows."""
+    known = secrets()
+    for drain in DRAINS:
+        drain.join(timeout=5)
+    # The Go server logs to <state-dir>/library.log; server-<port>.log holds only engine stdio.
+    logs = [(port, log) for port, log in LOGS.items()]
+    logs += [(port, S / f"state-{port}" / "library.log") for port in LOGS]
+    for port, log in logs:
+        if not log.exists():
+            continue
+        text = redact(log.read_text(errors="replace"), known)
+        log.write_text(text)
+        for crash in crashes(text):
+            FAULTS.add(f"server-{port}", "server-log", crash, artifacts=[str(log)])
+
+
+def main(argv: list[str]) -> int:
+    global S, PY, APP
+    S = Path(os.environ.get("FW_BROWSER_OUT") or tempfile.mkdtemp(prefix="issuer-library-browser-"))
+    S.mkdir(parents=True, exist_ok=True)
+    PY = os.environ["FW_PYTHON"]
+    APP = os.environ["ISSUER_LIBRARY_BINARY"]
+    context = json.loads((R / "cases/cpdr-context-cutoff/context.json").read_text())
+    context["run"].update(pathway="credit_snapshot", as_of="2025-03-31", cutoff="")
+    context["identity"].update(issuer_name=ISSUER, issuer_id="nbg")
+    (S / "context.json").write_text(json.dumps(context))
+    issuer = S / "issuer"
+    (issuer / "filings").mkdir(parents=True, exist_ok=True)
+    (issuer / "annual.txt").write_text("Net sales were 100 and debt was 0.\n")
+    (issuer / "filings/notes.md").write_text("Notes mature in 2030.\n")
+    (issuer / "chart.png").write_bytes(b"\x89PNG")
+    (issuer / ".DS_Store").write_bytes(b"\0")
+    home = Path.home() / "Library/Caches/ms-playwright"
+    firefox = next((p for p in home.glob("firefox-*/**/firefox") if p.is_file()), None)
+    engines = {"chromium": {}, "firefox": {"executable_path": str(firefox)} if firefox else {}}
+    only = argv or list(engines)
+    servers: list[subprocess.Popen[bytes]] = []
+    try:
+        try:
+            servers.append(serve(R, 53901, R / "apps/issuer-library/engine"))
+            with sync_playwright() as driver:
+                for number, name in enumerate(only):
+                    browser = SignedBrowser(getattr(driver, name).launch(**engines[name]))
+                    walk_engine(browser, name, number, servers)
+                    browser.close()
+        except (Exception, SystemExit) as error:  # noqa: BLE001 - recorded below, never silent
+            note(False, f"setup: stopped: {type(error).__name__}: {str(error)[:600]}", fault=False)
+            FAULTS.add("setup", "exception", f"{type(error).__name__}: {str(error)[:600]}")
+    finally:
+        for server in servers:
+            server.terminate()
+        for server in servers:
+            server.wait()
+        scan_server_logs()
+        passed = sum(ok for ok, _ in results)
+        FAULTS.write(S / "faults.json", SCOPE, passed, secrets())
+        print(f"{passed} passed, {len(results) - passed} failed")
+        print(f"faults: {S / 'faults.json'}")
+    return int(bool(FAULTS.items) or passed != len(results))
+
+
+def walk_engine(browser: SignedBrowser, name: str, number: int, servers: list[Any]) -> None:
+    workspace = S / f"ws-{name}"
+
+    def library() -> None:
+        # Via Any: real_workspace is untyped; typing it would pull its 75 statements into the gate.
+        walk: Any = real_workspace
+        walk(browser, name, 53901, full=name == "chromium")
+
+    def fake_run() -> None:
+        shutil.rmtree(workspace, ignore_errors=True)
+        workspace.mkdir()
+        port = 53902 + number
+        servers.append(serve(workspace, port, HERE / "fake_engine", key="not-a-real-key"))
+        new_run(browser, name, port, workspace, start=True)
+
+    def stopped_run() -> None:
+        stopped = S / "ws-stopped"
+        shutil.rmtree(stopped, ignore_errors=True)
+        stopped.mkdir()
+        extra = {"FAKE_REJECT_AFTER": "1"}
+        servers.append(
+            serve(stopped, 53910, HERE / "fake_engine", key="not-a-real-key", extra=extra)
+        )
+        new_run(browser, "stopped", 53910, stopped, start="stop")
+
+    attempt(f"{name}-library", browser, library)
+    attempt(f"{name}-run", browser, fake_run)
+    if name == "chromium":
+        attempt("stopped", browser, stopped_run)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

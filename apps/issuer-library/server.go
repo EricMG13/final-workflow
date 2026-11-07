@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,14 +41,20 @@ type Application struct {
 	session    string     // this launch's session cookie value, in memory only; fixed at start
 }
 
-// discoverWorkspace is discover; a variable so tests can hold a discovery in progress.
-var discoverWorkspace = discover
+// discoverWorkspace is discover; swappable so tests can hold a discovery in progress. It is atomic
+// because a run's worker goroutine may still read it when a test restores the original.
+var discoverWorkspace = func() *atomic.Pointer[func(string, Catalogue) Catalogue] {
+	var hook atomic.Pointer[func(string, Catalogue) Catalogue]
+	original := discover
+	hook.Store(&original)
+	return &hook
+}()
 
 // buildCatalogue discovers workspace and saves the disposable index. It takes no lock and reads
 // only fields fixed at start, so the slow part of a refresh (hashing every pinned file) runs
 // while requests are served from the previous catalogue. Callers hold app.refreshing.
 func (app *Application) buildCatalogue(workspace string) Catalogue {
-	catalogue := discoverWorkspace(workspace, app.seed)
+	catalogue := (*discoverWorkspace.Load())(workspace, app.seed)
 	catalogue.PolicyLocked = app.locked
 	// The persisted index is a disposable snapshot, never an authority on restart.
 	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), catalogue); err != nil {

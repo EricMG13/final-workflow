@@ -2385,7 +2385,12 @@ def test_a_run_workflow_json_nested_too_deep_records_nothing(tmp_path):
     run = tmp_path / "runs/r1"
     run.mkdir(parents=True)
     (run / "workflow.json").write_text("[" * 20000 + "]" * 20000)
-    assert store.recorded_run(run) == {}
+    issues: list[str] = []
+    assert store.recorded_run(run, issues) == {}
+    assert len(issues) == 1 and issues[0].startswith(
+        "r1: workflow.json could not be read (RecursionError:"
+    )
+    assert "[[[" not in issues[0]
 
 
 def test_a_model_delivery_json_that_is_a_link_is_not_followed(tmp_path):
@@ -2434,3 +2439,65 @@ def test_the_debt_register_repeat_check_ignores_case(tmp_path):
         NA,
         "the debt register repeats a row label: SECURED NOTES",
     )
+
+
+def lone_identity_catalogue(folder: str) -> dict:
+    artifact = {"folder": folder, "available": True, "kind": "model"}
+    return {"real": [{"id": "r1", "artifacts": [artifact]}]}
+
+
+def test_a_delivery_identity_is_not_read_from_a_linked_or_fifo_view_json(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    catalogue = lone_identity_catalogue(artifact["folder"])
+    assert [i["issuer_name"] for i in store.delivery_identities(tmp_path, catalogue)] == [
+        "Alpha Holdings"
+    ]
+    view = tmp_path / "deliverables/m-1/view.json"
+    outside = tmp_path.parent / f"{tmp_path.name}-identity.json"
+    outside.write_text(view.read_text(encoding="utf-8"), encoding="utf-8")
+    view.unlink()
+    view.symlink_to(outside)
+    assert store.delivery_identities(tmp_path, catalogue) == []
+    view.unlink()
+    os.mkfifo(view)
+    assert store.delivery_identities(tmp_path, catalogue) == []
+
+
+def test_a_workflow_json_that_is_a_fifo_or_link_is_a_named_issue(tmp_path):
+    run = tmp_path / "runs/r1"
+    run.mkdir(parents=True)
+    os.mkfifo(run / "workflow.json")
+    issues: list[str] = []
+    assert store.recorded_run(run, issues) == {}
+    assert issues == ["r1: workflow.json could not be read (UnreadableFile: not a regular file)"]
+    (run / "workflow.json").unlink()
+    outside = tmp_path / "outside.json"
+    outside.write_text('{"run": {"issuer_name": "Elsewhere"}}', encoding="utf-8")
+    (run / "workflow.json").symlink_to(outside)
+    issues = []
+    assert store.recorded_run(run, issues) == {}
+    assert issues == ["r1: workflow.json could not be read (UnreadableFile: a link)"]
+
+
+def test_a_report_view_json_that_is_a_link_is_not_read(tmp_path):
+    folder = report_folder(tmp_path, json.dumps(RUN_VIEW).encode())
+    view = tmp_path / folder / "view.json"
+    outside = tmp_path.parent / f"{tmp_path.name}-report-view.json"
+    outside.write_bytes(view.read_bytes())
+    view.unlink()
+    view.symlink_to(outside)
+    reports, issues = store.catalogue_reports(tmp_path, lone_report_catalogue(folder), {}, {})
+    assert reports == [] and len(issues) == 1
+    assert issues[0].startswith(f"{folder}: could not be read (UnreadableFile:")
+
+
+def test_a_run_level_failure_names_its_type_and_reason_not_a_repr(tmp_path, monkeypatch):
+    put(tmp_path, "runs/r1/CP-0.md", "# CP-0\n\nText.\n")
+
+    def broken(*args, **kwargs):
+        raise ValueError("PRIVATE-BYTES " * 40)
+
+    monkeypatch.setattr(store, "collect_runs", broken)
+    result = store.workspace_store(tmp_path, plain_run("r1"))
+    (issue,) = [i for i in result["issues"] if "could not be read" in i]
+    assert "(ValueError: " in issue and "ValueError('" not in issue and len(issue) < 200

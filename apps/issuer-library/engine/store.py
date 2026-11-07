@@ -1832,7 +1832,8 @@ def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, st
     given, is named there by type and reason (never its bytes). A run with no manifest is normal.
     """
     try:
-        manifest = json.loads((run_dir / "workflow.json").read_text(encoding="utf-8"))
+        raw = b"".join(regular_chunks(run_dir / "workflow.json", follow=False))
+        manifest = json.loads(raw.decode("utf-8"))
         return {key: value for key, value in manifest["run"].items() if isinstance(value, str)}
     except FileNotFoundError:
         return {}
@@ -1864,9 +1865,7 @@ def delivery_identities(root, catalogue):
                 continue
             seen.add(folder)
             try:
-                identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))[
-                    "run"
-                ]
+                identity = listed_view(root / folder, delivery_json(root / folder))["run"]
                 run_id, name = identity["run_id"], identity["issuer_name"]
                 issuer_id = identity.get("issuer_id") or None
             except (
@@ -2025,7 +2024,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         try:
             part = collect_runs(root, {key: row}, catalog, link, strict=False)
         except Exception as error:  # noqa: BLE001
-            found.append(f"{row[0]}: could not be read ({error!r})")
+            found.append(f"{row[0]}: could not be read ({describe(error)})")
             continue
         runs |= part[0]
         outputs |= part[1]

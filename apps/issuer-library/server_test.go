@@ -705,16 +705,17 @@ func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
 func blockDiscovery(t *testing.T, workspace string) (entered, release chan struct{}) {
 	t.Helper()
 	entered, release = make(chan struct{}), make(chan struct{})
-	saved := discoverWorkspace
+	saved := discoverWorkspace.Load()
 	var once sync.Once
-	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+	hold := func(folder string, seeds Catalogue) Catalogue {
 		if folder == workspace {
 			once.Do(func() { close(entered) })
 			<-release
 		}
-		return saved(folder, seeds)
+		return (*saved)(folder, seeds)
 	}
-	t.Cleanup(func() { discoverWorkspace = saved })
+	discoverWorkspace.Store(&hold)
+	t.Cleanup(func() { discoverWorkspace.Store(saved) })
 	return entered, release
 }
 

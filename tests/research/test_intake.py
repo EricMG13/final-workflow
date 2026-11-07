@@ -763,3 +763,57 @@ def test_a_control_character_in_a_path_is_an_intake_error(tmp_path: Path, path: 
     day = date(2026, 1, 1)
     with pytest.raises(it.IntakeError, match="control character"):
         it.intake(rows, base_dir=tmp_path, dest_dir=None, as_of=day, cutoff=day, today=day)
+
+
+def _one_path_intake(base: Path, path: str) -> it.IntakeResult:
+    rows = it.parse_rows(
+        [
+            {
+                "path": path,
+                "family": "Wire",
+                "locator": "L1",
+                "tag": "research",
+                "published": "2025-01-01",
+            }
+        ]
+    )
+    day = date(2026, 1, 1)
+    return it.intake(rows, base_dir=base, dest_dir=None, as_of=day, cutoff=day, today=day)
+
+
+# S16 A06 review: hand-derived - a path the file system cannot encode (a lone high surrogate from a
+# JSON \ud800 escape) is a manifest error too, and neither refusal repeats the path it refuses.
+@pytest.mark.parametrize(
+    ("path", "reason"),
+    [
+        ("secret\ud800.txt", "manifest path is not a usable file path"),
+        ("secret\x00name.txt", "manifest path contains a control character (NUL, line feed, ...)"),
+    ],
+)
+def test_an_unusable_path_is_an_intake_error_that_names_no_path(
+    tmp_path: Path, path: str, reason: str
+) -> None:
+    with pytest.raises(it.IntakeError) as raised:
+        _one_path_intake(tmp_path, path)
+    assert str(raised.value) == reason
+
+
+# Hand-derived: accents, CJK, spaces and (on POSIX, a plain name character) a backslash are not
+# control characters; such a file is read as before.
+@pytest.mark.parametrize(
+    "name",
+    [
+        "café.txt",
+        "日本語 文書.txt",
+        "a b.txt",
+        pytest.param(
+            "dir\\win.txt",
+            marks=pytest.mark.skipif(os.name != "posix", reason="a separator off POSIX"),
+        ),
+    ],
+)
+def test_a_unicode_path_name_is_still_read(tmp_path: Path, name: str) -> None:
+    (tmp_path / name).write_text("Alder Ridge said revenue rose.\n", encoding="utf-8")
+    got = _one_path_intake(tmp_path, name)
+    assert [(a.item_id, a.path) for a in got.accepted] == [("ev-1", name)]
+    assert got.refused == ()

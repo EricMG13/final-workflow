@@ -139,7 +139,7 @@ def _shape(url: str) -> SplitUrl | str:
         return problem
     path = parts.path or "/"
     return SplitUrl(
-        "https", host or "", port or 443, f"{path}?{parts.query}" if parts.query else path
+        "https", host or "", port or DEFAULT_PORT, f"{path}?{parts.query}" if parts.query else path
     )
 
 
@@ -400,7 +400,7 @@ def _next_hop(
         raise FetchRefusal(f"redirect to host {nxt.host} refused: not a host named in the manifest")
     if nxt.port != DEFAULT_PORT and (nxt.host.lower(), nxt.port) != trace.origin:
         raise FetchRefusal(
-            f"redirect to {nxt.host}:{nxt.port} refused: not the default port or a named origin"
+            f"redirect to {_host_header(nxt)} refused: not the default port or a named origin"
         )
     if trace.hops >= MAX_REDIRECTS:
         raise FetchRefusal(f"{url} redirected more than {MAX_REDIRECTS} times")

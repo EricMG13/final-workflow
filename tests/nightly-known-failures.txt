@@ -112,3 +112,4 @@ tests/prompts/test_texts_loader.py::test_the_unit_maps_schema_is_the_only_change
 tests/prompts/test_coverage_rule.py::test_the_rule_list_holds_the_coverage_rule  # coverage rule text drifted from the frozen statement at base
 tests/prompts/test_coverage_rule.py::test_the_statement_is_the_frozen_text  # same
 tests/test_o2_done_when.py::test_a_line_citation_naming_the_range_key_is_not_coverage
+tests/test_financial_workflow.py::test_full_component_promotes_and_publishes_actual_model  # fixture errors with publication_refused at base (found by the S12-A02 review)

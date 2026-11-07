@@ -5648,3 +5648,157 @@ suites re-run clean. In the in-app browser: 0 list fetches during 7 s away from 
 and ~2 s cadence after returning; a corrupted seeded row rendered as `stopped during CP-1`
 beside four intact rows. Not verified: the Python and Go suites were not re-run for this
 batch (only web files changed).
+
+## Issuer Library adversarial UX review fixes, 2026-11-07 (macOS only)
+
+Commits a313b50..7373b4d resolve the owner-approved findings of the 2026-11-07 adversarial UX
+review:
+- Each issuer has one library group, a model-only run included, and Overview reports show
+  their declared acceptance state.
+- Forecast follows Calendar. It shows tdg-model-3's cash flow model from its calculation
+  record: Base FY2024, then Reference, Downside and Upside FY2025E–FY2027E, in 5 bands of
+  22 rows, with the assumptions, the reasons for any n.a. value and the scope limits.
+  Model select, pager and default share one order, with the default model first.
+- The section bar and table headers stay sticky at Windows scaling. Charts carry their period
+  and use two-line axis labels. All dates read "31 December 2024".
+- The rail opens on pointer proximity. Shell copy and the context form use names first.
+- Route sections are encoded once and decoded once.
+- Model files are read only as bounded regular files whose hash matches `delivery.json`.
+- An unreadable, deeply nested or malformed workspace file becomes a Workspace issue
+  instead of a 503.
+
+No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- `validate.py full` at 7373b4d exits 0:
+  - retained and fixture checks
+  - node 239, python 345 passed with 1 deselected
+  - go test and go vet
+  - Windows go vet, test compile and amd64/arm64 builds
+  - ruff
+- Frozen answer keys are unchanged: `forecast-answer-key.json` 8b50f5fc…, `library-answer-key.json` 5f7f139d….
+- Every task had an mx-precise review.
+- The whole-branch mx-architect review applied confidence-review and rewrite-tournament. It raised two Important follow-ups:
+  - a stray unreadable handoff made every load return 503
+  - the default-model rule never applied
+
+  Both were fixed test-first and re-reviewed as Fixed.
+- The mx-adversary audit raised two Mediums (folder names unescaped in hrefs, fragment not decoded) and three Lows; all were fixed. Its re-review found four Lows, two of them regressions from that fix; these were fixed and re-reviewed as Fixed.
+- Reviewer probes exit 0, except those kept open for owner items.
+- In the in-app browser:
+  - the sticky section bar at 683 and 1024 px
+  - the Forecast grid at 1366 and 683 px
+  - `#W-Forecast` opening the default model
+  - the rail opening on proximity
+  - the report toolbar on one line at 1366 px
+  - the context form opened top-level
+
+Not verified:
+- Windows: it was only cross-compiled and vetted. Its symlink, device-name, descriptor and JSON-recursion behaviour was not run there.
+- a real MemoryError
+- Edge
+- a provider run
+- the pre-existing 20 ms report-frame race in `screens.test.cjs`
+
+Owner items:
+- report listings outside Overview have no acceptance state
+- the Evidence action aria-label reads "undefined" for a code with no name
+- the context-form options show codes
+- `built_from` follows a symlink out of the workspace
+- the byte repr in `catalogue_reports`
+- RecursionError in `catalogue_reports`/`recorded_run`, which predates the branch
+- "Built from N handoffs" counts only the readable handoffs after a skip
+- Forecast charts, a follow-up
+
+### Same day — Forecast cash flow model extended with history, the income statement and leverage (macOS only)
+
+Commits 7fc3e24..3e62a0d implement the owner's request. The Forecast grid now has 11 columns:
+- Q1 FY2024 and Q1 FY2025, each marked YTD because a first quarter is the year to date
+- FY2022–FY2024
+- Base case (the model's reference illustration) and Downside, each for FY2025E–FY2027E
+
+It has 43 lines:
+- business-unit revenue with YoY growth, then revenue with YoY growth
+- COGS, gross profit and its margin
+- opex, EBIT, D&A, EBIT + D&A and the issuer's reported EBITDA
+- the issuer's add-backs
+- Adj EBITDA (EBITDA As Defined) with its margin and YoY growth
+- the existing cash, debt and credit rows, with senior secured, total and net leverage and interest coverage
+
+Owner rulings, 2026-11-07:
+- Forecast lines the calculation record does not project show `n.m.`; no module was re-run.
+- Leverage is computed for fiscal years only, with the model's own definitions. Senior secured debt is the term loans, secured notes and securitization at carrying value: 20,020 / 4,173 = 4.80x for FY2024.
+- Upside is not shown.
+
+History comes only from the model's own `calculation.json`, `annual.md` and `quarter.md`. Each file's hash is checked, and a malformed file is reported by name.
+
+Pro forma appears as a note, because no pro forma period is recorded. Quarter leverage is `n.a.`, because last-twelve-months EBITDA is not constructed. No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- The frozen answer key (`forecast-answer-key.json` `cashflow`, sha256 073ef11a…) is the controller's oracle, with history typed by hand and cross-checked. The surface test matches it exactly.
+- `validate.py full` passes at 253bc4f. Quick passes at 3e62a0d, with node 239 and python 380 passed and 1 deselected.
+- The mx-precise task review raised two Important findings, both fixed and re-reviewed:
+  - an issue message that named no file
+  - a duplicated date formatter
+- The whole-branch mx-architect review (confidence-review and rewrite-tournament) approved. Its one Minor, a register subtotal being double-counted, is fixed, and its probe exits 0.
+- In-app browser at 1366×768: all 11 columns fit with no horizontal scroll, and row labels wrap to at most two lines. At 683 px the labels stay sticky, and the longest wrap to six lines.
+
+Not verified:
+- Windows: cross-compiled and vetted only.
+- tdg-model-1 and tdg-model-2 individually: their inputs are byte-identical to tdg-model-3.
+- jscpd and complexipy: not installed.
+- Mutation testing.
+
+Superseded: reviewer probe `task10-display-table.py`, which asserts the Task 10 grid.
+
+The Task 12 diff is about 1,300 changed lines, over the 800-line PR cap, so whether it ships as its own PR is the owner's decision.
+
+## Issuer Library adversarial review of all session work and its fixes, 2026-11-07 (macOS only)
+
+Main was merged twice: e5d1fa3c (f1eb6bb2) and e562c366 (de3c12f4). Both were plain git merges, because the app's sync could not fetch. The second merge had no conflicts and touched no Issuer Library file.
+
+A three-persona adversarial review of all the session's work (Saboteur, New Hire, Security Auditor) returned BLOCK. Commits d7db51e2..c4199f1f (Tasks 13–18) fixed every Critical, Warning and Note it raised:
+- Forecast and report routing:
+  - a Forecast with no run context;
+  - another issuer's model shown on a run;
+  - a report reached only through the run it was built from, including its Report select;
+  - the rail opening over a frame.
+- Cash flow reader:
+  - limits per model, plus a workspace-wide budget of 250,000 cells; models a run shows are laid out first, and a dropped grid is named in a Workspace issue;
+  - labels cut to 200 characters;
+  - one Q1/YTD column per fiscal year, from the period register;
+  - growth only between adjacent years;
+  - debt classes matched case-insensitively;
+  - a repeated debt label voids leverage only when it drops a carrying value;
+  - layout errors named.
+- Reads:
+  - delivery records, views, run manifests and identities are read bounded, with no link followed;
+  - read errors are reported by type and reason;
+  - the discovery hook is race-free (`atomic.Pointer`).
+- Issuer grouping: two different recorded issuer IDs are never joined through a shared name. Each such conflict is one Workspace issue.
+- Main's quality gate: typed cells, column and row specs, one context object for the cell operations, split functions.
+
+No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- Frozen keys are unchanged: `forecast-answer-key.json` (sha256 073ef11a…) and `library-answer-key.json` (5f7f139d…).
+- `/api/workspace` saved from the real server is byte-identical before and after Task 17.
+- Every reviewer probe for a fixed finding exits 0 on a `git archive` export. Probes whose exit 1 the ledger accepts as superseded or out of scope stay at 1.
+- Each task got a task review or persona re-review. The whole-branch mx-architect review, with confidence-review and rewrite-tournament, approved with fixes; its Important finding I1 and Minors M2 and M3 are fixed, and their probes exit 0.
+- Gates:
+  - `validate.py full` passes at 06cda0b5;
+  - `validate.py quick` passes at de3c12f4 (node 260, python 502, 1 deselected);
+  - main's `tools/quality_gate.py --base e562c366` gives 0 findings at de3c12f4.
+- In-app browser at 903c28b3:
+  - the built-from route's Report select names its report;
+  - tdg-model-3's grid has 43 rows, senior secured FY2024 is 4.80x, and nothing scrolls sideways at 1366 px.
+
+Owner items:
+- Predates this range:
+  - a run recorded with a name but no issuer ID never shows its own model (`name:` key against `id:` key);
+  - 28 runs sharing one hardlinked 20 MB handoff give a 560 MB `/api/workspace` on main too;
+  - `screens.test.cjs` "the report frame shows loading…" fails under CPU load, because its 20 ms frame timeout is shorter than the test's own settle.
+- Deferred: each model's manifests are read up to four times per page load (2.04x); an over-budget grid is computed and then dropped (9.7 s for 100 maximal models).
+- The branch is well over the 800-line PR cap.
+
+Not verified: Windows (cross-compiled and vetted only); real issuer handoffs beyond the TDG models and synthetic registers; mutation testing; jscpd and complexipy (not installed).

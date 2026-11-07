@@ -586,13 +586,14 @@ func TestOnlySameOriginOrUserInitiatedRequestsAreServed(t *testing.T) {
 func TestTheLaunchTicketExpires120SecondsAfterStart(t *testing.T) {
 	start := time.Date(2026, 11, 7, 9, 0, 0, 0, time.UTC)
 	current := start
-	savedClock, savedDiscover := clock, discoverWorkspace
-	t.Cleanup(func() { clock, discoverWorkspace = savedClock, savedDiscover })
+	savedClock, savedDiscover := clock, discoverWorkspace.Load()
+	t.Cleanup(func() { clock = savedClock; discoverWorkspace.Store(savedDiscover) })
 	clock = func() time.Time { return current }
-	discoverWorkspace = func(workspace string, seed Catalogue) Catalogue {
+	slow := func(workspace string, seed Catalogue) Catalogue {
 		current = current.Add(30 * time.Second)
-		return savedDiscover(workspace, seed)
+		return (*savedDiscover)(workspace, seed)
 	}
+	discoverWorkspace.Store(&slow)
 	ready := start.Add(30 * time.Second)
 	app, _ := testApp(t)
 	if want := ready.Add(120 * time.Second); !app.expires.Equal(want) {

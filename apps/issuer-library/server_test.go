@@ -432,6 +432,29 @@ func TestRunListAndStatusCarryReviewAndProgress(t *testing.T) {
 	checkA(row)
 }
 
+func TestEmbeddedModelKeepsItsBytesAndSandbox(t *testing.T) {
+	app, root := testApp(t)
+	model := addModelDelivery(t, root, "m-1", false)
+	if response := call(app, "POST", "/api/refresh", "{}"); response.Code != 200 {
+		t.Fatal(response.Body.String())
+	}
+	artifact := findArtifact(app.catalogue, "deliverables/m-1")
+	if artifact == nil || !artifact.Available {
+		t.Fatalf("model not available: %+v", artifact)
+	}
+	response := call(app, "GET", artifact.Href+"&embedded=1", "")
+	if response.Code != 200 || !bytes.Equal(response.Body.Bytes(), model) {
+		t.Fatalf("model bytes changed: %d %q", response.Code, response.Body.String())
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte("data-library-presentation")) {
+		t.Fatal("report adapter was added to a model")
+	}
+	csp := response.Header().Get("Content-Security-Policy")
+	if !strings.HasPrefix(csp, "sandbox allow-scripts allow-downloads;") || !strings.Contains(csp, "frame-ancestors http://"+app.host) {
+		t.Fatalf("csp: %s", csp)
+	}
+}
+
 // The splice point must be an offset into the original bytes: Unicode lower-casing
 // changes lengths (U+0130, Kelvin sign, U+023A, invalid UTF-8), so it must not be used.
 func TestReportPresentationSplicesBeforeTheFinalBodyTagInTheOriginalBytes(t *testing.T) {
@@ -682,16 +705,17 @@ func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
 func blockDiscovery(t *testing.T, workspace string) (entered, release chan struct{}) {
 	t.Helper()
 	entered, release = make(chan struct{}), make(chan struct{})
-	saved := discoverWorkspace
+	saved := discoverWorkspace.Load()
 	var once sync.Once
-	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+	hold := func(folder string, seeds Catalogue) Catalogue {
 		if folder == workspace {
 			once.Do(func() { close(entered) })
 			<-release
 		}
-		return saved(folder, seeds)
+		return (*saved)(folder, seeds)
 	}
-	t.Cleanup(func() { discoverWorkspace = saved })
+	discoverWorkspace.Store(&hold)
+	t.Cleanup(func() { discoverWorkspace.Store(saved) })
 	return entered, release
 }
 

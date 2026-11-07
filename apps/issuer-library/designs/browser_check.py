@@ -140,9 +140,19 @@ def errors_of(page: Any) -> list[str]:
     return errors
 
 
-def real_workspace(browser, name, port, full):
+def real_workspace(browser: Any, name: str, port: int, full: bool) -> None:
     page = browser.new_page(viewport={"width": 1366, "height": 768})
     errors = errors_of(page)
+    library_and_report(page, name, port)
+    if full:
+        every_section_renders(page, name)
+    deliveries_and_settings(page, name, port)
+    fitted_screens(page, name, port)
+    note(not errors, f"{name}: no console errors {errors[:4]}")
+    page.close()
+
+
+def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
     page.wait_for_selector("#library-results .run-list a", timeout=30000)
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
@@ -184,7 +194,7 @@ def real_workspace(browser, name, port, full):
         f"{name}: navigation shows names, not module codes",
     )
     note(
-        page.locator(".rail a[aria-label='Reports'][aria-current]").count() == 1,
+        page.locator(".rail a[data-place='Reports'][aria-current]").count() == 1,
         f"{name}: rail stays beside the report and marks Reports",
     )
     page.screenshot(path=str(S / f"{name}-report.png"))
@@ -194,23 +204,37 @@ def real_workspace(browser, name, port, full):
     page.locator(".built-from tbody a").first.click()
     page.wait_for_selector("#module-head h2")
     note("W-Reports" not in page.url, f"{name}: Built from opens the module output")
-    if full:
-        problems = page.evaluate("""async()=>{
-          const bad=[];
-          for(const [key,run] of Object.entries(contexts)) for(const module of [...Object.keys(run.modules),'W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','CP-MODEL']) {
-            location.hash=`${module}?c=${encodeURIComponent(key)}`;renderRoute();
-            for(const [section] of navigationSections(module,key,current.output)) {
-              location.hash=routeHref(module,section,null,key).slice(1);renderRoute();
-              if(!showsCodes(current)&&section!=='audit'&&(isAnalytical(module)||module==='W-Overview')){const left=document.getElementById('content').textContent.match(/\bCP-[A-Z0-9]+\b(?![-.][A-Za-z0-9])/);if(left)bad.push(`code ${left[0]} on ${key} ${module} ${section}`);}
-              if(/Couldn.t present this output/.test(document.getElementById('content').textContent))bad.push(`${key} ${module} ${section}`);
-              if(current.module!==module)bad.push(`redirected ${key} ${module}`);
-            }
-          }
-          return bad;}""")
-        note(
-            not problems,
-            f"{name}: every section of every module of every run renders ({problems[:6]})",
-        )
+
+
+EVERY_SECTION_JS = """async()=>{
+  const bad=[];
+  const extra=['W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','CP-MODEL'];
+  const content=()=>document.getElementById('content').textContent;
+  for(const [key,run] of Object.entries(contexts))
+  for(const module of [...Object.keys(run.modules),...extra]) {
+    location.hash=`${module}?c=${encodeURIComponent(key)}`;renderRoute();
+    for(const [section] of navigationSections(module,key,current.output)) {
+      location.hash=routeHref(module,section,null,key).slice(1);renderRoute();
+      if(!showsCodes(current)&&section!=='audit'&&(isAnalytical(module)||module==='W-Overview')){
+        const left=content().match(/\bCP-[A-Z0-9]+\b(?![-.][A-Za-z0-9])/);
+        if(left)bad.push(`code ${left[0]} on ${key} ${module} ${section}`);
+      }
+      if(/Couldn.t present this output/.test(content()))bad.push(`${key} ${module} ${section}`);
+      if(current.module!==module)bad.push(`redirected ${key} ${module}`);
+    }
+  }
+  return bad;}"""
+
+
+def every_section_renders(page: Any, name: str) -> None:
+    problems = page.evaluate(EVERY_SECTION_JS)
+    note(
+        not problems,
+        f"{name}: every section of every module of every run renders ({problems[:6]})",
+    )
+
+
+def deliveries_and_settings(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/#CP-8/comparison?c=tdg-run-comparison")
     page.reload()
     page.wait_for_selector(".comparison-pair")
@@ -228,20 +252,23 @@ def real_workspace(browser, name, port, full):
         and "TransDigm" in page.frame_locator("#report-preview").locator("body").inner_text(),
         f"{name}: CLI launcher delivery opens as a deliverable",
     )
-    page.click(".rail a[aria-label='Settings']")
+    page.click(".rail a[data-place='Settings']")
     page.wait_for_selector("#workspace-path")
     note(
         page.input_value("#workspace-path") == str(R),
         f"{name}: Settings shows the workspace folder",
     )
     page.screenshot(path=str(S / f"{name}-settings.png"))
-    page.click(".rail a[aria-label='Help']")
+    page.click(".rail a[data-place='Help']")
     page.wait_for_selector(".help-copy")
     page.keyboard.press("/")
     note(
         page.evaluate("document.activeElement.id") == "library-query" and "W-Library" in page.url,
         f"{name}: / from Help opens the library search",
     )
+
+
+def fitted_screens(page: Any, name: str, port: int) -> None:
     for width, height in ((1280, 600), (1536, 730)):
         page.set_viewport_size({"width": width, "height": height})
         page.goto(f"http://127.0.0.1:{port}/#W-Overview/overview?c=tdg-002")
@@ -276,8 +303,6 @@ def real_workspace(browser, name, port, full):
         f"{name}: no horizontal overflow at 390 wide (new run)",
     )
     page.screenshot(path=str(S / f"{name}-newrun-narrow.png"))
-    note(not errors, f"{name}: no console errors {errors[:4]}")
-    page.close()
 
 
 CHART_STYLE = """() => {
@@ -296,10 +321,10 @@ CHART_STYLE = """() => {
 }"""
 
 
-def chart_style(page, name, port):
-    """Charts follow the Untitled UI chart look: rounded data-ends, no tracks, pill grades, 12px cards."""
+def chart_style(page: Any, name: str, port: int) -> None:
+    """Charts follow the Untitled UI look: rounded data-ends, no tracks, pill grades, 12px cards."""
     run = "?c=tdg-002"
-    seen = {}
+    seen: dict[str, str] = {}
     for route in ("#CP-1/performance", "#W-Overview/overview", "#CP-2/assessment"):
         page.goto(f"http://127.0.0.1:{port}/{route}{run}")
         page.wait_for_selector("#content .section-heading")
@@ -342,7 +367,7 @@ FORM_WANT = {
 
 
 # One browser walk through New run, kept in page order; splitting it would hide the sequence.
-def new_run(  # noqa: PLR0915
+def new_run(  # noqa: PLR0915, RUF100
     browser: Any, name: str, port: int, workspace: Path, start: bool | str
 ) -> None:
     page = browser.new_page(viewport={"width": 1366, "height": 768})
@@ -354,7 +379,7 @@ def new_run(  # noqa: PLR0915
         f"{name}: empty workspace opens on the library",
     )
     note(
-        not page.locator(".rail a[aria-label='Run activity']").is_visible(),
+        not page.locator(".rail a[data-place='Run activity']").is_visible(),
         f"{name}: run-level rail links are hidden when empty",
     )
     page.screenshot(path=str(S / f"{name}-empty.png"))
@@ -383,9 +408,9 @@ def new_run(  # noqa: PLR0915
         f"{name}: New run fields, buttons and stages use the shared controls ({form})",
     )
     # Navigation away and back keeps the prepared run.
-    page.click(".rail a[aria-label='Help']")
+    page.click(".rail a[data-place='Help']")
     page.wait_for_selector(".help-copy")
-    page.click(".rail a[aria-label='New run']")
+    page.click(".rail a[data-place='New run']")
     page.wait_for_selector("#source-step:not([hidden])")
     note(
         page.input_value("#run-budget") == "50",
@@ -505,7 +530,7 @@ def new_run(  # noqa: PLR0915
         )
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
-    page.click(".rail a[aria-label='Issuer library']")
+    page.click(".rail a[data-place='Issuer library']")
     page.wait_for_selector(".run-list a")
     note(
         ISSUER in page.inner_text("#library-results"),

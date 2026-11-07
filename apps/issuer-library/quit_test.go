@@ -602,12 +602,13 @@ func TestAQuitRequestWaitsForADiscoveryInProgress(t *testing.T) {
 		var stops atomic.Int32
 		app.stop = func() { stops.Add(1) }
 		entered, release := make(chan struct{}), make(chan struct{})
-		saved := discoverWorkspace
-		discoverWorkspace = func(workspace string, seed Catalogue) Catalogue {
+		saved := discoverWorkspace.Load()
+		held := func(workspace string, seed Catalogue) Catalogue {
 			close(entered)
 			<-release
-			return saved(workspace, seed)
+			return (*saved)(workspace, seed)
 		}
+		discoverWorkspace.Store(&held)
 		done := make(chan int, 1)
 		other := t.TempDir()
 		go func() {
@@ -627,7 +628,7 @@ func TestAQuitRequestWaitsForADiscoveryInProgress(t *testing.T) {
 		if code := <-done; code != 200 {
 			t.Errorf("%s: %d", label, code)
 		}
-		discoverWorkspace = saved
+		discoverWorkspace.Store(saved)
 		if !app.answerQuitRequest() || stops.Load() != 1 {
 			t.Errorf("%s: after the discovery, stops %d", label, stops.Load())
 		}

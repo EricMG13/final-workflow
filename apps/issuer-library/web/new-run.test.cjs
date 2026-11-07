@@ -7,7 +7,7 @@ const settle=()=>new Promise(resolve=>setTimeout(resolve,10));
 const ID='web-'+'a'.repeat(32);
 const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'started',spent_usd:'0.10'}};
 const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
-const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 2025-03-31 · ${ID}`;
+const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 31 March 2025 · ${ID}`;
 function reviewReply(ready){return{ok:true,id:ID,review_id:'b'.repeat(64),issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness',purpose:'Check issuer files'},{id:'CP-1',title:'Financial analysis',purpose:'Read financial statements'}],config:'sol-medium',provider:'openai',model:'gpt-6.1-sol',effort:'medium',cap_usd:'10.00',hold_usd:'1.86',max_turns:7,prices_as_of:'2026-11-01',provider_ready:ready,provider_key:'OPENAI_API_KEY',sources:[{path:'filings/annual.txt',sha256:'c'.repeat(64)}],ignored:['chart.png'],report_sections:['liquidity-runway'],omitted:['lme-chart'],scope:'User-launched run; analytical accuracy has not been independently reviewed.'};}
 async function page(t,{ready=true,startFails=false,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
   const errors=[],calls=[];let starts=0;const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
@@ -16,7 +16,7 @@ async function page(t,{ready=true,startFails=false,list=[],status={state:'runnin
   const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
   win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url];return{ok:true,json:async()=>body()};};
   const current=status;status=()=>win.__status||current;
-  win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
+  win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   t.after(()=>{win.close();assert.deepEqual(errors.map(error=>error.message),[]);});
@@ -30,7 +30,9 @@ test('the steps follow the launcher, and untrusted messages are ignored',async t
   const p=await page(t);
   assert.deepEqual([...p.doc.querySelectorAll('.run-stages li')].map(li=>li.textContent),['Context','Issuer folder & budget','Review & start','Progress']);
   assert.equal(p.doc.getElementById('run-sources').hasAttribute('webkitdirectory'),true);
-  assert.match(p.doc.getElementById('recent-jobs').textContent,/No recent runs to show/);
+  const empty=p.doc.getElementById('recent-jobs');
+  assert.equal(empty.textContent,'No runs started from this app are recorded in this workspace yet. Earlier runs are in the Issuer library.');
+  assert.equal(empty.querySelector('a').textContent,'Issuer library');assert.equal(empty.querySelector('a').getAttribute('href'),'#W-Library/cases');
   p.win.dispatchEvent(new p.win.MessageEvent('message',{source:p.win,data:{type:'cpos:context',context,problems:[]}}));
   assert.equal(p.doc.getElementById('source-step').hidden,true);
   p.context();assert.equal(p.doc.getElementById('source-step').hidden,false);assert.equal(p.doc.activeElement,p.doc.querySelector('#source-step h2'));
@@ -53,7 +55,7 @@ test('review sends the folder as relative paths with the launcher options, and s
 test('the review shows everything the launcher decided',async t=>{
   const p=await page(t);p.context();p.folder('N/annual.txt');await p.click('review-run');
   const text=p.doc.getElementById('run-review').textContent;
-  for(const expected of ['Northbridge Group','Covenant Refinancing','2025-03-31','openai gpt-6.1-sol · medium','USD 10.00','USD 1.86','Source readiness','chart.png','liquidity-runway','lme-chart','not been independently reviewed','not an estimate of total cost','filings/annual.txt'])assert.ok(text.includes(expected),expected);
+  for(const expected of ['Northbridge Group','Covenant Refinancing','31 March 2025','openai gpt-6.1-sol · medium','USD 10.00','USD 1.86','Source readiness','chart.png','liquidity-runway','lme-chart','not been independently reviewed','not an estimate of total cost','filings/annual.txt'])assert.ok(text.includes(expected),expected);
   assert.equal(p.doc.querySelector('.review-modules').children.length,2);
 });
 test('only an explicitly confirmed Start launches, once',async t=>{
@@ -188,6 +190,15 @@ test('context height messages are source checked and bounded',async t=>{
   const p=await page(t),frame=p.doc.getElementById('context-editor');
   const send=(source,height)=>p.win.dispatchEvent(new p.win.MessageEvent('message',{source,data:{type:'cpos:height',height}}));
   send(p.win,1800);assert.equal(frame.style.height,'');send(frame.contentWindow,1800);assert.equal(frame.style.height,'1800px');send(frame.contentWindow,Infinity);send(frame.contentWindow,50001);assert.equal(frame.style.height,'1800px');
+});
+test('the context form is sent the module names when it reports ready, and only then',async t=>{
+  const p=await page(t),frame=p.doc.getElementById('context-editor'),sent=[];
+  frame.contentWindow.postMessage=(data,origin)=>sent.push([data,origin]);
+  const say=(source,data)=>p.win.dispatchEvent(new p.win.MessageEvent('message',{source,data}));
+  say(p.win,{type:'cpos:ready',ready:true});assert.deepEqual(sent,[]);
+  say(frame.contentWindow,{type:'cpos:ready',ready:false});
+  const names=sent.find(([data])=>data.type==='cpos:names');assert.ok(names);
+  assert.equal(names[0].names['CP-0'],'Source readiness');assert.ok(Object.values(names[0].names).every(value=>typeof value==='string'));
 });
 test('an issuer folder is required before review',async t=>{
   const p=await page(t);p.context();await p.click('review-run');

@@ -43,7 +43,7 @@ test('no web script writes an evidence key into an attribute without escaping it
 
 // routeHref's signature has a call in a default argument, so it is lifted with a wider pattern.
 const routeHref=views.match(/^function routeHref\(.*\) \{[\s\S]*?\n\}/m)[0];
-const parseSegments=screen.match(/^ {2}const \[requestedModule,requestedSection\]=.*$/m)[0];
+const parseSegments=screen.match(/^ {2}const \[encodedModule,encodedSection\]=[\s\S]*?(?=^ {2}const resolved)/m)[0];
 const route=(section,hash)=>{
   const context=sandbox(`var current={context:'acme-001'},lastFile=new Map(),contexts={'acme-001':{folder:'acme-001',modules:{}}},defaultOutput=()=>null;`,routeHref,
     `function parse(path){${parseSegments}return [requestedModule,requestedSection];}`);
@@ -70,9 +70,10 @@ test('a report id from a folder name stays inside its href and routes back to th
   }
 });
 
-test('a hand-typed malformed escape in the address is read as typed, not thrown',()=>{
+test('a hand-typed malformed section escape names no section and is not thrown',()=>{
+  // The branch's route-encoding probes pin this: the module then opens its default, not a section named by garbage.
   const {parsed}=route('list',()=>'W-Reports/%E0%A4%A');
-  assert.deepEqual(parsed,['W-Reports','%E0%A4%A']);
+  assert.deepEqual(parsed,['W-Reports',null]);
 });
 
 test('a chart cell that is not a number shows its retained text, escaped, and draws no bar',()=>{

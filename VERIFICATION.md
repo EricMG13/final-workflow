@@ -5459,3 +5459,64 @@ suites re-run clean. In the in-app browser: 0 list fetches during 7 s away from 
 and ~2 s cadence after returning; a corrupted seeded row rendered as `stopped during CP-1`
 beside four intact rows. Not verified: the Python and Go suites were not re-run for this
 batch (only web files changed).
+
+## Issuer Library adversarial UX review fixes, 2026-11-07 (macOS only)
+
+Commits a313b50..7373b4d resolve the owner-approved findings of the 2026-11-07 adversarial UX
+review:
+- Each issuer has one library group, a model-only run included, and Overview reports show
+  their declared acceptance state.
+- Forecast follows Calendar. It shows tdg-model-3's cash flow model from its calculation
+  record: Base FY2024, then Reference, Downside and Upside FY2025E–FY2027E, in 5 bands of
+  22 rows, with the assumptions, the reasons for any n.a. value and the scope limits.
+  Model select, pager and default share one order, with the default model first.
+- The section bar and table headers stay sticky at Windows scaling. Charts carry their period
+  and use two-line axis labels. All dates read "31 December 2024".
+- The rail opens on pointer proximity. Shell copy and the context form use names first.
+- Route sections are encoded once and decoded once.
+- Model files are read only as bounded regular files whose hash matches `delivery.json`.
+- An unreadable, deeply nested or malformed workspace file becomes a Workspace issue
+  instead of a 503.
+
+No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- `validate.py full` at 7373b4d exits 0:
+  - retained and fixture checks
+  - node 239, python 345 passed with 1 deselected
+  - go test and go vet
+  - Windows go vet, test compile and amd64/arm64 builds
+  - ruff
+- Frozen answer keys are unchanged: `forecast-answer-key.json` 8b50f5fc…, `library-answer-key.json` 5f7f139d….
+- Every task had an mx-precise review.
+- The whole-branch mx-architect review applied confidence-review and rewrite-tournament. It raised two Important follow-ups:
+  - a stray unreadable handoff made every load return 503
+  - the default-model rule never applied
+
+  Both were fixed test-first and re-reviewed as Fixed.
+- The mx-adversary audit raised two Mediums (folder names unescaped in hrefs, fragment not decoded) and three Lows; all were fixed. Its re-review found four Lows, two of them regressions from that fix; these were fixed and re-reviewed as Fixed.
+- Reviewer probes exit 0, except those kept open for owner items.
+- In the in-app browser:
+  - the sticky section bar at 683 and 1024 px
+  - the Forecast grid at 1366 and 683 px
+  - `#W-Forecast` opening the default model
+  - the rail opening on proximity
+  - the report toolbar on one line at 1366 px
+  - the context form opened top-level
+
+Not verified:
+- Windows: it was only cross-compiled and vetted. Its symlink, device-name, descriptor and JSON-recursion behaviour was not run there.
+- a real MemoryError
+- Edge
+- a provider run
+- the pre-existing 20 ms report-frame race in `screens.test.cjs`
+
+Owner items:
+- report listings outside Overview have no acceptance state
+- the Evidence action aria-label reads "undefined" for a code with no name
+- the context-form options show codes
+- `built_from` follows a symlink out of the workspace
+- the byte repr in `catalogue_reports`
+- RecursionError in `catalogue_reports`/`recorded_run`, which predates the branch
+- "Built from N handoffs" counts only the readable handoffs after a skip
+- Forecast charts, a follow-up

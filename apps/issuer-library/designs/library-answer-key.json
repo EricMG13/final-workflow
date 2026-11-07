@@ -80,6 +80,7 @@
      "tdg-003",
      "tdg-004",
      "tdg-guidance",
+     "tdg-model-001",
      "tdg-peers-2024",
      "tdg-run-comparison",
      "tdg-valuation-2025-001",
@@ -94,8 +95,7 @@
      "berkshire-capital-2008-2017-001",
      "cpos-sol-remaining-20261105",
      "cpos-tdg-reader-comparison-001",
-     "erste-parse-2024-001",
-     "tdg-model-001"
+     "erste-parse-2024-001"
     ]
    ]
   ],
@@ -148,6 +148,7 @@
     "tdg-003",
     "tdg-004",
     "tdg-guidance",
+    "tdg-model-001",
     "tdg-peers-2024",
     "tdg-run-comparison",
     "tdg-valuation-2025-001",

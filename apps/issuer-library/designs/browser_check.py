@@ -23,6 +23,7 @@ from urllib.parse import urlparse
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
 
+import flow_check
 from faults import Faults, crashes, http_fault, redact, request_fault
 
 MODULE_CODE = re.compile(r"\bCP-[A-Z0-9]+\b(?![-.][A-Za-z0-9])")
@@ -49,10 +50,10 @@ DRAINS: list[threading.Thread] = []
 SESSIONS: dict[int, dict[str, Any]] = {}
 
 
-def note(ok: bool, what: str, fault: bool = True) -> None:
+def note(ok: bool, what: str, fault: bool = True, kind: str = "check") -> None:
     results.append((ok, what))
     if not ok and fault:
-        FAULTS.add(WALK, "check", what)
+        FAULTS.add(WALK, kind, what)
     print(("PASS " if ok else "FAIL ") + what, flush=True)
 
 
@@ -452,6 +453,22 @@ FORM_WANT = {
 }
 
 
+def check_flow(name: str, workspace: Path, report: Any) -> None:
+    """Sources -> handoffs -> delivered copies -> the report text, by the independent checker."""
+    (run,) = sorted(Path(workspace, "runs").glob("web-*"))
+    # The report's own chart drawing (svg) is not text the handoffs carry.
+    shown = report.locator("#view-root").evaluate(
+        "el => { const c = el.cloneNode(true); c.querySelectorAll('svg').forEach(n => n.remove());"
+        " return c.textContent; }"
+    )
+    delivered = [p.read_text() for p in sorted(run.glob("deliveries/*/CP-*.md"))]
+    problems = flow_check.run_faults(run, S / "issuer") + flow_check.report_faults(shown, delivered)
+    for problem in problems:
+        note(False, f"{name}: flow check: {problem}", kind="flow")
+    if not problems:
+        note(True, f"{name}: data flows from sources to the report (flow check)")
+
+
 # One browser walk through New run, kept in page order; splitting it would hide the sequence.
 def new_run(  # noqa: PLR0915, RUF100
     browser: Any, name: str, port: int, workspace: Path, start: bool | str
@@ -484,7 +501,7 @@ def new_run(  # noqa: PLR0915, RUF100
         f"{name}: context from the form reaches the folder step",
     )
     page.set_input_files("#run-sources", str(S / "issuer"))
-    expect(page.locator("#upload-list")).to_contain_text("3 files", timeout=10000)
+    expect(page.locator("#upload-list")).to_contain_text("4 files", timeout=10000)
     note(True, f"{name}: choosing the folder lists its files, dot files left out")
     page.fill("#run-budget", "50")
     page.screenshot(path=str(S / f"{name}-folder.png"))
@@ -574,6 +591,7 @@ def new_run(  # noqa: PLR0915, RUF100
         report.locator("img[src='x']").count() == 0,
         f"{name}: synthetic hostile text in a handoff stays text in the report",
     )
+    check_flow(name, workspace, report)
     page.screenshot(path=str(S / f"{name}-delivered.png"))
     page.locator(".built-from summary").first.click()
     page.locator(".built-from tbody a").first.click()
@@ -699,6 +717,8 @@ def main(argv: list[str]) -> int:
     (issuer / "filings").mkdir(parents=True, exist_ok=True)
     (issuer / "annual.txt").write_text("Net sales were 100 and debt was 0.\n")
     (issuer / "filings/notes.md").write_text("Notes mature in 2030.\n")
+    # The fake engine's CP-1 figures come from this fixture, so the data-flow check has a source.
+    shutil.copy(HERE / "reader-fixture/CP-1.md", issuer / "figures.md")
     (issuer / "chart.png").write_bytes(b"\x89PNG")
     (issuer / ".DS_Store").write_bytes(b"\0")
     home = Path.home() / "Library/Caches/ms-playwright"

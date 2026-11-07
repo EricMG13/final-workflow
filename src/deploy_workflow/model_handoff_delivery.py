@@ -46,6 +46,7 @@ from deploy_workflow.handoff_delivery import (
     HandoffInput,
     ModelDelivery,
     heading_of,
+    hide_comments,
     is_gap,
     names_issuer,
     physical_lines,
@@ -305,6 +306,7 @@ def _literal_tables(
         extraction_status="complete",
         limitation="Actual analytical handoff; underlying source qualifications and scope remain.",
     )
+    lines = hide_comments(lines, key)  # The source keeps every line; tables come from shown ones.
     facts: list[Fact] = []
     tables: list[ReportTable] = []
     bindings: list[Binding] = []

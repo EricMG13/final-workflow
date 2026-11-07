@@ -51,10 +51,12 @@ from deploy_vii.report_view import (
     pathways,
 )
 from deploy_workflow.handoff_delivery import (
+    FENCE,
     SOURCE_NUMBER,
     DeliveryRequest,
     MarkdownRoute,
     heading_of,
+    hide_comments,
     is_gap,
     names_issuer,
     physical_lines,
@@ -73,7 +75,6 @@ STRIP_FIGURES = {
 
 
 LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]")
-FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
 
 
 @dataclass(frozen=True)
@@ -110,28 +111,6 @@ def _table_lines(tables: list[ReportTable], facts: list[Fact]) -> set[int]:
     cited = {f.fact_id: int(f.citations[0].locator.split()[-1]) for f in facts if f.citations}
     spans = [[cited[fid] for row in t.rows for fid in row.fact_ids if fid in cited] for t in tables]
     return {n for rows in spans if rows for n in range(min(rows) - 2, max(rows) + 1)}
-
-
-def _hide_comments(lines: list[str]) -> list[str]:
-    """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
-    hide it, so its text is never published as prose; fenced text is left as written. Line numbers
-    are unchanged. A comment that is never closed would hide the rest of the handoff: refused."""
-    shown, fenced, opened = [], False, 0
-    for number, line in enumerate(lines, 1):
-        hide = opened > 0
-        if hide:
-            opened = 0 if "-->" in line else opened
-        else:
-            found = heading_of(line)
-            fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
-            if FENCE.match(line):
-                fenced = not fenced
-            elif not fenced and line.startswith("<!--") and "-->" not in line:
-                opened, hide = number, True
-        shown.append("" if hide else line)
-    if opened:
-        raise ValueError(f"The HTML comment opened on line {opened} is never closed by `-->`")
-    return shown
 
 
 def _prose_groups(lines: list[str], in_table: set[int]) -> list[_ProseGroup]:
@@ -212,7 +191,7 @@ def literal_module(
 
     digest = hashlib.sha256(raw).hexdigest()
     source, facts, tables, _ = _literal_tables(module_id, raw, digest)
-    lines = _hide_comments(physical_lines(raw.decode("utf-8")))
+    lines = hide_comments(physical_lines(raw.decode("utf-8")), module_id)
     headings = [(n, found[1]) for n, line in enumerate(lines, 1) if (found := heading_of(line))]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
@@ -467,27 +446,36 @@ def _token_decimals(token: str, chart_unit: str | None) -> int:
     return min(6, max(0, written - 2) if chart_unit == "%" else written)
 
 
-YEAR = re.compile(r"(?<![0-9])([0-9]{4})(?![0-9])")
-PART = re.compile(r"(?<![A-Za-z0-9])[QH]([1-4])(?![0-9])")
+YEAR = re.compile(r"(?<![0-9])([0-9]{4})(?:-([0-9]{2})-[0-9]{2})?(?![0-9])")
+PART = re.compile(r"(?<![A-Za-z])([QH])([1-4])(?![0-9])")
 
 
-def _period_key(label: str) -> tuple[int, int] | None:
-    """(year, quarter or half) read from a period label such as `FY2024` or `Q3 2024`."""
-    year, part = YEAR.search(label), PART.search(label)
-    return None if year is None else (int(year[1]), int(part[1]) if part else 0)
+def _period_key(label: str) -> tuple[str, int, int] | None:
+    """(granularity, year, part) of a period label: `FY2024` ("year", 2024, 0), `Q3 2024`
+    ("Q", 2024, 3), `H1 2024` ("H", 2024, 1), `2024-09-30` ("date", 2024, 9); None without a
+    year."""
+    year = YEAR.search(label)
+    if year is None:
+        return None
+    if year[2]:
+        return ("date", int(year[1]), int(year[2]))
+    part = PART.search(label)
+    return (part[1], int(year[1]), int(part[2])) if part else ("year", int(year[1]), 0)
 
 
 def _chronological(points: tuple[_ChartPoint, ...]) -> tuple[_ChartPoint, ...]:
     """Oldest period first, so time reads left to right whatever order the table was written in.
 
-    Only the order of the points changes, never a value or label. When any category carries no
-    year the authored order stays, and equal keys keep their authored order.
+    Only the order of the points changes, never a value or label. The authored order stays unless
+    every category has a key, all of one granularity, and no two categories share one: a label
+    without a year, `Jun 2024` beside `Dec 2024`, or `FY2024` beside `Q1 2024` cannot be placed.
     """
-    keys = [_period_key(p.category) for p in points]
-    if any(key is None for key in keys):
+    keys = {p.category: _period_key(p.category) for p in points}
+    known = {category: key for category, key in keys.items() if key is not None}
+    granularities = {key[0] for key in known.values()}
+    if len(known) < len(keys) or len(set(known.values())) < len(known) or len(granularities) > 1:
         return points
-    ordered = sorted(zip(keys, range(len(points)), strict=True))
-    return tuple(points[i] for _, i in ordered)
+    return tuple(sorted(points, key=lambda p: known[p.category]))
 
 
 def _require_reporting_unit(

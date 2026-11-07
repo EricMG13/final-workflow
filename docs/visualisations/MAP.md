@@ -1370,7 +1370,7 @@ Source anchors: src/deploy_vii/methodology.json; src/deploy_vii/bindings/cp3c.py
 | Eligibility / gap / interpretation guard | Standalone HTML embeds charts/fonts/symbol offline. Preserve archived originals and verify each new chart against its handoff; do not claim unsupported exports. |
 | Delivery priority | First |
 
-Source anchors: src/deploy_workflow/handoff_delivery.py; src/deploy_workflow/cpos_handoffs.py; src/deploy_vii/render.py; src/deploy_vii/report_view.py.
+Source anchors: src/deploy_workflow/handoff_delivery.py; src/deploy_vii/render.py; src/deploy_vii/report_view.py.
 
 ## Alias coverage and separate duties
 

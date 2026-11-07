@@ -189,6 +189,32 @@ def heading_of(line: str) -> tuple[int, str] | None:
     return None if found is None else (len(found[1]), found[2] or "")
 
 
+FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+
+
+def hide_comments(lines: list[str], name: str) -> list[str]:
+    """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
+    hide it, so no table or prose inside it is published; fenced text is left as written. Line
+    numbers are unchanged. A comment that is never closed would hide the rest of the handoff:
+    refused."""
+    shown, fenced, opened = [], False, 0
+    for number, line in enumerate(lines, 1):
+        hide = opened > 0
+        if hide:
+            opened = 0 if "-->" in line else opened
+        else:
+            found = heading_of(line)
+            fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
+            if FENCE.match(line):
+                fenced = not fenced
+            elif not fenced and line.startswith("<!--") and "-->" not in line:
+                opened, hide = number, True
+        shown.append("" if hide else line)
+    if opened:
+        raise ValueError(f"{name}: the HTML comment opened on line {opened} is never closed by -->")
+    return shown
+
+
 def names_issuer(text: str, names: tuple[str, ...]) -> bool:
     """Whether any non-blank name occurs in `text` as whole words, ignoring case and spacing.
 

@@ -622,6 +622,8 @@ def replay_module(
     ``retained`` is the plan's already authenticated read of ``earlier`` (read afresh if None)."""
     if retained is None:
         retained = _Earlier(earlier)
+    elif retained.directory != earlier:
+        raise ReplayRefused(f"the plan's read is of {retained.directory}, not of {earlier}")
     check_same_pack(retained.store.pack(retained.snapshot), Execution(execution).pack())
     attempt = _settled_attempt(retained.snapshot, module_id)
     if attempt is None:

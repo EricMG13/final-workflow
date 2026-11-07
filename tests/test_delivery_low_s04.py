@@ -265,3 +265,127 @@ def test_model_reader_still_refuses_a_malformed_number():
     )
     with pytest.raises(ValueError, match="unsupported source spelling 12x"):
         _AnnualReader(raw, spec, layout).read("revenue", "FY2024")
+
+
+# ---- review adversarial cases (second model); expected values written out from the text ----
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected"),
+    [
+        # One granularity, one key per label: placed oldest first.
+        (["2024-12-31", "2024-06-30", "2023-12-31"], ["2023-12-31", "2024-06-30", "2024-12-31"]),
+        (["2024Q3", "2024Q1", "2023Q4"], ["2023Q4", "2024Q1", "2024Q3"]),
+        (["H2 2024", "H1 2024", "H2 2023"], ["H2 2023", "H1 2024", "H2 2024"]),
+        # The retained TDG CP-1 leverage labels (newest first as written).
+        (
+            ["FY2024 / 2024-09-30", "FY2023 / 2023-09-30"],
+            ["FY2023 / 2023-09-30", "FY2024 / 2024-09-30"],
+        ),
+        # Cannot be placed: the authored order stays, never a partial sort.
+        (["Dec 2024", "Jun 2024", "Dec 2023"], ["Dec 2024", "Jun 2024", "Dec 2023"]),
+        (["H2 2024", "Q3 2024"], ["H2 2024", "Q3 2024"]),
+        (["FY2024", "Q1 2024", "FY2023"], ["FY2024", "Q1 2024", "FY2023"]),
+        (["FY2024", "CY2024"], ["FY2024", "CY2024"]),
+        (["FY2024", "2023-12-31"], ["FY2024", "2023-12-31"]),
+    ],
+)
+def test_chart_periods_are_placed_only_when_unambiguous(tmp_path, rows, expected):
+    _, figures, _ = deliver(tmp_path, handoff(leverage=[(p, "1", "1") for p in rows]))
+    assert _categories(figures["S.1"].chart) == expected
+
+
+def test_the_table_twin_follows_the_marks_and_the_source_table_keeps_its_order(tmp_path):
+    _, figures, view = deliver(
+        tmp_path, handoff(leverage=[("FY2024", "3", "9"), ("FY2023", "4", "8")])
+    )
+    twin = [(r.label, r.cells[0].text) for r in figures["S.1"].chart.table_twin.rows]
+    assert twin == [
+        ("Total debt / EBITDA · FY2023", "4x"),
+        ("Net debt / EBITDA · FY2023", "8x"),
+        ("Total debt / EBITDA · FY2024", "3x"),
+        ("Net debt / EBITDA · FY2024", "9x"),
+    ]
+    module = next(m for m in view.modules if m.module_id == "CP-1")
+    typed = next(t for t in module.tables if t.table_id == "chart-model-chart-strip-S.1")
+    assert [r.label for r in typed.rows] == [
+        "Total debt / EBITDA · FY2024",
+        "Net debt / EBITDA · FY2024",
+        "Total debt / EBITDA · FY2023",
+        "Net debt / EBITDA · FY2023",
+    ]
+
+
+def test_a_table_inside_a_multiline_comment_is_not_published_but_stays_in_the_source():
+    text = _doc("<!--\n| Metric | FY2024 |\n| --- | --- |\n| Secret | 999 |\n-->\nVisible.\n")
+    module, source, _ = literal_module("CP-1", text.encode())
+    assert not [f for f in module.facts if f.text and ("999" in f.text or "Secret" in f.text)]
+    assert not [t for t in module.tables if any(r.label == "Secret" for r in t.rows)]
+    assert "Visible." in [f.text for f in module.facts]
+    assert ("line 10", "| Secret | 999 |") in [(s.locator, s.text) for s in source.spans]
+
+
+def test_a_chart_table_hidden_in_a_comment_is_not_charted(tmp_path):
+    text = (
+        handoff()
+        .replace("### Chart data: leverage\n\n", "### Chart data: leverage\n\n<!--\n")
+        .replace("### Chart data: interest cover", "-->\n### Chart data: interest cover")
+    )
+    with pytest.raises(
+        ValueError, match="markdown_selector: expected one CP-1/Chart data: leverage"
+    ):
+        deliver(tmp_path, text)
+
+
+def test_an_unterminated_comment_is_refused_by_every_table_reader():
+    from deploy_workflow.model_handoff_delivery import _literal_tables
+
+    raw = _doc("<!--\n| A | B |\n| --- | --- |\n| x | 1 |\n").encode()
+    with pytest.raises(ValueError, match="CP-8: the HTML comment opened on line 7 is never closed"):
+        _literal_tables("CP-8", raw, hashlib.sha256(raw).hexdigest())
+
+
+def test_a_fence_inside_a_comment_does_not_open_a_fence():
+    shown = prose_texts(_doc("<!--\n```\n-->\nShown.\n<!--\nsecret\n-->\nTail.\n"))
+    assert "Shown." in shown and "Tail." in shown and not [t for t in shown if "secret" in t]
+
+
+def test_a_comment_opened_inside_a_fence_is_code_and_its_closer_is_text():
+    shown = prose_texts(_doc("```\n<!--\n```\nAfter -->\nTail.\n"))
+    # One paragraph: the fenced lines as written, then the two plain lines joined.
+    assert "``` <!-- ```" in shown and "After --> Tail." in shown
+
+
+def test_a_number_with_a_blank_reporting_unit_is_refused_naming_the_cell(tmp_path):
+    with pytest.raises(ValueError, match="FY2023 Cash is reported in no unit, not US\\$m"):
+        deliver(tmp_path, handoff(unit_liq=""))
+
+
+def test_a_model_gap_keeps_its_exact_spelling_in_the_source_reference():
+    from deploy_workflow.handoff_delivery import ModelDelivery
+
+    raw = (
+        b"### T4.10 dashboard\n| Metric | FY2024 |\n|---|---|\n"
+        b"| Revenue | Not supplied: undisclosed |\n"
+    )
+    spec = HandoffInput(path="a.md", sha256=hashlib.sha256(raw).hexdigest())
+    layout = ModelDelivery.model_validate_json(
+        json.dumps(
+            {
+                "periods": {
+                    "FY2024": {
+                        "start_date": "2024-01-01",
+                        "end_date": "2024-12-31",
+                        "balance_column": None,
+                    }
+                },
+                "anchors": {"dashboard": "### T4.10 dashboard"},
+                "rows": {"revenue": {"table": "dashboard", "label": "Revenue"}},
+            }
+        )
+    )
+    got = _AnnualReader(raw, spec, layout).read("revenue", "FY2024")
+    assert (got.value, got.reason) == (None, "NOT_STATED")
+    assert [(s.source_locator, s.cell_text) for s in got.sources] == [
+        ("line 4", "Not supplied: undisclosed")
+    ]

@@ -61,7 +61,12 @@ from deploy_vii.preparation import PreparedPack
 from deploy_vii.quality import QualityInputs
 from deploy_vii.readiness import extraction_coverage, live_consumers
 from deploy_vii.registry import PACK_TOOLS, SUBMIT_ONLY, ToolSet, modules, part_submit_steps
-from deploy_vii.statement_validation import ACCOUNT_LINKS, OPTIONAL_ITEMS, REQUIRED_ITEMS
+from deploy_vii.statement_validation import (
+    ACCOUNT_LINKS,
+    INFLOW_WORDS,
+    OPTIONAL_ITEMS,
+    REQUIRED_ITEMS,
+)
 
 DELIMITERS = ("<<<SOURCE", "<<<CONTEXT", "<<<REPAIR", "<<<END>>>")
 PACK_BLOCK_ID = "prepared-pack"
@@ -160,9 +165,15 @@ def _outflow_items() -> str:
     )
 
 
+def _inflow_words() -> str:
+    """The words by which a statement label states an inflow, from the validator's table."""
+    return ", ".join(f"`{word}`" for word in INFLOW_WORDS)
+
+
 # Task 7.0f (E1 batch e1-cp1-4): `StatementLine.sign_evidence` and the consumers of
 # `sign_convention` (`statement_validation.account_outflow`, `financial_reconciliation`).
 # S12-A02 (user ruling B, fail closed): `statement_validation._signed_outflow_issues`.
+# S12-A02 inflow labels (user ruling, fail closed): `statement_validation._inflow_label_issues`.
 SIGN_RULE = (
     "A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign "
     "the statement implies (an expense or outflow negative, a revenue or inflow positive); "
@@ -177,7 +188,13 @@ SIGN_RULE = (
     "refund), record that period's value as status `missing` with a null `amount` and a `reason` "
     "saying the source prints a net inflow, never a negative or zero figure (for an "
     "`extract_statements` row, leave the row out of its unit's `rows` in `unit_maps` and write "
-    "its lines yourself, citing the row)."
+    "its lines yourself, citing the row). `outflow_magnitude` is also refused on a line of an "
+    f"outflow account whose label states an inflow: one of the words {_inflow_words()}, in any "
+    'letter case, outside a "net of" clause (the clause runs to the bracket that encloses it, a '
+    'semicolon or the end of the label, so "Cash taxes paid, net of refunds received" stays an '
+    "outflow magnitude). Such a line is `signed` with the negative amount where the source prints "
+    "the figure negative; otherwise it is a net inflow, recorded as status `missing` with a null "
+    "`amount` and a `reason` as above."
 )
 DECLARED_PERIOD_RULE = "Every `period_id` an entry uses must be declared in its book's `periods`."
 # Task 7.11 (E1 batch e1-cp1-13): `context_binding.validate_financial_context` binds a book only to

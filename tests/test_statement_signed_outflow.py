@@ -661,3 +661,253 @@ def test_a_withheld_outflow_must_still_cite_its_row() -> None:
     elsewhere = _cost_of_sales_book(withheld=True, cites_row=False)
     reason = fw._uncovered_reason(table, row, "IS", (elsewhere,))
     assert reason is not None and reason.startswith("period: no IS line")
+
+
+# --- user ruling: `outflow_magnitude` is refused on a label that states an inflow -----------------
+# Hand-derived: `outflow_magnitude` is read -abs(amount). "Income taxes refunded | 15" kept as a
+# magnitude would read -15 where the source prints a refund of +15 (wrong by 30), and a refund
+# printed (15) under `outflow_magnitude` reads -15 by the convention, not by the printed sign. So
+# the convention is refused on an outflow-linked line whose label states an inflow, whatever the
+# amount. The inflow words, written here by hand from the ruling: refund(s|ed), received,
+# receipt(s), proceeds, inflow(s), reimbursement(s); a word inside a "net of" clause states no
+# inflow ("Cash taxes paid, net of refunds received" is an outflow net of refunds).
+
+INFLOW_ISSUE = "Outflow magnitude on a label that states an inflow"
+INFLOW_LABELS = (
+    ("Income tax refund", "refund"),
+    ("Refunds of taxes paid", "refunds"),
+    ("Income taxes refunded (paid), net", "refunded"),
+    ("Interest received", "received"),
+    ("Tax receipt", "receipt"),
+    ("Receipts (payments) of income taxes", "receipts"),
+    ("Proceeds from sale of PP&E", "proceeds"),
+    ("Cash inflow from grants", "inflow"),
+    ("Inflows from tax credits", "inflows"),
+    ("Insurance reimbursement", "reimbursement"),
+    ("Reimbursements of lease payments", "reimbursements"),
+)
+# Retained labels the scan of cases/ and runs/ found (statement-coverage, TDG FY2024 10-K
+# supplemental, TDG peers) and the "net of" forms the confidence review tried: all outflows.
+NET_OF_LABELS = (
+    "Cash taxes paid, net of refunds received",
+    "Cash paid during the period for income taxes, net of tax refunds received",
+    "Cash paid during the period for income taxes, net of refunds",
+    "Income taxes paid, net of refunds",
+    "capex, net of proceeds",
+    "CAPEX, NET OF PROCEEDS",
+    "Cash taxes paid (net of refunds received)",
+    "Taxes paid net of refunds",
+    "Taxes paid （net of refunds）",
+    "Purchase of PP&E, net of proceeds (note 12)",
+    "Purchase of PP&E [net of proceeds]",
+    "Capex, net-of proceeds",
+    "Taxes paid, net of (refunds) received",
+    "Net of refunds, taxes paid",
+    "Imp\u00f4ts pay\u00e9s ; net of refunds",
+    "Taxes paid \u2013 net of refunds",
+    "Taxes paid \u00abnet of refunds\u00bb",
+)
+# Labels with no inflow word at all (a receivable is not a receipt, refundable is not a refund).
+PLAIN_LABELS = ("Cash tax paid", "Total capital expenditure", "Receivables", "Refundable advances")
+
+
+def labelled(  # noqa: PLR0913 - one keyword per field the cases vary
+    label: str,
+    amount: Decimal | None = Decimal(15),
+    *,
+    statement: str = "CFS",
+    item: str = "cash_taxes_paid",
+    convention: str = "outflow_magnitude",
+    period_id: str = "FY2024",
+) -> StatementLine:
+    line = outflow_line(statement, item, amount, convention=convention, period_id=period_id)
+    return line.model_copy(update={"label": label})
+
+
+def inflow_refused(issues: tuple[str, ...]) -> list[str]:
+    return [issue for issue in issues if INFLOW_ISSUE in issue]
+
+
+@pytest.mark.parametrize(("label", "word"), INFLOW_LABELS)
+def test_each_inflow_word_refuses_an_outflow_magnitude(label: str, word: str) -> None:
+    row = labelled(label)
+    [issue] = inflow_refused(statement_issues(book((row,))))
+    # The line, its period, the account, the word and both repairs, in one sentence.
+    assert f"{row.line_id} FY2024 (CFS cash_taxes_paid, account cash_taxes_paid" in issue
+    assert f'label word "{word}"' in issue
+    assert "`sign_convention: signed` with the negative amount" in issue
+    assert "net inflow (a refund)" in issue and "status `missing`" in issue
+    assert "`reason`" in issue and ". " not in issue
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_every_outflow_account_refuses_an_inflow_label_magnitude(
+    statement: str, item: str, account: str
+) -> None:
+    row = labelled("Income taxes refunded", statement=statement, item=item)
+    [issue] = inflow_refused(statement_issues(book((row,))))
+    assert f'({statement} {item}, account {account}, label word "refunded")' in issue
+
+
+@pytest.mark.parametrize(
+    "amount", [Decimal(15), Decimal(-15), Decimal(0)], ids=["positive", "negative", "zero"]
+)
+def test_the_refusal_does_not_depend_on_the_amount(amount: Decimal) -> None:
+    # -15 under outflow_magnitude also reads -15 by the convention: refused all the same.
+    assert len(inflow_refused(statement_issues(book((labelled("Tax refund", amount),))))) == 1
+
+
+@pytest.mark.parametrize("label", NET_OF_LABELS)
+def test_an_inflow_word_inside_a_net_of_clause_keeps_the_magnitude(label: str) -> None:
+    for statement, item, _ in OUTFLOW_ITEMS:
+        row = labelled(label, statement=statement, item=item)
+        assert statement_issues(book((row,))) == (), (label, item)
+
+
+@pytest.mark.parametrize(
+    ("label", "word"),
+    [
+        ("Cash taxes paid (net of refunds) and refunds received", "refunds"),
+        ("Taxes paid, net of refunds; receipts of grants", "receipts"),
+        ("Taxes paid （net of refunds） and receipts", "receipts"),
+        ("Proceeds, net of capex", "proceeds"),
+        ("INCOME TAXES REFUNDED", "refunded"),
+        ("Income tax REFUNDS", "refunds"),
+        ("Tax-refunds", "refunds"),
+        ("Income taxes paid (refunded)", "refunded"),
+        ("Taxes paid, net of refunds\uff1b receipts of grants", "receipts"),
+        ("Refunds received, net of taxes paid", "refunds"),
+    ],
+)
+def test_an_inflow_word_outside_the_clause_still_refuses(label: str, word: str) -> None:
+    [issue] = inflow_refused(statement_issues(book((labelled(label),))))
+    assert f'label word "{word}"' in issue
+
+
+def test_proceeds_on_a_capex_line_is_refused_and_capex_net_of_proceeds_is_kept() -> None:
+    proceeds = labelled("Proceeds from sale of PP&E", statement="CFS", item="capex_total")
+    [issue] = inflow_refused(statement_issues(book((proceeds,))))
+    assert "(CFS capex_total, account capex_and_intangible_investment" in issue
+    net = labelled("Capex, net of proceeds", statement="CFS", item="capex_total")
+    assert statement_issues(book((net,))) == ()
+
+
+@pytest.mark.parametrize("label", PLAIN_LABELS)
+def test_a_label_without_an_inflow_word_keeps_the_magnitude(label: str) -> None:
+    assert statement_issues(book((labelled(label),))) == ()
+
+
+@pytest.mark.parametrize("label", [label for label, _ in INFLOW_LABELS])
+def test_a_signed_negative_or_a_missing_refund_label_is_accepted(label: str) -> None:
+    negative = labelled(label, Decimal(-15), convention="signed")
+    withheld = labelled(label, None, convention="signed")
+    assert statement_issues(book((negative,))) == ()
+    assert statement_issues(book((withheld,))) == ()
+
+
+def test_a_positive_signed_refund_label_gets_the_signed_outflow_issue_only() -> None:
+    issues = statement_issues(book((labelled("Tax refund", convention="signed"),)))
+    assert len(refused(issues)) == 1 and inflow_refused(issues) == []
+
+
+@pytest.mark.parametrize(
+    ("statement", "item"),
+    [
+        ("IS", "revenue"),
+        ("CFS", "capex_maintenance"),
+        ("CFS", "other:income-taxes-refunded"),
+        ("IS", "income_tax_total"),
+    ],
+)
+def test_an_inflow_label_magnitude_off_the_outflow_accounts_is_not_caught(
+    statement: str, item: str
+) -> None:
+    row = labelled("Income taxes refunded", statement=statement, item=item)
+    assert inflow_refused(statement_issues(book((row,)))) == []
+
+
+def test_one_issue_per_offending_period() -> None:
+    # One refund line over FY2024 and FY2023, both kept as magnitudes: two issues, one a period.
+    lines = tuple(labelled("Tax refunds", period_id=pid) for pid in ("FY2024", "FY2023"))
+    found = inflow_refused(statement_issues(book(lines)))
+    assert len(found) == 2
+    assert " FY2024 (" in found[0] and " FY2023 (" in found[1]
+
+
+def _relabelled(label: str, q2: StatementLine) -> tuple[PreparedPack, FinancialReview]:
+    """`flow_book` for cash_taxes_paid with every period's line under one label."""
+    full = flow_book("CFS", "cash_taxes_paid", q2)
+    lines = tuple(line.model_copy(update={"label": label}) for line in full.statement_lines)
+    return case(full.model_copy(update={"statement_lines": lines}))
+
+
+def test_an_inflow_label_magnitude_fails_the_whole_review_closed() -> None:
+    q2 = labelled("Income taxes refunded", period_id="q2-2025")
+    pack, review = _relabelled("Income taxes refunded", q2)
+    issues = validate_financial_review(pack, review)
+    # Q1 carries a magnitude too (flow_book: Q1 printed magnitude 1); Q3, Q4, FY are signed.
+    assert [i.split(" (")[0] for i in issues] == [
+        f"book: {INFLOW_ISSUE}: cfs-cash-taxes-paid q1-2025",
+        f"book: {INFLOW_ISSUE}: cfs-cash-taxes-paid q2-2025",
+    ]
+    for build in (statement_report, reconcile_financials, kernel_registers):
+        with pytest.raises(ValueError, match=INFLOW_ISSUE):
+            build(pack, review, "book")
+
+
+@pytest.mark.parametrize(
+    ("label", "convention", "amount", "q2_value", "ltm_value"),
+    [
+        # A net-of label kept as a magnitude 15: read -15; LTM at Q4 -1 - 15 - 1 + 0 = -17.
+        ("Cash taxes paid, net of refunds received", "outflow_magnitude", 15, -15, -17),
+        # A refund label printed (15), signed: read -15 unchanged; LTM -17.
+        ("Income taxes refunded (paid), net", "signed", -15, -15, -17),
+    ],
+)
+def test_valid_refund_and_net_of_labels_read_unchanged_downstream(
+    label: str, convention: str, amount: int, q2_value: int, ltm_value: int
+) -> None:
+    q1 = labelled(label, Decimal(1), period_id="q1-2025")
+    if convention == "signed":
+        q1 = labelled(label, Decimal(-1), convention="signed", period_id="q1-2025")
+    q2 = labelled(label, Decimal(amount), convention=convention, period_id="q2-2025")
+    full = flow_book("CFS", "cash_taxes_paid", q2)
+    lines = tuple(
+        q1 if line.period_id == "q1-2025" else line.model_copy(update={"label": label})
+        for line in full.statement_lines
+    )
+    pack, review = case(full.model_copy(update={"statement_lines": lines}))
+    assert validate_financial_review(pack, review) == ()
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    assert frame[column["q2-2025"]]["acct:cash_taxes_paid"].value == Decimal(q2_value)
+    assert ltm[column["q4-2025"]]["acct:cash_taxes_paid"].value == Decimal(ltm_value)
+    cell = next(
+        c
+        for c in statement_report(pack, review, "book").cells
+        if c.item_id == "cash_taxes_paid" and c.period_id == "q2-2025"
+    )
+    assert (cell.source_amount, cell.normalized_amount) == (Decimal(amount), Decimal(q2_value))
+
+
+def test_a_withheld_refund_label_reads_missing_downstream() -> None:
+    label = "Income taxes refunded (paid), net"
+    q1 = labelled(label, Decimal(-1), convention="signed", period_id="q1-2025")
+    q2 = labelled(label, None, convention="signed", period_id="q2-2025")
+    full = flow_book("CFS", "cash_taxes_paid", q2)
+    lines = tuple(
+        q1 if line.period_id == "q1-2025" else line.model_copy(update={"label": label})
+        for line in full.statement_lines
+    )
+    pack, review = case(full.model_copy(update={"statement_lines": lines}))
+    assert validate_financial_review(pack, review) == ()
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    q2_cell = frame[column["q2-2025"]]["acct:cash_taxes_paid"]
+    # Missing, never 0, -15 or +15.
+    assert (q2_cell.value, q2_cell.reason) == (None, "NOT_STATED")

@@ -130,3 +130,19 @@ def test_a_mac_build_has_no_runtime_to_clear(tmp_path: Path, offline: list[str])
     runtime.bundle(target, None)
     assert not (target / "engine/runtime").exists()
     assert offline == []
+
+
+def test_a_linked_engine_folder_is_refused_before_anything_is_deleted(tmp_path: Path) -> None:
+    # The engine folder itself leads out of the build: neither its runtime nor manifest is removed.
+    target, outside = tmp_path / "windows-amd64", tmp_path / "elsewhere"
+    target.mkdir()
+    (outside / "runtime").mkdir(parents=True)
+    (outside / "runtime/precious.txt").write_text("keep")
+    (outside / "runtime-manifest.json").write_text("{}")
+    (target / "engine").symlink_to(outside, target_is_directory=True)
+    with pytest.raises(ValueError, match="outside the build"):
+        runtime.clear_runtime(
+            target, target / "engine/runtime", target / "engine/runtime-manifest.json"
+        )
+    assert (outside / "runtime/precious.txt").read_text() == "keep"
+    assert (outside / "runtime-manifest.json").read_text() == "{}"

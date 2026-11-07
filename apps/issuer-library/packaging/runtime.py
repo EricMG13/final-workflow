@@ -28,14 +28,17 @@ def download(url: str, sha: str, name: str) -> Path:
 
 
 def clear_runtime(target: Path, runtime: Path, manifest: Path) -> None:
-    """Empty the runtime folder the build owns, so a re-pinned runtime ships no stale wheels."""
-    manifest.unlink(missing_ok=True)
+    """Empty the runtime folder the build owns, so a re-pinned runtime ships no stale wheels.
+
+    Nothing is deleted until the folder is known to be inside the build target.
+    """
     if (
         runtime.is_symlink()
         or runtime.is_junction()
         or not runtime.resolve().is_relative_to(target.resolve())
     ):
         raise ValueError(f"Refusing to clear a runtime folder outside the build: {runtime}")
+    manifest.unlink(missing_ok=True)
     if runtime.exists():
         shutil.rmtree(runtime)
     runtime.mkdir()

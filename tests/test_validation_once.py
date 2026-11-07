@@ -17,10 +17,11 @@ from typing import Any
 
 import pytest
 import test_connect_cp2a as tc2a
+import test_connect_cp2d as tc2d
 import test_connect_cp2g as tc2g
 import test_connect_cp2h as tc2h
 
-from deploy_workflow.owners import cp2a, cp2g, cp2h
+from deploy_workflow.owners import cp2a, cp2d, cp2g, cp2h
 
 
 def _count(monkeypatch: pytest.MonkeyPatch, module: Any, *names: str) -> Counter[str]:
@@ -123,3 +124,31 @@ def test_cp2a_public_guards_still_refuse(tmp_path: Path) -> None:
     assert issues and issues[0].startswith("base_period: not an offered period")
     with pytest.raises(ValueError, match="base_period: not an offered period"):
         cp2a.downside_report(pack=pack, submission=submission, upstream=upstream)
+
+
+def test_cp2d_submit_validates_once_per_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, attempt = tc2d.make_upstream(tmp_path)
+    calls = _count(monkeypatch, cp2d, "submission_issues", "run_basis", "_pin_lines", "bridge_of")
+    tc2d._submit(store, attempt, tc2d._literal("positive"))
+    finished = tc2d._finished(store, attempt.ticket_id)
+    assert finished.status == "finished" and finished.issues == ()
+    # per step: one submission check, one basis read, one pin check, one bridge (was 6, 6, 4, 2)
+    assert calls == Counter(
+        {"submission_issues": 2, "run_basis": 2, "_pin_lines": 2, "bridge_of": 2}
+    )
+
+
+def test_cp2d_public_guards_still_refuse(tmp_path: Path) -> None:
+    store, attempt = tc2d.make_upstream(tmp_path)
+    payload = json.loads(tc2d._literal("positive"))
+    payload["horizon_months"] = 0
+    submission = cp2d.LiquidityBridgeSubmission.model_validate_json(json.dumps(payload))
+    upstream = cp2d.cp2d_upstream(store=store, attempt=attempt)
+    issues = cp2d.validate_liquidity_bridge(
+        pack=store.pack(), submission=submission, upstream=upstream
+    )
+    assert cp2d.HORIZON_ISSUE in issues
+    with pytest.raises(ValueError, match=cp2d.HORIZON_ISSUE):
+        cp2d.liquidity_bridge(pack=store.pack(), submission=submission, upstream=upstream)

@@ -1780,7 +1780,6 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
     Raises ValueError only for a submission that ``submission_issues`` refuses; every missing
     operand, facility term, currency or cross-check difference settles as gaps and limitations.
     """
-    o = inputs.operands
     issues = submission_issues(
         submission=inputs.submission,
         offered_refs=inputs.offered_refs,
@@ -1788,6 +1787,13 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
     )
     if issues:
         raise ValueError("; ".join(issues))
+    return _computed(inputs)
+
+
+def _computed(inputs: Cp2dInputs) -> Cp2dResult:
+    """`compute` of inputs whose submission issues are already known to be none (one validation
+    per step, S06-cp2-ade-C06)."""
+    o = inputs.operands
     bridge = bridge_of(inputs)
     limitations = (
         *_limitations(operands=o, bridge=bridge, pinned=inputs.pinned),
@@ -2335,7 +2341,12 @@ def run_basis(pack: PreparedPack, cp1: Module) -> PeriodBasis:
 def _inputs_from(
     upstream: Upstream, submission: LiquidityBridgeSubmission, basis: PeriodBasis = DEFAULT_BASIS
 ) -> Cp2dInputs:
-    selection = select_cp1(upstream.cp1, basis)
+    return _inputs_of(select_cp1(upstream.cp1, basis), submission, basis)
+
+
+def _inputs_of(
+    selection: Selection, submission: LiquidityBridgeSubmission, basis: PeriodBasis
+) -> Cp2dInputs:
     return Cp2dInputs(
         operands=selection.operands,
         balance_date=selection.balance_date,
@@ -2432,6 +2443,16 @@ def validate_liquidity_bridge(
     """Staleness, provenance, the calculation-level issues of `submission_issues` over the
     facts the bound CP-1 head offers, then the pin lines. Empty when the submission can be
     composed. The one issue set of the step validator and the composer gate."""
+    return _checked(pack, submission, upstream)[1]
+
+
+def _checked(
+    pack: PreparedPack, submission: LiquidityBridgeSubmission, upstream: Upstream
+) -> tuple[Cp2dInputs | None, tuple[str, ...]]:
+    """`validate_liquidity_bridge`'s issues and, when there are none, the core inputs they were
+    found over (the run's basis and its CP-1 selection), so a caller composes without validating
+    again. A refused context is always an issue (`_pin_lines`), so accepted inputs are on the
+    run's basis."""
     issues = [*_stale_issues(upstream), *_provenance_issues(upstream)]
     try:
         basis = run_basis(pack, upstream.cp1)
@@ -2443,17 +2464,18 @@ def validate_liquidity_bridge(
         try:
             select_cp1(upstream.cp1, basis)
         except ValueError:
-            return tuple(dict.fromkeys([*issues, _context_issue(error)]))
+            return None, tuple(dict.fromkeys([*issues, _context_issue(error)]))
     except PeriodRefused as error:
-        return tuple(dict.fromkeys([*issues, _period_issue(error)]))
-    selection = select_cp1(upstream.cp1, basis)
+        return None, tuple(dict.fromkeys([*issues, _period_issue(error)]))
+    inputs = _inputs_of(select_cp1(upstream.cp1, basis), submission, basis)
     issues += submission_issues(
         submission=submission,
-        offered_refs=frozenset(o.fact.fact_id for o in selection.offered),
-        maturity_date_refs=selection.maturity_date_refs,
+        offered_refs=inputs.offered_refs,
+        maturity_date_refs=inputs.maturity_date_refs,
     )
     issues += _pin_lines(pack, submission)
-    return tuple(dict.fromkeys(issues))
+    found = tuple(dict.fromkeys(issues))
+    return (None if found else inputs), found
 
 
 # --- the composed module ----------------------------------------------------------------------
@@ -2739,16 +2761,23 @@ def liquidity_bridge(
 ) -> LiquidityBridgeReport:
     """The composed CP-2D tables, facts, claims and own limitations of a valid submission; raises
     ValueError on any validation issue."""
-    issues = validate_liquidity_bridge(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    inputs, issues = _checked(pack, submission, upstream)
+    if inputs is None:
         raise ValueError("; ".join(issues))
-    basis = run_basis(pack, upstream.cp1)
-    selection = select_cp1(upstream.cp1, basis)
-    # A refused context is a `Context refused: ...` issue, so `validate_liquidity_bridge` returned
-    # none and raised above; `pins_of` cannot raise `ContextRefused` here.
+    return _report(pack, submission, upstream, inputs)
+
+
+def _report(
+    pack: PreparedPack,
+    submission: LiquidityBridgeSubmission,
+    upstream: Upstream,
+    inputs: Cp2dInputs,
+) -> LiquidityBridgeReport:
+    """The report of inputs `_checked` accepted. A refused context is a `Context refused: ...`
+    issue, so `pins_of` cannot raise `ContextRefused` here."""
     pinned = pins_of(MODULE_ID, pack) is not None
-    result = compute(replace(_inputs_from(upstream, submission, basis), pinned=pinned))
-    out = _Composer(selection, result)
+    result = _computed(replace(inputs, pinned=pinned))
+    out = _Composer(select_cp1(upstream.cp1, inputs.basis), result)
     for table in result.tables:
         out.table(table)
     out.ledger(result.judgments, "analyst_judgment")
@@ -2883,11 +2912,10 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     if submission is None:
         return StepValidation(issues=shape)
     upstream = cp2d_upstream(store=store, attempt=attempt)
-    issues = validate_liquidity_bridge(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    inputs, issues = _checked(pack, submission, upstream)
+    if inputs is None:
         return StepValidation(issues=issues)
-    report = liquidity_bridge(pack=pack, submission=submission, upstream=upstream)
-    return StepValidation(output=report.model_dump_json())
+    return StepValidation(output=_report(pack, submission, upstream, inputs).model_dump_json())
 
 
 # The validator the module's own entry hands `Execution.submit_step` (R4-2 invalid-step replay).

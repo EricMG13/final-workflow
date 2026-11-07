@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -87,7 +88,11 @@ func run(arguments []string) (err error) {
 	app.host = host
 	server := &http.Server{Handler: app, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 150 * time.Second, WriteTimeout: 180 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16384}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
+	// run returns only once the periodic refresh and the quit watcher have ended, so neither
+	// outlives the library: a discovery in progress finishes its index first. cancel comes first
+	// and also restores the default interrupt, so a second Ctrl+C ends a wait that is too long.
+	var background sync.WaitGroup
+	defer func() { cancel(); background.Wait() }()
 	app.stop = cancel
 	stopped := make(chan struct{})
 	go func() {
@@ -97,19 +102,8 @@ func run(arguments []string) (err error) {
 		_ = server.Shutdown(shutdownCtx)
 		close(stopped)
 	}()
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				app.refresh()
-			}
-		}
-	}()
-	go app.watchQuitRequests(ctx, quitPoll)
+	background.Go(func() { app.refreshPeriodically(ctx, refreshPoll) })
+	background.Go(func() { app.watchQuitRequests(ctx, quitPoll) })
 	// The one-time launch link goes to the browser, or with --no-browser to standard output for
 	// whoever started the library; never to library.log.
 	launch := app.launchURL()

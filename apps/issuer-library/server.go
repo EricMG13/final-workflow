@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -62,6 +63,11 @@ func (app *Application) buildCatalogue(workspace string) Catalogue {
 func (app *Application) refresh() {
 	app.refreshing.Lock()
 	defer app.refreshing.Unlock()
+	app.refreshLocked()
+}
+
+// refreshLocked is refresh for a caller that holds app.refreshing.
+func (app *Application) refreshLocked() {
 	app.mu.RLock()
 	workspace := app.config.Workspace
 	app.mu.RUnlock()
@@ -69,6 +75,30 @@ func (app *Application) refresh() {
 	app.mu.Lock()
 	app.catalogue = catalogue
 	app.mu.Unlock()
+}
+
+// refreshPoll is how often the running library rediscovers its workspace; a variable so tests can
+// shorten it.
+var refreshPoll = 30 * time.Second
+
+// refreshPeriodically refreshes every interval until ctx ends. A tick is skipped while a refresh,
+// workspace switch or quit holds app.refreshing: a library quitting for a relaunch keeps that lock
+// until it ends, so waiting on it would keep this goroutine, and run, from ever returning. A tick
+// left waiting by a long discovery is skipped once ctx has ended, so a stop waits for one at most.
+func (app *Application) refreshPeriodically(ctx context.Context, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if ctx.Err() == nil && app.refreshing.TryLock() {
+				app.refreshLocked()
+				app.refreshing.Unlock()
+			}
+		}
+	}
 }
 
 func jsonResponse(w http.ResponseWriter, value any) {

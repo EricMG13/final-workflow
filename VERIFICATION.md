@@ -100,6 +100,19 @@ fails against the old helper. Checked on Linux, Go 1.26.0: the two racing tests 
 8/8 with the race and the fixed one 0/8. The full `go test -race -count=1 ./...`, 4 concurrent full
 `-count=2` runs, `go vet ./...` and `gofmt -l .` were clean.
 
+Issuer Library periodic refresh (follow-up, production): `run` returned without waiting for its
+30-second refresh or the quit watcher, so a discovery could outlive the library (cut off when the
+process exits; still running after an in-process test). `run` now waits for both. The timer
+(`refreshPeriodically`, interval `refreshPoll`) skips a tick while `app.refreshing` is held, since
+a library quitting for a relaunch keeps that lock until it ends, and skips one left waiting once
+the library is stopping. A stop therefore waits for one discovery at most; a tick during a refresh
+or workspace switch is skipped, not queued. Tests: `TestRunReturnsOnlyAfterItsPeriodicRefreshEnds`
+fails without the wait and, about half the time, without the stopping check;
+`TestPeriodicRefreshDoesNotWaitOnAHeldRefreshLock` fails if a tick waits for the lock. Both pass at
+`-race -count=20`. Full `go test -race -count=1 ./...`, the racing pair at `-count=40`, `go vet`,
+`gofmt -l` and the quality gate (no Python in scope; run with python3, as uv here is not the pinned
+0.12.5) were clean.
+
 ## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
 
 Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,

@@ -37,7 +37,7 @@ from deploy_vii.financial_reconciliation import (
     _statement_check,
     cash_scope,
 )
-from deploy_vii.model._cells import CONTEXT
+from deploy_vii.model._cells import CONTEXT, half_unit
 from deploy_vii.model.dates import fiscal_year_number
 from deploy_vii.model.history import FLOW_METRICS
 from deploy_vii.preparation import PreparedPack
@@ -104,7 +104,7 @@ def _cell(row: HistoricalValue | None, label: str, sign: Literal[-1, 1] = 1) -> 
     )
 
 
-def _compare(
+def _compare(  # noqa: PLR0913 - existing signature, unchanged here
     node: PeriodConstruction,
     kind: CheckType,
     metric: str,
@@ -115,7 +115,12 @@ def _compare(
     blocker: str | None = None,
     warning: str | None = None,
     context: tuple[Citation, ...] = (),
+    printed: tuple[Decimal | None, ...] | None = None,
 ) -> PeriodCheck:
+    """`printed`: the parts' figures as printed where they are not the part
+    amounts (a currency conversion's places are the rate's, not the issuer's),
+    None for one that was not printed; the tolerance is half a unit in the
+    finest place among the reported figure and these."""
     origins = {oid for part in parts for oid in part.observation_ids}
     shared = tuple(oid for oid in reported.observation_ids if oid in origins)
     with localcontext(CONTEXT):
@@ -124,10 +129,13 @@ def _compare(
             if parts and all(p.amount is not None for p in parts) and not blocker
             else None
         )
+        # The finest place among the figures printed: parsing drops trailing zeros.
+        figures = (
+            reported.amount,
+            *(tuple(p.amount for p in parts) if printed is None else printed),
+        )
         tolerance = (
-            Decimal("0.5").scaleb(int(reported.amount.as_tuple().exponent))
-            if reported.amount is not None
-            else None
+            half_unit(a for a in figures if a is not None) if reported.amount is not None else None
         )
         difference = (
             calculated - reported.amount
@@ -343,6 +351,14 @@ def _bridges(
     def series(prefix: str, ids: tuple[str, ...]) -> tuple[PeriodTerm, ...]:
         return tuple(_cell(rows.get((node.construction_id, prefix + key)), key) for key in ids)
 
+    def printed(prefix: str, ids: tuple[str, ...]) -> tuple[Decimal | None, ...]:
+        """The series' figures, None for one converted from another currency."""
+        values = (rows.get((node.construction_id, prefix + key)) for key in ids)
+        return tuple(
+            None if row is None or row.value.normalization_ids else row.value.amount
+            for row in values
+        )
+
     periods = {p.period_id: p for p in book.periods}
     source_periods = _source_periods(report, node)
     presentations = {
@@ -422,6 +438,7 @@ def _bridges(
             series("fac:", debt),
             "closing non-lease facility carrying values including debt adjustments",
             context=tuple(c for row in book.facilities for c in row.terms_citations),
+            printed=printed("fac:", debt),
         ),
         _cfo(book, report, node, account("cfo_ncfo")),
         _period_ncf(book, report, node, account("net_cash_change")),

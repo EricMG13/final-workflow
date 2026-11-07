@@ -159,7 +159,8 @@ def _stated(host: Cell, account: Cell, compare: bool = True) -> Cell:
     """`host` with CP-1's figure as `stated`: the account's own on a reported
     column, else the figure CP-1 stated for the derived one (the account's
     value there is the host's sum); noted where it differs beyond its
-    rounding."""
+    rounding, after the host's own notes (`SIGN_NORMALISED`, `UNSPANNED`,
+    why a part is missing), which it keeps."""
     figure = account.value if account.basis == "REPORTED" else account.stated
     differs = (
         compare
@@ -167,7 +168,7 @@ def _stated(host: Cell, account: Cell, compare: bool = True) -> Cell:
         and host.value is not None
         and beyond_rounding(figure, host.value)
     )
-    return replace(host, stated=figure, note=DIFFERS if differs else None)
+    return replace(host, stated=figure, note=join_notes(host.note, DIFFERS if differs else None))
 
 
 def excluded_addbacks(regs: Cp1Registers, exclude_unrealised: bool) -> frozenset[str]:

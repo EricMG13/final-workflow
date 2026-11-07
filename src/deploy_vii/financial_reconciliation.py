@@ -28,7 +28,7 @@ from deploy_vii.financial_contracts import (
     StatementIdentity,
 )
 from deploy_vii.financial_validation import validate_financial_review
-from deploy_vii.model._cells import CONTEXT
+from deploy_vii.model._cells import CONTEXT, half_unit
 from deploy_vii.model.dates import fiscal_year_number
 from deploy_vii.model.history import FLOW_METRICS
 from deploy_vii.preparation import PreparedPack
@@ -136,7 +136,13 @@ def _term(
     )
 
 
-def _check(
+def _printed(term: ReconciliationTerm) -> Decimal | None:
+    """The term's figure as the issuer printed it: a converted facility's own
+    amount, whose decimal places are the issuer's, not the conversion's."""
+    return term.original_amount if term.normalization else term.amount
+
+
+def _check(  # noqa: PLR0913 - existing signature, unchanged here
     period: FinancialPeriod,
     kind: CheckType,
     metric: str,
@@ -160,9 +166,9 @@ def _check(
         if blocker:
             calculated = None
         stated = reported.amount
-        tolerance = (
-            None if stated is None else Decimal("0.5").scaleb(int(stated.as_tuple().exponent))
-        )
+        # The finest place among the figures printed: parsing drops trailing zeros.
+        printed = (stated, *map(_printed, components))
+        tolerance = None if stated is None else half_unit(a for a in printed if a is not None)
         difference = None if stated is None or calculated is None else calculated - stated
         status: Literal["PASS", "WARN", "BLOCK"] = "BLOCK"
         explanation = blocker or "Missing reported value or complete independent components"

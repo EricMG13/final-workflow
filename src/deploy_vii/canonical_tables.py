@@ -767,6 +767,30 @@ def _decisions(tables: _Tables, report: DownstreamReport) -> None:
     )
 
 
+def _projection_gap_rows(tables: _Tables) -> None:
+    """One T4.12 WARN row per gap of the cumulative ledger. Projection gaps are additional to the
+    immutable upstream ledger and are appended once, without recursively turning absent metadata
+    in the gap table into more gaps: a gap of a T4.12 row (a gap with no periods writes
+    field_2=None) is not itself a gap to register."""
+    for gap in tuple(tables.gaps):
+        if gap.table_id == "T4.12":
+            continue
+        _row(
+            tables,
+            "T4.12",
+            _id("projection-gap", gap.table_id, gap.row_id, gap.field),
+            "See referenced row",
+            (
+                f"{gap.table_id}/{gap.row_id}/{gap.field}: {gap.reason}",
+                gap.field,
+                "See referenced row",
+                "Review source/analysis completeness",
+                "WARN",
+                "Resolve or retain the explicit limitation",
+            ),
+        )
+
+
 def canonical_tables(
     pack: PreparedPack,
     context: SourceContextReview,
@@ -836,23 +860,7 @@ def canonical_tables(
         for f in statements.facts
         if f.status != "known"
     )
-    # Projection gaps are additional to the immutable upstream ledger. Append once,
-    # without recursively turning absent metadata in the gap table into more gaps.
-    for gap in tuple(tables.gaps):
-        _row(
-            tables,
-            "T4.12",
-            _id("projection-gap", gap.table_id, gap.row_id, gap.field),
-            "See referenced row",
-            (
-                f"{gap.table_id}/{gap.row_id}/{gap.field}: {gap.reason}",
-                gap.field,
-                "See referenced row",
-                "Review source/analysis completeness",
-                "WARN",
-                "Resolve or retain the explicit limitation",
-            ),
-        )
+    _projection_gap_rows(tables)
     layouts = []
     for layout in tables.layouts():
         if layout.table_id == "model-readiness":

@@ -449,14 +449,28 @@ def _context_row(i: int, r: Rating) -> RegisterRow:
 
 def context_register(ratings: Sequence[Rating]) -> tuple[RegisterRow, ...]:
     """The register from the context's ratings rows, in context order. Refusals, in this order:
-    no row, an agency twice (`Rating register not found`), a rating not on the agency's scale
-    (`Rating not on the scale: <agency> <rating>`); an agency without a scale is off-scale
-    whatever its rating, an unrated rating needs only a scaled agency."""
+    no row (`Rating register not found`), an agency in more than one row (the first such agency
+    named with its rows' scopes: the register holds one row per agency, S07-cp2-gh-A06), a
+    rating not on the agency's scale (`Rating not on the scale: <agency> <rating>`); an agency
+    without a scale is off-scale whatever its rating, an unrated rating needs only a scaled
+    agency."""
     if not ratings:
         raise SourceIssue(REGISTER_NOT_FOUND)
-    agencies = [r.agency for r in ratings]
-    if len(set(agencies)) != len(agencies):
-        raise SourceIssue(REGISTER_NOT_FOUND)
+    for agency in dict.fromkeys(r.agency for r in ratings):
+        scopes = [r.scope for r in ratings if r.agency == agency]
+        if len(scopes) > 1:
+            raise SourceIssue(
+                clipped(
+                    (
+                        "Context ratings name ",
+                        _plain(agency),
+                        (
+                            f" in more than one row ({', '.join(scopes)}); the register takes "
+                            "one row per agency, ratings not used"
+                        ),
+                    )
+                )
+            )
     for r in ratings:
         scale = COMBINED_SCALE.get(r.agency)
         if scale is None or (r.rating not in UNRATED and r.rating not in scale):

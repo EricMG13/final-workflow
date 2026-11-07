@@ -88,6 +88,18 @@ test_financial_workflow and test_host_h1 as a whole; the Issuer Library jsdom su
 browser_check; the Windows path of the S18-A07 worker lock (compiled and vetted only). Retained-data
 checks were deterministic replays of retained outputs, not live runs.
 
+Issuer Library test race (follow-up, tests only): `go test -race` sometimes reported a DATA RACE on
+`discoverWorkspace`. `finishJob` removes the job from `activeJobs` before its refresh, and the
+helper `waitIdle` returned at the removal, so that refresh ran on into the next test's
+`blockDiscovery` or the test's own cleanup. `waitIdle` now also waits until no goroutine is inside
+`finishJob`, read from the goroutine dump (`app.refreshing` cannot tell a finished refresh from one
+about to begin). `TestExplicitStartIsOneShotUnderConcurrentRequests` uses it in place of its copy
+of the old loop. The new `TestWaitIdleOutlastsTheRefreshThatEndsAJob` holds a job in that gap and
+fails against the old helper. Checked on Linux, Go 1.26.0: the two racing tests at `-race
+-count=40`, 7 runs clean. Under load (8 concurrent copies of the test binary) the old helper failed
+8/8 with the race and the fixed one 0/8. The full `go test -race -count=1 ./...`, 4 concurrent full
+`-count=2` runs, `go vet ./...` and `gofmt -l .` were clean.
+
 ## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
 
 Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,

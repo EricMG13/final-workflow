@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import zlib
 from contextlib import closing
 from importlib.metadata import version
 from pathlib import Path
@@ -19,7 +20,7 @@ from zipfile import BadZipFile, ZipFile
 
 from pydantic import model_validator
 from pypdf import PageObject, PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import PyPdfError
 
 from deploy_vii.contracts import Contract, Coverage, Identifier, Run, Source, Span, Text
 
@@ -196,32 +197,40 @@ class _Ocr:
 
 
 def pdf_content(raw: bytes) -> Extraction:
-    reader = PdfReader(io.BytesIO(raw), strict=True)
-    if reader.is_encrypted:
-        raise ValueError("Encrypted PDF: supply an authorized decrypted copy")
+    try:
+        reader = PdfReader(io.BytesIO(raw), strict=True)
+        if reader.is_encrypted:
+            raise ValueError("Encrypted PDF: supply an authorized decrypted copy")
+        pages = list(reader.pages)
+    # pypdf meets a damaged trailer or page tree (a number where a dictionary belongs, an object
+    # that is a reference to itself) with AttributeError; the document has no readable structure.
+    except AttributeError as error:
+        raise PyPdfError(f"Damaged PDF structure: {error}") from error
     ocr = _Ocr(raw)
     with closing(ocr):
-        return _pdf_pages(reader, ocr)
+        return _pdf_pages(pages, ocr)
 
 
-def _pdf_pages(reader: PdfReader, ocr: _Ocr) -> Extraction:
+def _pdf_pages(pages: list[PageObject], ocr: _Ocr) -> Extraction:
     spans: list[Span] = []
     coverage: list[Coverage] = []
-    for index, page in enumerate(reader.pages, 1):
+    for index, page in enumerate(pages, 1):
         locator = f"page:{index}"
-        content = page.get_contents()
-        if content is not None and len(content.get_data()) > MAX_BYTES:
-            coverage.append(
-                Coverage(
-                    locator=locator,
-                    status="unreadable",
-                    limitation="Content stream exceeds extraction limit",
-                )
-            )
-            continue
         try:
+            content = page.get_contents()
+            if content is not None and len(content.get_data()) > MAX_BYTES:
+                coverage.append(
+                    Coverage(
+                        locator=locator,
+                        status="unreadable",
+                        limitation="Content stream exceeds extraction limit",
+                    )
+                )
+                continue
             text = page.extract_text(extraction_mode="layout", layout_mode_strip_rotated=False)
-        except (PdfReadError, ValueError, KeyError, TypeError) as error:
+        # A damaged page object (a loop of self references, a dictionary where a stream belongs)
+        # makes pypdf raise PyPdfError or AttributeError; that page alone is unreadable.
+        except (PyPdfError, AttributeError, ValueError, KeyError, TypeError) as error:
             coverage.append(
                 Coverage(
                     locator=locator,
@@ -449,11 +458,17 @@ def prepare_source(request: SourceRequest, raw: bytes | None) -> Source:
             "application/pdf": pdf_content,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": xlsx_content,
         }[request.media_type](raw)
+    # Damaged input in any of the three readers is an unreadable source, never a crash of the
+    # whole pack: zlib.error, EOFError and RuntimeError (an encrypted member) come from zipfile,
+    # PyPdfError (LimitReachedError, PdfReadError) from pypdf outside a single page.
     except (
         ValueError,
         UnicodeError,
-        PdfReadError,
+        PyPdfError,
         BadZipFile,
+        zlib.error,
+        EOFError,
+        RuntimeError,
         ET.ParseError,
         KeyError,
         IndexError,

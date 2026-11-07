@@ -81,6 +81,7 @@ from deploy_workflow.owners.period_basis import (
     PeriodRefused,
     run_basis,
 )
+from deploy_workflow.research.peer_basis import ISO_4217
 
 MODULE_ID = "CP-1D"
 BRIDGE_SOURCE_ID = "bridge"
@@ -418,7 +419,7 @@ _TYPES = ("Saving", "Cost")
 # MILLIONS in the run's currency, so page:1 must state exactly that.
 _BASIS_UNIT_CLAUSE = "amounts in millions"
 _CURRENCY_CODE = re.compile(r"[A-Z]{3}")
-_CURRENCY_CLAUSE = re.compile(r"[A-Z]{3}", re.IGNORECASE)
+_CURRENCY_CLAUSE = re.compile(r"[A-Z]{3}", re.IGNORECASE)  # read only if the code is in ISO_4217
 # Round 4 (k): an amount is the product `financial_contracts.Number` (-1e18 < x < 1e18, 28
 # digits, 10 places). Bridge amounts, quoted basis amounts and CP-1 amount operands hold it, so
 # every sum and product here is exact and every value spells exactly (`display.format_value`).
@@ -497,7 +498,8 @@ def _states_basis(lines: Sequence[str], basis_line: str, currency: str) -> bool:
     clause is matched without regard to letter case, nothing else relaxed),
     since that clause is what makes each bridge amount a `currency` MILLIONS amount. Another
     currency, another scale, a missing clause or a second currency or scale clause later on the
-    line is not the run's basis (fail closed)."""
+    line is not the run's basis (fail closed). A later three-letter clause is a currency only if it
+    is an ISO 4217 code (`peer_basis.ISO_4217`, letter case folded): "; net;" is not one."""
     stated = [line for line in lines if line.startswith(basis_line)]
     for line in stated:
         clauses = [part.strip().rstrip(".") for part in line[len(basis_line) :].split(";")]
@@ -506,7 +508,8 @@ def _states_basis(lines: Sequence[str], basis_line: str, currency: str) -> bool:
         if [c.casefold() for c in clauses[:3]] != ["", currency.casefold(), _BASIS_UNIT_CLAUSE]:
             return False
         if any(
-            _CURRENCY_CLAUSE.fullmatch(c) or c.casefold().startswith("amounts in")
+            (_CURRENCY_CLAUSE.fullmatch(c) and c.upper() in ISO_4217)
+            or c.casefold().startswith("amounts in")
             for c in clauses[3:]
         ):
             return False

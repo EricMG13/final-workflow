@@ -31,6 +31,7 @@ from deploy_vii.financial_validation import records
 from deploy_vii.model import history, metrics
 from deploy_vii.model._cells import ABSENT, CONTEXT, calc, join_notes
 from deploy_vii.model.frame import Cell, Column, Frame
+from deploy_vii.model.registers import Cp1Registers
 from deploy_vii.model.statements import statement_frame
 from deploy_vii.preparation import PreparedPack
 
@@ -398,12 +399,20 @@ def _kpi_rows(
     return tuple(rows)
 
 
-def canonical_kpis(pack: PreparedPack, review: FinancialReview, book_id: str) -> CanonicalKpiReport:
-    regs = kernel_registers(pack, review, book_id)
+def canonical_kpis(
+    pack: PreparedPack,
+    review: FinancialReview,
+    book_id: str,
+    *,
+    regs: Cp1Registers | None = None,
+) -> CanonicalKpiReport:
+    """The KPI report of one book. `regs` are the book's `kernel_registers`, when the caller
+    already built them from this pack and review."""
+    regs = regs or kernel_registers(pack, review, book_id)
     review = FinancialReview.model_validate_json(review.model_dump_json())
     book = next(b for b in review.books if b.book_id == book_id)
     observations = {o.observation_id: o for o in records(book, Observation)}
-    historical = historical_report(pack, review, book_id)
+    historical = historical_report(pack, review, book_id, regs=regs)
     columns = history.historical_columns(regs)
     rolling_columns = history.ltm_columns(regs, columns)
     accounts = history.account_frame(regs, columns)

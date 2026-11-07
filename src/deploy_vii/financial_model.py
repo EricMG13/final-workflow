@@ -271,7 +271,7 @@ def model_report(
     regs = kernel_registers(pack, review, book_id)
     review = FinancialReview.model_validate_json(review.model_dump_json())
     book = next(book for book in review.books if book.book_id == book_id)
-    historical = historical_report(pack, review, book_id)
+    historical = historical_report(pack, review, book_id, regs=regs)
     columns = history.historical_columns(regs)
     rolling_columns = history.ltm_columns(regs, columns)
     frame = statement_frame(history.account_frame(regs, columns), columns, regs, exclude_unrealised)

@@ -539,9 +539,15 @@ def _stated(
 
 
 def reconcile_periods(
-    pack: PreparedPack, review: FinancialReview, book_id: str
+    pack: PreparedPack,
+    review: FinancialReview,
+    book_id: str,
+    *,
+    historical: HistoricalReport | None = None,
 ) -> PeriodReconciliationReport:
-    historical = historical_report(pack, review, book_id)
+    """The period reconciliation of one book. `historical` is the book's `historical_report`,
+    when the caller already built it from this pack and review."""
+    historical = historical or historical_report(pack, review, book_id)
     review = FinancialReview.model_validate_json(review.model_dump_json())
     book = next(b for b in review.books if b.book_id == book_id)
     rows = {(v.construction_id, v.series_key): v for v in historical.values}

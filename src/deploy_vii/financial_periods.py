@@ -318,9 +318,15 @@ def _unit(book: FinancialBook, key: str) -> tuple[str, str | None]:
 
 
 def historical_report(
-    pack: PreparedPack, review: FinancialReview, book_id: str
+    pack: PreparedPack,
+    review: FinancialReview,
+    book_id: str,
+    *,
+    regs: Cp1Registers | None = None,
 ) -> HistoricalReport:
-    regs = kernel_registers(pack, review, book_id)
+    """The constructed periods of one book. `regs` are the book's `kernel_registers`, when the
+    caller already built them from this pack and review."""
+    regs = regs or kernel_registers(pack, review, book_id)
     review = FinancialReview.model_validate_json(review.model_dump_json())
     book = next(book for book in review.books if book.book_id == book_id)
     observations = {value.observation_id: value for value in records(book, Observation)}

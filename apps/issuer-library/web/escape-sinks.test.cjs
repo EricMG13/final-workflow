@@ -74,3 +74,20 @@ test('a hand-typed malformed escape in the address is read as typed, not thrown'
   const {parsed}=route('list',()=>'W-Reports/%E0%A4%A');
   assert.deepEqual(parsed,['W-Reports','%E0%A4%A']);
 });
+
+test('a chart cell that is not a number shows its retained text, escaped, and draws no bar',()=>{
+  // Expected by hand: only "5" parses (the row maximum, 100% wide); a cell with any letter or digit keeps
+  // its own text, and an empty, absent or placeholder-only ("—") cell says "Not available". None draws a bar.
+  const cells=['5','Not supplied: reported in EUR m','Not supplied:','','(5.0%)','<b>x</b> & y','—'];
+  const context=sandbox(...basics,grab(views,'chartNumber'),grab(views,'chartIntro'),grab(views,'comparisonChart'),`
+    var sourceFooter=()=>'';
+    var table={headers:['Item',${cells.map((_,i)=>`'c${i}'`).join(',')},'c7'],rows:[{line:3,cells:['Revenue',...${JSON.stringify(cells)}]}]};
+    var fixtureTable=()=>table;
+    var data={'r/CP-1.md':{module:'CP-1'}};`);
+  const html=vm.runInContext(`comparisonChart('r/CP-1.md',{kind:'bars',title:'T',table:1,columns:[1,2,3,4,5,6,7,8]})`,context);
+  const shown=[...html.matchAll(/<strong>(.*?)<\/strong>/g)].map(m=>m[1]);
+  assert.deepEqual(shown,['5','Not supplied: reported in EUR m','Not supplied:','Not available','(5.0%)','&lt;b&gt;x&lt;/b&gt; &amp; y','Not available','Not available']);
+  const tracks=[...html.matchAll(/<span class="track ([^"]*)">/g)].map(m=>m[1]);
+  assert.deepEqual(tracks,['','missing','missing','missing','missing','missing','missing','missing']);
+  assert.match(html,/<i class="series-0" style="width:100%">/);
+});

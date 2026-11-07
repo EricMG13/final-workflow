@@ -1,11 +1,13 @@
 """live_check: refusals happen before anything exists, and live_evidence follows the answer key."""
 
+import argparse
 import hashlib
 import importlib.util
 import json
 import os
 import subprocess
 import sys
+import time
 from decimal import Decimal
 from pathlib import Path
 
@@ -107,7 +109,69 @@ def test_stop_group_kills_the_whole_group_and_reports_spend(tmp_path: Path) -> N
     (tmp_path / "runs/web-1/live/calls.jsonl").write_text(
         json.dumps({"settled_usd": "0.10"}) + "\n" + json.dumps({"settled_usd": "0.20"}) + "\n"
     )
-    assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.30"))
+    assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.30"), 0)
+
+
+def test_spend_of_counts_unknown_cost_and_torn_rows(tmp_path: Path) -> None:
+    (tmp_path / "intake/web-1").mkdir(parents=True)
+    (tmp_path / "intake/web-1/status.json").write_text(json.dumps({"spent_usd": "5.78"}))
+    live = tmp_path / "runs/web-1/live"
+    live.mkdir(parents=True)
+    rows = [{"settled_usd": "0.05"}, {"settled_usd": None, "cost_status": "unknown"}]
+    (live / "calls.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows) + '{"settled_u')
+    assert live_check.spend_of(tmp_path) == ("5.78", Decimal("0.05"), 2)
+
+
+def test_stop_group_names_a_server_that_does_not_lead_its_group() -> None:
+    child = subprocess.Popen(["sleep", "30"])
+    message = live_check.stop_group(child)
+    assert child.poll() is not None and message and "lead" in message
+
+
+def test_watchdog_stops_the_group_when_its_pipe_closes() -> None:
+    server = subprocess.Popen(["sh", "-c", "sleep 60 & sleep 60 & wait"], start_new_session=True)
+    dog = live_check.arm_watchdog(server)
+    assert dog.stdin and live_check.group_alive(server)
+    dog.stdin.close()  # what the kernel does when live_check dies by any means
+    for _ in range(100):
+        if not live_check.group_alive(server):
+            break
+        time.sleep(0.1)
+    assert not live_check.group_alive(server)
+    dog.kill()
+    dog.wait()
+
+
+class Page:
+    def __init__(self, model: str, cap: str, ids: list[str]) -> None:
+        self.shown = {"rows": {"Model": model, "Maximum spend": f"USD {cap}"}, "ids": ids}
+
+    def evaluate(self, _script: str) -> dict:
+        return self.shown
+
+
+def review(modules: str, ids: list[str]) -> list[str]:
+    args = argparse.Namespace(config="sol-medium", cap=Decimal(10), modules=modules)
+    return live_check.check_review(Page("openai gpt-6.1-sol · medium", "10", ids), args)
+
+
+def test_review_for_the_answer_key_case_must_list_exactly_its_modules() -> None:
+    assert review("CP-1 CP-1A", ["CP-0", "CP-1", "CP-1A"]) == []
+    assert review("CP-1 CP-1A", ["CP-0", "CP-1", "CP-1A", "CP-2"])
+    assert review("CP-1 CP-1A", ["CP-0", "CP-1"])
+    assert review("CP-1", ["CP-0", "CP-1", "CP-2"]) == []  # other cases: every requested module
+    assert review("CP-1 CP-3", ["CP-0", "CP-1"])
+
+
+def test_answer_key_case_follows_the_request_not_the_run() -> None:
+    assert live_check.is_key_case(argparse.Namespace(config="sol-medium", modules="CP-1  CP-1A"))
+    assert not live_check.is_key_case(argparse.Namespace(config="sol-high", modules="CP-1 CP-1A"))
+    assert not live_check.is_key_case(argparse.Namespace(config="sol-medium", modules="CP-1"))
+
+
+def test_answer_key_env_never_optimises_asserts(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PYTHONOPTIMIZE", "1")
+    assert "PYTHONOPTIMIZE" not in live_check.key_env()
 
 
 def test_rehearsal_needs_no_key_but_still_needs_a_cap(tmp_path: Path) -> None:

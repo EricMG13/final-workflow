@@ -22,6 +22,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from contextlib import suppress
 from decimal import Decimal, InvalidOperation
@@ -47,7 +48,13 @@ CONTEXT = R / "runs/cpos-launch-live-002/context.json"
 CASE = "TDG as of 2024-09-30"
 LITERALS = ("7,940", "6,261")  # filed net sales and cash, USD millions (10-K, 2024-09-30)
 REHEARSAL = "rehearsal: fake engine, no provider called; flow and evidence checks skipped"
-KEY_CASE = ("sol-medium", {"CP-0", "CP-1", "CP-1A"})  # the case tests/test_cpos_launch.py checks
+KEY_CONFIG, KEY_REQUESTED = "sol-medium", {"CP-1", "CP-1A"}  # the case the answer key checks
+KEY_MODULES = {"CP-0", "CP-1", "CP-1A"}  # ... and what the launcher runs for it
+# Run by `sh -c ... PGID` in its own session, with stdin a pipe only live_check holds: EOF means
+# live_check is gone (any signal, a crash), so it stops the server's group. See arm_watchdog.
+WATCHDOG = 'read _; kill -TERM -- "-$0"; sleep 15; kill -KILL -- "-$0"'
+HALTING = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)
+INTERRUPTED = threading.Event()  # a signal asked live_check to stop
 KEY_RUNNER = (
     "import importlib.util as u, sys\nfrom decimal import Decimal\nfrom pathlib import Path\n"
     "s = u.spec_from_file_location('answer_key', sys.argv[1]); m = u.module_from_spec(s)\n"
@@ -142,15 +149,25 @@ def live_evidence(
     return found + handoff_faults(run, modules)
 
 
+def is_key_case(args: argparse.Namespace) -> bool:
+    """The request is the one the answer key covers; decided from the arguments, not the run."""
+    return args.config == KEY_CONFIG and set(args.modules.split()) == KEY_REQUESTED
+
+
+def key_env() -> dict[str, str]:
+    """The answer key's environment: pytest's pythonpath, and asserts never compiled away."""
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONOPTIMIZE"}
+    return env | {"PYTHONPATH": f"{R / 'src'}{os.pathsep}{R}"}
+
+
 def answer_key(run: Path, cap: Decimal) -> list[str]:
     """Run the test suite's own assert_live_evidence on the run, in the project interpreter."""
     command = [os.environ["FW_PYTHON"], "-c", KEY_RUNNER, str(R / "tests/test_cpos_launch.py")]
-    env = os.environ | {"PYTHONPATH": f"{R / 'src'}{os.pathsep}{R}"}  # pytest's pythonpath
     try:
         done = subprocess.run(
             [*command, str(run), str(cap)],
             cwd=R,
-            env=env,
+            env=key_env(),
             capture_output=True,
             text=True,
             timeout=300,
@@ -203,13 +220,32 @@ def group_alive(server: subprocess.Popen[bytes]) -> bool:
         os.killpg(server.pid, 0)
     except ProcessLookupError:
         return False
-    except PermissionError:  # macOS: a group holding only zombies refuses the signal
+    except PermissionError:
+        # macOS refuses signal 0 to a group holding only zombies (reparented, not yet reaped).
+        # The group is ours (same user), so no live foreign process explains the refusal.
         return False
     return True
 
 
+def leads_group(server: subprocess.Popen[bytes]) -> bool:
+    try:
+        return os.getpgid(server.pid) == server.pid
+    except ProcessLookupError:
+        return True  # already gone; killpg on its id finds nothing either way
+
+
 def stop_group(server: subprocess.Popen[bytes]) -> str | None:
-    """SIGTERM, then SIGKILL, the server's process group; a message if anything still lives."""
+    """SIGTERM, then SIGKILL, the server's process group; a message if anything may still live."""
+    if not leads_group(server):
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            with suppress(ProcessLookupError):
+                os.kill(server.pid, sig)
+            with suppress(subprocess.TimeoutExpired):
+                server.wait(timeout=10)
+        return (
+            f"server {server.pid} does not lead its own process group: only it was signalled, "
+            "its workers may still be spending. Find them with: pgrep -fl 'bridge.py start'"
+        )
     for sig, patience in ((signal.SIGTERM, 15), (signal.SIGKILL, 10)):
         if not group_alive(server):
             return None
@@ -227,8 +263,25 @@ def stop_group(server: subprocess.Popen[bytes]) -> str | None:
     )
 
 
-def spend_of(ws: Path) -> tuple[str | None, Decimal]:
-    """status.json's recorded spend, and the sum the ledger (live/calls.jsonl) settled."""
+def arm_watchdog(server: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
+    """A helper in its own session that stops the server's group if live_check dies by any means.
+
+    Its stdin is a pipe only this process holds (children start with close_fds), so the kernel's
+    close of it on our death, SIGKILL included, is the signal. It cannot see a hung live_check."""
+    return subprocess.Popen(
+        ["sh", "-c", WATCHDOG, str(server.pid)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+        start_new_session=True,
+    )
+
+
+def spend_of(ws: Path) -> tuple[str | None, Decimal, int]:
+    """status.json's recorded spend, the ledger's settled sum, and rows of unknown cost.
+
+    A row with no settled amount (cost unknown) or a torn line counts as unknown, never as zero."""
     status: str | None = None
     for path in sorted((ws / "intake").glob("*/status.json")):
         try:
@@ -236,12 +289,19 @@ def spend_of(ws: Path) -> tuple[str | None, Decimal]:
             status = None if spent is None else str(spent)
         except (OSError, ValueError):
             status = "unreadable"
-    ledger = Decimal(0)
+    ledger, unknown = Decimal(0), 0
     for path in (ws / "runs").glob("*/live/calls.jsonl"):
-        for line in path.read_text().splitlines():
-            if line:
+        try:
+            lines = [n for n in path.read_text().splitlines() if n]
+        except OSError:
+            unknown += 1
+            continue
+        for line in lines:
+            try:
                 ledger += Decimal(str(json.loads(line)["settled_usd"]))
-    return status, ledger
+            except (ValueError, KeyError, TypeError, InvalidOperation):
+                unknown += 1
+    return status, ledger, unknown
 
 
 def check_review(page: Any, args: argparse.Namespace) -> list[str]:
@@ -253,6 +313,7 @@ def check_review(page: Any, args: argparse.Namespace) -> list[str]:
           ids: [...document.querySelectorAll('#run-review .review-modules li')]
             .map(li => li.title.split(':')[0])})"""
     )
+    print(f"review screen will run: {shown['ids']} ({shown['rows']})", flush=True)
     found = []
     model, effort = config_models().get(args.config), args.config.rsplit("-", 1)[-1]
     if (
@@ -267,7 +328,10 @@ def check_review(page: Any, args: argparse.Namespace) -> list[str]:
             found.append(f"review cap USD {cap} != {args.cap}")
     except InvalidOperation:
         found.append(f"review cap {cap!r} is not a number")
-    if not set(args.modules.split()) <= set(shown["ids"]):
+    ids, wanted = set(shown["ids"]), set(args.modules.split())
+    if is_key_case(args) and ids != KEY_MODULES:
+        found.append(f"review modules {shown['ids']} are not exactly {sorted(KEY_MODULES)}")
+    elif not wanted <= ids:
         found.append(f"review modules {shown['ids']} lack some of {args.modules}")
     return found
 
@@ -310,23 +374,21 @@ def walk(
     bc.errors_of(page)
     fill_form(page, args)
     wrong = check_review(page, args)
-    for problem in wrong:
-        bc.note(False, f"review screen: {problem}")
-    if wrong:
-        return
+    if wrong:  # raised, so the attempt keeps the page: screenshot, source and URL
+        raise RuntimeError("review screen: " + "; ".join(wrong))
     page.check("#run-confirm")
     if page.is_disabled("#start-run"):
-        bc.note(False, "Start stays disabled after review (provider not configured?); no spend")
-        return
+        raise RuntimeError("Start stays disabled after review (provider not configured?); no spend")
     page.click("#start-run")  # the one paid step; never retried
     page.wait_for_selector("#progress-step:not([hidden])")
     page.wait_for_selector(
         "#open-run:not([hidden]), #another-run:not([hidden])", timeout=int(args.minutes * 60000)
     )
     status = page.inner_text("#run-progress")
-    bc.note(status.startswith("complete"), f"run finished: {status[:120]}")
-    if page.locator("#open-run").is_visible():
-        check_run(bc, page, args, ws, summary)
+    if not status.startswith("complete"):
+        raise RuntimeError(f"run did not complete: {status[:300]}")
+    bc.note(True, f"run finished: {status[:120]}")
+    check_run(bc, page, args, ws, summary)
 
 
 def check_run(
@@ -367,12 +429,12 @@ def check_run(
     problems += [
         f"requested module {m} not accepted" for m in sorted(set(args.modules.split()) - accepted)
     ]
-    if (args.config, accepted) == KEY_CASE:
+    if is_key_case(args):  # any mismatch with the key's case (e.g. an extra module) is its fault
         problems += answer_key(run, args.cap)
         summary["answer_key"] = "applied"
     else:
         summary["answer_key"] = (
-            f"not applicable: case is not {KEY_CASE[0]} with {sorted(KEY_CASE[1])}"
+            f"not applicable: request is not {KEY_CONFIG} with {sorted(KEY_REQUESTED)}"
         )
     for problem in problems:
         note(False, f"live check: {problem}", kind="flow")
@@ -386,7 +448,7 @@ def run_walk(
     ws = out / "ws"
     ws.mkdir()
     engine = HERE / "fake_engine" if args.rehearse else R / "apps/issuer-library/engine"
-    server = None
+    server = dog = None
     try:
         server = bc.serve(
             ws,
@@ -395,6 +457,7 @@ def run_walk(
             key="not-a-real-key" if args.rehearse else None,
             extra=held,
         )
+        dog = arm_watchdog(server)
         with sync_playwright() as driver:
             browser = bc.SignedBrowser(driver.chromium.launch())
             try:
@@ -402,13 +465,34 @@ def run_walk(
             finally:
                 browser.close()
     finally:
-        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # teardown must finish
-        if server is not None and (left := stop_group(server)):
-            print(left, file=sys.stderr, flush=True)
-            bc.FAULTS.add("live", "worker", left)
-        status, ledger = spend_of(ws)
-        summary["spent_usd"], summary["ledger_usd"] = status, str(ledger)
-        print(f"spend: status.json USD {status}, ledger USD {ledger}", flush=True)
+        ignore_signals()  # teardown must finish
+        try:
+            if server is not None and (left := stop_group(server)):
+                print(left, file=sys.stderr, flush=True)
+                bc.FAULTS.add("live", "worker", left)
+        finally:
+            if dog is not None:
+                dog.kill()  # disarmed: the group is gone, its id must not be signalled again
+                dog.wait()
+            report_spend(bc, ws, summary)
+
+
+def report_spend(bc: Any, ws: Path, summary: dict[str, Any]) -> None:
+    status, ledger, unknown = spend_of(ws)
+    summary["spent_usd"], summary["ledger_usd"], summary["unknown_cost_calls"] = (
+        status,
+        str(ledger),
+        unknown,
+    )
+    extra = f" + {unknown} calls of unknown cost" if unknown else ""
+    print(f"spend: status.json USD {status}, ledger USD {ledger}{extra}", flush=True)
+    if unknown:
+        bc.FAULTS.add("live", "spend", f"{unknown} calls of unknown cost: spend is not known")
+
+
+def ignore_signals() -> None:
+    for sig in HALTING:
+        signal.signal(sig, signal.SIG_IGN)
 
 
 def finish(bc: Any, args: argparse.Namespace, out: Path, summary: dict[str, Any]) -> int:
@@ -433,6 +517,7 @@ def finish(bc: Any, args: argparse.Namespace, out: Path, summary: dict[str, Any]
 
 
 def terminate(_signal: int, _frame: Any) -> None:
+    INTERRUPTED.set()
     raise KeyboardInterrupt
 
 
@@ -460,17 +545,20 @@ def main(argv: list[str]) -> int:
         flush=True,
     )
     summary: dict[str, Any] = {"run_id": None, "spent_usd": None, "report": None}
-    signal.signal(signal.SIGTERM, terminate)
+    for sig in HALTING:  # also SIGINT: a shell's background job starts with it ignored
+        signal.signal(sig, terminate)
     try:
         run_walk(bc, args, out, summary, held)
     except KeyboardInterrupt:
-        bc.FAULTS.add(
-            "live", "interrupted", "interrupted (SIGINT/SIGTERM); spend may be above zero"
-        )
+        ignore_signals()
+        bc.FAULTS.add("live", "interrupted", "interrupted by a signal; spend may be above zero")
     except (Exception, SystemExit) as error:  # noqa: BLE001 - recorded as a fault, never silent
         bc.FAULTS.add("live", "exception", f"{type(error).__name__}: {str(error)[:600]}")
     finally:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        ignore_signals()
+        for fault in bc.FAULTS.items:  # a Ctrl-C to the whole group also breaks the browser
+            if INTERRUPTED.is_set() and fault.kind == "exception":
+                fault.kind = "interrupted"
         bc.scan_server_logs()
         code = finish(bc, args, out, summary)
     return code

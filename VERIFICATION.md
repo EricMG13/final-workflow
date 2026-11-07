@@ -8,6 +8,51 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
+
+Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,
+`tests/test_nightly_tests.py`, `tests/nightly-known-failures.txt`, a docs/QUALITY-GATE.md section,
+one AGENTS.md bullet, and a fix in `tools/quality_gate.py`. No analytical code changed.
+Decision (user): while working, fast targeted tests only; the full suite, slow tests included,
+runs nightly at 01:00 UTC in GitHub Actions (user chose Actions over a Claude cloud session and
+UTC). Six pytest shards balanced by file size, `live`/`browser` excluded, provider keys removed,
+300 minutes per shard; Go `vet` and `test -race`; a report job fails only on a failure missing
+from the known list or an unfinished shard. The known list is seeded with the 24 base failures
+documented in the review handoff; the first run will show any other pre-existing failure as new.
+Gate fix: two changed files with one module name (two `builder/build.py`) made mypy exit 2, and
+the gate raised before its per-file fallback; the fallback now runs first. Found by the S13 fix
+review. `tests/test_quality_gate.py` gains the case: it raises GateError on the old gate and
+passes on the new one.
+Checks: `tests/test_nightly_tests.py` 9 passed and `tests/test_quality_gate.py` 8 passed (fast,
+`timeout 300`); the workflow parses (jobs pytest, report, go; schedule `0 1 * * *`); the gate on
+this change exits 0. Not verified: the workflow has not run. Scheduled runs start once it is on
+`main`; its first run establishes the real known-failure list and duration.
+
+## 2026-11-06 — Quality gate for changed code
+
+Scope: `tools/quality_gate.py`, `tools/ruff-gate.toml`, `tests/test_quality_gate.py`,
+`.github/workflows/quality-gate.yml`, `docs/QUALITY-GATE.md`, one AGENTS.md bullet. No
+analytical code changed. Standard library only; the checkers are the pinned dev
+dependencies (ruff 0.17.1, mypy 2.4.0), so no new dependency.
+Decision: gate changed code (changed lines plus the functions they fall in, new files
+whole), not the whole tree, because the baseline at `a313b50` fails every candidate
+threshold (180 functions above C901 10, 46 files `ruff format` would change, 33 strict
+mypy errors in `src`). Thresholds from comparable projects (docs/QUALITY-GATE.md): C901 at
+15 (pydantic-ai), pylint design limits at ruff defaults, E501 at the repo's 100 columns,
+strict mypy on non-test files, `ruff format`.
+Checks: `uv run pytest tests/test_quality_gate.py` 7 passed (temp git repos: hunk parsing
+on both sides with deletion anchors, decorator and nested spans, owned-line expansion,
+changed-file and changed-line detection, an end-to-end run that reports the E501, the
+mypy assignment error and the format change inside the touched code and drops the legacy
+E501 two functions up, the clean case, and both exit codes). Self-check:
+`uv run python tools/quality_gate.py --base origin/main` on this branch exits 0 with 3
+changed files and 342 lines in scope, after it caught one over-long test line and one
+formatting change in its own first draft. Dry run on the last merged PR (`--base
+a313b50^1`): 23 findings in 31 changed files, 5,005 lines in scope (E501 x5, PLR0913 x3,
+PLR0915 x1 in `owners/cpos.py` and two test files), none in the surrounding legacy code.
+The rewrite-tournament skill is not available in this environment; the changed functions were compared inline against a per-file variant (one subprocess per file for ruff too) and the batched form was kept as the simpler one. The GitHub Actions workflow ran on draft PR #18 (run 42207159101) and passed with 0
+findings; `uv` is pinned there at 0.12.5 through `astral-sh/setup-uv@v5`.
+
 ## 2026-11-06 — GitHub Copilot SDK adapter
 
 Dependency decision: the standard library cannot speak the runtime's JSON-RPC in a few lines and

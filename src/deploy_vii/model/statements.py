@@ -172,12 +172,17 @@ def _stated(host: Cell, account: Cell, compare: bool = True) -> Cell:
 
 
 def excluded_addbacks(regs: Cp1Registers, exclude_unrealised: bool) -> frozenset[str]:
-    """The add-backs left out of adjusted EBITDA, those with any row
+    """The add-backs left out of adjusted EBITDA, those with any CP-1 row
     unrealised or not stated (`UNREALISED`); none unless
-    `exclude_unrealised`."""
+    `exclude_unrealised`. A row the adapter wrote for a period CP-1 gave the
+    add-back no figure in has no source and states no realisation."""
     if not exclude_unrealised:
         return frozenset()
-    return frozenset(b.addback_id for b in regs.addbacks if b.realization_status in UNREALISED)
+    return frozenset(
+        b.addback_id
+        for b in regs.addbacks
+        if b.source is not None and b.realization_status in UNREALISED
+    )
 
 
 def is_deduction(cell: Cell) -> bool:

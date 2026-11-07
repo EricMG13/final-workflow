@@ -1,6 +1,7 @@
 """Exercise a compiled launcher over loopback, without a browser or providers."""
 import json
 import os
+import runpy
 import socket
 import subprocess
 import sys
@@ -46,9 +47,9 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
                 time.sleep(0.1)
         raise AssertionError('Launcher did not become ready')
 
-    environment = os.environ.copy()
-    for key in ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'OPENROUTER_API_KEY']:
-        environment.pop(key, None)
+    # Every provider key the Redactor knows, from its one list: the launcher never sees one.
+    redact = runpy.run_path(str(workspace / "src/deploy_workflow/model/redact.py"))
+    environment = {k: v for k, v in os.environ.items() if k not in redact["KEY_ENV_NAMES"]}
     process = subprocess.Popen(arguments + ['--workspace', str(workspace)], env=environment,
                                stdout=subprocess.DEVNULL)
     try:

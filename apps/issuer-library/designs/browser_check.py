@@ -7,6 +7,7 @@ FW_BROWSER_OUT, or to a temporary folder.
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -27,6 +28,8 @@ S.mkdir(parents=True, exist_ok=True)
 PY = os.environ["FW_PYTHON"]
 APP = os.environ["ISSUER_LIBRARY_BINARY"]
 ISSUER = "Northbridge Synthetic Group"
+# Every provider key the Redactor knows, from its one list; the fake engine gets a dummy key only.
+KEYS = tuple(runpy.run_path(str(R / "src/deploy_workflow/model/redact.py"))["KEY_ENV_NAMES"])
 results = []
 
 
@@ -35,12 +38,14 @@ def note(ok, what):
     print(("PASS " if ok else "FAIL ") + what, flush=True)
 
 
-def serve(workspace, port, engine, key=None, extra=None):
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if k not in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY")
-    }
+def serve(
+    workspace: Path,
+    port: int,
+    engine: Path,
+    key: str | None = None,
+    extra: dict[str, str] | None = None,
+) -> subprocess.Popen[bytes]:
+    env = {k: v for k, v in os.environ.items() if k not in KEYS}
     env |= {
         "ISSUER_LIBRARY_PYTHON": PY,
         "ISSUER_LIBRARY_ENGINE_ROOT": str(engine),

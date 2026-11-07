@@ -95,12 +95,13 @@ def shape_issues(error: ValidationError) -> tuple[str, ...]:
     No library URL and no `input_value` repr: the text is stable across library upgrades (replay
     compares it exactly) and small enough for a repair prompt. A whole-payload error (invalid
     JSON) has the path `(root)`."""
-    errors = error.errors(include_url=False, include_input=False, include_context=False)
-    echoed = _echoed(errors)
+    # ctx is read only to tell an echoed min-length error from a real one; the text is loc + msg
+    errors = error.errors(include_url=False, include_input=False, include_context=True)
+    failed = _failed_items(errors)
     return tuple(
         f"{'.'.join(str(part) for part in item['loc']) or '(root)'}: {item['msg']}"
         for item in errors
-        if not (_container_too_short(item) and item["loc"] in echoed)
+        if not _echoes(item, failed)
     )
 
 
@@ -111,19 +112,32 @@ def _container_too_short(item: ErrorDetails) -> bool:
     )
 
 
-def _echoed(errors: list[ErrorDetails]) -> set[tuple[int | str, ...]]:
-    """The locs of container min-length errors beside an error inside that container (the
-    items failed): every error's proper loc prefixes, looked up once each, so the work is
-    linear in the errors (0d-d)."""
+def _failed_items(errors: list[ErrorDetails]) -> dict[tuple[int | str, ...], set[int | str]]:
+    """For each container min-length error's loc, the distinct item keys of the errors inside
+    it. Every error's proper loc prefixes are looked up once each, so the work is linear in the
+    errors (0d-d)."""
     containers = {item["loc"] for item in errors if _container_too_short(item)}
+    failed: dict[tuple[int | str, ...], set[int | str]] = {}
     if not containers:
-        return set()
-    return {
-        item["loc"][:end]
-        for item in errors
-        for end in range(len(item["loc"]))
-        if item["loc"][:end] in containers
-    }
+        return failed
+    for item in errors:
+        loc = item["loc"]
+        for end in range(len(loc)):
+            if loc[:end] in containers:
+                failed.setdefault(loc[:end], set()).add(loc[end])
+    return failed
+
+
+def _echoes(item: ErrorDetails, failed: dict[tuple[int | str, ...], set[int | str]]) -> bool:
+    """Whether a container min-length error only echoes its failed items: Pydantic counts the
+    valid items (ctx `actual_length`), so it is an echo when those plus the failed items reach
+    `min_length`. A container shorter than that, or one with no count to compare, is reported."""
+    items = failed.get(item["loc"])
+    if not items or not _container_too_short(item):
+        return False
+    ctx = item.get("ctx") or {}
+    actual, minimum = ctx.get("actual_length"), ctx.get("min_length")
+    return isinstance(actual, int) and isinstance(minimum, int) and actual + len(items) >= minimum
 
 
 def citation_issues(
@@ -312,20 +326,56 @@ def coverage_issues(pack: PreparedPack, review: ReadinessReview) -> tuple[str, .
     """Limitations that call a page range absent although the pack retains every page in it.
 
     Each text is checked against the sources it is about: a source assessment's own source;
-    otherwise the sources an item attaches or cites; otherwise every ready paged source."""
+    otherwise the sources an item attaches or cites; otherwise the pack sources the text names
+    (`_named`). A text about no pack source (an uncited gap on a document never
+    supplied) is not compared with the pack's coverage. A consumer's `missing_source` is about a
+    source outside the pack, so only the pack sources it names are compared."""
     texts: list[tuple[str, tuple[str, ...]]] = []
     for assessment in review.sources:
         texts += [(text, (assessment.source_id,)) for text in assessment.limitations]
     for consumer in review.consumers:
         scope = consumer.source_ids or tuple(item.source_id for item in consumer.citations)
         texts += [(text, scope) for text in consumer.limitations]
-        texts += [(consumer.missing_source, scope)] if consumer.missing_source else []
+        texts += [(consumer.missing_source, ())] if consumer.missing_source else []
     for gap in review.gaps:
         texts.append((gap.description, tuple(item.source_id for item in gap.citations)))
     for claim in review.analysis:
         scope = tuple(item.source_id for item in claim.citations)
         texts += [(claim.limitation, scope)] if claim.limitation else []
-    return absence_issues(pack, texts)
+    labels = _source_labels(pack)
+    scoped = [(text, scope or _named(labels, text)) for text, scope in texts]
+    about_pack = [(text, scope) for text, scope in scoped if scope]
+    return absence_issues(pack, about_pack)
+
+
+def _words(text: str) -> str:
+    """Lowercase alphanumeric words, space-separated and space-padded, for whole-word lookup."""
+    return " " + " ".join(re.findall(r"[a-z0-9]+", text.lower())) + " "
+
+
+def _source_labels(pack: PreparedPack) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Each pack source with the word forms of its id and of its file name without directory and
+    extension (`annual-report` is " annual report "; `evidence/Annual Report 2024.pdf` is
+    " annual report 2024 ", found in `Annual Report 2024` and in `Annual Report 2024.pdf` alike);
+    a label with no such word is left out."""
+    return tuple(
+        (
+            source.source_id,
+            tuple(w for w in map(_words, (source.source_id, _stem(source.name))) if w.strip()),
+        )
+        for source in pack.sources
+    )
+
+
+def _stem(path: str) -> str:
+    """The file name of `path` without its directories and last extension."""
+    return re.split(r"[\\/]", path)[-1].rsplit(".", 1)[0]
+
+
+def _named(labels: tuple[tuple[str, tuple[str, ...]], ...], text: str) -> tuple[str, ...]:
+    """The pack sources whose id or file name `text` names as whole words."""
+    words = _words(text)
+    return tuple(source_id for source_id, forms in labels if any(f in words for f in forms))
 
 
 def context_authority_issues(pack: PreparedPack, review: ReadinessReview) -> list[str]:

@@ -486,7 +486,8 @@ READINESS_EVIDENCE_RULE = (
     "none). Evidence is judged by tags: "
     "a line's tags are its `kind`, plus `kpi:<key>` for a `kind=kpi` line (its `key` column) and "
     "`observation:<register_id>` for a `kind=observation` line (its `register_id` column); a "
-    "`kind=kpi`, `kind=statement_*` or `kind=observation` line whose `amount` is null has no tag "
+    "`kind=kpi`, `kind=statement_*`, `kind=observation`, `kind=computation`, "
+    "`kind=historical_value` or `kind=canonical_value` line whose `amount` is null has no tag "
     "at all. For the keys below, the cited lines together must carry at least one tag from every "
     "group (groups are separated by `;`, the alternatives within a group by `|`):\n"
     + _evidence_groups()

@@ -117,6 +117,10 @@ def _problem(parts: SplitResult, host: str | None) -> str | None:
         return "a user name or password is not allowed"
     if not host:
         return "the host is missing"
+    try:
+        host.encode("idna")  # what the resolver and the TLS server name do with it
+    except UnicodeError:
+        return "the host is not a valid domain name (an empty label or one over 63 characters)"
     return None
 
 
@@ -164,7 +168,8 @@ def resolve_public(host: str, resolver: Resolver) -> str:
     """Resolve once; every address must be public. Returns the first address."""
     try:
         addresses = list(resolver(host))
-    except OSError as error:
+    # UnicodeError: getaddrinfo's IDNA encoding of a host check_url let through
+    except (OSError, UnicodeError) as error:
         raise FetchRefusal(f"host {host} did not resolve: {type(error).__name__}") from error
     if not addresses:
         raise FetchRefusal(f"host {host} did not resolve")
@@ -315,23 +320,25 @@ def pinned_connection(target: ConnectionTarget) -> ConnectionLike:
 
 
 def locate_published(headers: Mapping[str, str], body: bytes) -> tuple[date | None, str | None]:
-    """A publication date found in ``Last-Modified`` or a ``Published: YYYY-MM-DD`` body line.
+    """A publication date: the body's ``Published: YYYY-MM-DD`` line, else ``Last-Modified``.
 
-    Only reported: the manifest row's own date decides admission (D6). An unparsable value is
-    "not located".
+    The body line is the page's own statement of when it was published; ``Last-Modified`` is when
+    the server last changed it (a stale value hides a later publication, a dynamic page serves
+    today), so it is used only when the body states no valid date. Only reported: the manifest
+    row's own date decides admission (D6). An unparsable value is "not located".
     """
+    match = _PUBLISHED_LINE.search(body.decode("utf-8", errors="replace"))
+    if match:
+        try:
+            return date.fromisoformat(match.group(1)), SOURCE_BODY
+        except ValueError:
+            pass  # not a calendar date (2025-02-30): fall back to the header
     for name, value in headers.items():
         if name.lower() == "last-modified":
             try:
                 return parsedate_to_datetime(value).date(), SOURCE_HEADER
             except (TypeError, ValueError, IndexError, OverflowError):
                 break
-    match = _PUBLISHED_LINE.search(body.decode("utf-8", errors="replace"))
-    if match:
-        try:
-            return date.fromisoformat(match.group(1)), SOURCE_BODY
-        except ValueError:
-            return None, None
     return None, None
 
 

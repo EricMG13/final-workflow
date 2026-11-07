@@ -29,9 +29,6 @@ jobs:
         with:
           version: "0.12.5"
       - run: uv sync --group dev
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: apps/issuer-library/go.mod
       - uses: actions/setup-node@v4
         with:
           node-version: 24

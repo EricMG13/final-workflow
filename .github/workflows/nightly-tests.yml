@@ -120,6 +120,8 @@ jobs:
       - run: uv pip install --python "$RUNNER_TEMP/pw/bin/python" playwright==1.64.0
       - run: $RUNNER_TEMP/pw/bin/python -m playwright install --with-deps chromium firefox
       - env:
+          # clean_env() prepends /usr/local/go/bin; GOTOOLCHAIN forces the go.mod toolchain regardless.
+          GOTOOLCHAIN: go1.26.0
           FW_PYTHON: ${{ github.workspace }}/.venv/bin/python
           FW_PLAYWRIGHT_PYTHON: ${{ runner.temp }}/pw/bin/python
           FW_BROWSER_OUT: ${{ runner.temp }}/browser

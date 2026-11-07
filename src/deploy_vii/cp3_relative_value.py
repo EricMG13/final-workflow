@@ -1271,7 +1271,8 @@ TALK_BASIS_CAP = "the preference's market basis is indicative talk only"
 # Ruling S08-cp3-C09: an Insufficient Information preference ranks nothing (rule e).
 INSUFFICIENT_ORDERING = (
     "preference.ordering: an Insufficient Information preference has an empty ordering; empty "
-    "it, or state the basis and a confidence other than Insufficient Information"
+    "it, or cite observed or indicative market evidence and state a confidence other than "
+    "Insufficient Information"
 )
 
 

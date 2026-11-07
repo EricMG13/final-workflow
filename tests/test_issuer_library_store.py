@@ -720,3 +720,50 @@ def test_a_name_that_merely_contains_request_stays_an_output(tmp_path):
         ["q/CP-1-requested-changes.md"],
         ["q/CP-1-request.md"],
     )
+
+
+def test_a_byte_order_mark_does_not_hide_the_first_heading(tmp_path):
+    # Expected by hand: the BOM is not text, so the BOM copy parses exactly like the plain fixture
+    # (its reader summary at line 17 and four chart tables), while the hash stays that of the bytes.
+    raw = READER_FIXTURE.read_bytes()
+    with_bom = b"\xef\xbb\xbf" + raw
+    assert store.structured(with_bom, strict=True) == store.structured(raw, strict=True)
+    put(tmp_path, "runs/bom-001/CP-1.md", "")
+    (tmp_path / "runs/bom-001/CP-1.md").write_bytes(with_bom)
+    result = store.workspace_store(tmp_path, {"real": [{"id": "bom-001", "name": "Bom"}]})
+    output = result["outputs"]["bom-001/CP-1.md"]
+    assert "parseError" not in output
+    assert output["summary"]["line"] == 17
+    assert len(output["charts"]) == 4
+    assert output["sha256"] == hashlib.sha256(with_bom).hexdigest()
+    # A file holding only a BOM reads as an empty file does: no sections and no parse error.
+    assert store.structured(b"\xef\xbb\xbf", strict=False) == ([], None)
+
+
+def test_each_handoff_is_read_once_per_page_load(tmp_path, monkeypatch):
+    # Expected by hand from workspace(): five handoffs under runs/ are listed (the instructions file
+    # is skipped by name and never opened); each is read exactly once, and its hash is of that read.
+    catalogue = workspace(tmp_path)
+    reads: dict[str, int] = {}
+    original = Path.read_bytes
+
+    def counting(path: Path) -> bytes:
+        name = path.relative_to(tmp_path).as_posix()
+        reads[name] = reads.get(name, 0) + 1
+        return original(path)
+
+    monkeypatch.setattr(Path, "read_bytes", counting)
+    result = store.workspace_store(tmp_path, catalogue)
+    assert {name: count for name, count in reads.items() if name.endswith(".md")} == {
+        "runs/alpha-001/CP-1.md": 1,
+        "runs/alpha-001/CP-1-selected-input.md": 1,
+        "runs/alpha-001/CP-2.md": 1,
+        "runs/alpha-001/CP-4A.md": 1,
+        "runs/launched/deliveries/abc/CP-0.md": 1,
+    }
+    assert (
+        result["outputs"]["alpha-001/CP-1.md"]["sha256"] == hashlib.sha256(CP1.encode()).hexdigest()
+    )
+    assert result["outputs"]["launched/deliveries/abc/CP-0.md"]["sha256"] == (
+        hashlib.sha256(BETA.encode()).hexdigest()
+    )

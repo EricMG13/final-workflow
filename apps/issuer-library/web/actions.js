@@ -221,6 +221,8 @@ function installSettings(){
   };
   const changing=async(url,body,note)=>{
     if(settingsBusy)return;
+    // Success reloads the page, which clears a run being prepared: ask before sending anything.
+    if(!mayDiscardDraft())return;
     lock(true,note);
     try{await appRequest(url,body);location.reload();}
     catch(error){lock(false);status('Could not update the library. Details: '+error.message);}

@@ -7,6 +7,7 @@ FW_BROWSER_OUT, or to a temporary folder.
 import json
 import os
 import re
+import runpy
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,7 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
@@ -27,20 +29,24 @@ S.mkdir(parents=True, exist_ok=True)
 PY = os.environ["FW_PYTHON"]
 APP = os.environ["ISSUER_LIBRARY_BINARY"]
 ISSUER = "Northbridge Synthetic Group"
+# Every provider key the Redactor knows, from its one list; the fake engine gets a dummy key only.
+KEYS = tuple(runpy.run_path(str(R / "src/deploy_workflow/model/redact.py"))["KEY_ENV_NAMES"])
 results = []
 
 
-def note(ok, what):
+def note(ok: bool, what: str) -> None:
     results.append((ok, what))
     print(("PASS " if ok else "FAIL ") + what, flush=True)
 
 
-def serve(workspace, port, engine, key=None, extra=None):
-    env = {
-        k: v
-        for k, v in os.environ.items()
-        if k not in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY")
-    }
+def serve(
+    workspace: Path,
+    port: int,
+    engine: Path,
+    key: str | None = None,
+    extra: dict[str, str] | None = None,
+) -> subprocess.Popen[bytes]:
+    env = {k: v for k, v in os.environ.items() if k not in KEYS}
     env |= {
         "ISSUER_LIBRARY_PYTHON": PY,
         "ISSUER_LIBRARY_ENGINE_ROOT": str(engine),
@@ -78,8 +84,8 @@ def serve(workspace, port, engine, key=None, extra=None):
     raise SystemExit("server did not start")
 
 
-def errors_of(page):
-    errors = []
+def errors_of(page: Any) -> list[str]:
+    errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
     return errors
@@ -286,7 +292,10 @@ FORM_WANT = {
 }
 
 
-def new_run(browser, name, port, workspace, start):
+# One browser walk through New run, kept in page order; splitting it would hide the sequence.
+def new_run(  # noqa: PLR0915
+    browser: Any, name: str, port: int, workspace: Path, start: bool | str
+) -> None:
     page = browser.new_page(viewport={"width": 1366, "height": 768})
     errors = errors_of(page)
     page.goto(f"http://127.0.0.1:{port}/")
@@ -351,11 +360,6 @@ def new_run(browser, name, port, workspace, start):
         f"{name}: review lists the file no module can read",
     )
     page.screenshot(path=str(S / f"{name}-review.png"))
-    if not start:
-        note("not set" in page.inner_text("#run-review") or True, f"{name}: review only")
-        note(not errors, f"{name}: no console errors {errors[:4]}")
-        page.close()
-        return
     page.check("#run-confirm")
     page.click("#start-run")
     page.wait_for_selector("#progress-step:not([hidden])")

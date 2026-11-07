@@ -10,6 +10,7 @@ exits non-zero on any failure.
 import argparse
 import os
 import re
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -17,7 +18,9 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parent
 ROOT = APP.parents[1]
-KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
+# Every provider key the Redactor knows (KEY_VARIABLES and the GitHub tokens), from its one list,
+# read by path: this script may run under a Python without the project's dependencies.
+KEYS = tuple(runpy.run_path(str(ROOT / "src/deploy_workflow/model/redact.py"))["KEY_ENV_NAMES"])
 NODE_TESTS = (
     "designs/design.test.cjs",
     "web/new-run.test.cjs",
@@ -27,9 +30,12 @@ NODE_TESTS = (
     "web/screen-css.test.cjs",
     "web/escape-sinks.test.cjs",
     "web/run-spend.test.cjs",
+    "web/draft-guard.test.cjs",
 )
 PYTHON_TESTS = (
     "tests/test_issuer_library_store.py",
+    "tests/test_issuer_library_packaging.py",
+    "tests/test_issuer_library_gates.py",
     "tests/test_cpos_app.py",
     "tests/test_cpos_launch.py",
     "tests/test_reader_summary.py",

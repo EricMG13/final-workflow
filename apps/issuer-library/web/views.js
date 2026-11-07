@@ -52,6 +52,8 @@ const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom
 const tracedRun=report=>report.builtFrom.find(b=>b.run)?.run||null;
 const reportName=report=>report.build?`Build ${report.build} · ${report.label.trim()}`:report.label.trim();
 const byBuild=(a,b)=>(b.build||0)-(a.build||0)||a.label.trim().localeCompare(b.label.trim());
+// A run being prepared lives only in this page, so whatever reloads it asks first (boot.js keeps its own copy).
+const mayDiscardDraft=()=>document.body.dataset.draft!=='1'||window.confirm('Reload now? The run you are preparing will be cleared.');
 // A frame has no error event for a page that never arrives, so a missing load within the timeout is the failure.
 const frameTimeout=()=>Number.isFinite(window.DESIGN_FRAME_TIMEOUT_MS)?window.DESIGN_FRAME_TIMEOUT_MS:6000;
 function watchFrame(frame,status,loadingText,failedText,link,missingText) {
@@ -72,7 +74,7 @@ function watchFrame(frame,status,loadingText,failedText,link,missingText) {
     clearTimeout(timer);frame.removeEventListener('load',loaded);
     const reload=document.createElement('button');
     reload.type='button';reload.className='text-button';reload.textContent='Reload';
-    reload.addEventListener('click',()=>location.reload());
+    reload.addEventListener('click',()=>{if(mayDiscardDraft())location.reload();});
     status.hidden=false;status.textContent=missingText+' ';status.append(reload);
   }
   frame.addEventListener('load',loaded);
@@ -118,7 +120,7 @@ function comparisonChart(module,v,selection=0) {
   const hasNegative=points.some(p=>(chartNumber(p.value)??0)<0);
   return `${chartIntro(module,v)}${selectable&&!v.fixed?`<label class="metric-control">Measure <select id="chart-metric">${v.rows.map((idx,i)=>`<option value="${i}" ${i===selection?'selected':''}>${esc(plain(table.rows[idx].cells[0]))}</option>`).join('')}</select></label>`:''}<div class="horizontal-chart ${hasNegative?'diverging':''}">${points.map((p,i)=>{
     const n=chartNumber(p.value),width=n===null?0:Math.abs(n)/max*100;
-    return `<button class="chart-row" data-evidence="${esc(`${module}:${p.row.line}`)}"><span class="chart-label">${i&&points[i-1].label===p.label?`<span class="sr-only">${esc(p.label)}</span>`:esc(p.label)}${v.columns&&v.kind!=='peers'?`<small>${esc(table.headers[p.column])}</small>`:''}</span><span class="track ${n===null?'missing':''}">${hasNegative?`<span class="zero-rule"></span><i class="series-${p.series} ${n<0?'negative':''}" style="left:${n<0?50-width/2:50}%;width:${width/2}%"></i>`:`<i class="series-${p.series}" style="width:${width}%"></i>`}</span><strong>${n===null?'Not available':esc(p.value)}</strong></button>`;
+    return `<button class="chart-row" data-evidence="${esc(`${module}:${p.row.line}`)}"><span class="chart-label">${i&&points[i-1].label===p.label?`<span class="sr-only">${esc(p.label)}</span>`:esc(p.label)}${v.columns&&v.kind!=='peers'?`<small>${esc(table.headers[p.column])}</small>`:''}</span><span class="track ${n===null?'missing':''}">${hasNegative?`<span class="zero-rule"></span><i class="series-${p.series} ${n<0?'negative':''}" style="left:${n<0?50-width/2:50}%;width:${width/2}%"></i>`:`<i class="series-${p.series}" style="width:${width}%"></i>`}</span><strong>${/[\p{L}\p{N}]/u.test(String(p.value??''))?esc(p.value):'Not available'}</strong></button>`;
   }).join('')}</div><p class="matrix-note">Missing values have no bar.</p>`;
 }
 function bridgeChart(module,v) {
@@ -208,7 +210,8 @@ function routeHref(module,section,key=null,context=current?.context,file=lastFil
   if(context)params.set('c',context);
   if(file&&`${contexts[context].folder}/${file}`!==defaultOutput(module,context))params.set('o',file);
   if(key)params.set('e',key);
-  return `#${module}/${section}${params.size?'?'+params:''}`;
+  // A report id is a folder name: encoded, it can hold quotes, angle brackets, ? or # and still route back.
+  return `#${encodeURIComponent(module)}/${encodeURIComponent(section)}${params.size?'?'+params:''}`;
 }
 function sectionGroups(id) {
   const result=new Map(),module=data[id].module;

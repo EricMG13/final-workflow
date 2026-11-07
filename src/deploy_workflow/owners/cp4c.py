@@ -461,8 +461,9 @@ class Cp1Head:
     facility_id: str  # the secured facility's T4.18 id (manifest fact_selection_rule.cp1_t418)
     secured_status: Fact  # T4.18 <facility>.secured_status at the quarter period
     seniority: Fact  # T4.18 <facility>.seniority at the quarter period
-    # Why CP-1 shows no single secured facility (S09-A04): the facility fields above are then
-    # placeholders, and the validator and the view refuse with this text first.
+    # Why CP-1 shows no single secured facility (S09-A04), or why its T4.14 period or the selected
+    # facility's alias row cannot be read: the facility fields above are then placeholders, and
+    # the validator and the view refuse with this text first.
     facility_issue: str | None = None
 
 
@@ -2870,7 +2871,7 @@ def cp1_of(module: Module, status: InputStatus) -> Cp1Head:
     if module.module_id != CP1:
         raise ValueError(f"CP-4C: not a CP-1 head: {module.module_id}")
     terms = _facility_terms(module)
-    if isinstance(terms, str):  # no single secured facility: the validator and the view say so
+    if isinstance(terms, str):  # a CP-1 facility issue: the validator and the view say so
         none = Fact(
             fact_id="cp4c-no-secured-facility", label=terms, status="missing", limitation=terms
         )

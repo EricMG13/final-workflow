@@ -721,6 +721,8 @@ def test_t418_terms_that_cannot_be_read_are_a_typed_facility_issue(
     cp1 = _upstream(store, attempt).cp1
     assert cp1.facility_issue is not None and message in cp1.facility_issue
     assert cp1.facility_id == ""
+
+
 def test_without_an_alias_row_the_quarter_row_is_read(tmp_path: Path) -> None:
     store, _, attempt = seed(tmp_path, cp1=cp1_facts(alias=None))
     assert _upstream(store, attempt).cp1.secured_status.text == "SECURED"

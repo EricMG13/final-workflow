@@ -256,3 +256,76 @@ def test_each_new_pointer_and_noun_is_accepted_when_the_document_is_present(
 )
 def test_facility_notes_documents_conditions_letter_name_no_document(text: str) -> None:
     assert _run(text) == ()
+
+
+# --- second-model review of the pointer/noun ruling: a locator before the document itself ---
+# A part of this document ("Section 7 of this Agreement") is no other document: a determiner after
+# a locator the optional "Section 1.1 of" does not take, or "the" directly before the noun, makes
+# the noun the document itself, as "this Agreement" and "the Agreement" do on their own.
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "has the meaning set forth in Section 7 of this Agreement",
+        "defined in Clause 2 of this Agreement",  # the earlier pointer had the same fault
+        "as specified in Section 5 of such Indenture",
+        "set forth in Article II of the Indenture",
+        "set forth in Schedule 1 to this Agreement",
+        "in the form set forth in Exhibit A to this Agreement",
+        "set forth in Section 7 of this Credit Agreement",
+        "specified in paragraph 3 of this Prospectus",
+        "set forth in the Agreement and this Indenture",
+        "set forth in Schedule 1 to each Security Agreement",
+        # The forms the ruling's reviewer named: no document after the pointer.
+        "has the meaning set forth in Section 2.01",
+        "as specified in this Indenture",
+        "has the meaning ascribed to such term herein",
+        "as defined in the Prospectus",
+    ],
+)
+def test_a_part_of_the_document_itself_names_no_document(text: str) -> None:
+    assert _run(text) == ()
+
+
+@pytest.mark.parametrize(
+    "text,document",
+    [
+        # "the" before a qualifier still names an outside document (retained TDG indenture wording).
+        (
+            (
+                "subject to the limitations set forth in the security documents and the "
+                "intercreditor agreements"
+            ),
+            "security documents and the intercreditor agreements",
+        ),
+        # A locator outside the optional "Section 1.1 of" stays in the quoted name, as before.
+        ("set forth in Exhibit A to the Credit Agreement", "exhibit a to the credit agreement"),
+        ("as specified in Section 4 of the Credit Agreement", "credit agreement"),
+        # Retained Enel supplement wording; that pack holds no base prospectus.
+        (
+            "terms defined in the Base Prospectus shall have the same meaning in this Supplement",
+            "base prospectus",
+        ),
+    ],
+)
+def test_an_outside_document_after_a_locator_or_qualifier_is_still_named(
+    text: str, document: str
+) -> None:
+    assert _run(text) == (ISSUE.format(documents=f"'{document}'"),)
+
+
+def test_the_locator_name_is_held_by_a_source_ending_it() -> None:
+    held = (_source("credit-agreement", "x.pdf"),)
+    assert _run("set forth in Exhibit A to the Credit Agreement", extra=held) == ()
+
+
+def test_a_prospectus_is_held_by_a_file_name_containing_it() -> None:
+    held = (_source("s1", "sources/base-prospectus-2018.pdf"),)
+    text = "terms defined in the Base Prospectus shall have the same meaning"
+    assert _run(text, extra=held) == ()
+
+
+def test_a_long_quote_of_self_references_names_no_document() -> None:
+    # 2,000 self-references (about 86 KB): the per-word check stays linear and names nothing.
+    assert _run("has the meaning set forth in Section 7 of this Agreement; " * 2000) == ()

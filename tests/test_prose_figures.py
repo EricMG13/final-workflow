@@ -36,6 +36,13 @@ from deploy_vii.contracts import Fact
         ("Debt grew threefold while capex doubled.", ("threefold", "doubled")),
         ("Ten per cent of revenue is hedged.", ("Ten per cent",)),
         ("One of the notes carries a one-time fee.", ()),
+        # Whitespace and hyphen variants (confidence review).
+        ("Margin fell by 2024  basis points.", ("2024",)),
+        ("Spreads widened 2024\u00a0bps.", ("2024",)),
+        ("Leverage rose to seven  times EBITDA.", ("seven  times",)),
+        ("A seven-times multiple.", ("seven-times",)),
+        ("Costs rose twenty  five percent.", ("twenty  five percent",)),
+        ("The 2024\nresults were flat.", ()),
         # Reading order across numeric and word figures.
         ("Revenue halved in 3 of 4 quarters.", ("halved", "3", "4")),
     ],
@@ -117,6 +124,8 @@ def test_a_fiscal_label_beside_another_periods_figure_is_refused() -> None:
         ("Fiscal year 2025 revenue was {rev-fy2023}.", "Fiscal year 2025"),
         ("CY2022 revenue was {rev-fy2023}.", "CY2022"),
         ("FY22 revenue was {rev-fy2023}.", "FY22"),
+        ("FY-2025 revenue was {rev-fy2023}.", "FY-2025"),
+        ("Fiscal  2025 revenue was {rev-fy2023}.", "Fiscal  2025"),
         # A chip whose fact has no period does not switch the check off.
         ("FY2025 revenue reached {rev-fy2023} [note].", "FY2025"),
         # Stricter than a phrase-level reading: another year in the clause is refused too.

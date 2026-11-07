@@ -68,9 +68,9 @@ _QUANTITY = (
     r"billion|thousand)(?![0-9A-Za-z])"
 )
 # A bare year is a detached token: a percent sign after it makes a figure (1900%), as a unit
-# letter already did (1900x, 1900bn) (task 7.10 item 15), and so does a quantity word after a
-# space (2024 basis points, 2024 %) (S13 A04).
-_YEAR_E = rf"(?![0-9A-Za-z%])(?! (?:%|{_QUANTITY}))"
+# letter already did (1900x, 1900bn) (task 7.10 item 15), and so does a quantity word after
+# whitespace (2024 basis points, 2024 %) (S13 A04).
+_YEAR_E = rf"(?![0-9A-Za-z%])(?!\s+(?:%|{_QUANTITY}))"
 _MONTH = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|"
     r"December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?"
@@ -178,7 +178,10 @@ _NUMBER_WORD = (
 _WORD_FIGURE = re.compile(
     "|".join(
         (
-            rf"{_B}(?i:{_NUMBER_WORD}(?:[- ]{_NUMBER_WORD})*)(?: {_QUANTITY}|-?(?i:fold){_E})",
+            (
+                rf"{_B}(?i:{_NUMBER_WORD}(?:(?:-|\s+){_NUMBER_WORD})*)"
+                rf"(?:(?:-|\s+){_QUANTITY}|-?(?i:fold){_E})"
+            ),
             rf"{_B}(?i:halved|doubled|tripled|quadrupled){_E}",
         )
     )
@@ -333,7 +336,7 @@ def _fact_issues(run: Run, fact: "Fact") -> tuple[str, ...]:
 # 2025): the labels a period check reads. A bare year, a date or a quarter is not read: beside a
 # figure it is as often a maturity or a reporting date as the figure's own period.
 _FISCAL = re.compile(
-    rf"{_B}(?:(?:FY|CY) ?|(?i:fiscal(?: year)?) )({_YEAR}|[0-9]{{2}})"
+    rf"{_B}(?:(?:FY|CY)[ -]?|(?i:fiscal(?:\s+year)?)\s+)({_YEAR}|[0-9]{{2}})"
     rf"(?:/({_YEAR}|[0-9]{{2}}))?{_E}"
 )
 _PERIOD_YEAR = re.compile(rf"(?<![0-9])({_YEAR})(?![0-9])|{_B}(?:FY|CY) ?([0-9]{{2}}){_E}")

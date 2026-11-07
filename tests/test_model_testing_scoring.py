@@ -118,6 +118,7 @@ def _fact(entry: MappingEntry, *, traced: bool = True, **kw: Any) -> Fact:
         base["citations"] = _cite()
     if kw.get("amount") is not None:
         base["unit"] = "USD"
+        base["currency"] = "USD"
     if kw.get("status", "known") != "known":
         base["limitation"] = "not available"
     base.update(kw)
@@ -500,6 +501,22 @@ def test_unit_class_must_agree_with_golden() -> None:
     assert money_as_pct.facts[0].outcome == "mismatch"
 
 
+def test_currency_must_agree_with_golden() -> None:
+    # Golden IHRT_BILLIONS is USD 5236876 thousands = 5,236,876,000 units. The same amount in
+    # USD matches; EUR, JPY and a missing currency are different quantities: mismatch with a
+    # currency reason naming what the fact carried.
+    amount = Decimal(IHRT_UNITS)
+    ok, _, _ = _one(IHRT_BILLIONS, IHRT, amount=amount, currency="USD")
+    assert ok.facts[0].outcome == "match"
+    for cur, shown in (("EUR", "EUR"), ("JPY", "JPY"), (None, "none"), ("usd", "usd")):
+        bad, _, _ = _one(IHRT_BILLIONS, IHRT, amount=amount, currency=cur)
+        assert bad.facts[0].outcome == "mismatch", cur
+        assert bad.facts[0].observed == f"currency {shown} is not the golden's USD"
+    # A percent golden names no currency: a fact without one still matches.
+    pct, _, _ = _one(IHRT_PCT, IHRT, amount=Decimal("0.922"), unit="PERCENT", currency=None)
+    assert pct.facts[0].outcome == "match"
+
+
 def test_duplicate_locator_is_mismatch() -> None:
     case = _case(IHRT, IHRT_BILLIONS)
     entry = _entry(IHRT_BILLIONS, "CP-2")
@@ -777,6 +794,7 @@ def _row(
                 period=period,
                 amount=value,
                 unit="USD",
+                currency="USD",
                 citations=_cite(),
             )
         )
@@ -882,6 +900,7 @@ def _metric_row(row: str, metric: str, pid: str, value: Decimal | None = None) -
                 period=pid,
                 amount=value,
                 unit="USD",
+                currency="USD",
                 citations=_cite(),
             )
         )

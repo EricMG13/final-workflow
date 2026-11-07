@@ -425,6 +425,13 @@ class Upstream:
                 scales.add(fact.scale)
             if len(scales) > 1:
                 raise UpstreamError(f"CP-1 operands of {topic.topic_id} differ in scale")
+        for fact in self.cp1_facts.values():
+            known_money = fact.status == "known" and fact.unit == "MILLIONS"
+            if known_money and fact.currency != self.currency.currency:  # S10-A04: USD too
+                raise UpstreamError(
+                    f"CP-1 operand currency {fact.currency} is not "
+                    f"{self.currency.currency}: {fact.label}"
+                )
 
     def operand(self, topic: Topic, period: str) -> Fact:
         column = self.quarters[self.periods.index(period)].column
@@ -437,16 +444,6 @@ class RunUpstream(Upstream):
     money tokens and cells state it. A USD run (or none) keeps the plain `Upstream`."""
 
     run_currency: CurrencyBasis = DEFAULT_CURRENCY
-
-    def __post_init__(self) -> None:
-        super().__post_init__()
-        for fact in self.cp1_facts.values():
-            known_money = fact.status == "known" and fact.unit == "MILLIONS"
-            if known_money and fact.currency != self.run_currency.currency:
-                raise UpstreamError(
-                    f"CP-1 operand currency {fact.currency} is not "
-                    f"{self.run_currency.currency}: {fact.label}"
-                )
 
     @property
     def currency(self) -> CurrencyBasis:

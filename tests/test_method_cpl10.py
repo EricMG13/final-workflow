@@ -8,6 +8,7 @@ this test's upstream values; Stage 2 binds them from the store.
 
 import hashlib
 import json
+import re
 from copy import deepcopy
 from datetime import date
 from decimal import Decimal
@@ -275,16 +276,14 @@ def test_unsettled_copied_cell_takes_the_topics_unit() -> None:
             None,
             Decimal(1),
         ), fact_id
-    # a MILLIONS topic: its own USD and 1,000,000 even when the twin is known in another currency
+    # a MILLIONS topic: its own USD and 1,000,000 even when the missing twin states EUR (S10-A04:
+    # a known twin in another currency is now refused, see test_a_known_operand_currency_*)
     cash = {"status": "missing", "amount": None, "limitation": "close gap", **odd}
-    cells = _limited_with(
-        {f"{q3} · cash_closing": cash, f"{q2} · cash_closing": {"currency": "EUR"}},
-        drop_cash=True,
-    )
+    cells = _limited_with({f"{q3} · cash_closing": cash}, drop_cash=True)
     fact = cells["TL10.2.cash.to_value"]
     assert (fact.unit, fact.currency, fact.scale) == ("MILLIONS", "USD", Decimal(1000000))
     known = cells["TL10.2.cash.from_value"]  # a known copied cell stays verbatim
-    assert (known.unit, known.currency, known.scale) == ("MILLIONS", "EUR", Decimal(1000000))
+    assert (known.unit, known.currency, known.scale) == ("MILLIONS", "USD", Decimal(1000000))
 
 
 def test_unsettled_operand_without_unit_is_accepted() -> None:
@@ -969,6 +968,28 @@ def test_derived_cells_cite_one_quote_per_page() -> None:
                 )
                 repeated += len(inputs) > len(one_per_page(inputs))
     assert repeated, "the fixture must exercise two quotes on one page"
+
+
+def test_a_known_operand_currency_other_than_the_basis_is_refused() -> None:
+    # S10-A04/C01, hand-read: with no run context the basis is USD. A known MILLIONS operand in
+    # EUR (every quarter, or only one) is not on that basis, so the plain Upstream refuses it
+    # (before, TL10.2 copied EUR from/to cells beside a USD change). A missing operand states no
+    # amount, so its currency text is not an amount's currency and is not refused.
+    cash_q2 = cpl10.QUARTERS[1].column + " · cash_closing"
+    mixed = [
+        f.model_copy(update={"currency": "EUR"}) if f.label == cash_q2 else f for f in _cp1_facts()
+    ]
+    with pytest.raises(cpl10.UpstreamError, match=f"currency EUR is not USD: {re.escape(cash_q2)}"):
+        _upstream(mixed)
+    every = [
+        f.model_copy(update={"currency": "EUR"}) if f.unit == "MILLIONS" else f
+        for f in _cp1_facts()
+    ]
+    with pytest.raises(cpl10.UpstreamError, match="currency EUR is not USD"):
+        _upstream(every)
+    gap = {"status": "missing", "amount": None, "limitation": "gap", "currency": "EUR"}
+    unknown = [f.model_copy(update=gap) if f.label == cash_q2 else f for f in _cp1_facts()]
+    assert _upstream(unknown).currency.currency == "USD"
 
 
 def test_s10_c02_limitation_and_gap_text_get_the_rationale_checks() -> None:

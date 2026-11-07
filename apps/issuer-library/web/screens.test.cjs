@@ -57,7 +57,10 @@ test('the navigator is resident on Overview and Modules only',async t=>{
 test('the report frame shows loading, failure with retry, and loaded',async t=>{
   const dom=fixture('W-Calendar/events?c=tdg-002',20),w=dom.window,d=w.document;t.after(()=>w.close());
   const report=w.eval('window.DESIGN_WORKSPACE.reports[0]');
-  await go(w,`W-Reports/${report.id}`);
+  // The loading state is read in the render's own task, before the 20 ms timer can fire; the busy
+  // listener stands in for a loaded machine (as in library-workspace.test.cjs's model frame test).
+  w.addEventListener('hashchange',()=>{for(const end=Date.now()+40;Date.now()<end;);});
+  w.location.hash=`W-Reports/${report.id}`;w.dispatchEvent(new w.Event('hashchange'));
   const status=()=>d.querySelector('.frame-status');
   assert.match(text(status()),/^Loading report/);
   await settle(60);

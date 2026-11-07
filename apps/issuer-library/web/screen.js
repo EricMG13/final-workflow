@@ -353,6 +353,11 @@ function focusSearch() {
   showNavigator(true);
   $('module-search').focus();
 }
+// Run label and module or destination name: the same run label the workspace header shows, never a code.
+function contextPrefix({module,context}) {
+  const ctx=contexts[context];
+  return ctx&&!appDestinations.has(module)?`<span class="section-context">${esc(ctx.run)} · ${esc(moduleNames[module])}</span>`:'';
+}
 function renderRoute() {
   const next=parseRoute(), previous=current,changed=!current||next.module!==current.module||next.output!==current.output||next.section!==current.section||next.context!==current.context;
   const focused=document.activeElement,focusId=focused?.id,focusHref=focused?.getAttribute('href');
@@ -366,7 +371,8 @@ function renderRoute() {
     // A page with one section already says its name in the heading above.
     const only=sections.length===1&&!isAnalytical(next.module);
     const title=`<h3 id="section-title" tabindex="-1" ${only?'class="sr-only"':''}>${esc(sections[index][1])}</h3>`;
-    $('section-nav').innerHTML=only||(isAnalytical(next.module)&&!next.output)?title:`${title}<span>${index+1} / ${sections.length}</span><button id="previous-section" ${index===0?'disabled':''} aria-label="Previous section">${icon('arrow-left')}</button><button id="next-section" ${index===sections.length-1?'disabled':''} aria-label="Next section">${icon('arrow-right')}</button>`;
+    // The bar sticks at narrow widths, so it names the run and the module (or destination) it belongs to.
+    $('section-nav').innerHTML=contextPrefix(next)+(only||(isAnalytical(next.module)&&!next.output)?title:`${title}<span>${index+1} / ${sections.length}</span><button id="previous-section" ${index===0?'disabled':''} aria-label="Previous section">${icon('arrow-left')}</button><button id="next-section" ${index===sections.length-1?'disabled':''} aria-label="Next section">${icon('arrow-right')}</button>`);
     if(!showsCodes(next))nameCodes($('section-nav'));
     updateWorkspaceChrome(next.module);
     $('content').innerHTML=moduleBody(next);

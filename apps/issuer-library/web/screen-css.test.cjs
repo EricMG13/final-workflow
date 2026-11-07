@@ -120,3 +120,24 @@ test('layout: controls reach 32px', () => {
     assert.ok(rule(s).some((b) => /(^|;)(min-)?height:32px/.test(b)), `${s} under 32px`);
   }
 });
+
+test('content table cards are bounded and keep their header in view', () => {
+  const card = screen.match(/(?:^|[}\n])\.table-scroll\{([^}]*)\}/);
+  assert.ok(card, 'no .table-scroll rule');
+  assert.ok(card[1].includes('max-height:70vh'), card[1]);
+  assert.ok(card[1].includes('overflow:auto'), card[1]);
+  const head = screen.match(/\.table-scroll thead th\{([^}]*)\}/);
+  assert.ok(head, 'no .table-scroll thead th rule');
+  assert.ok(head[1].includes('position:sticky') && head[1].includes('top:0'), head[1]);
+  assert.ok(head[1].includes('background:var(--gray-50)'), head[1]);
+  assert.match(screen, /\.case-list thead th\{[^}]*position:sticky;top:var\(--band-h,101px\)/);
+});
+
+test('the section bar is sticky with its run and module prefix at 720px and below', () => {
+  assert.match(screen, /\.section-context\{display:none\}/);
+  const media = [...screen.matchAll(/@media\(max-width:720px\)\{(.*)/g)].map((m) => m[1]).join('\n');
+  const bar = media.match(/#section-nav\{[^}]*position:sticky[^}]*\}/);
+  assert.ok(bar, 'no sticky #section-nav at 720px');
+  assert.ok(bar[0].includes('top:0') && bar[0].includes('background:#fff') && bar[0].includes('border-bottom:1px solid var(--rule)'), bar[0]);
+  assert.match(media, /#section-nav \.section-context\{display:block/);
+});

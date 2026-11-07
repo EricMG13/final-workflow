@@ -350,3 +350,14 @@ test('other runs of the issuer are found by issuer key, never by display name, a
   assert.equal(w.eval('sameIssuer(null,null)'),false);
   assert.equal(w.eval('issuerReports("tdg-002").length'),0);
 });
+
+test('the section bar leads with the run and the module or destination name',async t=>{
+  const w=fixture('CP-1/performance?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  const prefix=()=>d.querySelector('#section-nav .section-context');
+  assert.equal(text(prefix()),'TDG-002 · Financial foundation');
+  assert.equal(d.querySelector('#section-nav').firstElementChild,prefix());
+  await go(w,'W-Forecast/forecast?c=tdg-002');
+  assert.equal(text(prefix()),'TDG-002 · Forecast');
+  await go(w,'W-Reports/list?c=tdg-002');
+  assert.equal(text(prefix()),'TDG-002 · Reports');
+});

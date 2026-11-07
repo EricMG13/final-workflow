@@ -969,3 +969,31 @@ def test_derived_cells_cite_one_quote_per_page() -> None:
                 )
                 repeated += len(inputs) > len(one_per_page(inputs))
     assert repeated, "the fixture must exercise two quotes on one page"
+
+
+def test_s10_c02_limitation_and_gap_text_get_the_rationale_checks() -> None:
+    # S10-C02, hand-read. "recommend", "covenant" and "recovery" are PROHIBITED words (three
+    # issues, one per word, in PROHIBITED order); "5.2x" and "40%" are the bare figures the
+    # prose check names. The same words in overall.rationale already gave this shape.
+    sub = _with(("overall", "category"), cpl10.INSUFFICIENT)
+    sub["overall"]["confidence"] = cpl10.INSUFFICIENT
+    sub["overall"]["limitation"] = "We recommend a covenant reset at 5.2x; recovery is 40% at most."
+    assert _issues(sub) == [
+        "overall.limitation: Bare figure: 5.2x",
+        "overall.limitation: Bare figure: 40%",
+        "overall.limitation: prohibited conclusion: recommend",
+        "overall.limitation: prohibited conclusion: recovery",
+        "overall.limitation: prohibited conclusion: covenant",
+    ]
+    sub["overall"]["limitation"] = "Only two quarters are compared."
+    assert _issues(sub) == []
+    # a gap field: the prohibited word is refused; a field with a digit keeps only its own issue
+    gap = _with(("gaps", 0, "why_it_matters"), "Recovery prospects cannot be screened.")
+    assert _issues(gap) == ["gaps[0].why_it_matters: prohibited conclusion: recovery"]
+    gap = _with(("gaps", 0, "action"), "Supply the covenant package, then rerun.")
+    assert _issues(gap) == ["gaps[0].action: prohibited conclusion: covenant"]
+    gap = _with(("gaps", 0, "gap"), "Leverage above 5.2x is not modelled.")
+    assert _issues(gap) == ["gaps[0].gap: must not contain a digit"]
+    # a blank limitation keeps the single "empty" issue
+    sub["overall"]["limitation"] = "   "
+    assert _issues(sub) == ["overall.limitation: empty"]

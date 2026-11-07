@@ -24,6 +24,7 @@ type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
 	mu         sync.RWMutex
+	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations
 	config     Config
 	locked     bool
@@ -33,14 +34,35 @@ type Application struct {
 	stop       func()
 }
 
-func (app *Application) refreshLocked() {
-	app.catalogue = discover(app.config.Workspace, app.seed)
-	app.catalogue.PolicyLocked = app.locked
+// discoverWorkspace is discover; a variable so tests can hold a discovery in progress.
+var discoverWorkspace = discover
+
+// buildCatalogue discovers workspace and saves the disposable index. It takes no lock and reads
+// only fields fixed at start, so the slow part of a refresh (hashing every pinned file) runs
+// while requests are served from the previous catalogue. Callers hold app.refreshing.
+func (app *Application) buildCatalogue(workspace string) Catalogue {
+	catalogue := discoverWorkspace(workspace, app.seed)
+	catalogue.PolicyLocked = app.locked
 	// The persisted index is a disposable snapshot, never an authority on restart.
-	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), app.catalogue); err != nil {
+	if err := saveJSON(filepath.Join(app.loc.State, "index.json"), catalogue); err != nil {
 		log.Printf("Index cache: %v", err)
-		app.catalogue.Issues = append(app.catalogue.Issues, "Search index could not be saved; live browsing is still available.")
+		catalogue.Issues = append(catalogue.Issues, "Search index could not be saved; live browsing is still available.")
 	}
+	return catalogue
+}
+
+// refresh rediscovers the current workspace and swaps the result in under a short lock. The
+// workspace only changes under app.refreshing, so the result always belongs to it.
+func (app *Application) refresh() {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
+	catalogue := app.buildCatalogue(workspace)
+	app.mu.Lock()
+	app.catalogue = catalogue
+	app.mu.Unlock()
 }
 
 func jsonResponse(w http.ResponseWriter, value any) {
@@ -80,9 +102,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "/health":
 		jsonResponse(w, map[string]string{"application": "finalworkflow-issuer-library/1", "instance": digest([]byte(app.loc.State))})
 	case "/api/catalogue":
-		app.mu.RLock()
-		defer app.mu.RUnlock()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/workspace":
 		app.serveWorkspace(w)
 	default:
@@ -92,6 +112,20 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		app.serveAsset(w, r)
 	}
+}
+
+// writeCatalogue sends the current catalogue. It is encoded under the read lock and written
+// after it: a client that stops reading must not hold the lock the refresh ticker waits for.
+func (app *Application) writeCatalogue(w http.ResponseWriter) {
+	app.mu.RLock()
+	raw, err := json.Marshal(app.catalogue)
+	app.mu.RUnlock()
+	if err != nil {
+		http.Error(w, "Could not read the library", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_, _ = w.Write(append(raw, '\n'))
 }
 
 func (app *Application) serveWorkspace(w http.ResponseWriter) {
@@ -112,48 +146,23 @@ func (app *Application) serveWorkspace(w http.ResponseWriter) {
 	_, _ = w.Write(store)
 }
 
+// post handles the state-changing requests. Responses are written after app.mu is released.
 func (app *Application) post(w http.ResponseWriter, r *http.Request) {
-	app.mu.Lock()
-	defer app.mu.Unlock()
 	switch r.URL.Path {
 	case "/api/refresh":
-		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.refresh()
+		app.writeCatalogue(w)
 	case "/api/settings":
-		if len(app.activeJobs) > 0 {
-			http.Error(w, "Wait for the active run before changing its workspace", 409)
+		if status, message := app.changeSettings(w, r); status != http.StatusOK {
+			http.Error(w, message, status)
 			return
 		}
-		if app.locked {
-			http.Error(w, "Workspace is managed by IT", http.StatusForbidden)
-			return
-		}
-		var config Config
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&config); err != nil {
-			http.Error(w, "Invalid settings", http.StatusBadRequest)
-			return
-		}
-		if !filepath.IsAbs(config.Workspace) {
-			http.Error(w, "Enter an absolute workspace folder", http.StatusBadRequest)
-			return
-		}
-		config.Workspace = filepath.Clean(config.Workspace)
-		info, err := os.Stat(config.Workspace)
-		if err != nil || !info.IsDir() {
-			http.Error(w, "The workspace folder is unavailable", http.StatusBadRequest)
-			return
-		}
-		if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
-			http.Error(w, "Could not save settings", http.StatusInternalServerError)
-			return
-		}
-		app.config = config
-		app.refreshLocked()
-		jsonResponse(w, app.catalogue)
+		app.writeCatalogue(w)
 	case "/api/quit":
-		if len(app.activeJobs) > 0 {
+		app.mu.RLock()
+		active := len(app.activeJobs) > 0
+		app.mu.RUnlock()
+		if active {
 			http.Error(w, "A run is active. Keep the application open until it finishes or stops.", 409)
 			return
 		}
@@ -164,16 +173,63 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// changeSettings switches to the requested workspace, refusing with an HTTP status and message
+// while a run is active, under IT policy or for an unusable folder. The new workspace is
+// discovered without app.mu; the settings, configuration and catalogue then change together.
+func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (int, string) {
+	app.refreshing.Lock()
+	defer app.refreshing.Unlock()
+	app.mu.RLock()
+	active := len(app.activeJobs) > 0
+	app.mu.RUnlock()
+	if active {
+		return 409, "Wait for the active run before changing its workspace"
+	}
+	if app.locked {
+		return http.StatusForbidden, "Workspace is managed by IT"
+	}
+	var config Config
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&config); err != nil {
+		return http.StatusBadRequest, "Invalid settings"
+	}
+	if !filepath.IsAbs(config.Workspace) {
+		return http.StatusBadRequest, "Enter an absolute workspace folder"
+	}
+	config.Workspace = filepath.Clean(config.Workspace)
+	info, err := os.Stat(config.Workspace)
+	if err != nil || !info.IsDir() {
+		return http.StatusBadRequest, "The workspace folder is unavailable"
+	}
+	catalogue := app.buildCatalogue(config.Workspace)
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if len(app.activeJobs) > 0 { // A run started while the new workspace was being read.
+		return 409, "Wait for the active run before changing its workspace"
+	}
+	if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
+		return http.StatusInternalServerError, "Could not save settings"
+	}
+	app.config = config
+	app.catalogue = catalogue
+	app.adoptJobsLocked(config.Workspace)
+	return http.StatusOK, ""
+}
+
 func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/files/")
+	// Only the lookup holds the lock; reading, verifying and above all writing the file to a
+	// client that may stop reading happen after it is released.
 	app.mu.RLock()
-	defer app.mu.RUnlock()
 	hash, allowed := app.catalogue.Allowed[name]
+	workspace := app.config.Workspace
+	app.mu.RUnlock()
 	if !allowed || !localPath(name) {
 		http.NotFound(w, r)
 		return
 	}
-	root, err := os.OpenRoot(app.config.Workspace)
+	root, err := os.OpenRoot(workspace)
 	if err != nil {
 		http.Error(w, "Workspace unavailable", http.StatusGone)
 		return
@@ -315,6 +371,7 @@ func newApplication(loc Locations, override string) (*Application, error) {
 		return nil, err
 	}
 	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
-	app.refreshLocked()
+	app.catalogue = app.buildCatalogue(config.Workspace)
+	app.adoptJobsLocked(config.Workspace)
 	return app, nil
 }

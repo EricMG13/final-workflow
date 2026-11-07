@@ -472,3 +472,200 @@ func TestReviewRunDeliveryIdentityAdversarial(t *testing.T) {
 		}
 	}
 }
+
+// admitsMetric reports whether discovery admits value as the revenue metric quoted by quote.
+func admitsMetric(t *testing.T, quote, value string) bool {
+	t.Helper()
+	root, manifest := fixture(t)
+	manifest.Run.Metrics["revenue"].Value = value
+	raw := []byte("Issuer: Example Industries\nSector: Industrials\n" + quote + "\nVerified scope\n")
+	put(t, root, "runs/case-a/CP-0.md", raw)
+	for key, source := range manifest.Sources {
+		source.SHA256 = digest(raw)
+		if key == "revenue" {
+			source.Quote = quote
+		}
+		manifest.Sources[key] = source
+	}
+	putJSON(t, root, "runs/case-a/library.json", manifest)
+	for _, run := range discover(root, Catalogue{}).Real {
+		if run.ID == "case-a" {
+			return run.Metrics["revenue"] != nil
+		}
+	}
+	return false
+}
+
+// A03: a metric must equal a whole number the quote states, sign and scale included; a
+// fragment of a date, range, list or other-convention figure is not evidence of it.
+func TestMetricMustBeAWholeNumberOfTheQuoteWithItsSignAndScale(t *testing.T) {
+	for _, c := range []struct {
+		quote, value string
+		admitted     bool
+	}{
+		// The reported fragments (all admitted before the fix).
+		{"Net loss: (12.3)", "12.3", false},
+		{"As of 2024-12-31 net debt was 450", "-12", false},
+		{"Guidance: margin 3-5%", "-5", false},
+		{"Yield: .5%", "5", false},
+		{"Covenant tests 1,2,3 passed", "123", false},
+		{"Revenue 1.234,5 (EUR format)", "1.234", false},
+		// Whole numbers keep their sign, thousands grouping and decimals.
+		{"Net loss: (12.3)", "-12.3", true},
+		{"Net sales | 7,940 | 6,585", "7940", true},
+		{"Closing cash | -1,676 | x", "-1676", true},
+		{"Leverage 5.96x", "5.96", true},
+		{"As Defined 4,685.", "4685", true},
+		{"Revenue USD 1,234.5m, up 4%", "1234.5", true},
+		{"Revenue 450, 500 and 600.", "500", true},
+		{"As of 2024-12-31 net debt was 450", "450", true},
+		// Dates, ranges and lists state none of their parts.
+		{"As of 2024-12-31 net debt was 450", "2024", false},
+		{"As of 2024-12-31 net debt was 450", "12", false},
+		{"Guidance: margin 3-5%", "3", false},
+		{"Guidance: margin 3–5%", "5", false},
+		{"Covenant tests 1,2,3 passed", "1", false},
+		{"COVID-19 costs", "-19", false},
+		{"COVID-19 costs", "19", false},
+		// A typographic minus or a sign inside parentheses is not dropped.
+		{"Net loss −12.3", "12.3", false},
+		{"Net loss: (-12.3)", "-12.3", false},
+		{"Net loss: (-12.3)", "12.3", false},
+		{"Net loss (USD 12.3m)", "12.3", false},
+		{"Net loss (USD 12.3m)", "-12.3", false},
+		{"Net loss (12.3m)", "12.3", false},
+		{"Net change -(12.3)", "-12.3", false},
+		{"Net change -(12.3)", "12.3", false},
+		{"Net loss (12.3).", "-12.3", true},
+		{"| Net loss | (1,676) |", "-1676", true},
+		{"Net loss (12.3)5", "-12.3", false},
+		{"Net loss –(12.3)", "-12.3", false},
+		// Other separator conventions and malformed groups are refused, never truncated.
+		{"Revenue 1.234,5", "1234.5", false},
+		{"Revenue 1.234.567", "1.234", false},
+		{"Revenue 1,2345", "1", false},
+		{"Revenue 12,34", "12", false},
+		{"Revenue 1 234,5", "1", false},
+		{"Revenue 1 234 567", "234", false},
+		{"Revenue 1 234 567", "1", false},
+		{"Umsatz 1 234,5", "1", false},
+		{"Revenue 1'234.5", "234.5", false},
+		{"Yield: .5%", ".5", false},
+		// Exponents and a parenthesis opened before the quote also hide scale or sign.
+		{"Notional 1.2e3", "1.2", false},
+		{"Notional 1.2E+3", "3", false},
+		{"Notional 1.2e-3", "-3", false},
+		{"USD 12.3)", "12.3", false},
+		{"Revenue 450 (2023: 400)", "450", true},
+		{"Revenue 450 (2023: 400)", "400", false},
+	} {
+		if got := admitsMetric(t, c.quote, c.value); got != c.admitted {
+			t.Errorf("quote %q value %q: admitted=%v, want %v", c.quote, c.value, got, c.admitted)
+		}
+	}
+}
+
+// C09: a run manifest that declares its own runs/<id>/deliveries/<v> folder gets that delivery
+// once: the verified entry replaces the declared one, keeping its label, relationship and a
+// superseded state; a refused delivery stays one unavailable entry with the refusal.
+func TestDeclaredRunDeliveryIsListedOnce(t *testing.T) {
+	root, manifest := fixture(t)
+	own, superseded, foreign := "runs/case-a/deliveries/v1", "runs/case-a/deliveries/v0", "runs/case-a/deliveries/vx"
+	manifest.Run.Artifacts = []Artifact{
+		{Folder: own, Label: "Annual report", State: "candidate", Relationship: "related"},
+		{Folder: superseded, Label: "Earlier", State: "superseded", Relationship: "direct"},
+		{Folder: foreign, Label: "Copied", State: "candidate", Relationship: "direct"},
+	}
+	putJSON(t, root, "runs/case-a/library.json", manifest)
+	addDelivery(t, root, "v1", "case-a", "EX")
+	addDelivery(t, root, "v0", "case-a", "EX")
+	addDelivery(t, root, "vx", "other-run", "EX")
+	for _, folder := range []string{"v1", "v0", "vx"} {
+		moveDelivery(t, root, folder, "case-a")
+	}
+	cat := discover(root, Catalogue{})
+	listed := map[string][]Artifact{}
+	for _, run := range cat.Real {
+		for _, artifact := range run.Artifacts {
+			listed[artifact.Folder] = append(listed[artifact.Folder], artifact)
+		}
+	}
+	for folder, want := range map[string]Artifact{
+		own:        {Label: "Annual report", State: "candidate", Relationship: "related", Available: true},
+		superseded: {Label: "Earlier", State: "superseded", Relationship: "direct", Available: true},
+		foreign:    {Label: "Copied", State: "candidate", Relationship: "direct", Issue: "Delivery run identity does not match this run"},
+	} {
+		got := listed[folder]
+		if len(got) != 1 {
+			t.Errorf("%s listed %d times: %+v", folder, len(got), got)
+			continue
+		}
+		a := got[0]
+		if a.Label != want.Label || a.State != want.State || a.Relationship != want.Relationship || a.Available != want.Available || a.Issue != want.Issue || (a.Href != "") != want.Available {
+			t.Errorf("%s: %+v, want %+v", folder, a, want)
+		}
+	}
+	if cat.Allowed[own+"/report.html"] == "" || cat.Allowed[foreign+"/report.html"] != "" {
+		t.Errorf("pins: own=%q foreign=%q", cat.Allowed[own+"/report.html"], cat.Allowed[foreign+"/report.html"])
+	}
+}
+
+// A03 review: hand-derived readings of accounting, grouping, percentage, year and currency forms,
+// and that every curated legacy metric is still stated by its own quote.
+func TestStatedNumbersAdversarial(t *testing.T) {
+	for _, c := range []struct {
+		quote string
+		want  []string
+	}{
+		{"Revenue $1,234.50 million", []string{"1234.50"}},
+		{"Loss of $(1,234)", []string{"-1234"}},
+		{"(1,234) and (567)", []string{"-1234", "-567"}},
+		{"up 12.5% from 11.9%", []string{"12.5", "11.9"}},
+		{"FY2023 revenue of 5,000 vs 4,500 in FY2022", []string{"2023", "5000", "4500", "2022"}},
+		{"EUR 1.234,56", nil},
+		{"CHF 1'234.50", nil},
+		{"INR 1,23,456", nil},
+		{"EUR -45.2m", []string{"-45.2"}},
+		{"Loss -$5", nil},
+		{"Loss −$5", nil},
+		{"Loss $-5", []string{"-5"}},
+		{"Loss -€1,200.", nil},
+		{"Gain $5", []string{"5"}},
+		{"1,000.5.", []string{"1000.5"}},
+		{"10,000,000", []string{"10000000"}},
+		{"1,000,00", nil},
+		{"1,0000", nil},
+		{"(12.5%)", nil},
+		{"rose 3.5 points (from 2.1)", []string{"3.5"}},
+		{"5 - 3", []string{"5", "3"}},
+		{"Q2 2024 EBITDA 1,200", []string{"2", "2024", "1200"}},
+		{"2023/24 sales 9", []string{"9"}},
+		{"As of 12/31/2024 cash 450", []string{"450"}},
+	} {
+		if got := statedNumbers(c.quote); !slices.Equal(got, c.want) {
+			t.Errorf("%q: %v want %v", c.quote, got, c.want)
+		}
+	}
+}
+
+func TestSeedMetricsAllStated(t *testing.T) {
+	var seeds Catalogue
+	raw, _ := resources.ReadFile("web/legacy-catalog.json")
+	if err := json.Unmarshal(raw, &seeds); err != nil {
+		t.Fatal(err)
+	}
+	n := 0
+	for _, run := range seeds.Real {
+		for k, m := range run.Metrics {
+			if m == nil {
+				continue
+			}
+			q := seeds.Sources[m.Source].Quote
+			n++
+			if !slices.Contains(statedNumbers(q), m.Value) {
+				t.Errorf("%s/%s value %q quote %q", run.ID, k, m.Value, q)
+			}
+		}
+	}
+	t.Log(n)
+}

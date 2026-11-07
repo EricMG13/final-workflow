@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func testApp(t *testing.T) (*Application, string) {
@@ -567,5 +568,188 @@ func TestReviewEmbeddedGlyphReportOverHTTP(t *testing.T) {
 	saved := call(app, "GET", href+"&download=1", "")
 	if !bytes.Equal(saved.Body.Bytes(), report) || !strings.HasSuffix(saved.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Fatal("download must be the exact original with frame-ancestors 'none'")
+	}
+}
+
+// A09: Windows PowerShell 5.1 writes "UTF8" files with a byte order mark. One leading BOM is
+// accepted in the managed and the per-user settings; anything else invalid still fails closed.
+func TestSettingsAcceptOneLeadingByteOrderMark(t *testing.T) {
+	bom := "\xef\xbb\xbf"
+	workspace := t.TempDir()
+	valid := `{"workspace": ` + jsonQuote(workspace) + `}`
+	for _, c := range []struct {
+		name, content string
+		ok            bool
+	}{
+		{"bom", bom + valid, true},
+		{"plain", valid, true},
+		{"bom-only", bom, false},
+		{"double-bom", bom + bom + valid, false},
+		{"bom-then-garbage", bom + "{", false},
+		{"bom-relative", bom + `{"workspace": "relative"}`, false},
+		{"utf16-bom", "\xff\xfe" + valid, false},
+	} {
+		for _, managed := range []bool{true, false} {
+			loc := Locations{State: t.TempDir(), Policy: filepath.Join(t.TempDir(), "settings.json"), Documents: t.TempDir()}
+			file := filepath.Join(loc.State, "settings.json")
+			if managed {
+				file = loc.Policy
+			}
+			if err := os.WriteFile(file, []byte(c.content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			config, locked, err := loadConfig(loc)
+			if (err == nil) != c.ok {
+				t.Errorf("%s (managed=%v): err=%v, want ok=%v", c.name, managed, err, c.ok)
+				continue
+			}
+			if c.ok && (config.Workspace != workspace || locked != managed) {
+				t.Errorf("%s (managed=%v): config=%+v locked=%v", c.name, managed, config, locked)
+			}
+		}
+	}
+}
+
+func jsonQuote(value string) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
+}
+
+// stalledWriter is a client that never reads: Write blocks until release is closed.
+type stalledWriter struct {
+	header  http.Header
+	writing chan struct{}
+	release chan struct{}
+	once    sync.Once
+}
+
+func (w *stalledWriter) Header() http.Header { return w.header }
+func (w *stalledWriter) WriteHeader(int)     {}
+func (w *stalledWriter) Write(p []byte) (int, error) {
+	w.once.Do(func() { close(w.writing) })
+	<-w.release
+	return len(p), nil
+}
+
+// C07: no response is written while the catalogue lock is held, so a stalled client cannot
+// stop the refresh ticker (a writer) and with it every request that reads the catalogue.
+func TestStalledClientDoesNotHoldTheCatalogueLock(t *testing.T) {
+	app, root := testApp(t)
+	put(t, root, "runs/case-a/big.txt", bytes.Repeat([]byte("a"), 1<<20))
+	call(app, "POST", "/api/refresh", "{}")
+	pinned := app.catalogue.Real[0].Artifacts[0].Href
+	for _, c := range []struct{ method, endpoint string }{
+		{"GET", "/files/runs/case-a/big.txt"},
+		{"GET", pinned + "&embedded=1"},
+		{"GET", "/api/catalogue"},
+		{"POST", "/api/refresh"},
+	} {
+		request := httptest.NewRequest(c.method, "http://"+app.host+c.endpoint, strings.NewReader("{}"))
+		request.Header.Set("X-Issuer-Library", "1")
+		request.Header.Set("Content-Type", "application/json")
+		w := &stalledWriter{header: http.Header{}, writing: make(chan struct{}), release: make(chan struct{})}
+		served := make(chan struct{})
+		go func() { app.ServeHTTP(w, request); close(served) }()
+		select {
+		case <-w.writing:
+		case <-served:
+			t.Fatalf("%s %s finished without writing", c.method, c.endpoint)
+		}
+		locked := make(chan struct{})
+		go func() { app.mu.Lock(); close(locked); app.mu.Unlock() }()
+		select {
+		case <-locked:
+		case <-time.After(2 * time.Second):
+			t.Errorf("%s %s: the catalogue lock is held while the response is written", c.method, c.endpoint)
+		}
+		close(w.release)
+		<-served
+		<-locked
+	}
+}
+
+// blockDiscovery makes discovery of workspace wait until release is closed; entered is closed
+// when it starts. Other workspaces are discovered as usual.
+func blockDiscovery(t *testing.T, workspace string) (entered, release chan struct{}) {
+	t.Helper()
+	entered, release = make(chan struct{}), make(chan struct{})
+	saved := discoverWorkspace
+	var once sync.Once
+	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+		if folder == workspace {
+			once.Do(func() { close(entered) })
+			<-release
+		}
+		return saved(folder, seeds)
+	}
+	t.Cleanup(func() { discoverWorkspace = saved })
+	return entered, release
+}
+
+func lockWithin(t *testing.T, app *Application, what string) {
+	t.Helper()
+	locked := make(chan struct{})
+	go func() { app.mu.Lock(); close(locked); app.mu.Unlock() }()
+	select {
+	case <-locked:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("%s holds the catalogue lock", what)
+	}
+}
+
+// C11: discovery hashes every pinned file, so it runs without the catalogue lock; requests are
+// served from the previous catalogue meanwhile and only the swap is locked.
+func TestRefreshDiscoversWithoutHoldingTheCatalogueLock(t *testing.T) {
+	app, root := testApp(t)
+	put(t, root, "runs/added/CP-0.md", []byte("added"))
+	entered, release := blockDiscovery(t, root)
+	done := make(chan *httptest.ResponseRecorder)
+	go func() { done <- call(app, "POST", "/api/refresh", "{}") }()
+	<-entered
+	lockWithin(t, app, "a refresh in discovery")
+	var during Catalogue
+	if response := call(app, "GET", "/api/catalogue", ""); response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &during) != nil || len(during.Real) != 1 {
+		t.Fatalf("catalogue during discovery: %d %s", response.Code, response.Body.String())
+	}
+	if response := call(app, "GET", "/files/runs/case-a/CP-0.md", ""); response.Code != 200 {
+		t.Fatalf("file during discovery: %d", response.Code)
+	}
+	close(release)
+	var after Catalogue
+	if response := <-done; json.Unmarshal(response.Body.Bytes(), &after) != nil || len(after.Real) != 2 {
+		t.Fatalf("refresh result: %s", response.Body.String())
+	}
+}
+
+// C11: a workspace switch waits for a refresh already discovering the old workspace, and the
+// old workspace's catalogue never replaces the new one; the switch itself discovers unlocked.
+func TestWorkspaceSwitchDuringARefreshKeepsTheNewWorkspace(t *testing.T) {
+	app, root := testApp(t)
+	other := t.TempDir()
+	put(t, other, "runs/other/CP-0.md", []byte("other"))
+	oldEntered, oldRelease := blockDiscovery(t, root)
+	refreshed := make(chan struct{})
+	go func() { call(app, "POST", "/api/refresh", "{}"); close(refreshed) }()
+	<-oldEntered
+	newEntered, newRelease := blockDiscovery(t, other)
+	switched := make(chan *httptest.ResponseRecorder)
+	raw, _ := json.Marshal(Config{Workspace: other})
+	go func() { switched <- call(app, "POST", "/api/settings", string(raw)) }()
+	close(oldRelease)
+	<-refreshed
+	<-newEntered
+	lockWithin(t, app, "a workspace switch in discovery")
+	close(newRelease)
+	if response := <-switched; response.Code != 200 {
+		t.Fatalf("switch: %d %s", response.Code, response.Body.String())
+	}
+	app.mu.RLock()
+	workspace, catalogueWorkspace := app.config.Workspace, app.catalogue.Workspace
+	app.mu.RUnlock()
+	if workspace != other || catalogueWorkspace != other {
+		t.Fatalf("config %s, catalogue %s; want %s", workspace, catalogueWorkspace, other)
+	}
+	if response := call(app, "GET", "/files/runs/case-a/CP-0.md", ""); response.Code != 404 {
+		t.Fatalf("old workspace file still admitted: %d", response.Code)
 	}
 }

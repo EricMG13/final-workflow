@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func run() error {
+func run() (err error) {
 	workspace := flag.String("workspace", "", "Workspace folder (disabled by IT policy)")
 	state := flag.String("state-dir", "", "Override per-user state directory for testing")
 	noBrowser := flag.Bool("no-browser", false, "Start without opening a browser")
@@ -42,8 +42,15 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer logFile.Close()
 	log.SetOutput(logFile)
+	defer func() {
+		// main reports the error once this file is closed, so record it here first.
+		if err != nil {
+			log.Print(err)
+		}
+		log.SetOutput(os.Stderr)
+		logFile.Close()
+	}()
 	if *port == 0 {
 		*port = 49000 + int(crc32.ChecksumIEEE([]byte(loc.State))%10000)
 	}
@@ -100,9 +107,7 @@ func run() error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				app.mu.Lock()
-				app.refreshLocked()
-				app.mu.Unlock()
+				app.refresh()
 			}
 		}
 	}()

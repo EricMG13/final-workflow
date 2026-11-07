@@ -755,8 +755,14 @@ TABLES = {
     "T2B.9": "Gaps ledger",
 }
 CP1_REFERENCES = "cp1_references"
-# T2B.7 is the one table that can be empty (no break ranks), so its columns are fixed.
+# T2B.7 is the one table that can be empty (no break ranks), so its columns are fixed. T2B.2's
+# value facts carry their row's label (EBITDA, Total debt, ...), so its columns are fixed too
+# (S06-cp2-ade-C04: the first row's label would head every row's value "EBITDA").
 FIXED_COLUMNS: Mapping[str, tuple[TableColumn, ...]] = {
+    "T2B.2": (
+        TableColumn(field="value", label="Value"),
+        TableColumn(field="source", label="Source"),
+    ),
     "T2B.7": (
         TableColumn(field="break_point", label="Break point"),
         TableColumn(field="required_decline", label="Required EBITDA decline"),

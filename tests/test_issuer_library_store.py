@@ -1069,7 +1069,7 @@ ANNUAL_MD = (
     "### Debt\n\n| Instrument | Sep 30, 2024 amount / status | Terms |\n|---|---|---|\n"
     "| Trade receivable securitization | Gross 121; carrying 120; commitment 650 | x |\n"
     "| Term loans aggregate | Principal 1,100; carrying 1,000 after costs | x |\n"
-    "| Revolving credit facility | Commitment 910; carrying 5 | x |\n"
+    "| Revolving credit facility | Commitment 910; drawn 5 | x |\n"
     "| 6% secured notes due 2030 | Principal 500; carrying 500 | x |\n"
     "| 5% senior subordinated notes due 2029 | Principal 300; carrying 300 | x |\n"
 )
@@ -1258,15 +1258,12 @@ def test_columns_are_quarters_then_fiscal_years_then_base_case_and_downside(tmp_
 def test_a_later_quarter_that_is_not_the_first_is_labelled_by_its_dates(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
     assert cashflow["columns"][1]["label"] == "2025-01-01–2025-03-31"
+    # The forecast's planning_start no longer decides a quarter's label: only the period register does.
     forecast = exact_record()
     for case in forecast["outputs"].values():
         case["years"][0]["planning_start"] = "2025-07-01"
     cashflow, _ = cashflow_of(tmp_path, exact=forecast)
-    assert [c["label"] for c in cashflow["columns"][:3]] == [
-        "2024-10-01–2024-12-31",
-        "2025-01-01–2025-03-31",
-        "2025-10-01–2025-12-31",
-    ]
+    assert [c["label"] for c in cashflow["columns"][:3]] == QUARTER_LABELS
 
 
 def test_business_units_come_from_the_total_rows_with_hostile_text_literal(tmp_path):
@@ -1354,29 +1351,49 @@ def test_cells_carry_exact_values_and_the_reason_for_every_gap(tmp_path):
     def cell(label, index):
         return row(cashflow, label)["cells"][index]
 
-    assert cell("<b>Alpha</b>", 2) == {"exact": "120", "display": "120", "reason": None}
+    assert cell("<b>Alpha</b>", 2) == {
+        "exact": "120",
+        "display": "120",
+        "reason": None,
+        "status": "value",
+    }
     assert cell("EBIT (income from operations)", 2) == {
-        "exact": "-30", "display": "(30)", "reason": None,
+        "exact": "-30", "display": "(30)", "reason": None, "status": "value",
     }  # fmt: skip
     assert cell("Other, net", 0) == {
-        "exact": None, "display": DASH, "reason": "printed as — in the source",
+        "exact": None, "display": DASH, "reason": "printed as — in the source", "status": "gap",
     }  # fmt: skip
-    assert cell("Acquisition costs", 1) == {"exact": None, "display": DASH, "reason": None}
+    assert cell("Acquisition costs", 1) == {
+        "exact": None,
+        "display": DASH,
+        "reason": None,
+        "status": "gap",
+    }
     assert cell("COGS (cost of sales)", 1) == {
-        "exact": None, "display": NA, "reason": "source cell is not a number",
+        "exact": None, "display": NA, "reason": "source cell is not a number", "status": "na",
     }  # fmt: skip
     assert cell("Issuer EBITDA (reported)", 4)["reason"] == "not reported in the source"
     assert (
         cell("Closing debt (carrying value)", 4)["reason"] == "a component is not in the handoffs"
     )
-    assert cell("Cash taxes", 4) == {"exact": None, "display": NA, "reason": HOSTILE}
+    assert cell("Cash taxes", 4) == {
+        "exact": None,
+        "display": NA,
+        "reason": HOSTILE,
+        "status": "na",
+    }
     assert cell("Undrawn facility", 5)["reason"] == "No facility"
     assert cell("Capital expenditure (outflow)", 3)["exact"] == "40"
     assert cell("Revenue YoY growth", 0)["reason"] == "prior-year period not in the handoffs"
-    assert cell("Revenue YoY growth", 4) == {"exact": "0.1", "display": "10.00%", "reason": None}
+    assert cell("Revenue YoY growth", 4) == {
+        "exact": "0.1",
+        "display": "10.00%",
+        "reason": None,
+        "status": "value",
+    }
     assert cell("Adj EBITDA margin", 1)["exact"] == "0.5333333333333333333333333333"
     assert cell("Cash interest", 6) == {
-        "exact": None, "display": NM, "reason": "not modelled in the calculation record",
+        "exact": None, "display": NM, "reason": "not modelled in the calculation record", "status": "nm",
     }  # fmt: skip
     assert cell("Cash taxes", 5)["display"] == NM
     gamma = cell("Gamma YoY growth", 2)
@@ -1415,10 +1432,8 @@ def test_notes_are_the_seven_fixed_lines_and_the_q1_note_needs_a_ytd_column(tmp_
     cashflow, _ = cashflow_of(tmp_path)
     assert cashflow["notes"] == ANSWER_KEY["notes"]
     assert len(cashflow["notes"]) == 7
-    forecast = exact_record()
-    for case in forecast["outputs"].values():
-        case["years"][0]["planning_start"] = "2025-07-01"
-    cashflow, _ = cashflow_of(tmp_path, exact=forecast)
+    annual = ANNUAL_MD.replace("2024-09-30", "2024-09-29").replace("2025-09-30", "2025-09-29")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
     assert cashflow["notes"] == ANSWER_KEY["notes"][1:]
 
 
@@ -1994,3 +2009,256 @@ def test_each_handoff_is_read_once_per_page_load(tmp_path, monkeypatch):
     assert result["outputs"]["launched/deliveries/abc/CP-0.md"]["sha256"] == (
         hashlib.sha256(BETA.encode()).hexdigest()
     )
+
+
+# Task 14: limits, Q1/YTD labelling, adjacent-year growth, debt classification, layout errors,
+# row kinds, cell status and column ytd. Expected strings are written here, not computed by the store.
+def quarter_table_head(*periods):
+    return f"| Source row | Label | {' | '.join(periods)} |\n|{'---|' * (len(periods) + 2)}\n"
+
+
+def with_quarter_columns(*periods):
+    return QUARTER_MD.replace(QUARTER_HEAD, quarter_table_head(*periods))
+
+
+def limit_issue(file, what, found, limit):
+    return (
+        f"deliverables/m-1: {file} exceeds the cash flow model's limits ({what}, {found} > {limit})"
+    )
+
+
+def cashflow_issue_texts(tmp_path, exact=None, extra=None):
+    artifact = model_delivery(
+        tmp_path,
+        "deliverables/m-1",
+        forecast=REQUEST,
+        exact=exact_record() if exact is None else exact,
+        extra=cashflow_files() if extra is None else extra,
+    )
+    result = models_of(tmp_path, artifact)
+    return result["models"][0]["cashflow"], [i for i in result["issues"] if "m-1" in i]
+
+
+def quarters_of(count):
+    return [
+        f"{2000 + n // 4}-{n % 4 * 3 + 1:02d}-01–{2000 + n // 4}-{n % 4 * 3 + 1:02d}-28"
+        for n in range(count)
+    ]
+
+
+def test_forty_quarter_columns_are_read_and_forty_one_are_refused(tmp_path):
+    cashflow, issues = cashflow_issue_texts(
+        tmp_path, extra=cashflow_files(quarter=with_quarter_columns(*quarters_of(40)))
+    )
+    assert issues == [] and len([c for c in cashflow["columns"] if c["group"] == "Quarter"]) == 40
+    cashflow, issues = cashflow_issue_texts(
+        tmp_path, extra=cashflow_files(quarter=with_quarter_columns(*quarters_of(41)))
+    )
+    assert cashflow is None
+    assert issues == [limit_issue("quarter.md", "quarter columns", 41, 40)]
+
+
+def test_twenty_one_forecast_years_in_a_case_are_refused(tmp_path):
+    exact = exact_record()
+    exact["outputs"]["REFERENCE"]["years"] = [
+        forecast_year("1", "1", year=2026 + n) for n in range(21)
+    ]
+    cashflow, issues = cashflow_issue_texts(tmp_path, exact=exact)
+    assert cashflow is None
+    assert issues == [limit_issue("forecast_exact.json", "forecast years in REFERENCE", 21, 20)]
+    exact["outputs"]["REFERENCE"]["years"].pop()
+    cashflow, issues = cashflow_issue_texts(tmp_path, exact=exact)
+    assert issues == [] and len(cashflow["columns"]) == 3 + 2 + 20 + 1
+
+
+def test_more_than_200_business_units_or_add_backs_are_refused(tmp_path):
+    units = "".join(f"| Total Unit {n} | 1 | 1 |\n" for n in range(201))
+    annual = ANNUAL_MD.replace("| Net Sales | 1,100", units + "| Net Sales | 1,100")
+    cashflow, issues = cashflow_issue_texts(tmp_path, extra=cashflow_files(annual=annual))
+    assert cashflow is None
+    assert issues == [limit_issue("annual.md", "business-unit rows", 204, 200)]
+    backs = "".join(f"| Back {n} | 1 | 1 |\n" for n in range(201))
+    annual = ANNUAL_MD.replace("| Acquisition costs | 20", backs + "| Acquisition costs | 20")
+    cashflow, issues = cashflow_issue_texts(tmp_path, extra=cashflow_files(annual=annual))
+    assert cashflow is None
+    assert issues == [limit_issue("annual.md", "add-back rows", 203, 200)]
+
+
+def test_a_table_of_more_than_2000_rows_is_refused_before_any_cell_is_built(tmp_path):
+    rows = "".join(f"| Row {n} | 1 | 1 |\n" for n in range(2001))
+    annual = ANNUAL_MD + "\n### Long\n\n" + ANNUAL_HEAD + rows
+    cashflow, issues = cashflow_issue_texts(tmp_path, extra=cashflow_files(annual=annual))
+    assert cashflow is None
+    assert issues == [limit_issue("annual.md", "table rows", 2001, 2000)]
+    quarter = (
+        QUARTER_MD + "\n" + QUARTER_HEAD + "".join(f"| {n} | Row | 1 |\n" for n in range(2001))
+    )
+    cashflow, issues = cashflow_issue_texts(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert issues == [limit_issue("quarter.md", "table rows", 2001, 2000)]
+
+
+def test_deduplication_does_not_use_list_membership():
+    import inspect
+
+    source = inspect.getsource(store.listed_labels) + inspect.getsource(store.cashflow_rows)
+    assert " not in units" not in source and "not in labels" not in source
+
+
+YTD_REGISTER = (
+    "| FY2023 | Historical duration | 2022-12-27 | 2024-01-01 |\n"
+    "| FY2024 | Historical duration | 2023-10-01 | 2024-09-30 |\n"
+)
+
+
+def columns_of(cashflow):
+    return [(c["label"], c["ytd"]) for c in cashflow["columns"] if c["group"] == "Quarter"]
+
+
+def test_a_year_to_date_column_longer_than_a_quarter_is_not_labelled_q1(tmp_path):
+    quarter = with_quarter_columns(
+        "2025-10-01–2025-12-31", "2024-10-01–2024-12-31", "2025-10-01–2026-03-31"
+    )
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert issues == []
+    assert columns_of(cashflow) == [
+        ("Q1 FY2025 (YTD)", True),
+        ("Q1 FY2026 (YTD)", True),
+        ("2025-10-01–2026-03-31", False),
+    ]
+    growth = row(cashflow, "Revenue YoY growth")["cells"]
+    assert [(c["display"], c["reason"]) for c in growth[:3]] == [
+        (NA, "prior-year period not in the handoffs"),
+        ("100.00%", None),
+        (NA, "prior-year period not in the handoffs"),
+    ]
+
+
+def test_a_quarter_is_q1_only_after_a_fiscal_year_end_in_the_register(tmp_path):
+    # Starts 1 January but no fiscal year is recorded as ending on 31 December: dates, not Q1.
+    quarter = with_quarter_columns("2025-01-01–2025-03-31", "2024-10-01–2024-12-31")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert columns_of(cashflow) == [("Q1 FY2025 (YTD)", True), ("2025-01-01–2025-03-31", False)]
+    # A 52/53-week year ending 1 January 2024 makes the quarter starting 2 January Q1 of FY2024.
+    annual = ANNUAL_MD.replace(
+        "| FY2024 | Historical duration | 2023-10-01 | 2024-09-30 |\n", YTD_REGISTER
+    )
+    quarter = with_quarter_columns("2024-01-02–2024-03-30")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual, quarter=quarter))
+    assert columns_of(cashflow) == [("Q1 FY2024 (YTD)", True)]
+
+
+def test_the_q1_prior_is_the_previous_fiscal_years_q1_and_other_quarters_have_none(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    growth = row(cashflow, "Revenue YoY growth")["cells"]
+    assert [c["display"] for c in growth[:3]] == [NA, NA, "100.00%"]
+    assert [c["ytd"] for c in cashflow["columns"]] == [True, False, True] + [False] * 4
+
+
+def test_growth_is_computed_only_between_adjacent_years(tmp_path):
+    calculation = calculation_record()
+    calculation["values"] = {
+        "FY2023": calculation["values"]["FY2024"],
+        "FY2025": calculation["values"]["FY2025"],
+    }
+    calculation["annual_periods"] = ["FY2023", "FY2025"]
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(calculation))
+    cells = row(cashflow, "Revenue YoY growth")["cells"]
+    labels = [c["label"] for c in cashflow["columns"]]
+    assert (cells[labels.index("FY2025")]["display"], cells[labels.index("FY2025")]["reason"]) == (
+        NA,
+        "prior-year period not in the handoffs",
+    )
+    # The first forecast year follows FY2025 only when it is FY2026E.
+    assert cells[labels.index("FY2026E")]["display"] == "8.00%"
+    exact = exact_record()
+    for case in ("REFERENCE", "DOWNSIDE"):
+        exact["outputs"][case]["years"] = [
+            forecast_year("1188", "891", year=2027),
+            forecast_year("1300", "891", year=2028),
+            forecast_year("1400", "891", year=2030),
+        ]
+    cashflow, _ = cashflow_of(tmp_path, exact=exact)
+    labels = [c["label"] for c in cashflow["columns"]]
+    cells = row(cashflow, "Revenue YoY growth")["cells"]
+    base = labels.index("FY2027E")
+    assert [cells[base + n]["display"] for n in range(3)] == [NA, "9.43%", NA]
+    assert (
+        cells[base]["reason"]
+        == cells[base + 2]["reason"]
+        == "prior-year period not in the handoffs"
+    )
+
+
+def test_debt_register_labels_match_case_insensitively(tmp_path):
+    annual = ANNUAL_MD.replace("6% secured notes due 2030", "6% Secured Notes due 2030")
+    annual = annual.replace("5% senior subordinated", "5% Senior SUBORDINATED")
+    annual = annual.replace("| Term loans aggregate |", "| TERM LOANS Aggregate |")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["exact"]) == ("3.00x", "3")
+
+
+def test_a_register_row_with_a_carrying_value_that_is_not_classified_makes_leverage_na(tmp_path):
+    annual = ANNUAL_MD.replace("Commitment 910; drawn 5", "Commitment 910; carrying 5")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["reason"]) == (
+        NA,
+        "the debt register has a row that cannot be classified: Revolving credit facility",
+    )
+    annual = ANNUAL_MD.replace(
+        "| 5% senior", "| TOTAL notes | Subtotal; carrying 800 | x |\n| 5% senior"
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert cell["display"] == "3.00x"
+
+
+def test_a_layout_failure_names_its_cause_and_input_failures_keep_their_file(tmp_path, monkeypatch):
+    early = ("early", "X", "Early margin", "percent", *store.every(("margin", "later")))
+    monkeypatch.setattr(store, "TAIL_ROWS", (early, *store.TAIL_ROWS))
+    cashflow, issues = cashflow_issue_texts(tmp_path)
+    assert cashflow is None
+    assert issues == [
+        "deliverables/m-1: the cash flow model could not be laid out (KeyError: 'later')"
+    ]
+    monkeypatch.undo()
+    cashflow, issues = cashflow_issue_texts(tmp_path, exact="{")
+    assert issues == ["deliverables/m-1: forecast_exact.json is missing or unreadable"]
+
+
+def test_a_table_cell_keeps_its_rows_kind():
+    table = {"rows": {"Margin": ["Margin", "0.25"], "A": ["A", "1"], "B": ["B", "0.5"]}}
+    table["periods"] = {("fy", "FY2024"): 1}
+    ctx, column = {"tables": {"t": table}}, {"period": ("fy", "FY2024")}
+    assert store.op_table(ctx, column, 0, {}, "percent", "t", "Margin")["display"] == "25.00%"
+    summed = store.op_table_sum(ctx, column, 0, {}, "percent", "t", "A", "B")
+    assert summed["display"] == "150.00%"
+
+
+def test_every_cell_carries_a_status_that_matches_what_it_shows(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    expected = {NA: "na", NM: "nm", DASH: "gap"}
+    seen = set()
+    for line in cashflow["rows"]:
+        for cell in line["cells"]:
+            assert cell["status"] == expected.get(cell["display"], "value")
+            seen.add(cell["status"])
+    assert seen == {"value", "gap", "na", "nm"}
+
+
+def test_a_source_cell_printed_as_a_dash_is_a_gap_with_its_reason(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    cell = row(cashflow, "Other, net")["cells"][0]
+    assert (cell["status"], cell["display"], cell["reason"]) == (
+        "gap",
+        DASH,
+        "printed as — in the source",
+    )
+
+
+def test_the_handoff_labels_the_reader_matches_are_one_mapping():
+    assert store.CASHFLOW_LABELS["revenue"] == "NET SALES"
+    assert store.CASHFLOW_LABELS["adjusted_ebitda"] == "Total Company EBITDA As Defined"
+    assert store.CASHFLOW_LABELS["secured_securitization"] == "Trade receivable securitization"
+    assert store.CASHFLOW_LABELS["secured_term_loans"] == "Term loans aggregate"

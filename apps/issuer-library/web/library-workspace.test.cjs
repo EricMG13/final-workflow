@@ -314,7 +314,7 @@ test('A model with no calculation record says so in place of the table; hostile 
   b.cashflow=null;
   a.cashflow.limits=[bad];
   a.cashflow.notes=[bad];
-  a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad};
+  a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad,status:'na'};
   a.cashflow.units=null;
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
   assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record');

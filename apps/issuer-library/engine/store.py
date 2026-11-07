@@ -812,6 +812,41 @@ def model_sources(root, delivery, outputs, folder=None, issues=None):
 
 
 CASHFLOW_FILES = ("forecast_exact.json", "calculation.json", "annual.md", "quarter.md")
+# The CP-1 handoff table labels the cash flow reader matches, exactly as the handoffs print them
+# (TDG wording). To read another issuer's handoffs, add or change its labels here; nothing else in
+# the reader names a handoff label. Matching is exact and case-sensitive except the debt register,
+# which is matched case-insensitively (see secured_debt).
+CASHFLOW_LABELS = {
+    "revenue": "NET SALES",
+    "cogs": "COST OF SALES",
+    "gross_profit": "GROSS PROFIT",
+    "selling_admin": "SELLING AND ADMINISTRATIVE EXPENSES",
+    "amortization": "AMORTIZATION OF INTANGIBLE ASSETS",
+    "operating_income": "INCOME FROM OPERATIONS",
+    "segment_revenue": "Net Sales",
+    "total_prefix": "Total",
+    "da": "Depreciation and amortization expense",
+    "issuer_ebitda": "EBITDA",
+    "adjusted_ebitda": "Total Company EBITDA As Defined",
+    "interest_net": "Interest expense-net",
+    "pretax_income": "Income from continuing operations before income taxes",
+    "secured_securitization": "Trade receivable securitization",
+    "secured_term_loans": "Term loans aggregate",
+    "secured_notes": "secured notes",
+    "unsecured_notes": "subordinated",
+    "unsecured": "unsecured",
+    "label_header": "Label",
+    "period_header": "Period",
+    "period_end_header": "End",
+}
+# Inputs beyond these are refused before any cell is built (see CashflowLimit).
+QUARTER_COLUMN_LIMIT = 40
+FORECAST_YEAR_LIMIT = 20
+FISCAL_YEAR_LIMIT = 20
+UNIT_ROW_LIMIT = 200
+ADD_BACK_ROW_LIMIT = 200
+TABLE_ROW_LIMIT = 2000
+QUARTER_DAYS = 100
 FORECAST_CASES = (("REFERENCE", "Base case (reference illustration)"), ("DOWNSIDE", "Downside"))
 NOT_HELD = "\u2014"
 PRIOR_MISSING = "prior-year period not in the handoffs"
@@ -885,8 +920,16 @@ def cashflow_units(handoff):
     return re.sub(r"\s+", " ", phrase.group(0)) if phrase else None
 
 
-def grid_cell(exact, display, reason=None):
-    return {"exact": exact, "display": display, "reason": reason}
+class CashflowLimit(Exception):
+    """A cash flow input larger than the reader accepts; names the file and what was too large."""
+
+    def __init__(self, file, what, found, limit):
+        super().__init__(f"{file} exceeds the cash flow model's limits ({what}, {found} > {limit})")
+
+
+def grid_cell(exact, display, reason=None, status="value"):
+    """A cell. `status` is value, gap (a dash), na (not available) or nm (not modelled)."""
+    return {"exact": exact, "display": display, "reason": reason, "status": status}
 
 
 def amount_cell(exact, kind):
@@ -894,15 +937,15 @@ def amount_cell(exact, kind):
 
 
 def absent_cell():
-    return grid_cell(None, NOT_HELD)
+    return grid_cell(None, NOT_HELD, None, "gap")
 
 
 def unavailable_cell(reason):
-    return grid_cell(None, "n.a.", reason)
+    return grid_cell(None, "n.a.", reason, "na")
 
 
 def not_modelled_cell():
-    return grid_cell(None, "n.m.", "not modelled in the calculation record")
+    return grid_cell(None, "n.m.", "not modelled in the calculation record", "nm")
 
 
 def held_cell(held, kind, negate=False):
@@ -942,7 +985,7 @@ def source_cell(text, kind):
     if text == "":
         return absent_cell()
     if text == NOT_HELD:
-        return grid_cell(None, NOT_HELD, "printed as — in the source")
+        return grid_cell(None, NOT_HELD, "printed as — in the source", "gap")
     found = TABLE_NUMBER.fullmatch(text) if len(text) <= 40 else None
     if found is None or bool(found.group(1)) != bool(found.group(3)):
         return unavailable_cell("source cell is not a number")
@@ -967,13 +1010,15 @@ def period_key(header):
     return ("fy", header) if FISCAL_HEADER.fullmatch(header) else None
 
 
-def markdown_table(lines):
+def markdown_table(lines, file):
     """One run of '|' lines: header, optional separator, rows. Rows are found by their label."""
-    cells = [table_cells(line) for line in lines]
-    header, body = cells[0], cells[1:]
-    if body and all(SEPARATOR_CELL.fullmatch(cell) for cell in body[0]):
-        body = body[1:]
-    label_column = header.index("Label") if "Label" in header else 0
+    header = table_cells(lines[0])
+    separated = len(lines) > 1 and all(SEPARATOR_CELL.fullmatch(c) for c in table_cells(lines[1]))
+    if len(lines) - 1 - separated > TABLE_ROW_LIMIT:
+        raise CashflowLimit(file, "table rows", len(lines) - 1 - separated, TABLE_ROW_LIMIT)
+    body = [table_cells(line) for line in lines[1 + separated :]]
+    label_header = CASHFLOW_LABELS["label_header"]
+    label_column = header.index(label_header) if label_header in header else 0
     rows = {}
     for row in body:
         if label_column < len(row):
@@ -986,17 +1031,17 @@ def markdown_table(lines):
     return {"header": header, "rows": rows, "periods": periods}
 
 
-def markdown_tables(text):
-    """The tables of a Markdown text, read line by line."""
+def markdown_tables(text, file):
+    """The tables of a Markdown text, read line by line; `file` names it in a limit error."""
     tables, run = [], []
     for line in text.split("\n"):
         if line.lstrip().startswith("|"):
             run.append(line)
         elif run:
-            tables.append(markdown_table(run))
+            tables.append(markdown_table(run, file))
             run = []
     if run:
-        tables.append(markdown_table(run))
+        tables.append(markdown_table(run, file))
     return tables
 
 
@@ -1014,11 +1059,12 @@ def table_cell(table, label, period, kind="money"):
 
 def add_back_labels(table):
     """The rows between 'Interest expense-net' and the pre-tax income row of an As Defined bridge."""
-    if table is None or "Interest expense-net" not in table["rows"]:
+    start = CASHFLOW_LABELS["interest_net"]
+    if table is None or start not in table["rows"]:
         return []
     labels = list(table["rows"])
-    labels = labels[labels.index("Interest expense-net") + 1 :]
-    end = "Income from continuing operations before income taxes"
+    labels = labels[labels.index(start) + 1 :]
+    end = CASHFLOW_LABELS["pretax_income"]
     labels = labels[: labels.index(end)] if end in labels else labels
     return [label for label in labels if label]
 
@@ -1034,32 +1080,53 @@ def register_date(text):
 
 
 def secured_debt(tables):
-    """(register date, sum of secured carrying values) from the annual debt register; None if incomplete."""
-    debt = table_holding(tables, "Term loans aggregate")
+    """(register date, secured carrying total, unclassified label) of the annual debt register, or None.
+
+    Labels match case-insensitively. Secured: the securitization, the term loans aggregate, and
+    secured notes. Unsecured: subordinated or unsecured notes. Total rows are subtotals. Any other row
+    with a `carrying <n>` value cannot be classified: the total is then None and the label returned.
+    None when the register date or a secured carrying value is missing.
+    """
+    names = CASHFLOW_LABELS
+    anchor = names["secured_term_loans"].casefold()
+    debt = next((t for t in tables if any(label.casefold() == anchor for label in t["rows"])), None)
     when = register_date(debt["header"][1]) if debt and len(debt["header"]) > 1 else None
     if when is None:
         return None
-    total, named = decimal.Decimal(0), set()
+    required = {names["secured_securitization"].casefold(), names["secured_term_loans"].casefold()}
+    secured_notes = re.compile(r"(?<![a-z])" + re.escape(names["secured_notes"]))
+    total, named, incomplete, unclassified = decimal.Decimal(0), set(), False, None
     for label, row in debt["rows"].items():
-        named_secured = label in ("Trade receivable securitization", "Term loans aggregate")
-        notes = "secured notes" in label and "subordinated" not in label
-        if label.startswith("Total") or not (named_secured or notes):
+        low = label.casefold()
+        if low.startswith(names["total_prefix"].casefold()):
             continue
+        unsecured = names["unsecured_notes"] in low or names["unsecured"] in low
+        secured = low in required or (secured_notes.search(low) and not unsecured)
         carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
+        if not secured:
+            if carrying is not None and not unsecured and unclassified is None:
+                unclassified = label[:200]
+            continue
         if carrying is None:
-            return None
+            incomplete = True
+            continue
         total += decimal.Decimal(carrying.group(1).replace(",", ""))
-        named.add(label)
-    required = {"Trade receivable securitization", "Term loans aggregate"}
-    return (when, total) if required <= named else None
+        named.add(low)
+    if unclassified is not None:
+        return (when, None, unclassified)
+    return (when, total, None) if required <= named and not incomplete else None
 
 
 def fiscal_year_ends(tables):
     """FY label -> ISO end date from the annual period register (headed Period ... End)."""
-    register = next((t for t in tables if "Period" in t["header"] and "End" in t["header"]), None)
+    names = CASHFLOW_LABELS
+    period_name, end_name = names["period_header"], names["period_end_header"]
+    register = next(
+        (t for t in tables if period_name in t["header"] and end_name in t["header"]), None
+    )
     if register is None:
         return {}
-    period, end = register["header"].index("Period"), register["header"].index("End")
+    period, end = register["header"].index(period_name), register["header"].index(end_name)
     return {
         row[period]: row[end]
         for row in register["rows"].values()
@@ -1069,7 +1136,7 @@ def fiscal_year_ends(tables):
 
 def derive(kind, operands, compute):
     """A value computed from other cells under prec=28; n.m. or a gap in an operand carries through."""
-    if any(operand["display"] == "n.m." for operand in operands):
+    if any(operand["status"] == "nm" for operand in operands):
         return not_modelled_cell()
     if any(operand["exact"] is None for operand in operands):
         return unavailable_cell(COMPONENT_MISSING)
@@ -1084,14 +1151,6 @@ def derive(kind, operands, compute):
         return unavailable_cell("the value cannot be displayed")
 
 
-def year_earlier(iso):
-    start = datetime.date.fromisoformat(iso)
-    try:
-        return start.replace(year=start.year - 1).isoformat()
-    except ValueError:
-        return None  # 29 February has no same day a year earlier
-
-
 def forecast_inputs(exact):
     """(columns' source years by case, limits) of the forecast record; validated here."""
     cases = []
@@ -1099,6 +1158,10 @@ def forecast_inputs(exact):
         if key not in exact["outputs"]:
             continue
         years = exact["outputs"][key]["years"]
+        if len(years) > FORECAST_YEAR_LIMIT:
+            raise CashflowLimit(
+                CASHFLOW_FILES[0], f"forecast years in {key}", len(years), FORECAST_YEAR_LIMIT
+            )
         for year in years:
             if not isinstance(year["year"], int):
                 raise TypeError("year is not a number")
@@ -1115,6 +1178,8 @@ def fiscal_inputs(record):
     labels = record["annual_periods"]
     if not isinstance(labels, list) or not all(isinstance(label, str) for label in labels):
         raise TypeError("annual_periods is not a list of text")
+    if len(labels) > FISCAL_YEAR_LIMIT:
+        raise CashflowLimit(CASHFLOW_FILES[1], "fiscal years", len(labels), FISCAL_YEAR_LIMIT)
     years = []
     for label in labels:
         values = record["values"][label]
@@ -1123,16 +1188,36 @@ def fiscal_inputs(record):
     return years
 
 
-def cashflow_columns(quarters, fiscal, cases):
-    """Quarter, fiscal-year and forecast columns, each with its prior-year column's index."""
-    first = cases[0][1][0].get("planning_start") if cases and cases[0][1] else None
-    try:
-        first = datetime.date.fromisoformat(first)
-    except (TypeError, ValueError):
-        first = None
+def quarter_numbers(quarters, ends):
+    """Per quarter, the fiscal year it opens (as Q1) or None.
+
+    A quarter opens fiscal year N+1 when it spans at most QUARTER_DAYS days and starts the day after
+    the end the period register records for FY N. Anything else is not Q1 and not year to date.
+    """
+    openings = {}
+    for label, end in (ends or {}).items():
+        try:
+            day = datetime.date.fromisoformat(end) + datetime.timedelta(days=1)
+            openings.setdefault(day, int(label.removeprefix("FY")) + 1)
+        except (ValueError, OverflowError):
+            continue  # a register row with an unreadable end opens no fiscal year
+    numbers = []
+    for start, end in quarters:
+        first, last = datetime.date.fromisoformat(start), datetime.date.fromisoformat(end)
+        numbers.append(openings.get(first) if (last - first).days <= QUARTER_DAYS else None)
+    return numbers
+
+
+def cashflow_columns(quarters, fiscal, cases, ends=None):
+    """Quarter, fiscal-year and forecast columns, each with its prior-year column's index.
+
+    The prior of Q1 FY<n> is Q1 FY<n-1>; other quarters have none. The prior of FY<n> is FY<n-1>, of the
+    first forecast year the fiscal year before it, of a later forecast year the same case's year before
+    it; a prior that is not the adjacent year is None.
+    """
     columns = []
 
-    def add(label, group, kind, record=None, start=None, end=None, period=None, prior=None):
+    def add(label, group, kind, record, start, end, period, prior, ytd=False):
         columns.append(
             {
                 "label": label,
@@ -1143,26 +1228,31 @@ def cashflow_columns(quarters, fiscal, cases):
                 "end": end,
                 "period": period,
                 "prior": prior,
+                "ytd": ytd,
             }
         )
 
-    starts = {start: index for index, (start, _) in enumerate(quarters)}
-    for start, end in quarters:
-        opening = datetime.date.fromisoformat(start)
-        label = f"{start}–{end}"
-        if first is not None and (opening.month, opening.day) == (first.month, first.day):
-            label = (
-                f"Q1 FY{opening.year + (0 if (opening.month, opening.day) == (1, 1) else 1)} (YTD)"
-            )
-        prior = starts.get(year_earlier(start))
-        add(label, "Quarter", "q", None, start, end, ("q", start, end), prior)
-    last_fiscal = None
+    numbers = quarter_numbers(quarters, ends)
+    first_quarter = {}
+    for index, number in enumerate(numbers):
+        if number is not None:
+            first_quarter.setdefault(number, index)
+    for (start, end), number in zip(quarters, numbers, strict=True):
+        label = f"{start}–{end}" if number is None else f"Q1 FY{number} (YTD)"
+        prior = None if number is None else first_quarter.get(number - 1)
+        add(label, "Quarter", "q", None, start, end, ("q", start, end), prior, number is not None)
+    fiscal_index = {}
     for label, values in fiscal:
-        add(label, "Fiscal year", "fy", values, period=("fy", label), prior=last_fiscal)
-        last_fiscal = len(columns) - 1
+        found = FISCAL_HEADER.fullmatch(label)
+        prior = fiscal_index.get(f"FY{int(label[2:]) - 1}") if found else None
+        add(label, "Fiscal year", "fy", values, None, None, ("fy", label), prior)
+        fiscal_index.setdefault(label, len(columns) - 1)
     for name, years in cases:
-        prior = last_fiscal
+        case_index = {}
         for year in years:
+            prior = case_index.get(year["year"] - 1)
+            if prior is None and not case_index:
+                prior = fiscal_index.get(f"FY{year['year'] - 1}")
             add(
                 f"FY{year['year']}E",
                 name,
@@ -1170,23 +1260,25 @@ def cashflow_columns(quarters, fiscal, cases):
                 year,
                 text_or_none(year.get("planning_start")),
                 text_or_none(year.get("planning_end")),
-                prior=prior,
+                None,
+                prior,
             )
-            prior = len(columns) - 1
+            case_index.setdefault(year["year"], len(columns) - 1)
     return columns
 
 
-def add_cells(cells):
-    return derive("money", cells, lambda a, b: a + b)
+def add_cells(cells, kind="money"):
+    return derive(kind, cells, lambda a, b: a + b)
 
 
 def op_table(ctx, column, index, grid, kind, name, label):
-    return table_cell(ctx["tables"][name], label, column["period"])
+    return table_cell(ctx["tables"][name], label, column["period"], kind)
 
 
 def op_table_sum(ctx, column, index, grid, kind, name, first, second):
     table = ctx["tables"][name]
-    return add_cells([table_cell(table, label, column["period"]) for label in (first, second)])
+    cells = [table_cell(table, label, column["period"], kind) for label in (first, second)]
+    return add_cells(cells, kind)
 
 
 def op_key(ctx, column, index, grid, kind, key, negate=False):
@@ -1197,13 +1289,13 @@ def op_key(ctx, column, index, grid, kind, key, negate=False):
 
 
 def op_sum(ctx, column, index, grid, kind, *rows):
-    return add_cells([grid[row][index] for row in rows])
+    return add_cells([grid[row][index] for row in rows], kind)
 
 
 def op_growth(ctx, column, index, grid, kind, source):
     """YoY growth of an earlier row against the same row in the column's prior-year column."""
     current = grid[source][index]
-    if current["display"] == "n.m.":
+    if current["status"] == "nm":
         return not_modelled_cell()
     if column["prior"] is None:
         return unavailable_cell(PRIOR_MISSING)
@@ -1222,10 +1314,14 @@ def op_senior(ctx, column, index, grid, kind):
     """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date only."""
     if ctx["secured"] is None:
         return unavailable_cell(COMPONENT_MISSING)
-    when, total = ctx["secured"]
+    when, total, unclassified = ctx["secured"]
     if ctx["ends"].get(column["label"]) != when.isoformat():
         return unavailable_cell(
             f"secured-debt carrying values are recorded only at {display_date(when.isoformat())}"
+        )
+    if unclassified is not None:
+        return unavailable_cell(
+            f"the debt register has a row that cannot be classified: {unclassified}"
         )
     return derive("multiple", [grid["adj"][index]], lambda a: total / a)
 
@@ -1261,7 +1357,7 @@ HEAD_ROWS = (
         "Revenue",
         "Revenue",
         "money",
-        ("table", "income", "NET SALES"),
+        ("table", "income", CASHFLOW_LABELS["revenue"]),
         ("key", "revenue"),
         ("key", "revenue"),
     ),
@@ -1271,7 +1367,7 @@ HEAD_ROWS = (
         INCOME,
         "COGS (cost of sales)",
         "money",
-        ("table", "income", "COST OF SALES"),
+        ("table", "income", CASHFLOW_LABELS["cogs"]),
         ("key", "cogs"),
         None,
     ),
@@ -1280,7 +1376,7 @@ HEAD_ROWS = (
         INCOME,
         "Gross profit",
         "money",
-        ("table", "income", "GROSS PROFIT"),
+        ("table", "income", CASHFLOW_LABELS["gross_profit"]),
         ("key", "gross_profit"),
         None,
     ),
@@ -1293,8 +1389,8 @@ HEAD_ROWS = (
         (
             "table-sum",
             "income",
-            "SELLING AND ADMINISTRATIVE EXPENSES",
-            "AMORTIZATION OF INTANGIBLE ASSETS",
+            CASHFLOW_LABELS["selling_admin"],
+            CASHFLOW_LABELS["amortization"],
         ),
         ("key", "opex_magnitude"),
         None,
@@ -1304,7 +1400,7 @@ HEAD_ROWS = (
         INCOME,
         "EBIT (income from operations)",
         "money",
-        ("table", "income", "INCOME FROM OPERATIONS"),
+        ("table", "income", CASHFLOW_LABELS["operating_income"]),
         ("key", "ebit_reported"),
         None,
     ),
@@ -1313,7 +1409,7 @@ HEAD_ROWS = (
         INCOME,
         "D&A (depreciation and amortization)",
         "money",
-        ("table", "bridge", "Depreciation and amortization expense"),
+        ("table", "bridge", CASHFLOW_LABELS["da"]),
         ("key", "cash_flow_DA"),
         None,
     ),
@@ -1331,7 +1427,7 @@ HEAD_ROWS = (
         INCOME,
         "Issuer EBITDA (reported)",
         "money",
-        ("table", "bridge", "EBITDA"),
+        ("table", "bridge", CASHFLOW_LABELS["issuer_ebitda"]),
         ("key", "issuer_ordinary_ebitda"),
         None,
     ),
@@ -1342,7 +1438,7 @@ CASH = "Cash and liquidity"
 DEBT = "Debt"
 CREDIT = "Credit metrics"
 TAIL_ROWS = (
-    ("adj", ADJUSTED, "Adj EBITDA (EBITDA As Defined)", "money", ("table", "qdef", "Total Company EBITDA As Defined"), ("key", "issuer_as_defined"), ("key", "ebitda")),
+    ("adj", ADJUSTED, "Adj EBITDA (EBITDA As Defined)", "money", ("table", "qdef", CASHFLOW_LABELS["adjusted_ebitda"]), ("key", "issuer_as_defined"), ("key", "ebitda")),
     ("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
     ("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
     ("interest", PROXY, "Cash interest", "money", None, ("key", "interest_cash"), ("key", "interest")),
@@ -1368,23 +1464,38 @@ TAIL_ROWS = (
 )  # fmt: skip
 
 
-def listed_labels(tables, *names):
-    """Business units (rows `Total <unit>`) of the tables, first table's order first."""
-    units = []
-    for name in names:
+def capped(found, what, limit, file):
+    if len(found) > limit:
+        raise CashflowLimit(file, what, len(found), limit)
+
+
+def listed_labels(tables):
+    """Business units (rows `Total <unit>`) of the annual then the quarter segment table, in order."""
+    units = {}
+    prefix = CASHFLOW_LABELS["total_prefix"] + " "
+    for name, file in (("aseg", CASHFLOW_FILES[2]), ("qseg", CASHFLOW_FILES[3])):
         table = tables[name]
         for label in () if table is None else table["rows"]:
-            unit = label.removeprefix("Total ")
-            if label.startswith("Total ") and unit and unit not in units:
-                units.append(unit)
-    return units
+            if label.startswith(prefix) and label.removeprefix(prefix):
+                units.setdefault(label.removeprefix(prefix))
+        capped(units, "business-unit rows", UNIT_ROW_LIMIT, file)
+    return list(units)
+
+
+def listed_add_backs(tables):
+    """The annual add-back labels in order, then any quarter-only label."""
+    labels = dict.fromkeys(add_back_labels(tables["adef"]))
+    capped(labels, "add-back rows", ADD_BACK_ROW_LIMIT, CASHFLOW_FILES[2])
+    labels.update(dict.fromkeys(add_back_labels(tables["qdef"])))
+    capped(labels, "add-back rows", ADD_BACK_ROW_LIMIT, CASHFLOW_FILES[3])
+    return list(labels)
 
 
 def cashflow_rows(tables):
     """The grid's rows in presentation order: units, the fixed head, add-backs, the fixed tail."""
     rows = []
-    for unit in listed_labels(tables, "aseg", "qseg"):
-        total = f"Total {unit}"
+    for unit in listed_labels(tables):
+        total = f"{CASHFLOW_LABELS['total_prefix']} {unit}"
         rows.append(
             (
                 ("unit", unit),
@@ -1406,9 +1517,7 @@ def cashflow_rows(tables):
             )
         )
     rows.extend(HEAD_ROWS)
-    labels = add_back_labels(tables["adef"])
-    labels += [label for label in add_back_labels(tables["qdef"]) if label not in labels]
-    for label in labels:
+    for label in listed_add_backs(tables):
         rows.append(
             (
                 ("add-back", label),
@@ -1423,35 +1532,39 @@ def cashflow_rows(tables):
     return rows + list(TAIL_ROWS)
 
 
-def cashflow_of(forecast, fiscal, annual_text, quarter_text, handoff):
-    """History from the four delivery files and the forecast record laid out as a line-item by period grid."""
+def cashflow_of(forecast, fiscal, annual, quarter, handoff):
+    """History from the parsed annual and quarter tables and the forecast record, laid out as a grid."""
     cases, limits = forecast
-    annual, quarter = markdown_tables(annual_text), markdown_tables(quarter_text)
+    names = CASHFLOW_LABELS
     tables = {
-        "income": table_holding(quarter, "COST OF SALES"),
-        "qseg": table_holding(quarter, "Net Sales"),
-        "aseg": table_holding(annual, "Net Sales"),
-        "bridge": table_holding(quarter, "EBITDA"),
-        "qdef": table_holding(quarter, "Total Company EBITDA As Defined"),
-        "adef": table_holding(annual, "Total Company EBITDA As Defined"),
+        "income": table_holding(quarter, names["cogs"]),
+        "qseg": table_holding(quarter, names["segment_revenue"]),
+        "aseg": table_holding(annual, names["segment_revenue"]),
+        "bridge": table_holding(quarter, names["issuer_ebitda"]),
+        "qdef": table_holding(quarter, names["adjusted_ebitda"]),
+        "adef": table_holding(annual, names["adjusted_ebitda"]),
     }
-    ctx = {"tables": tables, "secured": secured_debt(annual), "ends": fiscal_year_ends(annual)}
+    ends = fiscal_year_ends(annual)
+    ctx = {"tables": tables, "secured": secured_debt(annual), "ends": ends}
     income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
-    columns = cashflow_columns(periods, fiscal, cases)
+    capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
+    layout = cashflow_rows(tables)
+    columns = cashflow_columns(periods, fiscal, cases, ends)
     grid, rows = {}, []
-    for key, band, label, kind, *specs in cashflow_rows(tables):
+    for key, band, label, kind, *specs in layout:
         pick = {"q": specs[0], "fy": specs[1], "fc": specs[2]}
         grid[key] = [
             spec_cell(pick[column["kind"]], ctx, column, index, grid, kind)
             for index, column in enumerate(columns)
         ]
         rows.append({"band": band, "label": label, "cells": grid[key]})
-    year_to_date = any(column["label"].endswith("(YTD)") for column in columns)
+    year_to_date = any(column["ytd"] for column in columns)
     return {
         "units": cashflow_units(handoff) if handoff is not None else None,
         "columns": [
-            {key: column[key] for key in ("label", "group", "start", "end")} for column in columns
+            {key: column[key] for key in ("label", "group", "start", "end", "ytd")}
+            for column in columns
         ],
         "rows": rows,
         "notes": [note for note in CASHFLOW_NOTES if year_to_date or note != Q1_NOTE],
@@ -1459,12 +1572,27 @@ def cashflow_of(forecast, fiscal, annual_text, quarter_text, handoff):
     }
 
 
-def read_cashflow(files, handoff):
-    """(grid, None), or (None, the file that cannot be laid out; None when the layout itself failed).
+# Errors a malformed input file or layout can raise; each is reported, never allowed to end the store.
+CASHFLOW_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    IndexError,
+    ArithmeticError,
+    RecursionError,
+    MemoryError,
+)
 
-    Documented fail-open: an input the reader cannot lay out leaves the model listed with no grid
-    and a Workspace issue naming the file. A model too large to parse (MemoryError) or nested too
-    deep (RecursionError) is reported the same way, not allowed to end the store.
+
+def read_cashflow(files, handoff):
+    """(grid, None), or (None, (kind, text)): kind "file" (text: the input that cannot be read), "limit"
+    (text: the limit message) or "layout" (text: describe(error) of the failure while laying out).
+
+    Documented fail-open: an input the reader cannot read or lay out leaves the model listed with no
+    grid and a Workspace issue naming the file or the cause. A model too large to parse (MemoryError) or
+    nested too deep (RecursionError) is reported the same way, not allowed to end the store.
     """
     stage = CASHFLOW_FILES[0]
     try:
@@ -1472,23 +1600,19 @@ def read_cashflow(files, handoff):
         stage = CASHFLOW_FILES[1]
         fiscal = fiscal_inputs(json.loads(files[stage].decode("utf-8")))
         stage = CASHFLOW_FILES[2]
-        annual = files[stage].decode("utf-8")
+        annual = markdown_tables(files[stage].decode("utf-8"), stage)
         stage = CASHFLOW_FILES[3]
-        quarter = files[stage].decode("utf-8")
-        stage = None
+        quarter = markdown_tables(files[stage].decode("utf-8"), stage)
+    except CashflowLimit as error:
+        return None, ("limit", str(error))
+    except CASHFLOW_ERRORS:
+        return None, ("file", stage)
+    try:
         return cashflow_of(forecast, fiscal, annual, quarter, handoff), None
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        AttributeError,
-        IndexError,
-        ArithmeticError,
-        RecursionError,
-        MemoryError,
-    ):
-        return None, stage
+    except CashflowLimit as error:
+        return None, ("limit", str(error))
+    except CASHFLOW_ERRORS as error:
+        return None, ("layout", describe(error))
 
 
 def cashflow_or_issues(folder, files, inputs, handoff, issues):
@@ -1500,12 +1624,15 @@ def cashflow_or_issues(folder, files, inputs, handoff, issues):
         issues.append(f"{folder}: {name} {what}")
     if any(inputs[name] is None for name in CASHFLOW_FILES):
         return None
-    cashflow, unreadable = read_cashflow(inputs, handoff)
-    if cashflow is None:
+    cashflow, problem = read_cashflow(inputs, handoff)
+    if problem is not None:
+        kind, text = problem
         issues.append(
-            f"{folder}: {unreadable} is missing or unreadable"
-            if unreadable
-            else f"{folder}: the cash flow model could not be laid out"
+            {
+                "file": f"{folder}: {text} is missing or unreadable",
+                "limit": f"{folder}: {text}",
+                "layout": f"{folder}: the cash flow model could not be laid out ({text})",
+            }[kind]
         )
     return cashflow
 

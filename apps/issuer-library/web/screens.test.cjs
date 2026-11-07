@@ -455,11 +455,13 @@ test("another issuer's model, or one with no recorded issuer, is not a run's pub
   const foreign=Object.assign(JSON.parse(JSON.stringify(base)),{id:'beta-model',runId:folder,issuerKey:'id:bet',sources:[]});
   const unkeyed=Object.assign(JSON.parse(JSON.stringify(base)),{id:'null-model',runId:folder,issuerKey:null,sources:[]});
   const own=Object.assign(JSON.parse(JSON.stringify(base)),{id:'own-model',runId:folder,sources:[]});
-  w.DESIGN_WORKSPACE.models.push(foreign,unkeyed,own);
+  // Naming the run in its sources does not make another issuer's model the run's own when its runId is elsewhere.
+  const reach=Object.assign(JSON.parse(JSON.stringify(base)),{id:'reach-model',runId:'elsewhere',issuerKey:'id:bet',sources:[{run:'tdg-002'}]});
+  w.DESIGN_WORKSPACE.models.push(foreign,unkeyed,own,reach);
   await go(w,'W-Forecast/own-model?c=tdg-002');
   const options=[...w.document.querySelectorAll('#model-select option')].map(o=>o.textContent);
   assert.ok(options.some(o=>o.startsWith('own-model')),JSON.stringify(options));
-  assert.equal(options.some(o=>o.startsWith('beta-model')||o.startsWith('null-model')),false,JSON.stringify(options));
+  assert.equal(options.some(o=>o.startsWith('beta-model')||o.startsWith('null-model')||o.startsWith('reach-model')),false,JSON.stringify(options));
 });
 test("a report built from a run opens under that run even when its issuer differs from the run's",async t=>{
   const w=fixture('W-Reports/list?c=tdg-002').window;t.after(()=>w.close());
@@ -478,4 +480,21 @@ test('the rail closes 300 ms after the pointer leaves it for an embedded frame',
   rail.dispatchEvent(new w.Event('pointerleave'));
   await settle(150);assert.equal(rail.classList.contains('rail-open'),true);
   await settle(300);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('the cash flow grid reads cell status and column ytd, never the display or label text',async t=>{
+  const w=fixture('W-Forecast/tdg-model-1?c=tdg-002').window;t.after(()=>w.close());
+  const cf=w.DESIGN_WORKSPACE.models[0].cashflow,d=w.document;
+  const ytdColumns=cf.columns.filter(c=>c.ytd).length;
+  assert.ok(ytdColumns>0&&cf.columns.some(c=>!c.ytd));
+  cf.columns[cf.columns.findIndex(c=>c.ytd)].label='Q1 FY1 (YTD)';
+  const plain=cf.columns.find(c=>!c.ytd);plain.label='Looks (YTD)';
+  const cell=cf.rows[0].cells.find(c=>c.status==='value');
+  cell.display='n.a.';cell.reason='text only';
+  const gone=cf.rows.flatMap(r=>r.cells).find(c=>c.status==='gap');
+  gone.status='na';gone.display='shown as text';gone.reason='by status';
+  await go(w,'W-Library/cases');await go(w,'W-Forecast/tdg-model-1?c=tdg-002');
+  assert.equal(d.querySelectorAll('.cashflow thead .col-sub').length,ytdColumns);
+  const lines=[...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent);
+  assert.equal(lines.some(l=>l.includes('text only')),false,lines.join('|'));
+  assert.ok(lines.some(l=>l.endsWith('by status')),lines.join('|'));
 });

@@ -289,7 +289,7 @@ function forecastSections(context) {
 }
 function reportSections(context) {
   // The run's issuer reports, then any other report built from this run's files (parseRoute sends such a report to this run).
-  const reports=[...issuerReports(context),...(context?reportsBuiltFrom(context).filter(r=>!issuerReports(context).includes(r)):[])];
+  const own=issuerReports(context),reports=[...own,...(context?reportsBuiltFrom(context).filter(r=>!own.includes(r)):[])];
   return reports.length?[['list','Reports',[]],...reports.map(r=>[r.id,reportName(r),[]])]:[['none','Report availability',[]]];
 }
 function navigationSections(module,context,output=defaultOutput(module,context)) {
@@ -359,14 +359,14 @@ function cashflowSection(model) {
   if(!c)return '<section class="forecast-cashflow"><h2>Cash flow model</h2><p>This model has no readable calculation record.</p></section>';
   const groups=[];
   for(const col of c.columns){const last=groups[groups.length-1];if(last&&last.name===col.group)last.span++;else groups.push({name:col.group,span:1});}
-  const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${col.label.endsWith(' (YTD)')?`${esc(col.label.slice(0,-6))} <span class="col-sub">(YTD)</span>`:esc(col.label)}</th>`).join('')}</tr>`;
+  const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${col.ytd?`${esc(col.label.slice(0,-6))} <span class="col-sub">(YTD)</span>`:esc(col.label)}</th>`).join('')}</tr>`;
   const na=[],seen=new Set();
   let band=null,body='';
   for(const row of c.rows){
     if(row.band!==band){band=row.band;body+=`<tr class="band-row"><th scope="colgroup" colspan="${c.columns.length+1}">${esc(band)}</th></tr>`;}
     body+=`<tr><th scope="row">${esc(row.label)}</th>${row.cells.map(cell=>`<td${cell.exact!=null?` title="${esc(cell.exact)}"`:cell.reason!=null?` title="${esc(cell.reason)}"`:''}>${esc(cell.display)}</td>`).join('')}</tr>`;
     for(const cell of row.cells){
-      if(cell.display!=='n.a.'||seen.has(`${row.label}\n${cell.reason}`))continue;
+      if(cell.status!=='na'||seen.has(`${row.label}\n${cell.reason}`))continue;
       seen.add(`${row.label}\n${cell.reason}`);
       na.push(`Not available: ${row.label}${cell.reason==null?'':` — ${cell.reason}`}`);
     }

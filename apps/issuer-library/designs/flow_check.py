@@ -80,6 +80,10 @@ def _decode(path: Path) -> str:
         return ""
 
 
+def _verified(path: Path, digest: str) -> str:
+    return _decode(path) if path.is_file() and _sha(path.read_bytes()) == digest else ""
+
+
 def _accepted(run: Path) -> dict[str, Path]:
     records = sorted(run.glob("completed-*.json"), key=lambda p: p.stat().st_mtime)
     if records:
@@ -141,19 +145,25 @@ def _checked_inputs(
 ) -> list[str]:
     faults = []
     for name, digest in request["sources"].items():
-        local = sources / name if sources is not None else None
-        in_sources = local is not None and local.is_file() and _sha(local.read_bytes()) == digest
-        kept = run / "inputs" / digest
-        in_inputs = kept.is_file() and _sha(kept.read_bytes()) == digest
-        if not in_sources and not in_inputs:
+        copies = {"inputs": run / "inputs" / digest}
+        if sources is not None:
+            copies["sources"] = sources / name
+        present = {where: path for where, path in copies.items() if path.is_file()}
+        bad = [where for where, path in present.items() if _sha(path.read_bytes()) != digest]
+        if not present:
             faults.append(f"{module}: source {name} sha256 {digest[:12]} matches no supplied file")
+        faults += [
+            f"{module}: source {name} copy in {where} does not hash to {digest[:12]}"
+            for where in bad
+        ]
     return faults
 
 
 def _received(run: Path, request: dict[str, Any]) -> set[str]:
     """Numbers in what the module was given: its upstream handoffs and its source files."""
     texts = [h["markdown"] for h in request["handoffs"].values()]
-    texts += [_decode(run / "inputs" / digest) for digest in request["sources"].values()]
+    # A copy that does not hash to its digest is reported by _checked_inputs and never read.
+    texts += [_verified(run / "inputs" / digest, digest) for digest in request["sources"].values()]
     return set().union(*(numbers(t) for t in texts)) if texts else set()
 
 

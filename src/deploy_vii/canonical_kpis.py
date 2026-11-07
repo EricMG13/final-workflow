@@ -167,9 +167,9 @@ def _preferred(reported: Cell, derived: Cell, observations: dict[str, Observatio
         or reported.arithmetic is not None
     ):
         return reported
+    derivation = "derived from components" if derived.value is not None else "components incomplete"
     return replace(
-        derived,
-        note=join_notes(derived.note, "Reported value unavailable; derived from components"),
+        derived, note=join_notes(derived.note, f"Reported value unavailable; {derivation}")
     )
 
 
@@ -201,8 +201,12 @@ def _canonical_frame(
                 calc(((cells["ebit"], 1), (cells["da"], -1))),
                 observations,
             )
+            # As `statements._income`: an add-back with no row for this column's periods
+            # (`NOT_SOURCED`) adds nothing; one whose row has no figure leaves the sum missing.
             adjustments = tuple(
-                (value, 1) for key, value in source.items() if key.startswith("addback:")
+                (value, 1)
+                for key, value in source.items()
+                if key.startswith("addback:") and value.reason != "NOT_SOURCED"
             )
             cells["adjusted_ebitda"] = _preferred(
                 source.get("acct:adjusted_ebitda", ABSENT),

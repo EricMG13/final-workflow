@@ -309,6 +309,8 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .cashflow tbody th[scope=row],.cashflow .band-row th{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:nowrap}
 .cashflow .band-row th{background:var(--gray-50);font:600 var(--fs-compact)/18px 'Red Hat Text',sans-serif;color:var(--text-tertiary)}
 .cashflow tbody tr:hover>th[scope=row]{background:var(--gray-25)}
+/* At desktop widths the row labels wrap in a 14rem column and cells use 12px side padding, so the 11 period columns fit a 1236 px box. */
+.cashflow th,.cashflow td{padding-left:12px;padding-right:12px}.cashflow tbody th[scope=row]{white-space:normal;width:14rem;min-width:0;max-width:14rem}
 .cashflow-notes,.cashflow-na{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:var(--fs-label)}
 .forecast-caption{color:var(--muted);font-size:var(--fs-label);margin:4px 0 10px}
 /* At 720 px and below the section bar sits above every sticky table cell (z-index 3 at most), and row labels wrap in a capped column. */

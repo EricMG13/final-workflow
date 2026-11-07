@@ -749,28 +749,14 @@ def model_sources(root, delivery, outputs, folder=None, issues=None):
 
 CASHFLOW_FILES = ("forecast_exact.json", "calculation.json", "annual.md", "quarter.md")
 FORECAST_CASES = (("REFERENCE", "Base case (reference illustration)"), ("DOWNSIDE", "Downside"))
-REASON_PHRASES = {
-    "NOT_SOURCED": "not reported in the source",
-    "COMPONENT_MISSING": "a component is not in the handoffs",
-}
 NOT_HELD = "\u2014"
 PRIOR_MISSING = "prior-year period not in the handoffs"
 COMPONENT_MISSING = "a component is not in the handoffs"
+REASON_PHRASES = {
+    "NOT_SOURCED": "not reported in the source",
+    "COMPONENT_MISSING": COMPONENT_MISSING,
+}
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
-MONTHS = (
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-)
 MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
 Q1_NOTE = "Q1 is the first quarter of the fiscal year, so it is also the year to date."
 CASHFLOW_NOTES = (
@@ -869,12 +855,16 @@ def held_cell(held, kind, negate=False):
     return amount_cell(exact, kind)
 
 
-def checked_amounts(record):
-    """Every {amount, reason} in a calculation record must hold null or a finite decimal string."""
-    for held in record.values():
-        if not isinstance(held, dict) or "amount" not in held:
+def checked_entries(record, skip=()):
+    """Every entry of a calculation record (but `skip`) must be {amount: text|null, reason: text|null}."""
+    for key, held in record.items():
+        if key in skip:
             continue
-        exact = held["amount"]
+        if not isinstance(held, dict) or not {"amount", "reason"} <= held.keys():
+            raise TypeError(f"{key} is not an amount and a reason")
+        exact, reason = held["amount"], held["reason"]
+        if not (reason is None or isinstance(reason, str)):
+            raise TypeError(f"the reason of {key} is not text")
         if exact is None:
             continue
         if not isinstance(exact, str) or len(exact) > 200:
@@ -1018,12 +1008,15 @@ def derive(kind, operands, compute):
         return not_modelled_cell()
     if any(operand["exact"] is None for operand in operands):
         return unavailable_cell(COMPONENT_MISSING)
-    with decimal.localcontext(decimal.Context(prec=28)):
-        try:
+    try:
+        with decimal.localcontext(decimal.Context(prec=28)):
             result = compute(*[decimal.Decimal(operand["exact"]) for operand in operands])
-        except (decimal.DivisionByZero, decimal.InvalidOperation):
-            return unavailable_cell("a divisor is zero")
-    return amount_cell("0" if result == 0 else str(result), kind)
+    except (decimal.DivisionByZero, decimal.InvalidOperation):
+        return unavailable_cell("a divisor is zero")
+    try:
+        return amount_cell("0" if result == 0 else str(result), kind)
+    except (ArithmeticError, ValueError):
+        return unavailable_cell("the value cannot be displayed")
 
 
 def year_earlier(iso):
@@ -1044,7 +1037,7 @@ def forecast_inputs(exact):
         for year in years:
             if not isinstance(year["year"], int):
                 raise TypeError("year is not a number")
-            checked_amounts(year)
+            checked_entries(year, ("year", "planning_start", "planning_end"))
         cases.append((name, years))
     limits = exact["scope_limits"]
     if not isinstance(limits, list) or not all(isinstance(item, str) for item in limits):
@@ -1060,7 +1053,7 @@ def fiscal_inputs(record):
     years = []
     for label in labels:
         values = record["values"][label]
-        checked_amounts(values)
+        checked_entries(values)
         years.append((label, values))
     return years
 
@@ -1118,96 +1111,207 @@ def cashflow_columns(quarters, fiscal, cases):
     return columns
 
 
-def growth_of(source):
-    """YoY growth of an earlier row, against the same row in the column's prior-year column."""
-
-    def cell(column, index, grid):
-        current = grid[source][index]
-        if current["display"] == "n.m.":
-            return not_modelled_cell()
-        if column["prior"] is None:
-            return unavailable_cell(PRIOR_MISSING)
-        return derive("percent", [current, grid[source][column["prior"]]], lambda a, b: a / b - 1)
-
-    return cell
+def add_cells(cells):
+    return derive("money", cells, lambda a, b: a + b)
 
 
-def margin_of(source):
-    return lambda column, index, grid: derive(
-        "percent", [grid[source][index], grid["revenue"][index]], lambda a, b: a / b
-    )
+def from_key(record, key, kind, missing, negate=False):
+    """A record key; a key the record does not hold is `missing` (a dash for history, n.m. for forecast)."""
+    return held_cell(record[key], kind, negate) if key in record else missing()
 
 
-def sum_of(*sources):
-    return lambda column, index, grid: derive(
-        "money", [grid[source][index] for source in sources], lambda a, b: a + b
-    )
+def op_table(ctx, column, index, grid, kind, name, label):
+    return table_cell(ctx["tables"][name], label, column["period"])
 
 
-def from_table(table, *labels):
-    """The table's cell(s) for the column's period; two labels are added."""
-    if len(labels) == 2:
-        return lambda column, index, grid: derive(
-            "money",
-            [table_cell(table, label, column["period"]) for label in labels],
-            lambda a, b: a + b,
-        )
-    return lambda column, index, grid: table_cell(table, labels[0], column["period"])
+def op_table_sum(ctx, column, index, grid, kind, name, first, second):
+    table = ctx["tables"][name]
+    return add_cells([table_cell(table, label, column["period"]) for label in (first, second)])
 
 
-def from_record(key, kind="money", negate=False):
-    """A calculation-record key; a key the record does not hold is a dash for history."""
-
-    def cell(column, index, grid):
-        record = column["record"]
-        return held_cell(record[key], kind, negate) if key in record else absent_cell()
-
-    return cell
+def op_key(ctx, column, index, grid, kind, key, negate=False):
+    forecast = column["kind"] == "fc"
+    missing = not_modelled_cell if forecast else absent_cell
+    return from_key(column["record"], key, kind, missing, negate)
 
 
-def from_forecast(key, kind="money"):
-    """A forecast key; a key the record does not hold is n.m. (not modelled)."""
-
-    def cell(column, index, grid):
-        record = column["record"]
-        return held_cell(record[key], kind) if key in record else not_modelled_cell()
-
-    return cell
+def op_sum(ctx, column, index, grid, kind, *rows):
+    return add_cells([grid[row][index] for row in rows])
 
 
-def never_modelled(column, index, grid):
-    return not_modelled_cell()
+def op_growth(ctx, column, index, grid, kind, source):
+    """YoY growth of an earlier row against the same row in the column's prior-year column."""
+    current = grid[source][index]
+    if current["display"] == "n.m.":
+        return not_modelled_cell()
+    if column["prior"] is None:
+        return unavailable_cell(PRIOR_MISSING)
+    return derive("percent", [current, grid[source][column["prior"]]], lambda a, b: a / b - 1)
 
 
-def not_held(column, index, grid):
-    return absent_cell()
+def op_margin(ctx, column, index, grid, kind, source):
+    return derive("percent", [grid[source][index], grid["revenue"][index]], lambda a, b: a / b)
 
 
-def needs_ltm(column, index, grid):
+def op_needs_ltm(ctx, column, index, grid, kind):
     return unavailable_cell(LTM_NEEDED)
 
 
-def senior_secured_leverage(annual):
+def op_senior(ctx, column, index, grid, kind):
     """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date only."""
-    secured, ends = secured_debt(annual), fiscal_year_ends(annual)
-
-    def cell(column, index, grid):
-        if secured is None:
-            return unavailable_cell(COMPONENT_MISSING)
-        when, total = secured
-        if ends.get(column["label"]) != when.isoformat():
-            return unavailable_cell(
-                "secured-debt carrying values are recorded only at "
-                f"{when.day} {MONTHS[when.month - 1]} {when.year}"
-            )
-        return derive("multiple", [grid["adj"][index]], lambda a: total / a)
-
-    return cell
+    if ctx["secured"] is None:
+        return unavailable_cell(COMPONENT_MISSING)
+    when, total = ctx["secured"]
+    if ctx["ends"].get(column["label"]) != when.isoformat():
+        return unavailable_cell(
+            f"secured-debt carrying values are recorded only at {display_date(when.isoformat())}"
+        )
+    return derive("multiple", [grid["adj"][index]], lambda a: total / a)
 
 
-def business_units(*tables):
+CELL_OPS = {
+    "table": op_table,
+    "table-sum": op_table_sum,
+    "key": op_key,
+    "sum": op_sum,
+    "growth": op_growth,
+    "margin": op_margin,
+    "ltm": op_needs_ltm,
+    "senior": op_senior,
+}
+
+
+def spec_cell(spec, ctx, column, index, grid, kind):
+    """One cell from its row's spec for the column's kind (None: a dash for history, n.m. in forecast)."""
+    if spec is None:
+        return not_modelled_cell() if column["kind"] == "fc" else absent_cell()
+    return CELL_OPS[spec[0]](ctx, column, index, grid, kind, *spec[1:])
+
+
+def every(spec):
+    return (spec, spec, spec)
+
+
+# Rows as data: (id, band, label, kind, quarter spec, fiscal-year spec, forecast spec).
+INCOME = "Profitability"
+HEAD_ROWS = (
+    (
+        "revenue",
+        "Revenue",
+        "Revenue",
+        "money",
+        ("table", "income", "NET SALES"),
+        ("key", "revenue"),
+        ("key", "revenue"),
+    ),
+    ("revenue-growth", "Revenue", "Revenue YoY growth", "percent", *every(("growth", "revenue"))),
+    (
+        "cogs",
+        INCOME,
+        "COGS (cost of sales)",
+        "money",
+        ("table", "income", "COST OF SALES"),
+        ("key", "cogs"),
+        None,
+    ),
+    (
+        "gp",
+        INCOME,
+        "Gross profit",
+        "money",
+        ("table", "income", "GROSS PROFIT"),
+        ("key", "gross_profit"),
+        None,
+    ),
+    ("gp-margin", INCOME, "Gross profit margin", "percent", *every(("margin", "gp"))),
+    (
+        "opex",
+        INCOME,
+        "Opex (selling and administrative, amortization of intangibles)",
+        "money",
+        (
+            "table-sum",
+            "income",
+            "SELLING AND ADMINISTRATIVE EXPENSES",
+            "AMORTIZATION OF INTANGIBLE ASSETS",
+        ),
+        ("key", "opex_magnitude"),
+        None,
+    ),
+    (
+        "ebit",
+        INCOME,
+        "EBIT (income from operations)",
+        "money",
+        ("table", "income", "INCOME FROM OPERATIONS"),
+        ("key", "ebit_reported"),
+        None,
+    ),
+    (
+        "da",
+        INCOME,
+        "D&A (depreciation and amortization)",
+        "money",
+        ("table", "bridge", "Depreciation and amortization expense"),
+        ("key", "cash_flow_DA"),
+        None,
+    ),
+    (
+        "ebitda",
+        INCOME,
+        "EBITDA (EBIT + D&A)",
+        "money",
+        ("sum", "ebit", "da"),
+        ("key", "operating_ebitda"),
+        None,
+    ),
+    (
+        "issuer",
+        INCOME,
+        "Issuer EBITDA (reported)",
+        "money",
+        ("table", "bridge", "EBITDA"),
+        ("key", "issuer_ordinary_ebitda"),
+        None,
+    ),
+)
+ADJUSTED = "Adjusted EBITDA"
+PROXY = "Earnings to cash proxy"
+CASH = "Cash and liquidity"
+DEBT = "Debt"
+CREDIT = "Credit metrics"
+TAIL_ROWS = (
+    ("adj", ADJUSTED, "Adj EBITDA (EBITDA As Defined)", "money", ("table", "qdef", "Total Company EBITDA As Defined"), ("key", "issuer_as_defined"), ("key", "ebitda")),
+    ("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
+    ("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
+    ("interest", PROXY, "Cash interest", "money", None, ("key", "interest_cash"), ("key", "interest")),
+    ("tax", PROXY, "Cash taxes", "money", None, ("key", "tax_cash"), None),
+    ("tax-wc", PROXY, "Cash taxes and working capital, combined", "money", None, None, ("key", "tax_wc")),
+    ("cfo", PROXY, "Model cash from operations", "money", None, None, ("key", "cfo")),
+    ("capex", PROXY, "Capital expenditure (outflow)", "money", None, ("key", "capex_signed", True), ("key", "capex")),
+    ("fcf", PROXY, "Cash proxy (not issuer free cash flow)", "money", None, None, ("key", "fcf")),
+    ("dividends", CASH, "Distributions", "money", None, None, ("key", "dividends")),
+    ("repayment", CASH, "Debt repayment", "money", None, None, ("key", "repayment")),
+    ("opening-cash", CASH, "Opening cash", "money", None, None, ("key", "opening_cash")),
+    ("closing-cash", CASH, "Closing cash", "money", None, ("key", "cash"), ("key", "closing_cash")),
+    ("undrawn", CASH, "Undrawn facility", "money", None, None, ("key", "undrawn")),
+    ("liquidity", CASH, "Accessible liquidity", "money", None, None, ("key", "liquidity")),
+    ("opening-debt", DEBT, "Opening debt", "money", None, None, ("key", "opening_debt")),
+    ("closing-debt", DEBT, "Closing debt (carrying value)", "money", None, ("key", "carrying_debt"), ("key", "closing_debt")),
+    ("net-debt", DEBT, "Net debt (all modelled cash deducted)", "money", None, ("key", "net_carrying_debt"), ("key", "net_debt")),
+    ("senior", CREDIT, "Senior secured leverage (secured debt / Adj EBITDA)", "multiple", ("ltm",), ("senior",), None),
+    ("total-leverage", CREDIT, "Total leverage (debt / Adj EBITDA)", "multiple", ("ltm",), ("key", "gross_carrying_multiple"), ("key", "total_leverage")),
+    ("net-leverage", CREDIT, "Net leverage (net debt / Adj EBITDA)", "multiple", ("ltm",), ("key", "net_carrying_multiple"), ("key", "net_leverage")),
+    ("coverage", CREDIT, "Interest coverage (Adj EBITDA / cash interest)", "multiple", None, ("key", "issuer_earnings_cash_interest"), ("key", "coverage")),
+    ("cash-to-debt", CREDIT, "Cash proxy / closing debt", "percent", None, None, ("key", "fcf_to_debt")),
+)  # fmt: skip
+
+
+def listed_labels(tables, *names):
+    """Business units (rows `Total <unit>`) of the tables, first table's order first."""
     units = []
-    for table in tables:
+    for name in names:
+        table = tables[name]
         for label in () if table is None else table["rows"]:
             unit = label.removeprefix("Total ")
             if label.startswith("Total ") and unit and unit not in units:
@@ -1215,246 +1319,71 @@ def business_units(*tables):
     return units
 
 
-def cashflow_rows(annual, quarter):
-    """(key, band, label, kind, per-column-kind cell functions) in presentation order."""
-    income = table_holding(quarter, "COST OF SALES")
-    quarter_segments, annual_segments = (
-        table_holding(quarter, "Net Sales"),
-        table_holding(annual, "Net Sales"),
-    )
-    bridge = table_holding(quarter, "EBITDA")
-    quarter_defined = table_holding(quarter, "Total Company EBITDA As Defined")
-    annual_defined = table_holding(annual, "Total Company EBITDA As Defined")
-    add_backs = add_back_labels(annual_defined)
-    add_backs += [label for label in add_back_labels(quarter_defined) if label not in add_backs]
+def cashflow_rows(tables):
+    """The grid's rows in presentation order: units, the fixed head, add-backs, the fixed tail."""
     rows = []
-
-    def line(key, band, label, kind, q=not_held, fy=not_held, fc=never_modelled, same=None):
-        rows.append((key, band, label, kind, {"q": same or q, "fy": same or fy, "fc": same or fc}))
-
-    for unit in business_units(annual_segments, quarter_segments):
+    for unit in listed_labels(tables, "aseg", "qseg"):
         total = f"Total {unit}"
-        line(
-            ("unit", unit),
-            "Revenue",
-            unit,
-            "money",
-            from_table(quarter_segments, total),
-            from_table(annual_segments, total),
+        rows.append(
+            (
+                ("unit", unit),
+                "Revenue",
+                unit,
+                "money",
+                ("table", "qseg", total),
+                ("table", "aseg", total),
+                None,
+            )
         )
-        line(
-            ("growth", unit),
-            "Revenue",
-            f"{unit} YoY growth",
-            "percent",
-            same=growth_of(("unit", unit)),
+        rows.append(
+            (
+                ("growth", unit),
+                "Revenue",
+                f"{unit} YoY growth",
+                "percent",
+                *every(("growth", ("unit", unit))),
+            )
         )
-    line(
-        "revenue",
-        "Revenue",
-        "Revenue",
-        "money",
-        from_table(income, "NET SALES"),
-        from_record("revenue"),
-        from_forecast("revenue"),
-    )
-    line("revenue-growth", "Revenue", "Revenue YoY growth", "percent", same=growth_of("revenue"))
-    profit = "Profitability"
-    line(
-        "cogs",
-        profit,
-        "COGS (cost of sales)",
-        "money",
-        from_table(income, "COST OF SALES"),
-        from_record("cogs"),
-    )
-    line(
-        "gp",
-        profit,
-        "Gross profit",
-        "money",
-        from_table(income, "GROSS PROFIT"),
-        from_record("gross_profit"),
-    )
-    line("gp-margin", profit, "Gross profit margin", "percent", same=margin_of("gp"))
-    line(
-        "opex",
-        profit,
-        "Opex (selling and administrative, amortization of intangibles)",
-        "money",
-        from_table(
-            income, "SELLING AND ADMINISTRATIVE EXPENSES", "AMORTIZATION OF INTANGIBLE ASSETS"
-        ),
-        from_record("opex_magnitude"),
-    )
-    line(
-        "ebit",
-        profit,
-        "EBIT (income from operations)",
-        "money",
-        from_table(income, "INCOME FROM OPERATIONS"),
-        from_record("ebit_reported"),
-    )
-    line(
-        "da",
-        profit,
-        "D&A (depreciation and amortization)",
-        "money",
-        from_table(bridge, "Depreciation and amortization expense"),
-        from_record("cash_flow_DA"),
-    )
-    line(
-        "ebitda",
-        profit,
-        "EBITDA (EBIT + D&A)",
-        "money",
-        sum_of("ebit", "da"),
-        from_record("operating_ebitda"),
-    )
-    line(
-        "issuer",
-        profit,
-        "Issuer EBITDA (reported)",
-        "money",
-        from_table(bridge, "EBITDA"),
-        from_record("issuer_ordinary_ebitda"),
-    )
-    for label in add_backs:
-        line(
-            ("add-back", label),
-            "Add-backs to issuer EBITDA",
-            label,
-            "money",
-            from_table(quarter_defined, label),
-            from_table(annual_defined, label),
+    rows.extend(HEAD_ROWS)
+    labels = add_back_labels(tables["adef"])
+    labels += [label for label in add_back_labels(tables["qdef"]) if label not in labels]
+    for label in labels:
+        rows.append(
+            (
+                ("add-back", label),
+                "Add-backs to issuer EBITDA",
+                label,
+                "money",
+                ("table", "qdef", label),
+                ("table", "adef", label),
+                None,
+            )
         )
-    adjusted = "Adjusted EBITDA"
-    line(
-        "adj",
-        adjusted,
-        "Adj EBITDA (EBITDA As Defined)",
-        "money",
-        from_table(quarter_defined, "Total Company EBITDA As Defined"),
-        from_record("issuer_as_defined"),
-        from_forecast("ebitda"),
-    )
-    line("adj-margin", adjusted, "Adj EBITDA margin", "percent", same=margin_of("adj"))
-    line("adj-growth", adjusted, "Adj EBITDA YoY growth", "percent", same=growth_of("adj"))
-    proxy = "Earnings to cash proxy"
-    line(
-        "interest",
-        proxy,
-        "Cash interest",
-        "money",
-        fy=from_record("interest_cash"),
-        fc=from_forecast("interest"),
-    )
-    line("tax", proxy, "Cash taxes", "money", fy=from_record("tax_cash"))
-    line(
-        "tax-wc",
-        proxy,
-        "Cash taxes and working capital, combined",
-        "money",
-        fc=from_forecast("tax_wc"),
-    )
-    line("cfo", proxy, "Model cash from operations", "money", fc=from_forecast("cfo"))
-    line(
-        "capex",
-        proxy,
-        "Capital expenditure (outflow)",
-        "money",
-        fy=from_record("capex_signed", negate=True),
-        fc=from_forecast("capex"),
-    )
-    line("fcf", proxy, "Cash proxy (not issuer free cash flow)", "money", fc=from_forecast("fcf"))
-    cash = "Cash and liquidity"
-    line("dividends", cash, "Distributions", "money", fc=from_forecast("dividends"))
-    line("repayment", cash, "Debt repayment", "money", fc=from_forecast("repayment"))
-    line("opening-cash", cash, "Opening cash", "money", fc=from_forecast("opening_cash"))
-    line(
-        "closing-cash",
-        cash,
-        "Closing cash",
-        "money",
-        fy=from_record("cash"),
-        fc=from_forecast("closing_cash"),
-    )
-    line("undrawn", cash, "Undrawn facility", "money", fc=from_forecast("undrawn"))
-    line("liquidity", cash, "Accessible liquidity", "money", fc=from_forecast("liquidity"))
-    debt = "Debt"
-    line("opening-debt", debt, "Opening debt", "money", fc=from_forecast("opening_debt"))
-    line(
-        "closing-debt",
-        debt,
-        "Closing debt (carrying value)",
-        "money",
-        fy=from_record("carrying_debt"),
-        fc=from_forecast("closing_debt"),
-    )
-    line(
-        "net-debt",
-        debt,
-        "Net debt (all modelled cash deducted)",
-        "money",
-        fy=from_record("net_carrying_debt"),
-        fc=from_forecast("net_debt"),
-    )
-    credit = "Credit metrics"
-    line(
-        "senior",
-        credit,
-        "Senior secured leverage (secured debt / Adj EBITDA)",
-        "multiple",
-        needs_ltm,
-        senior_secured_leverage(annual),
-    )
-    line(
-        "total-leverage",
-        credit,
-        "Total leverage (debt / Adj EBITDA)",
-        "multiple",
-        needs_ltm,
-        from_record("gross_carrying_multiple", "multiple"),
-        from_forecast("total_leverage", "multiple"),
-    )
-    line(
-        "net-leverage",
-        credit,
-        "Net leverage (net debt / Adj EBITDA)",
-        "multiple",
-        needs_ltm,
-        from_record("net_carrying_multiple", "multiple"),
-        from_forecast("net_leverage", "multiple"),
-    )
-    line(
-        "coverage",
-        credit,
-        "Interest coverage (Adj EBITDA / cash interest)",
-        "multiple",
-        fy=from_record("issuer_earnings_cash_interest", "multiple"),
-        fc=from_forecast("coverage", "multiple"),
-    )
-    line(
-        "cash-to-debt",
-        credit,
-        "Cash proxy / closing debt",
-        "percent",
-        fc=from_forecast("fcf_to_debt", "percent"),
-    )
-    return rows
+    return rows + list(TAIL_ROWS)
 
 
 def cashflow_of(forecast, fiscal, annual_text, quarter_text, handoff):
     """History from the four delivery files and the forecast record laid out as a line-item by period grid."""
     cases, limits = forecast
     annual, quarter = markdown_tables(annual_text), markdown_tables(quarter_text)
-    income = table_holding(quarter, "COST OF SALES")
+    tables = {
+        "income": table_holding(quarter, "COST OF SALES"),
+        "qseg": table_holding(quarter, "Net Sales"),
+        "aseg": table_holding(annual, "Net Sales"),
+        "bridge": table_holding(quarter, "EBITDA"),
+        "qdef": table_holding(quarter, "Total Company EBITDA As Defined"),
+        "adef": table_holding(annual, "Total Company EBITDA As Defined"),
+    }
+    ctx = {"tables": tables, "secured": secured_debt(annual), "ends": fiscal_year_ends(annual)}
+    income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
     columns = cashflow_columns(periods, fiscal, cases)
     grid, rows = {}, []
-    for key, band, label, kind, cells in cashflow_rows(annual, quarter):
+    for key, band, label, kind, *specs in cashflow_rows(tables):
+        pick = {"q": specs[0], "fy": specs[1], "fc": specs[2]}
         grid[key] = [
-            cells[column["kind"]](column, index, grid) for index, column in enumerate(columns)
+            spec_cell(pick[column["kind"]], ctx, column, index, grid, kind)
+            for index, column in enumerate(columns)
         ]
         rows.append({"band": band, "label": label, "cells": grid[key]})
     year_to_date = any(column["label"].endswith("(YTD)") for column in columns)
@@ -1464,7 +1393,7 @@ def cashflow_of(forecast, fiscal, annual_text, quarter_text, handoff):
             {key: column[key] for key in ("label", "group", "start", "end")} for column in columns
         ],
         "rows": rows,
-        "notes": [note for note in CASHFLOW_NOTES if year_to_date or note is not Q1_NOTE],
+        "notes": [note for note in CASHFLOW_NOTES if year_to_date or note != Q1_NOTE],
         "limits": limits,
     }
 

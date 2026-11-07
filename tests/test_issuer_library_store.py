@@ -1551,3 +1551,72 @@ def test_a_files_list_in_a_delivery_is_an_issue_not_a_crash(tmp_path):
         "deliverables/m-1: could not be read (TypeError: files is not an object)"
         in result["issues"]
     )
+
+
+# Fix round 1 (review of Task 12).
+@pytest.mark.parametrize(
+    "entry",
+    [
+        5,
+        {"reason": None},
+        {"amount": 5, "reason": None},
+        {"amount": "1", "reason": 5},
+        {"amount": "1"},
+    ],
+)
+def test_a_calculation_entry_that_is_not_amount_and_reason_names_calculation_json(tmp_path, entry):
+    record = calculation_record()
+    record["values"]["FY2024"]["revenue"] = entry
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(record))
+    assert cashflow is None
+    assert issues == ["deliverables/m-1: calculation.json is missing or unreadable"]
+
+
+@pytest.mark.parametrize("entry", [5, {"reason": None}, {"amount": "1", "reason": 5}])
+def test_a_forecast_entry_that_is_not_amount_and_reason_names_forecast_exact_json(tmp_path, entry):
+    record = exact_record()
+    record["outputs"]["DOWNSIDE"]["years"][0]["revenue"] = entry
+    cashflow, issues = cashflow_of(tmp_path, exact=record)
+    assert cashflow is None
+    assert issues == ["deliverables/m-1: forecast_exact.json is missing or unreadable"]
+
+
+def test_one_derived_value_too_large_to_show_is_one_n_a_cell_not_a_lost_grid(tmp_path):
+    record = calculation_record()
+    record["values"]["FY2024"]["revenue"] = amount("1E-190")
+    record["values"]["FY2025"]["revenue"] = amount("1E+190")
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(record))
+    assert issues == []
+    cell = row(cashflow, "Revenue YoY growth")["cells"][4]
+    assert (cell["display"], cell["exact"], cell["reason"]) == (
+        NA,
+        None,
+        "the value cannot be displayed",
+    )
+    assert shown(cashflow, "Revenue")[3] == "0"
+
+
+@pytest.mark.parametrize("name", ["calculation.json", "annual.md", "quarter.md"])
+def test_a_changed_input_file_is_not_read_and_is_named(tmp_path, name):
+    artifact = model_delivery(
+        tmp_path,
+        "deliverables/m-1",
+        forecast=REQUEST,
+        exact=exact_record(),
+        extra=cashflow_files(),
+    )
+    path = tmp_path / "deliverables/m-1" / name
+    result = models_of(tmp_path, artifact, edit=lambda: path.write_text("x", encoding="utf-8"))
+    assert result["models"][0]["cashflow"] is None
+    assert [i for i in result["issues"] if "m-1" in i] == [
+        f"deliverables/m-1: {name} does not match its delivery record"
+    ]
+
+
+def test_a_quarter_starting_on_29_february_has_no_prior_year_quarter(tmp_path):
+    quarter = QUARTER_MD.replace("2025-01-01–2025-03-31", "2024-02-29–2024-05-31")
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert issues == []
+    assert cashflow["columns"][0]["label"] == "2024-02-29–2024-05-31"
+    cell = row(cashflow, "Revenue YoY growth")["cells"][0]
+    assert (cell["display"], cell["reason"]) == (NA, "prior-year period not in the handoffs")

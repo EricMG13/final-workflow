@@ -42,9 +42,14 @@ amendment awaits confirmation. Also fixed: three defects reviewers found next to
 (non-UTF-8 lines in the source and financial servers, now one shared `workflow.read_line` that
 the owner server also uses; lone surrogates in research manifests; the CP-4 stored claim
 limitation).
-Known-failure list: 13 more base failures found during the waves and confirmed on
-`claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose and
-prompt-set digest).
+Branch review (one final reviewer over the whole branch, report only): verdict merge, no blocker
+or high finding; conflict resolutions coherent; every composed-prompt difference across the 12
+step contracts maps to a named finding. Its low items were fixed through the matrix: comments
+opened mid-line are hidden too, financial_workflow (and owner_workflow through it) uses the atomic
+`workflow._put`, and the CP-4 context.py pin test is renamed to what it checks.
+Known-failure list: 39 more base failures found during the waves and confirmed on
+`claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose,
+prompt-set digest, and the 26 frozen-message digest failures).
 Not verified here (slow or not runnable in this container; the nightly run covers the pytest
 ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
 attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,

@@ -747,57 +747,61 @@ def model_sources(root, delivery, outputs, folder=None, issues=None):
     return rows
 
 
-CASHFLOW_BANDS = (
+CASHFLOW_FILES = ("forecast_exact.json", "calculation.json", "annual.md", "quarter.md")
+FORECAST_CASES = (("REFERENCE", "Base case (reference illustration)"), ("DOWNSIDE", "Downside"))
+REASON_PHRASES = {
+    "NOT_SOURCED": "not reported in the source",
+    "COMPONENT_MISSING": "a component is not in the handoffs",
+}
+NOT_HELD = "\u2014"
+PRIOR_MISSING = "prior-year period not in the handoffs"
+COMPONENT_MISSING = "a component is not in the handoffs"
+LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+MONTHS = (
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
+Q1_NOTE = "Q1 is the first quarter of the fiscal year, so it is also the year to date."
+CASHFLOW_NOTES = (
+    Q1_NOTE,
+    "Pro forma: no pro forma period is recorded in the handoffs.",
     (
-        "Operating",
-        (
-            ("Revenue", "revenue", "revenue", "money"),
-            ("Model earnings (operating-based EBITDA)", "ebitda", "ebitda", "money"),
-        ),
+        "Base case is the model's reference case: a conditional illustration, not an "
+        "evidence-supported central issuer forecast. The upside case stays in the calculation "
+        "record and the published model."
+    ),
+    "n.m. \u2014 not modelled: the calculation record does not project this line.",
+    (
+        "EBITDA (EBIT + D&A) differs from the issuer's reported EBITDA, which also deducts "
+        "refinancing costs and includes other income or expense."
     ),
     (
-        "Earnings to cash proxy",
-        (
-            ("Cash interest", "interest", "interest", "money"),
-            ("Cash taxes", None, "taxes", "money"),
-            ("Working capital", None, "wc", "money"),
-            ("Cash taxes and working capital, combined", "tax_wc", None, "money"),
-            ("Model cash from operations", "cfo", None, "money"),
-            ("Capital expenditure", "capex", "capex", "money"),
-            ("Cash proxy (not issuer free cash flow)", "fcf", "fcf", "money"),
-        ),
+        "Adj EBITDA is the issuer's EBITDA As Defined, a non-GAAP measure; in the forecast it is "
+        "the model's earnings on that basis, not issuer guidance."
     ),
     (
-        "Cash and liquidity",
-        (
-            ("Distributions", "dividends", None, "money"),
-            ("Debt repayment", "repayment", None, "money"),
-            ("Opening cash", "opening_cash", None, "money"),
-            ("Closing cash", "closing_cash", "cash", "money"),
-            ("Undrawn facility", "undrawn", "undrawn", "money"),
-            ("Accessible liquidity", "liquidity", None, "money"),
-        ),
-    ),
-    (
-        "Debt",
-        (
-            ("Opening debt", "opening_debt", None, "money"),
-            ("Closing debt (carrying value)", "closing_debt", "debt", "money"),
-            ("Net debt (all modelled cash deducted)", "net_debt", None, "money"),
-        ),
-    ),
-    (
-        "Credit metrics",
-        (
-            ("Debt / model earnings", "total_leverage", None, "multiple"),
-            ("Net debt / model earnings", "net_leverage", None, "multiple"),
-            ("Model earnings / cash interest", "coverage", None, "multiple"),
-            ("Cash proxy / closing debt", "fcf_to_debt", None, "percent"),
-        ),
+        "Leverage uses carrying debt including securitization; senior secured debt is the term "
+        "loans, secured notes and securitization at carrying value. Ratios are shown for fiscal "
+        "years only."
     ),
 )
-CASE_NAMES = {"REFERENCE": "Reference", "DOWNSIDE": "Downside", "UPSIDE": "Upside"}
-NOT_HELD = "\u2014"
+QUARTER_HEADER = re.compile(r"(\d{4}-\d{2}-\d{2})[–-](\d{4}-\d{2}-\d{2})", re.ASCII)
+FISCAL_HEADER = re.compile(r"FY\d{4}", re.ASCII)
+TABLE_NUMBER = re.compile(r"(\()?((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)(\))?", re.ASCII)
+SEPARATOR_CELL = re.compile(r":?-+:?")
+CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII)
+REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
 
 
 def display_amount(exact, kind):
@@ -818,18 +822,6 @@ def display_amount(exact, kind):
         return f"({-rounded:,})" if rounded < 0 else f"{rounded:,}"
 
 
-def cashflow_cell(record, key, kind):
-    if key is None or key not in record:
-        return {"exact": None, "display": NOT_HELD, "reason": None}
-    held = record[key]
-    exact, reason = held["amount"], held["reason"]
-    if exact is None:
-        return {"exact": None, "display": "n.a.", "reason": text_or_none(reason)}
-    if not isinstance(exact, str):
-        raise TypeError(f"amount of {key} is not a decimal string")
-    return {"exact": exact, "display": display_amount(exact, kind), "reason": None}
-
-
 def cashflow_units(handoff):
     """The first '<ISO currency> millions|billions|thousands' phrase of the handoff's Request section."""
     request = re.search(
@@ -843,52 +835,658 @@ def cashflow_units(handoff):
     return re.sub(r"\s+", " ", phrase.group(0)) if phrase else None
 
 
-def cashflow_of(exact, handoff):
-    """The calculation record's own values laid out as a line-item by period grid; nothing is recomputed."""
-    cases = [
-        (CASE_NAMES.get(key, key.title()), case["years"]) for key, case in exact["outputs"].items()
-    ]
-    first = cases[0][1][0]["year"]
-    columns = [{"label": f"FY{first - 1}", "group": "Base", "start": None, "end": None}]
-    periods = [(None, exact["base"])]
-    for name, years in cases:
+def grid_cell(exact, display, reason=None):
+    return {"exact": exact, "display": display, "reason": reason}
+
+
+def amount_cell(exact, kind):
+    return grid_cell(exact, display_amount(exact, kind))
+
+
+def absent_cell():
+    return grid_cell(None, NOT_HELD)
+
+
+def unavailable_cell(reason):
+    return grid_cell(None, "n.a.", reason)
+
+
+def not_modelled_cell():
+    return grid_cell(None, "n.m.", "not modelled in the calculation record")
+
+
+def held_cell(held, kind, negate=False):
+    """A calculation record's {amount, reason}; an amount of null is n.a. with the record's reason."""
+    exact = held["amount"]
+    if exact is None:
+        reason = held.get("reason")
+        return unavailable_cell(
+            REASON_PHRASES.get(reason, reason) if isinstance(reason, str) else None
+        )
+    if negate:
+        value = decimal.Decimal(exact).copy_negate()
+        exact = "0" if value == 0 else str(value)
+    return amount_cell(exact, kind)
+
+
+def checked_amounts(record):
+    """Every {amount, reason} in a calculation record must hold null or a finite decimal string."""
+    for held in record.values():
+        if not isinstance(held, dict) or "amount" not in held:
+            continue
+        exact = held["amount"]
+        if exact is None:
+            continue
+        if not isinstance(exact, str) or len(exact) > 200:
+            raise ValueError("an amount is not a decimal string")
+        display_amount(exact, "money")  # a non-finite or out-of-range amount raises here
+        display_amount(exact, "percent")
+
+
+def source_cell(text, kind):
+    """A Markdown table cell as the handoff printed it."""
+    if text == "":
+        return absent_cell()
+    if text == NOT_HELD:
+        return grid_cell(None, NOT_HELD, "printed as — in the source")
+    found = TABLE_NUMBER.fullmatch(text) if len(text) <= 40 else None
+    if found is None or bool(found.group(1)) != bool(found.group(3)):
+        return unavailable_cell("source cell is not a number")
+    digits = found.group(2).replace(",", "")
+    negative = found.group(1) and decimal.Decimal(digits) != 0
+    return amount_cell(f"-{digits}" if negative else digits, kind)
+
+
+def table_cells(line):
+    return [cell.strip() for cell in line.strip().removeprefix("|").removesuffix("|").split("|")]
+
+
+def period_key(header):
+    quarter = QUARTER_HEADER.fullmatch(header)
+    if quarter:
+        try:
+            for part in quarter.groups():
+                datetime.date.fromisoformat(part)
+        except ValueError:
+            return None
+        return ("q",) + quarter.groups()
+    return ("fy", header) if FISCAL_HEADER.fullmatch(header) else None
+
+
+def markdown_table(lines):
+    """One run of '|' lines: header, optional separator, rows. Rows are found by their label."""
+    cells = [table_cells(line) for line in lines]
+    header, body = cells[0], cells[1:]
+    if body and all(SEPARATOR_CELL.fullmatch(cell) for cell in body[0]):
+        body = body[1:]
+    label_column = header.index("Label") if "Label" in header else 0
+    rows = {}
+    for row in body:
+        if label_column < len(row):
+            rows.setdefault(row[label_column], row)
+    periods = {}
+    for index, name in enumerate(header):
+        key = period_key(name)
+        if key is not None:
+            periods.setdefault(key, index)
+    return {"header": header, "rows": rows, "periods": periods}
+
+
+def markdown_tables(text):
+    """The tables of a Markdown text, read line by line."""
+    tables, run = [], []
+    for line in text.split("\n"):
+        if line.lstrip().startswith("|"):
+            run.append(line)
+        elif run:
+            tables.append(markdown_table(run))
+            run = []
+    if run:
+        tables.append(markdown_table(run))
+    return tables
+
+
+def table_holding(tables, label):
+    return next((table for table in tables if label in table["rows"]), None)
+
+
+def table_cell(table, label, period, kind="money"):
+    row = None if table is None else table["rows"].get(label)
+    index = None if table is None else table["periods"].get(period)
+    if row is None or index is None or index >= len(row):
+        return absent_cell()
+    return source_cell(row[index], kind)
+
+
+def add_back_labels(table):
+    """The rows between 'Interest expense-net' and the pre-tax income row of an As Defined bridge."""
+    if table is None or "Interest expense-net" not in table["rows"]:
+        return []
+    labels = list(table["rows"])
+    labels = labels[labels.index("Interest expense-net") + 1 :]
+    end = "Income from continuing operations before income taxes"
+    labels = labels[: labels.index(end)] if end in labels else labels
+    return [label for label in labels if label]
+
+
+def register_date(text):
+    found = REGISTER_DATE.search(text)
+    if found is None or found.group(1) not in MONTHS_SHORT:
+        return None
+    try:
+        return datetime.date(int(found.group(3)), MONTHS_SHORT[found.group(1)], int(found.group(2)))
+    except ValueError:
+        return None
+
+
+def secured_debt(tables):
+    """(register date, sum of secured carrying values) from the annual debt register; None if incomplete."""
+    debt = table_holding(tables, "Term loans aggregate")
+    when = register_date(debt["header"][1]) if debt and len(debt["header"]) > 1 else None
+    if when is None:
+        return None
+    total, named = decimal.Decimal(0), set()
+    for label, row in debt["rows"].items():
+        named_secured = label in ("Trade receivable securitization", "Term loans aggregate")
+        if not (named_secured or ("secured notes" in label and "subordinated" not in label)):
+            continue
+        carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
+        if carrying is None:
+            return None
+        total += decimal.Decimal(carrying.group(1).replace(",", ""))
+        named.add(label)
+    required = {"Trade receivable securitization", "Term loans aggregate"}
+    return (when, total) if required <= named else None
+
+
+def fiscal_year_ends(tables):
+    """FY label -> ISO end date from the annual period register (headed Period ... End)."""
+    register = next((t for t in tables if "Period" in t["header"] and "End" in t["header"]), None)
+    if register is None:
+        return {}
+    period, end = register["header"].index("Period"), register["header"].index("End")
+    return {
+        row[period]: row[end]
+        for row in register["rows"].values()
+        if len(row) > max(period, end) and FISCAL_HEADER.fullmatch(row[period])
+    }
+
+
+def derive(kind, operands, compute):
+    """A value computed from other cells under prec=28; n.m. or a gap in an operand carries through."""
+    if any(operand["display"] == "n.m." for operand in operands):
+        return not_modelled_cell()
+    if any(operand["exact"] is None for operand in operands):
+        return unavailable_cell(COMPONENT_MISSING)
+    with decimal.localcontext(decimal.Context(prec=28)):
+        try:
+            result = compute(*[decimal.Decimal(operand["exact"]) for operand in operands])
+        except (decimal.DivisionByZero, decimal.InvalidOperation):
+            return unavailable_cell("a divisor is zero")
+    return amount_cell("0" if result == 0 else str(result), kind)
+
+
+def year_earlier(iso):
+    start = datetime.date.fromisoformat(iso)
+    try:
+        return start.replace(year=start.year - 1).isoformat()
+    except ValueError:
+        return None  # 29 February has no same day a year earlier
+
+
+def forecast_inputs(exact):
+    """(columns' source years by case, limits) of the forecast record; validated here."""
+    cases = []
+    for key, name in FORECAST_CASES:
+        if key not in exact["outputs"]:
+            continue
+        years = exact["outputs"][key]["years"]
         for year in years:
-            columns.append(
-                {
-                    "label": f"FY{year['year']}E",
-                    "group": name,
-                    "start": text_or_none(year["planning_start"]),
-                    "end": text_or_none(year["planning_end"]),
-                }
-            )
-            periods.append((year, year))
-    rows = []
-    for band, lines in CASHFLOW_BANDS:
-        for label, projected, base, kind in lines:
-            cells = [
-                cashflow_cell(record, base if year is None else projected, kind)
-                for year, record in periods
-            ]
-            rows.append({"band": band, "label": label, "cells": cells})
+            if not isinstance(year["year"], int):
+                raise TypeError("year is not a number")
+            checked_amounts(year)
+        cases.append((name, years))
     limits = exact["scope_limits"]
     if not isinstance(limits, list) or not all(isinstance(item, str) for item in limits):
         raise TypeError("scope_limits is not a list of text")
+    return cases, limits
+
+
+def fiscal_inputs(record):
+    """[(fiscal year label, its values)] in the record's annual_periods order; validated here."""
+    labels = record["annual_periods"]
+    if not isinstance(labels, list) or not all(isinstance(label, str) for label in labels):
+        raise TypeError("annual_periods is not a list of text")
+    years = []
+    for label in labels:
+        values = record["values"][label]
+        checked_amounts(values)
+        years.append((label, values))
+    return years
+
+
+def cashflow_columns(quarters, fiscal, cases):
+    """Quarter, fiscal-year and forecast columns, each with its prior-year column's index."""
+    first = cases[0][1][0].get("planning_start") if cases and cases[0][1] else None
+    try:
+        first = datetime.date.fromisoformat(first)
+    except (TypeError, ValueError):
+        first = None
+    columns = []
+
+    def add(label, group, kind, record=None, start=None, end=None, period=None, prior=None):
+        columns.append(
+            {
+                "label": label,
+                "group": group,
+                "kind": kind,
+                "record": record,
+                "start": start,
+                "end": end,
+                "period": period,
+                "prior": prior,
+            }
+        )
+
+    starts = {start: index for index, (start, _) in enumerate(quarters)}
+    for start, end in quarters:
+        opening = datetime.date.fromisoformat(start)
+        label = f"{start}–{end}"
+        if first is not None and (opening.month, opening.day) == (first.month, first.day):
+            label = (
+                f"Q1 FY{opening.year + (0 if (opening.month, opening.day) == (1, 1) else 1)} (YTD)"
+            )
+        prior = starts.get(year_earlier(start))
+        add(label, "Quarter", "q", None, start, end, ("q", start, end), prior)
+    last_fiscal = None
+    for label, values in fiscal:
+        add(label, "Fiscal year", "fy", values, period=("fy", label), prior=last_fiscal)
+        last_fiscal = len(columns) - 1
+    for name, years in cases:
+        prior = last_fiscal
+        for year in years:
+            add(
+                f"FY{year['year']}E",
+                name,
+                "fc",
+                year,
+                text_or_none(year.get("planning_start")),
+                text_or_none(year.get("planning_end")),
+                prior=prior,
+            )
+            prior = len(columns) - 1
+    return columns
+
+
+def growth_of(source):
+    """YoY growth of an earlier row, against the same row in the column's prior-year column."""
+
+    def cell(column, index, grid):
+        current = grid[source][index]
+        if current["display"] == "n.m.":
+            return not_modelled_cell()
+        if column["prior"] is None:
+            return unavailable_cell(PRIOR_MISSING)
+        return derive("percent", [current, grid[source][column["prior"]]], lambda a, b: a / b - 1)
+
+    return cell
+
+
+def margin_of(source):
+    return lambda column, index, grid: derive(
+        "percent", [grid[source][index], grid["revenue"][index]], lambda a, b: a / b
+    )
+
+
+def sum_of(*sources):
+    return lambda column, index, grid: derive(
+        "money", [grid[source][index] for source in sources], lambda a, b: a + b
+    )
+
+
+def from_table(table, *labels):
+    """The table's cell(s) for the column's period; two labels are added."""
+    if len(labels) == 2:
+        return lambda column, index, grid: derive(
+            "money",
+            [table_cell(table, label, column["period"]) for label in labels],
+            lambda a, b: a + b,
+        )
+    return lambda column, index, grid: table_cell(table, labels[0], column["period"])
+
+
+def from_record(key, kind="money", negate=False):
+    """A calculation-record key; a key the record does not hold is a dash for history."""
+
+    def cell(column, index, grid):
+        record = column["record"]
+        return held_cell(record[key], kind, negate) if key in record else absent_cell()
+
+    return cell
+
+
+def from_forecast(key, kind="money"):
+    """A forecast key; a key the record does not hold is n.m. (not modelled)."""
+
+    def cell(column, index, grid):
+        record = column["record"]
+        return held_cell(record[key], kind) if key in record else not_modelled_cell()
+
+    return cell
+
+
+def never_modelled(column, index, grid):
+    return not_modelled_cell()
+
+
+def not_held(column, index, grid):
+    return absent_cell()
+
+
+def needs_ltm(column, index, grid):
+    return unavailable_cell(LTM_NEEDED)
+
+
+def senior_secured_leverage(annual):
+    """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date only."""
+    secured, ends = secured_debt(annual), fiscal_year_ends(annual)
+
+    def cell(column, index, grid):
+        if secured is None:
+            return unavailable_cell(COMPONENT_MISSING)
+        when, total = secured
+        if ends.get(column["label"]) != when.isoformat():
+            return unavailable_cell(
+                "secured-debt carrying values are recorded only at "
+                f"{when.day} {MONTHS[when.month - 1]} {when.year}"
+            )
+        return derive("multiple", [grid["adj"][index]], lambda a: total / a)
+
+    return cell
+
+
+def business_units(*tables):
+    units = []
+    for table in tables:
+        for label in () if table is None else table["rows"]:
+            unit = label.removeprefix("Total ")
+            if label.startswith("Total ") and unit and unit not in units:
+                units.append(unit)
+    return units
+
+
+def cashflow_rows(annual, quarter):
+    """(key, band, label, kind, per-column-kind cell functions) in presentation order."""
+    income = table_holding(quarter, "COST OF SALES")
+    quarter_segments, annual_segments = (
+        table_holding(quarter, "Net Sales"),
+        table_holding(annual, "Net Sales"),
+    )
+    bridge = table_holding(quarter, "EBITDA")
+    quarter_defined = table_holding(quarter, "Total Company EBITDA As Defined")
+    annual_defined = table_holding(annual, "Total Company EBITDA As Defined")
+    add_backs = add_back_labels(annual_defined)
+    add_backs += [label for label in add_back_labels(quarter_defined) if label not in add_backs]
+    rows = []
+
+    def line(key, band, label, kind, q=not_held, fy=not_held, fc=never_modelled, same=None):
+        rows.append((key, band, label, kind, {"q": same or q, "fy": same or fy, "fc": same or fc}))
+
+    for unit in business_units(annual_segments, quarter_segments):
+        total = f"Total {unit}"
+        line(
+            ("unit", unit),
+            "Revenue",
+            unit,
+            "money",
+            from_table(quarter_segments, total),
+            from_table(annual_segments, total),
+        )
+        line(
+            ("growth", unit),
+            "Revenue",
+            f"{unit} YoY growth",
+            "percent",
+            same=growth_of(("unit", unit)),
+        )
+    line(
+        "revenue",
+        "Revenue",
+        "Revenue",
+        "money",
+        from_table(income, "NET SALES"),
+        from_record("revenue"),
+        from_forecast("revenue"),
+    )
+    line("revenue-growth", "Revenue", "Revenue YoY growth", "percent", same=growth_of("revenue"))
+    profit = "Profitability"
+    line(
+        "cogs",
+        profit,
+        "COGS (cost of sales)",
+        "money",
+        from_table(income, "COST OF SALES"),
+        from_record("cogs"),
+    )
+    line(
+        "gp",
+        profit,
+        "Gross profit",
+        "money",
+        from_table(income, "GROSS PROFIT"),
+        from_record("gross_profit"),
+    )
+    line("gp-margin", profit, "Gross profit margin", "percent", same=margin_of("gp"))
+    line(
+        "opex",
+        profit,
+        "Opex (selling and administrative, amortization of intangibles)",
+        "money",
+        from_table(
+            income, "SELLING AND ADMINISTRATIVE EXPENSES", "AMORTIZATION OF INTANGIBLE ASSETS"
+        ),
+        from_record("opex_magnitude"),
+    )
+    line(
+        "ebit",
+        profit,
+        "EBIT (income from operations)",
+        "money",
+        from_table(income, "INCOME FROM OPERATIONS"),
+        from_record("ebit_reported"),
+    )
+    line(
+        "da",
+        profit,
+        "D&A (depreciation and amortization)",
+        "money",
+        from_table(bridge, "Depreciation and amortization expense"),
+        from_record("cash_flow_DA"),
+    )
+    line(
+        "ebitda",
+        profit,
+        "EBITDA (EBIT + D&A)",
+        "money",
+        sum_of("ebit", "da"),
+        from_record("operating_ebitda"),
+    )
+    line(
+        "issuer",
+        profit,
+        "Issuer EBITDA (reported)",
+        "money",
+        from_table(bridge, "EBITDA"),
+        from_record("issuer_ordinary_ebitda"),
+    )
+    for label in add_backs:
+        line(
+            ("add-back", label),
+            "Add-backs to issuer EBITDA",
+            label,
+            "money",
+            from_table(quarter_defined, label),
+            from_table(annual_defined, label),
+        )
+    adjusted = "Adjusted EBITDA"
+    line(
+        "adj",
+        adjusted,
+        "Adj EBITDA (EBITDA As Defined)",
+        "money",
+        from_table(quarter_defined, "Total Company EBITDA As Defined"),
+        from_record("issuer_as_defined"),
+        from_forecast("ebitda"),
+    )
+    line("adj-margin", adjusted, "Adj EBITDA margin", "percent", same=margin_of("adj"))
+    line("adj-growth", adjusted, "Adj EBITDA YoY growth", "percent", same=growth_of("adj"))
+    proxy = "Earnings to cash proxy"
+    line(
+        "interest",
+        proxy,
+        "Cash interest",
+        "money",
+        fy=from_record("interest_cash"),
+        fc=from_forecast("interest"),
+    )
+    line("tax", proxy, "Cash taxes", "money", fy=from_record("tax_cash"))
+    line(
+        "tax-wc",
+        proxy,
+        "Cash taxes and working capital, combined",
+        "money",
+        fc=from_forecast("tax_wc"),
+    )
+    line("cfo", proxy, "Model cash from operations", "money", fc=from_forecast("cfo"))
+    line(
+        "capex",
+        proxy,
+        "Capital expenditure (outflow)",
+        "money",
+        fy=from_record("capex_signed", negate=True),
+        fc=from_forecast("capex"),
+    )
+    line("fcf", proxy, "Cash proxy (not issuer free cash flow)", "money", fc=from_forecast("fcf"))
+    cash = "Cash and liquidity"
+    line("dividends", cash, "Distributions", "money", fc=from_forecast("dividends"))
+    line("repayment", cash, "Debt repayment", "money", fc=from_forecast("repayment"))
+    line("opening-cash", cash, "Opening cash", "money", fc=from_forecast("opening_cash"))
+    line(
+        "closing-cash",
+        cash,
+        "Closing cash",
+        "money",
+        fy=from_record("cash"),
+        fc=from_forecast("closing_cash"),
+    )
+    line("undrawn", cash, "Undrawn facility", "money", fc=from_forecast("undrawn"))
+    line("liquidity", cash, "Accessible liquidity", "money", fc=from_forecast("liquidity"))
+    debt = "Debt"
+    line("opening-debt", debt, "Opening debt", "money", fc=from_forecast("opening_debt"))
+    line(
+        "closing-debt",
+        debt,
+        "Closing debt (carrying value)",
+        "money",
+        fy=from_record("carrying_debt"),
+        fc=from_forecast("closing_debt"),
+    )
+    line(
+        "net-debt",
+        debt,
+        "Net debt (all modelled cash deducted)",
+        "money",
+        fy=from_record("net_carrying_debt"),
+        fc=from_forecast("net_debt"),
+    )
+    credit = "Credit metrics"
+    line(
+        "senior",
+        credit,
+        "Senior secured leverage (secured debt / Adj EBITDA)",
+        "multiple",
+        needs_ltm,
+        senior_secured_leverage(annual),
+    )
+    line(
+        "total-leverage",
+        credit,
+        "Total leverage (debt / Adj EBITDA)",
+        "multiple",
+        needs_ltm,
+        from_record("gross_carrying_multiple", "multiple"),
+        from_forecast("total_leverage", "multiple"),
+    )
+    line(
+        "net-leverage",
+        credit,
+        "Net leverage (net debt / Adj EBITDA)",
+        "multiple",
+        needs_ltm,
+        from_record("net_carrying_multiple", "multiple"),
+        from_forecast("net_leverage", "multiple"),
+    )
+    line(
+        "coverage",
+        credit,
+        "Interest coverage (Adj EBITDA / cash interest)",
+        "multiple",
+        fy=from_record("issuer_earnings_cash_interest", "multiple"),
+        fc=from_forecast("coverage", "multiple"),
+    )
+    line(
+        "cash-to-debt",
+        credit,
+        "Cash proxy / closing debt",
+        "percent",
+        fc=from_forecast("fcf_to_debt", "percent"),
+    )
+    return rows
+
+
+def cashflow_of(forecast, fiscal, annual_text, quarter_text, handoff):
+    """History from the four delivery files and the forecast record laid out as a line-item by period grid."""
+    cases, limits = forecast
+    annual, quarter = markdown_tables(annual_text), markdown_tables(quarter_text)
+    income = table_holding(quarter, "COST OF SALES")
+    periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
+    columns = cashflow_columns(periods, fiscal, cases)
+    grid, rows = {}, []
+    for key, band, label, kind, cells in cashflow_rows(annual, quarter):
+        grid[key] = [
+            cells[column["kind"]](column, index, grid) for index, column in enumerate(columns)
+        ]
+        rows.append({"band": band, "label": label, "cells": grid[key]})
+    year_to_date = any(column["label"].endswith("(YTD)") for column in columns)
     return {
         "units": cashflow_units(handoff) if handoff is not None else None,
-        "columns": columns,
+        "columns": [
+            {key: column[key] for key in ("label", "group", "start", "end")} for column in columns
+        ],
         "rows": rows,
+        "notes": [note for note in CASHFLOW_NOTES if year_to_date or note is not Q1_NOTE],
         "limits": limits,
     }
 
 
-def read_cashflow(record, handoff):
-    """None when the delivery's calculation record is invalid; the caller reports it.
+def read_cashflow(files, handoff):
+    """(grid, None), or (None, the file that cannot be laid out; None when the layout itself failed).
 
-    Documented fail-open: a record the reader cannot lay out leaves the model listed with
-    no grid and a Workspace issue naming the delivery.
+    Documented fail-open: an input the reader cannot lay out leaves the model listed with no grid
+    and a Workspace issue naming the file. A model too large to parse (MemoryError) or nested too
+    deep (RecursionError) is reported the same way, not allowed to end the store.
     """
+    stage = CASHFLOW_FILES[0]
     try:
-        return cashflow_of(json.loads(record.decode("utf-8")), handoff)
+        forecast = forecast_inputs(json.loads(files[stage].decode("utf-8")))
+        stage = CASHFLOW_FILES[1]
+        fiscal = fiscal_inputs(json.loads(files[stage].decode("utf-8")))
+        stage = CASHFLOW_FILES[2]
+        annual = files[stage].decode("utf-8")
+        stage = CASHFLOW_FILES[3]
+        quarter = files[stage].decode("utf-8")
+        stage = None
+        return cashflow_of(forecast, fiscal, annual, quarter, handoff), None
     except (
         OSError,
         ValueError,
@@ -900,7 +1498,26 @@ def read_cashflow(record, handoff):
         RecursionError,
         MemoryError,
     ):
+        return None, stage
+
+
+def cashflow_or_issues(folder, files, inputs, handoff, issues):
+    """The model's cash flow grid, or None with one issue for each of the four files that is not usable."""
+    for name in CASHFLOW_FILES:
+        if inputs[name] is not None:
+            continue
+        what = "does not match its delivery record" if name in files else "is missing or unreadable"
+        issues.append(f"{folder}: {name} {what}")
+    if any(inputs[name] is None for name in CASHFLOW_FILES):
         return None
+    cashflow, unreadable = read_cashflow(inputs, handoff)
+    if cashflow is None:
+        issues.append(
+            f"{folder}: {unreadable} is missing or unreadable"
+            if unreadable
+            else f"{folder}: the cash flow model could not be laid out"
+        )
+    return cashflow
 
 
 def catalogue_models(root, catalogue, outputs, keys):
@@ -933,11 +1550,10 @@ def catalogue_models(root, catalogue, outputs, keys):
                     else:
                         handoff_text = handoff.decode("utf-8")
                         register = register_of(parse_source(handoff_text))
-                exact = (
-                    listed_bytes(root / folder, delivery, "forecast_exact.json")
-                    if "forecast_exact.json" in files
-                    else None
-                )
+                inputs = {
+                    name: listed_bytes(root / folder, delivery, name) if name in files else None
+                    for name in CASHFLOW_FILES
+                }
                 previous = delivery.get("previous_directory")
             except (
                 OSError,
@@ -950,11 +1566,7 @@ def catalogue_models(root, catalogue, outputs, keys):
             ) as error:
                 issues.append(f"{folder}: could not be read ({describe(error)})")
                 continue
-            cashflow = None if exact is None else read_cashflow(exact, handoff_text)
-            if "forecast_exact.json" in files and exact is None:
-                issues.append(f"{folder}: forecast_exact.json does not match its delivery record")
-            elif cashflow is None:
-                issues.append(f"{folder}: forecast_exact.json is missing or unreadable")
+            cashflow = cashflow_or_issues(folder, files, inputs, handoff_text, issues)
             mode, qualification = view.get("mode"), view.get("analytical_qualification")
             models.append(
                 {

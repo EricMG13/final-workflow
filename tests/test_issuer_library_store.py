@@ -687,7 +687,14 @@ FORECAST = (
 
 
 def model_delivery(
-    root, folder, scope="Scope.", forecast=FORECAST, sources=None, previous=None, exact=None
+    root,
+    folder,
+    scope="Scope.",
+    forecast=FORECAST,
+    sources=None,
+    previous=None,
+    exact=None,
+    extra=None,
 ):
     """A model deliverable (model.html, no report.html); returns its catalogue artifact."""
     files = {
@@ -717,6 +724,8 @@ def model_delivery(
             f"{folder}/forecast_exact.json",
             exact if isinstance(exact, str) else json.dumps(exact),
         )
+    for name, text in (extra or {}).items():
+        files[name] = put(root, f"{folder}/{name}", text)
     record = {
         "scope": scope,
         "files": files,
@@ -910,48 +919,157 @@ def test_source_paths_outside_the_workspace_are_never_opened(tmp_path, monkeypat
 
 # The cash flow model: expected strings are written here, not computed by the store.
 REQUEST = "# CP-2G\n\n## Request\n\nTest paths. Amounts in EUR\nbillions; consolidated.\n\n## Findings\n\nUSD millions.\n"
+HOSTILE = "<img src=x onerror=alert(1)>"
+ANSWER_KEY = json.loads(
+    (ROOT / "apps/issuer-library/designs/forecast-answer-key.json").read_text(encoding="utf-8")
+)["cashflow"]
 
 
 def amount(value, reason=None):
     return {"amount": value, "reason": reason}
 
 
-def exact_record(**more):
+def forecast_year(revenue, ebitda, **more):
     year = {
         "year": 2026,
         "planning_start": "2025-10-01",
         "planning_end": "2026-09-30",
-        "revenue": amount("-1234.5"),
-        "ebitda": amount("2.5"),
-        "interest": amount("0.4"),
-        "cfo": amount("-0.4"),
-        "capex": amount(None, "<img src=x onerror=alert(1)>"),
-        "fcf": amount("1234567.5"),
+        "revenue": amount(revenue),
+        "ebitda": amount(ebitda),
+        "interest": amount("40"),
+        "capex": amount("44"),
         "total_leverage": amount("0.125"),
-        "net_leverage": amount("0.135"),
         "coverage": amount("2"),
         "fcf_to_debt": amount("0.12345"),
+        "undrawn": amount(None, "No facility"),
     }
+    year.update(more)
+    return year
+
+
+def exact_record(**more):
     record = {
-        "base": {"revenue": amount("100"), "wc": amount(None, "No operand")},
+        "base": {},
         "outputs": {
-            "REFERENCE": {"years": [year]},
-            "STRESS_CASE": {"years": [{**year, "year": 2026}]},
+            "REFERENCE": {"years": [forecast_year("1188", "891")]},
+            "DOWNSIDE": {"years": [forecast_year("1100", "594")]},
+            "UPSIDE": {"years": [forecast_year("9999", "9999")]},
         },
         "scope_limits": ["First <b>limit</b>", "Second limit"],
     }
+    record["outputs"]["DOWNSIDE"]["years"][0].pop("interest")
     record.update(more)
     return record
 
 
-def cashflow_of(tmp_path, forecast=REQUEST, **kwargs):
-    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=forecast, **kwargs)
+def value(key, amount_text, reason=None):
+    return {key: {"amount": amount_text, "reason": reason}}
+
+
+def calculation_record(**changes):
+    fy2024 = {
+        "revenue": "1000", "cogs": "400", "gross_profit": "600", "opex_magnitude": "150",
+        "ebit_reported": "450", "cash_flow_DA": "50", "operating_ebitda": "500",
+        "issuer_ordinary_ebitda": "520", "issuer_as_defined": "540", "interest_cash": "100",
+        "tax_cash": "30", "capex_signed": "-40", "cash": "300", "carrying_debt": "2000",
+        "net_carrying_debt": "1700", "gross_carrying_multiple": "3.7037",
+        "net_carrying_multiple": "3.1481", "issuer_earnings_cash_interest": "5.4",
+    }  # fmt: skip
+    fy2025 = {**fy2024, "revenue": "1100", "issuer_as_defined": "594", "capex_signed": "-44"}
+    values = {
+        "FY2024": {k: {"amount": v, "reason": None} for k, v in fy2024.items()},
+        "FY2025": {k: {"amount": v, "reason": None} for k, v in fy2025.items()},
+    }
+    values["FY2025"]["issuer_ordinary_ebitda"] = amount(None, "NOT_SOURCED")
+    values["FY2025"]["carrying_debt"] = amount(None, "COMPONENT_MISSING")
+    values["FY2025"]["tax_cash"] = amount(None, HOSTILE)
+    del values["FY2025"]["cash"]
+    record = {"annual_periods": ["FY2024", "FY2025"], "values": values}
+    record.update(changes)
+    return record
+
+
+QUARTER_HEAD = "| Source row | Label | 2025-10-01–2025-12-31 | 2024-10-01-2024-12-31 | 2025-01-01–2025-03-31 |\n|---|---|---|---|---|\n"
+QUARTER_MD = (
+    "# Quarter\n\nIntro with | a pipe that is not a table.\n\n### Income statement\n"
+    + QUARTER_HEAD
+    + "| 1 | NET SALES | 200 | 100 | 150 |\n"
+    "| 2 | COST OF SALES | 80 | 50 | abc |\n"
+    "| 3 | GROSS PROFIT | 120 | 50 | 90 |\n"
+    "| 4 | SELLING AND ADMINISTRATIVE EXPENSES | 10 | 5 | — |\n"
+    "| 5 | AMORTIZATION OF INTANGIBLE ASSETS | 2 | 1 |  |\n"
+    "| 6 | INCOME FROM OPERATIONS | (30) | 44 | 85 |\n\n"
+    "### Segment revenue\n" + QUARTER_HEAD + "| 1 | Total <b>Alpha</b> | 120 | 60 | 90 |\n"
+    "| 2 | Total Beta | 80 | 40 | 60 |\n"
+    "| 3 | Net Sales | 200 | 100 | 150 |\n\n"
+    "### Segment bridge\n"
+    + QUARTER_HEAD
+    + "| 1 | Total Company EBITDA As Defined | 100 | 80 | 80 |\n"
+    "| 2 | Depreciation and amortization expense | 7 | 6 | 5 |\n"
+    "| 3 | Interest expense-net | 1 | 1 | 1 |\n"
+    "| 4 | Acquisition costs | 3 | 2 |  |\n"
+    "| 5 | Other, net | (4) | — | 1 |\n"
+    "| 6 | Quarter only item | 9 | 8 | 7 |\n"
+    "| 7 | Income from continuing operations before income taxes | 99 | 99 | 99 |\n\n"
+    "### Issuer bridge\n"
+    + QUARTER_HEAD
+    + "| 1 | Depreciation and amortization expense | 7 | 6 | 5 |\n"
+    "| 2 | EBITDA | 105 | 82 | 70 |\n"
+)
+ANNUAL_HEAD = "| Reported line | FY2025 | FY2024 |\n|---|---:|---:|\n"
+ANNUAL_MD = (
+    "# Annual\n\n### Period register\n\n| Period | Type | Start | End |\n|---|---|---|---|\n"
+    "| FY2024 | Historical duration | 2023-10-01 | 2024-09-30 |\n"
+    "| FY2025 | Historical duration | 2024-10-01 | 2025-09-30 |\n\n"
+    "### Segments\n\n" + ANNUAL_HEAD + "| Total <b>Alpha</b> | 660 | 600 |\n"
+    "| Total Beta | 440 | 400 |\n"
+    "| Total Gamma | 1 | 2 |\n"
+    "| Net Sales | 1,100 | 1,000 |\n\n"
+    "### Bridge\n\n" + ANNUAL_HEAD + "| Total Company EBITDA As Defined | 594 | 540 |\n"
+    "| Interest expense-net | 9 | 9 |\n"
+    "| Acquisition costs | 20 | 10 |\n"
+    "| Other, net | (5) | 5 |\n"
+    "| Income from continuing operations before income taxes | 1 | 1 |\n\n"
+    "### Debt\n\n| Instrument | Sep 30, 2024 amount / status | Terms |\n|---|---|---|\n"
+    "| Trade receivable securitization | Gross 121; carrying 120; commitment 650 | x |\n"
+    "| Term loans aggregate | Principal 1,100; carrying 1,000 after costs | x |\n"
+    "| Revolving credit facility | Commitment 910; carrying 5 | x |\n"
+    "| 6% secured notes due 2030 | Principal 500; carrying 500 | x |\n"
+    "| 5% senior subordinated notes due 2029 | Principal 300; carrying 300 | x |\n"
+)
+
+
+def cashflow_files(calculation=None, annual=ANNUAL_MD, quarter=QUARTER_MD):
+    files = {
+        "calculation.json": json.dumps(calculation or calculation_record()),
+        "annual.md": annual,
+        "quarter.md": quarter,
+    }
+    return {name: text for name, text in files.items() if text is not None}
+
+
+def cashflow_of(tmp_path, forecast=REQUEST, exact=None, extra=None):
+    """(cashflow, issues about the four cash flow files) of one synthetic model."""
+    artifact = model_delivery(
+        tmp_path,
+        "deliverables/m-1",
+        forecast=forecast,
+        exact=exact_record() if exact is None else exact,
+        extra=cashflow_files() if extra is None else extra,
+    )
     result = models_of(tmp_path, artifact)
-    return result["models"][0]["cashflow"], [i for i in result["issues"] if "forecast_exact" in i]
+    names = ("forecast_exact", "calculation", "annual", "quarter")
+    return result["models"][0]["cashflow"], [
+        i for i in result["issues"] if any(n in i for n in names)
+    ]
 
 
 def row(cashflow, label):
     return next(r for r in cashflow["rows"] if r["label"] == label)
+
+
+def shown(cashflow, label):
+    return [c["display"] for c in row(cashflow, label)["cells"]]
 
 
 # Security review L1-L3: model files are read only as bounded regular files; nothing hangs or drops a model.
@@ -1069,80 +1187,305 @@ def test_a_model_read_error_names_its_type_and_reason_and_never_the_bytes(tmp_pa
     assert "TOPSECRET" not in issue and "\\x" not in issue and "b'" not in issue
 
 
-def test_a_cash_flow_model_shows_exact_values_rounded_half_up_with_brackets(tmp_path):
-    cashflow, issues = cashflow_of(tmp_path, exact=exact_record())
+NA = "n.a."
+NM = "n.m."
+DASH = "—"
+QUARTER_LABELS = ["Q1 FY2025 (YTD)", "2025-01-01–2025-03-31", "Q1 FY2026 (YTD)"]
+
+
+def test_columns_are_quarters_then_fiscal_years_then_base_case_and_downside(tmp_path):
+    cashflow, issues = cashflow_of(tmp_path)
     assert issues == []
     assert cashflow["units"] == "EUR billions"
     assert [(c["group"], c["label"]) for c in cashflow["columns"]] == [
-        ("Base", "FY2025"),
-        ("Reference", "FY2026E"),
-        ("Stress_Case", "FY2026E"),
+        ("Quarter", "Q1 FY2025 (YTD)"),
+        ("Quarter", "2025-01-01–2025-03-31"),
+        ("Quarter", "Q1 FY2026 (YTD)"),
+        ("Fiscal year", "FY2024"),
+        ("Fiscal year", "FY2025"),
+        ("Base case (reference illustration)", "FY2026E"),
+        ("Downside", "FY2026E"),
     ]
-    assert (
-        cashflow["columns"][1]["start"] == "2025-10-01"
-        and cashflow["columns"][1]["end"] == "2026-09-30"
-    )
-    assert [c["display"] for c in row(cashflow, "Revenue")["cells"]] == [
-        "100",
-        "(1,235)",
-        "(1,235)",
+    assert [(c["start"], c["end"]) for c in cashflow["columns"]] == [
+        ("2024-10-01", "2024-12-31"),
+        ("2025-01-01", "2025-03-31"),
+        ("2025-10-01", "2025-12-31"),
+        (None, None),
+        (None, None),
+        ("2025-10-01", "2026-09-30"),
+        ("2025-10-01", "2026-09-30"),
     ]
-    assert row(cashflow, "Revenue")["cells"][1]["exact"] == "-1234.5"
-    assert row(cashflow, "Model earnings (operating-based EBITDA)")["cells"][1]["display"] == "3"
-    assert row(cashflow, "Cash interest")["cells"][1]["display"] == "0"
-    assert row(cashflow, "Model cash from operations")["cells"][1]["display"] == "0"
-    assert (
-        row(cashflow, "Cash proxy (not issuer free cash flow)")["cells"][1]["display"]
-        == "1,234,568"
-    )
-    assert row(cashflow, "Debt / model earnings")["cells"][1]["display"] == "0.13x"
-    assert row(cashflow, "Net debt / model earnings")["cells"][1]["display"] == "0.14x"
-    assert row(cashflow, "Model earnings / cash interest")["cells"][1]["display"] == "2.00x"
-    assert row(cashflow, "Cash proxy / closing debt")["cells"][1]["display"] == "12.35%"
-
-
-def test_a_cash_flow_cell_is_n_a_with_its_reason_or_a_dash_when_the_key_is_not_held(tmp_path):
-    cashflow, _ = cashflow_of(tmp_path, exact=exact_record())
-    hostile = row(cashflow, "Capital expenditure")["cells"][1]
-    assert hostile == {"exact": None, "display": "n.a.", "reason": "<img src=x onerror=alert(1)>"}
-    assert row(cashflow, "Working capital")["cells"][0] == {
-        "exact": None,
-        "display": "n.a.",
-        "reason": "No operand",
-    }
-    assert row(cashflow, "Cash taxes")["cells"][1] == {
-        "exact": None,
-        "display": "\u2014",
-        "reason": None,
-    }
-    assert row(cashflow, "Opening cash")["cells"][0]["display"] == "\u2014"
+    assert list(dict.fromkeys(r["band"] for r in cashflow["rows"])) == ANSWER_KEY["bands"]
     assert cashflow["limits"] == ["First <b>limit</b>", "Second limit"]
-    assert [r["band"] for r in cashflow["rows"]][:2] == ["Operating", "Operating"]
+
+
+def test_a_later_quarter_that_is_not_the_first_is_labelled_by_its_dates(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    assert cashflow["columns"][1]["label"] == "2025-01-01–2025-03-31"
+    forecast = exact_record()
+    for case in forecast["outputs"].values():
+        case["years"][0]["planning_start"] = "2025-07-01"
+    cashflow, _ = cashflow_of(tmp_path, exact=forecast)
+    assert [c["label"] for c in cashflow["columns"][:3]] == [
+        "2024-10-01–2024-12-31",
+        "2025-01-01–2025-03-31",
+        "2025-10-01–2025-12-31",
+    ]
+
+
+def test_business_units_come_from_the_total_rows_with_hostile_text_literal(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    labels = [r["label"] for r in cashflow["rows"] if r["band"] == "Revenue"]
+    assert labels == [
+        "<b>Alpha</b>",
+        "<b>Alpha</b> YoY growth",
+        "Beta",
+        "Beta YoY growth",
+        "Gamma",
+        "Gamma YoY growth",
+        "Revenue",
+        "Revenue YoY growth",
+    ]
+    assert shown(cashflow, "<b>Alpha</b>") == ["60", "90", "120", "600", "660", NM, NM]
+    assert shown(cashflow, "Beta") == ["40", "60", "80", "400", "440", NM, NM]
+    assert shown(cashflow, "Gamma") == [DASH, DASH, DASH, "2", "1", NM, NM]
+    assert shown(cashflow, "<b>Alpha</b> YoY growth") == [
+        NA, NA, "100.00%", NA, "10.00%", NM, NM,
+    ]  # fmt: skip
+    assert shown(cashflow, "Gamma YoY growth") == [NA, NA, NA, NA, "-50.00%", NM, NM]
+
+
+def test_revenue_and_profitability_rows(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    assert shown(cashflow, "Revenue") == ["100", "150", "200", "1,000", "1,100", "1,188", "1,100"]
+    assert shown(cashflow, "Revenue YoY growth") == [
+        NA, NA, "100.00%", NA, "10.00%", "8.00%", "0.00%",
+    ]  # fmt: skip
+    assert shown(cashflow, "COGS (cost of sales)") == ["50", NA, "80", "400", "400", NM, NM]
+    assert shown(cashflow, "Gross profit margin") == [
+        "50.00%", "60.00%", "60.00%", "60.00%", "54.55%", NM, NM,
+    ]  # fmt: skip
+    opex = "Opex (selling and administrative, amortization of intangibles)"
+    assert shown(cashflow, opex) == ["6", NA, "12", "150", "150", NM, NM]
+    assert shown(cashflow, "EBIT (income from operations)")[:3] == ["44", "85", "(30)"]
+    assert shown(cashflow, "EBITDA (EBIT + D&A)") == ["50", "90", "(23)", "500", "500", NM, NM]
+    assert shown(cashflow, "Issuer EBITDA (reported)") == ["82", "70", "105", "520", NA, NM, NM]
+
+
+def test_add_backs_follow_the_annual_labels_then_quarter_only_labels(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    labels = [r["label"] for r in cashflow["rows"] if r["band"] == "Add-backs to issuer EBITDA"]
+    assert labels == ["Acquisition costs", "Other, net", "Quarter only item"]
+    assert shown(cashflow, "Acquisition costs") == ["2", DASH, "3", "10", "20", NM, NM]
+    assert shown(cashflow, "Other, net") == [DASH, "1", "(4)", "5", "(5)", NM, NM]
+    assert shown(cashflow, "Quarter only item") == ["8", "7", "9", DASH, DASH, NM, NM]
+
+
+def test_adjusted_ebitda_margin_and_growth_use_the_prior_period_of_each_column(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    adj = "Adj EBITDA (EBITDA As Defined)"
+    assert shown(cashflow, adj) == ["80", "80", "100", "540", "594", "891", "594"]
+    assert shown(cashflow, "Adj EBITDA margin") == [
+        "80.00%", "53.33%", "50.00%", "54.00%", "54.00%", "75.00%", "54.00%",
+    ]  # fmt: skip
+    assert shown(cashflow, "Adj EBITDA YoY growth") == [
+        NA, NA, "25.00%", NA, "10.00%", "50.00%", "0.00%",
+    ]  # fmt: skip
+
+
+def test_cash_liquidity_debt_and_credit_rows(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    assert shown(cashflow, "Cash interest") == [DASH, DASH, DASH, "100", "100", "40", NM]
+    assert shown(cashflow, "Cash taxes") == [DASH, DASH, DASH, "30", NA, NM, NM]
+    assert shown(cashflow, "Capital expenditure (outflow)") == [DASH] * 3 + ["40", "44", "44", "44"]
+    assert shown(cashflow, "Closing cash") == [DASH] * 3 + ["300", DASH, NM, NM]
+    assert shown(cashflow, "Undrawn facility") == [DASH] * 5 + [NA, NA]
+    assert shown(cashflow, "Closing debt (carrying value)") == [DASH] * 3 + ["2,000", NA, NM, NM]
+    assert shown(cashflow, "Total leverage (debt / Adj EBITDA)") == [
+        NA, NA, NA, "3.70x", "3.70x", "0.13x", "0.13x",
+    ]  # fmt: skip
+    assert shown(cashflow, "Interest coverage (Adj EBITDA / cash interest)") == [
+        DASH, DASH, DASH, "5.40x", "5.40x", "2.00x", "2.00x",
+    ]  # fmt: skip
+    assert shown(cashflow, "Cash proxy / closing debt") == [DASH] * 5 + ["12.35%", "12.35%"]
+    names = [r["label"] for r in cashflow["rows"]]
+    assert "Working capital" not in names
+
+
+def test_cells_carry_exact_values_and_the_reason_for_every_gap(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+
+    def cell(label, index):
+        return row(cashflow, label)["cells"][index]
+
+    assert cell("<b>Alpha</b>", 2) == {"exact": "120", "display": "120", "reason": None}
+    assert cell("EBIT (income from operations)", 2) == {
+        "exact": "-30", "display": "(30)", "reason": None,
+    }  # fmt: skip
+    assert cell("Other, net", 0) == {
+        "exact": None, "display": DASH, "reason": "printed as — in the source",
+    }  # fmt: skip
+    assert cell("Acquisition costs", 1) == {"exact": None, "display": DASH, "reason": None}
+    assert cell("COGS (cost of sales)", 1) == {
+        "exact": None, "display": NA, "reason": "source cell is not a number",
+    }  # fmt: skip
+    assert cell("Issuer EBITDA (reported)", 4)["reason"] == "not reported in the source"
+    assert (
+        cell("Closing debt (carrying value)", 4)["reason"] == "a component is not in the handoffs"
+    )
+    assert cell("Cash taxes", 4) == {"exact": None, "display": NA, "reason": HOSTILE}
+    assert cell("Undrawn facility", 5)["reason"] == "No facility"
+    assert cell("Capital expenditure (outflow)", 3)["exact"] == "40"
+    assert cell("Revenue YoY growth", 0)["reason"] == "prior-year period not in the handoffs"
+    assert cell("Revenue YoY growth", 4) == {"exact": "0.1", "display": "10.00%", "reason": None}
+    assert cell("Adj EBITDA margin", 1)["exact"] == "0.5333333333333333333333333333"
+    assert cell("Cash interest", 6) == {
+        "exact": None, "display": NM, "reason": "not modelled in the calculation record",
+    }  # fmt: skip
+    assert cell("Cash taxes", 5)["display"] == NM
+    gamma = cell("Gamma YoY growth", 2)
+    assert (gamma["display"], gamma["reason"]) == (NA, "a component is not in the handoffs")
+
+
+def test_a_zero_prior_period_gives_no_growth_not_a_crash(tmp_path):
+    record = calculation_record()
+    record["values"]["FY2024"]["revenue"] = amount("0")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(record))
+    cell = row(cashflow, "Revenue YoY growth")["cells"][4]
+    assert (cell["display"], cell["reason"]) == (NA, "a divisor is zero")
+
+
+def test_senior_secured_leverage_is_the_register_date_year_only(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    label = "Senior secured leverage (secured debt / Adj EBITDA)"
+    ltm = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+    cells = row(cashflow, label)["cells"]
+    assert [c["display"] for c in cells] == [NA, NA, NA, "3.00x", NA, NM, NM]
+    assert [c["reason"] for c in cells[:3]] == [ltm] * 3
+    assert cells[3]["exact"] == "3"
+    assert cells[4]["reason"] == (
+        "secured-debt carrying values are recorded only at 30 September 2024"
+    )
+
+
+def test_senior_secured_leverage_needs_every_secured_instrument_carrying_value(tmp_path):
+    broken = ANNUAL_MD.replace("Principal 500; carrying 500", "Principal 500")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=broken))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["reason"]) == (NA, "a component is not in the handoffs")
+
+
+def test_notes_are_the_seven_fixed_lines_and_the_q1_note_needs_a_ytd_column(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    assert cashflow["notes"] == ANSWER_KEY["notes"]
+    assert len(cashflow["notes"]) == 7
+    forecast = exact_record()
+    for case in forecast["outputs"].values():
+        case["years"][0]["planning_start"] = "2025-07-01"
+    cashflow, _ = cashflow_of(tmp_path, exact=forecast)
+    assert cashflow["notes"] == ANSWER_KEY["notes"][1:]
 
 
 def test_units_are_none_when_the_request_names_none(tmp_path):
-    cashflow, _ = cashflow_of(tmp_path, exact=exact_record(), forecast="## Request\n\nNo units.\n")
+    cashflow, _ = cashflow_of(tmp_path, forecast="## Request\n\nNo units.\n")
     assert cashflow["units"] is None
 
 
 @pytest.mark.parametrize(
-    "exact", [None, "{", '{"base": 1}', '{"base": {}, "outputs": {}, "scope_limits": []}']
+    "name", ["forecast_exact.json", "calculation.json", "annual.md", "quarter.md"]
 )
-def test_a_missing_or_invalid_calculation_record_gives_no_cash_flow_model_and_an_issue(
-    tmp_path, exact
-):
+def test_each_missing_input_file_gives_no_cash_flow_model_and_its_own_issue(tmp_path, name):
+    extra = cashflow_files()
+    exact = exact_record()
+    if name == "forecast_exact.json":
+        exact = None
+    else:
+        del extra[name]
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast=REQUEST, exact=exact, extra=extra
+    )
+    result = models_of(tmp_path, artifact)
+    assert result["models"][0]["cashflow"] is None
+    assert [i for i in result["issues"] if "m-1" in i] == [
+        f"deliverables/m-1: {name} is missing or unreadable"
+    ]
+
+
+def test_every_missing_input_file_is_reported_once_each(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=REQUEST)
+    issues = [i for i in models_of(tmp_path, artifact)["issues"] if "m-1" in i]
+    assert issues == [
+        f"deliverables/m-1: {name} is missing or unreadable"
+        for name in ("forecast_exact.json", "calculation.json", "annual.md", "quarter.md")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        ("calculation.json", "{"),
+        ("calculation.json", '{"annual_periods": ["FY2024"], "values": {}}'),
+        ("calculation.json", '{"annual_periods": "FY2024", "values": {}}'),
+        ("annual.md", None),
+        ("quarter.md", None),
+    ],
+)
+def test_an_unreadable_calculation_or_handoff_names_that_file(tmp_path, name, text):
+    extra = cashflow_files()
+    extra[name] = "ok" if text is None else text
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast=REQUEST, exact=exact_record(), extra=extra
+    )
+    if text is None:
+        (tmp_path / "deliverables/m-1" / name).write_bytes(b"\xff\xfe not utf-8")
+        delivery_path = tmp_path / "deliverables/m-1/delivery.json"
+        record = json.loads(delivery_path.read_text(encoding="utf-8"))
+        record["files"][name] = hashlib.sha256(b"\xff\xfe not utf-8").hexdigest()
+        delivery_path.write_text(json.dumps(record), encoding="utf-8")
+    result = models_of(tmp_path, artifact)
+    assert result["models"][0]["cashflow"] is None
+    assert [i for i in result["issues"] if "m-1" in i] == [
+        f"deliverables/m-1: {name} is missing or unreadable"
+    ]
+
+
+@pytest.mark.parametrize(
+    "exact",
+    ["{", '{"base": 1}', '{"outputs": {"REFERENCE": {}}, "scope_limits": []}', '{"outputs": 1}'],
+)
+def test_an_invalid_forecast_record_gives_no_cash_flow_model_and_an_issue(tmp_path, exact):
     cashflow, issues = cashflow_of(tmp_path, exact=exact)
     assert cashflow is None
-    assert "deliverables/m-1: forecast_exact.json is missing or unreadable" in issues
+    assert issues == ["deliverables/m-1: forecast_exact.json is missing or unreadable"]
 
 
 def test_a_non_numeric_amount_is_unreadable_not_shown(tmp_path):
     record = exact_record()
-    record["base"]["revenue"] = amount("NaN")
+    record["outputs"]["REFERENCE"]["years"][0]["revenue"] = amount("NaN")
     cashflow, issues = cashflow_of(tmp_path, exact=record)
     assert cashflow is None and issues == [
         "deliverables/m-1: forecast_exact.json is missing or unreadable"
     ]
+    calculation = calculation_record()
+    calculation["values"]["FY2024"]["revenue"] = amount("1e999999999999")
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(calculation))
+    assert cashflow is None and issues == [
+        "deliverables/m-1: calculation.json is missing or unreadable"
+    ]
+
+
+def test_handoffs_without_tables_leave_a_grid_of_dashes_not_a_crash(tmp_path):
+    cashflow, issues = cashflow_of(
+        tmp_path, extra=cashflow_files(annual="No tables.\n", quarter="| a |\n")
+    )
+    assert issues == []
+    assert [c["group"] for c in cashflow["columns"]] == [
+        "Fiscal year", "Fiscal year", "Base case (reference illustration)", "Downside",
+    ]  # fmt: skip
+    assert shown(cashflow, "Revenue") == ["1,000", "1,100", "1,188", "1,100"]
+    assert shown(cashflow, "Gross profit") == ["600", "600", NM, NM]
+    assert "Q1 is the first quarter" not in " ".join(cashflow["notes"])
+    assert [r["label"] for r in cashflow["rows"] if r["band"] == "Add-backs to issuer EBITDA"] == []
 
 
 @pytest.mark.parametrize(
@@ -1172,7 +1515,9 @@ def test_a_stray_oversize_handoff_beside_a_report_is_named_and_the_library_stays
 
 
 def test_deeply_nested_json_in_a_model_is_an_issue_not_a_crash(tmp_path):
-    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=REQUEST, exact="[" * 20000)
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast=REQUEST, exact="[" * 20000, extra=cashflow_files()
+    )
     result = models_of(tmp_path, artifact)
     assert result["models"][0]["cashflow"] is None
     assert "deliverables/m-1: forecast_exact.json is missing or unreadable" in result["issues"]

@@ -260,7 +260,7 @@ test('Forecast for tdg-002 lays the calculation record out as a cash flow model'
   const table=section.querySelector('table');
   const headRows=[...table.querySelectorAll('thead tr')];
   assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(text),cashflow.groups);
-  assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(th=>Number(th.getAttribute('colspan'))),[1,3,3,3]);
+  assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(th=>Number(th.getAttribute('colspan'))),[2,3,3,3]);
   assert.deepEqual([...headRows[1].querySelectorAll('th')].map(text),cashflow.columns);
   const body=[...table.querySelectorAll('tbody tr')];
   assert.deepEqual(body.filter(tr=>tr.classList.contains('band-row')).map(text),cashflow.bands);
@@ -272,9 +272,16 @@ test('Forecast for tdg-002 lays the calculation record out as a cash flow model'
   for(const [name,exact] of Object.entries(cashflow.titles)){
     const [label,column,group]=name.split('|');
     const row=rows.find(tr=>text(tr.querySelector('th'))===label);
-    const index=cashflow.columns.map((c,i)=>c===column&&cashflow.columnGroups[i]===group?i:-1).find(i=>i>=0);
+    // A title key names its group only where the column label alone is not unique (the forecast years).
+    const matches=cashflow.columns.map((c,i)=>c===column&&(group===undefined||cashflow.columnGroups[i]===group)?i:-1).filter(i=>i>=0);
+    assert.equal(matches.length,1,`${name} must name exactly one column`);
+    const index=matches[0];
     assert.equal(row.querySelectorAll('td')[index].getAttribute('title'),exact,name);
   }
+  // The notes sit under the table, before the Not available lines.
+  assert.deepEqual([...section.querySelectorAll('.cashflow-notes li')].map(li=>li.textContent),cashflow.notes);
+  assert.equal(section.querySelector('.cashflow-notes').previousElementSibling,section.querySelector('.table-scroll'));
+  assert.equal(section.querySelector('.cashflow-notes').nextElementSibling,section.querySelector('.cashflow-na'));
   assert.deepEqual([...section.querySelectorAll('.cashflow-na li')].map(text),cashflow.notAvailable);
   assert.deepEqual([...d.querySelectorAll('.forecast-limits li')].map(text),cashflow.limits);
   assert.equal(d.querySelector('.forecast-limits h2').textContent,'Model limitations');
@@ -296,12 +303,14 @@ test('A model with no calculation record says so in place of the table; hostile 
   const a=models.find(m=>m.id==='tdg-model-3'),b=models.find(m=>m.id==='tdg-model-2');
   b.cashflow=null;
   a.cashflow.limits=[bad];
+  a.cashflow.notes=[bad];
   a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad};
   a.cashflow.units=null;
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
-  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · conditional illustrations from the calculation record');
+  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record');
   assert.equal(d.querySelector('.forecast-limits li').textContent,bad);
-  assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Revenue — ${bad}`]);
+  assert.deepEqual([...d.querySelectorAll('.cashflow-notes li')].map(li=>li.textContent),[bad]);
+  assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Power & Control — ${bad}`]);
   assert.equal(d.querySelector('.forecast-cashflow img,.forecast-limits img'),null);
   assert.equal(d.querySelector('[onerror]'),null);
   const select=d.getElementById('model-select');

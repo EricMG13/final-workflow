@@ -366,7 +366,7 @@ function cashflowSection(model) {
       na.push(`Not available: ${row.label}${cell.reason==null?'':` — ${cell.reason}`}`);
     }
   }
-  return `<section class="forecast-cashflow"><h2>Cash flow model</h2><p class="forecast-caption">${esc(`${c.units==null?'Units not recorded':c.units} · conditional illustrations from the calculation record`)}</p><div class="table-scroll"><table class="cashflow"><thead>${head}</thead><tbody>${body}</tbody></table></div>${na.length?`<ul class="cashflow-na">${na.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}</section>`;
+  return `<section class="forecast-cashflow"><h2>Cash flow model</h2><p class="forecast-caption">${esc(`${c.units==null?'Units not recorded':c.units} · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record`)}</p><div class="table-scroll"><table class="cashflow"><thead>${head}</thead><tbody>${body}</tbody></table></div>${c.notes.length?`<ul class="cashflow-notes">${c.notes.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}${na.length?`<ul class="cashflow-na">${na.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}</section>`;
 }
 function forecastView(context,id) {
   const models=runModels(context);

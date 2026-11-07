@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -911,5 +914,80 @@ func TestStartDuringAWorkspaceSwitchRefusesTheSwitch(t *testing.T) {
 	defer app.mu.RUnlock()
 	if app.config.Workspace != root || app.catalogue.Workspace != root {
 		t.Fatalf("workspace moved: config %s, catalogue %s", app.config.Workspace, app.catalogue.Workspace)
+	}
+}
+
+// uploadOfSize builds a review request for one source of size bytes and returns it with the
+// source's SHA-256, computed here as the bytes are generated.
+func uploadOfSize(t *testing.T, app *Application, size int64) (*http.Request, string) {
+	t.Helper()
+	var body bytes.Buffer
+	body.Grow(int(size) + 4096)
+	form := multipart.NewWriter(&body)
+	for key, value := range map[string]string{"context": "{}", "config": "sol-medium", "cap_usd": "10.00", "source_paths": `["big.pdf"]`} {
+		if err := form.WriteField(key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	file, err := form.CreateFormFile("sources", "big.pdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := sha256.New()
+	chunk := bytes.Repeat([]byte("0123456789abcdef"), 1<<16) // 1 MiB
+	for written := int64(0); written < size; {
+		part := chunk[:min(int64(len(chunk)), size-written)]
+		_, _ = file.Write(part)
+		hash.Write(part)
+		written += int64(len(part))
+	}
+	form.Close()
+	request := httptest.NewRequest("POST", "http://"+app.host+"/api/runs/review", &body)
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	request.Header.Set("X-Issuer-Library", "1")
+	return request, hex.EncodeToString(hash.Sum(nil))
+}
+
+// C12: an upload is streamed into its retained file and its hash together, never held whole in
+// memory; the 64 MiB per-file limit stays exact.
+func TestUploadStreamsEachSourceWithinTheExactLimit(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	request, want := uploadOfSize(t, app, 64<<20)
+	response := httptest.NewRecorder()
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	app.ServeHTTP(response, request)
+	runtime.ReadMemStats(&after)
+	if response.Code != 200 {
+		t.Fatalf("exactly 64 MiB: %d %s", response.Code, response.Body.String())
+	}
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	folder := filepath.Join(root, "intake", review["id"].(string))
+	var job NewJob
+	raw, _ := os.ReadFile(filepath.Join(folder, "job.json"))
+	if json.Unmarshal(raw, &job) != nil || len(job.Sources) != 1 || job.Sources[0].SHA256 != want {
+		t.Fatalf("recorded sources %+v, want sha256 %s", job.Sources, want)
+	}
+	if info, err := os.Stat(filepath.Join(folder, "sources", "big.pdf")); err != nil || info.Size() != 64<<20 {
+		t.Fatalf("retained source: %v %v", info, err)
+	}
+	// The request body (64 MiB) was built before the measurement; the handler itself must not
+	// allocate the file again (io.ReadAll allocated more than 64 MiB here).
+	allocated := after.TotalAlloc - before.TotalAlloc
+	t.Logf("handling a 64 MiB upload allocated %.1f MiB", float64(allocated)/(1<<20))
+	if allocated > 16<<20 {
+		t.Errorf("handling a 64 MiB upload allocated %d MiB", allocated>>20)
+	}
+	entries, _ := os.ReadDir(filepath.Join(root, "intake"))
+	request, _ = uploadOfSize(t, app, 64<<20+1)
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != 400 || !strings.Contains(response.Body.String(), "up to 64 MiB each") {
+		t.Fatalf("64 MiB + 1: %d %s", response.Code, response.Body.String())
+	}
+	if again, _ := os.ReadDir(filepath.Join(root, "intake")); len(again) != len(entries) {
+		t.Fatalf("a refused upload left a folder: %d -> %d", len(entries), len(again))
 	}
 }

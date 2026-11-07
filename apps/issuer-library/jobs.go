@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -340,17 +341,6 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Files must be up to 64 MiB each: "+paths[i], 400)
 			return
 		}
-		stream, err := file.Open()
-		if err != nil {
-			http.Error(w, "Source upload could not be read", 400)
-			return
-		}
-		raw, err := io.ReadAll(io.LimitReader(stream, (64<<20)+1))
-		stream.Close()
-		if err != nil || len(raw) > 64<<20 {
-			http.Error(w, "Source upload is too large or unreadable: "+paths[i], 400)
-			return
-		}
 		target := relative + "/sources/" + paths[i]
 		if err = root.MkdirAll(path.Dir(target), 0700); err != nil {
 			http.Error(w, "Could not retain source", 500)
@@ -361,13 +351,27 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Could not retain source: "+paths[i], 400)
 			return
 		}
-		_, err = destination.Write(raw)
+		stream, err := file.Open()
+		if err != nil {
+			destination.Close()
+			http.Error(w, "Source upload could not be read", 400)
+			return
+		}
+		// Streamed into the retained file and its hash together, never held whole in memory; a
+		// refusal below leaves the partial file to the folder's removal.
+		hash := sha256.New()
+		size, err := io.Copy(io.MultiWriter(destination, hash), io.LimitReader(stream, (64<<20)+1))
+		stream.Close()
 		closeErr := destination.Close()
 		if err != nil || closeErr != nil {
 			http.Error(w, "Could not retain source", 500)
 			return
 		}
-		job.Sources = append(job.Sources, UploadedSource{Path: paths[i], SHA256: digest(raw)})
+		if size > 64<<20 {
+			http.Error(w, "Source upload is too large or unreadable: "+paths[i], 400)
+			return
+		}
+		job.Sources = append(job.Sources, UploadedSource{Path: paths[i], SHA256: hex.EncodeToString(hash.Sum(nil))})
 	}
 	if err = saveJSON(filepath.Join(folder, "job.json"), job); err != nil {
 		http.Error(w, "Could not save run request", 500)

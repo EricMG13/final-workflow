@@ -17,8 +17,9 @@ from typing import Any
 
 import pytest
 import test_connect_cp2g as tc2g
+import test_connect_cp2h as tc2h
 
-from deploy_workflow.owners import cp2g
+from deploy_workflow.owners import cp2g, cp2h
 
 
 def _count(monkeypatch: pytest.MonkeyPatch, module: Any, *names: str) -> Counter[str]:
@@ -64,3 +65,33 @@ def test_cp2g_public_guards_still_refuse(cp2g_seeded: tuple[Any, Any, Any]) -> N
         cp2g.forward_model(pack=pack, submission=submission, upstream=upstream)
     with pytest.raises(ValueError, match="CP-2G submission has issues"):
         cp2g.compute(cp2g._inputs(pack, submission, upstream))
+
+
+def test_cp2h_submit_parses_the_register_once_and_validates_once_per_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, _, attempt = tc2h.seed(tmp_path, "positive")
+    payload = tc2h._submission(store, "positive").model_dump_json()
+    calls = _count(monkeypatch, cp2h, "register_source", "_compose", "_view_issues", "select_cp1")
+    tc2h._submit(store, attempt, payload)
+    finished = next(a for a in store.read().attempts if a.ticket_id == attempt.ticket_id)
+    assert finished.status == "finished" and finished.issues == ()
+    # per step: one register read, one validation pass, and two composes (the validation book
+    # without the analyst tables, then the submission's book); was 8, 6 and 8 per submit
+    assert (calls["register_source"], calls["_view_issues"], calls["_compose"]) == (2, 2, 4)
+    # the CP-1 ratios are selected once per compose, not once per trigger (was 66 per submit)
+    assert calls["select_cp1"] <= 18
+
+
+def test_cp2h_public_guards_still_refuse(tmp_path: Path) -> None:
+    store, pack, attempt = tc2h.seed(tmp_path, "positive")
+    good = tc2h._submission(store, "positive")
+    overall = good.overall.model_copy(update={"confidence": "High"})
+    submission = good.model_copy(update={"overall": overall})
+    upstream = cp2h.cp2h_upstream(store=store, attempt=attempt)
+    issues = cp2h.validate_triggers(pack=pack, submission=submission, upstream=upstream)
+    assert issues and all("High" in i for i in issues)
+    with pytest.raises(ValueError, match="High is not allowed"):
+        cp2h.rating_triggers(pack=pack, submission=submission, upstream=upstream)
+    with pytest.raises(ValueError, match="High is not allowed"):
+        cp2h.compute(cp2h._inputs(pack, submission, upstream))

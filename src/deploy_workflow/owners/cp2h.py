@@ -1297,8 +1297,11 @@ class _Test:
         )
 
 
-def _current(b: _Book, up: TriggerUpstream, test: _Test) -> tuple[Decimal | None, bool | None]:
-    """T2R.4: the base-year actual (an own copy of CP-2G a25), headroom, status and CP-1 check."""
+def _current(
+    b: _Book, up: TriggerUpstream, test: _Test, cp1_ratios: Mapping[str, Fact]
+) -> tuple[Decimal | None, bool | None]:
+    """T2R.4: the base-year actual (an own copy of CP-2G a25), headroom, status and CP-1 check.
+    `cp1_ratios` is `select_cp1` of the upstream, selected once per compose."""
     row, field = test.row, test.metric.field
     at = ("T2R.4", row)
     actual_id = f"T2R.4.{row}.actual"
@@ -1350,7 +1353,7 @@ def _current(b: _Book, up: TriggerUpstream, test: _Test) -> tuple[Decimal | None
             status=status,
         )
         b.missing_text((*at, "status"), "Status", reason, status=status)
-    cp1 = select_cp1(up.cp1_facts, up.basis)[test.metric.cp1_metric]
+    cp1 = cp1_ratios[test.metric.cp1_metric]
     if a25.status == "known" and cp1.status == "known" and cp1.amount is not None:
         check = "Reconciled to CP-1" if a25.amount == cp1.amount else "Differs from CP-1"
         b.text((*at, "check"), "Check", check, derives=(actual_id, f"cp1:{test.metric.cp1_metric}"))
@@ -1715,8 +1718,9 @@ def _compose(
     agency_rows = _agency_register(b, source, citations)
     tests = tuple(_Test(row, t, METRICS[t.metric]) for row, t in _trigger_terms(b, source))
     outcomes: dict[str, TriggerOutcome] = {}
+    cp1_ratios = select_cp1(up.cp1_facts, up.basis)
     for test in tests:
-        fy25, reached = _current(b, up, test)
+        fy25, reached = _current(b, up, test, cp1_ratios)
         cases = {case: _forward(b, up, test, case) for case in CASES}
         _timing(b, up, test, cases)
         outcomes[test.row] = TriggerOutcome(test.row, fy25, reached, cases["base"], cases["down"])
@@ -2074,25 +2078,41 @@ def validate(inputs: TriggerInputs) -> tuple[str, ...]:
     staleness. Shape issues come from `payload_issues`.
     Tool-use rules (cited page read) are Stage 2.
     """
+    return _validated(inputs)[1]
+
+
+# The parsed register a validation read: the agency source, its parse and the context citations
+# (`register_source`), handed to the composer so it is not read twice (S07-cp2-gh-C02).
+_Register = tuple[Source, RatingsSource, tuple[RowCitations, ...]]
+
+
+def _validated(inputs: TriggerInputs) -> tuple[_Register | None, tuple[str, ...]]:
+    """`validate`'s issues and, when there are none, the register they were found over."""
     up, sub = inputs.upstream, inputs.submission
     stale = stale_issues(bound=up.bound, current=up.current)
     if stale:
-        return stale
+        return None, stale
     if up.basis_refusal is not None:
-        return (up.basis_refusal,)
+        return None, (up.basis_refusal,)
     try:
         ratings, source, citations = register_source(inputs.pack)
     except SourceIssue as issue:
-        return (str(issue),)
+        return None, (str(issue),)
     book, mechanics = _compose(ratings, source, up, None, citations)
     bound = _bound(book, up)
     names = inputs.pack.names
-    issues = [
-        *_view_issues(sub, source, bound, inputs.pack, _view_basis(mechanics, source, citations)),
-        *_overall_issues(sub, bound, names),
-        *_gap_issues(sub, bound, names),
-    ]
-    return tuple(dict.fromkeys(issues))
+    issues = tuple(
+        dict.fromkeys(
+            [
+                *_view_issues(
+                    sub, source, bound, inputs.pack, _view_basis(mechanics, source, citations)
+                ),
+                *_overall_issues(sub, bound, names),
+                *_gap_issues(sub, bound, names),
+            ]
+        )
+    )
+    return (None if issues else (ratings, source, citations)), issues
 
 
 def _parsed(payload: str) -> tuple[TriggerSubmission | None, tuple[str, ...]]:
@@ -2329,11 +2349,16 @@ def _own_limitations(
 def compute(inputs: TriggerInputs) -> TriggerReport:
     """The lease's tables, references, claims and own limitations of one valid submission;
     raises ValueError on any issue."""
-    issues = validate(inputs)
-    if issues:
+    register, issues = _validated(inputs)
+    if register is None:
         raise ValueError("; ".join(bounded_issues(issues)))
+    return _computed(inputs, register)
+
+
+def _computed(inputs: TriggerInputs, register: _Register) -> TriggerReport:
+    """`compute` over the register `_validated` accepted (no second validation or parse)."""
     up, sub = inputs.upstream, inputs.submission
-    ratings, source, citations = register_source(inputs.pack)
+    ratings, source, citations = register
     book, mechanics = _compose(ratings, source, up, sub, citations)
     views = _register_order(sub.views, source)
     cp1_ids = tuple(f.fact_id for f in select_cp1(up.cp1_facts, up.basis).values())
@@ -2505,12 +2530,22 @@ def validate_triggers(
     bound upstream changed, then an agency source that does not parse alone, else the content
     issues in their pinned order; empty when it composes. A refused period basis, currency or
     context follows staleness and is the single issue, before CP-1 is read on any basis."""
+    return _checked(pack, submission, upstream)[1]
+
+
+def _checked(
+    pack: PreparedPack, submission: TriggerSubmission, upstream: Upstream
+) -> tuple[tuple[TriggerInputs, _Register] | None, tuple[str, ...]]:
+    """`validate_triggers`' issues and, when there are none, the inputs and register they were
+    found over, so a caller composes without validating again (S07-cp2-gh-C02)."""
     stale = stale_issues(bound=upstream.bound, current=upstream.current)
     if stale:
-        return stale
+        return None, stale
     if upstream.basis_refusal is not None:
-        return (upstream.basis_refusal,)
-    return validate(_inputs(pack, submission, upstream))
+        return None, (upstream.basis_refusal,)
+    inputs = _inputs(pack, submission, upstream)
+    register, issues = _validated(inputs)
+    return (None if register is None else (inputs, register)), issues
 
 
 class RatingTriggersReport(Contract):
@@ -2593,11 +2628,17 @@ def rating_triggers(
     *, pack: PreparedPack, submission: TriggerSubmission, upstream: Upstream
 ) -> RatingTriggersReport:
     """The composed report of a valid submission; raises ValueError on any issue."""
-    issues = validate_triggers(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    checked, issues = _checked(pack, submission, upstream)
+    if checked is None:
         raise ValueError("; ".join(bounded_issues(issues)))
-    inputs = _inputs(pack, submission, upstream)
-    result = compute(inputs)
+    return _report(pack, submission, *checked)
+
+
+def _report(
+    pack: PreparedPack, submission: TriggerSubmission, inputs: TriggerInputs, register: _Register
+) -> RatingTriggersReport:
+    """The report of inputs and a register `_checked` accepted."""
+    result = _computed(inputs, register)
     up = inputs.upstream
     lineage = {f"cp1:{m}": f for m, f in select_cp1(up.cp1_facts, up.basis).items()}
     lineage |= {f"cp2g:{f.fact_id}": f for f in up.cp2g.facts}
@@ -2826,11 +2867,10 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     if submission is None:
         return StepValidation(issues=shape)
     upstream = cp2h_upstream(store=store, attempt=attempt)
-    issues = validate_triggers(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    checked, issues = _checked(pack, submission, upstream)
+    if checked is None:
         return StepValidation(issues=issues)
-    report = rating_triggers(pack=pack, submission=submission, upstream=upstream)
-    return StepValidation(output=report.model_dump_json())
+    return StepValidation(output=_report(pack, submission, *checked).model_dump_json())
 
 
 ENTRY_VALIDATOR = _validate_step

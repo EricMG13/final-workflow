@@ -707,7 +707,7 @@ def cp6_text(findings: str = CP6_FINDINGS) -> str:
 def test_front_routes_put_the_cited_line_above_the_call(tmp_path):
     files = deliver_cp6(tmp_path, cp6_text(), FRONT)
     html_text = files["report.html"].decode()
-    assert 'id="delivery-limits"' in html_text
+    assert '<section id="delivery-limits" class="banner" role="note">' in html_text
     assert (
         "Committee decision: confidence Moderate; main limitation: Quarter data unaudited. "
         "(CP-6 line 10)"

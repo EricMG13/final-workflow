@@ -1296,7 +1296,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
                 + html.escape(layout.scope)
                 + "</section>"
                 + (
-                    '<section id="delivery-limits" role="note"><ul>'
+                    '<section id="delivery-limits" class="banner" role="note"><ul>'
                     + "".join(f"<li>{html.escape(line)}</li>" for line in front_text)
                     + "</ul></section>"
                     if front_text

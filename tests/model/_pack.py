@@ -263,12 +263,12 @@ class Rig:
         return self.log.records()
 
 
-def make_rig(  # noqa: PLR0913 - a test helper whose signature predates the gate
+def make_rig(
     root: Path,
     script: list[AdapterReply | BaseException],
     *,
     gap: bool = True,
-    cap: str = "50",
+    cap: str = "1",
     max_output: int = 4000,
     bytes_per_token: Decimal = Decimal(1),
     redactor: Redactor | None = None,

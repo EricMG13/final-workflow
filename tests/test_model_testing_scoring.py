@@ -1022,3 +1022,31 @@ def test_period_ref_ignores_period_rows_of_another_table() -> None:
     ]
     facts = foreign + _metric_row("r01", "revenue", "P7", Decimal(IHRT_UNITS))
     assert _ref_score(facts).facts[0].outcome == "missing_in_output"
+
+
+def test_currency_rule_reaches_printed_conflict_evidence_and_spares_unitless_goldens() -> None:
+    # review S03S14m. A USD golden's printed evidence "$175 million" equals 175,000,000 units:
+    # a USD fact with that amount matches it, the same amount in EUR does not (a conflicting
+    # golden can then never be conflict_ok on a wrong-currency figure). A unitless golden (NATL
+    # share 0.375, unit None) names no currency, so a fact carrying one still matches.
+    from deploy_workflow.model_testing import scoring
+
+    golden = {"value_type": "decimal", "scale": "units", "unit": "USD"}
+
+    def fact(currency: str | None) -> Fact:
+        return Fact(
+            fact_id="x",
+            label="x",
+            amount=Decimal(175000000),
+            unit="USD",
+            currency=currency,
+            period="2025-06-30",
+        )
+
+    assert scoring._printed_matches("$175 million", fact("USD"), golden)
+    assert not scoring._printed_matches("$175 million", fact("EUR"), golden)
+    assert not scoring._printed_matches("$175 million", fact(None), golden)
+    ok, _, _ = _one(
+        NATL_SHARE, NATL, amount=Decimal("0.375"), unit="decimal_fraction", currency="EUR"
+    )
+    assert ok.facts[0].outcome == "match"

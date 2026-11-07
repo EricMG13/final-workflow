@@ -683,7 +683,13 @@ def test_key_in_error_body_is_redacted_and_flagged() -> None:
         '{{"detail":"invalid key {k}"}}',
         '{{"error":{{"code":7,"detail":["x","{k}"]}}}}',
         '["{k}"]',
+        # review S03S14m: shapes one json.loads does not show whole, yet one decode restores
+        '{{"error":"invalid key {k}","error":"x"}}',  # a duplicate key (json.loads keeps "x")
+        '{{"error":"invalid key {k}"}} trailing',  # JSON then text: not valid JSON
+        "<html>invalid key {k}</html>",  # not JSON at all
+        '["{k}",' + "[" * 5000 + "]" * 5000 + "]",  # too deep for json.loads
     ],
+    ids=lambda shape: shape[:40],
 )
 def test_json_escaped_key_in_any_error_shape_is_flagged(shape: str) -> None:
     # The key is whole only after one JSON decode (the dash is the escape \u002d). Every
@@ -705,10 +711,15 @@ def test_clean_error_body_keeps_its_class_and_text() -> None:
     assert err.message == '{"error":"upstream busy"}'
 
 
-def test_error_body_too_deep_to_check_is_flagged_not_shown() -> None:
-    err = parse("openai", 500, b"[" * 100_000, {}, Redactor([KEY]))
-    assert isinstance(err, ProviderError) and err.error_class == "KeyReflected"
-    assert err.message == "error body is nested too deeply to check"
+def test_an_error_body_without_a_key_is_not_flagged_whatever_its_shape() -> None:
+    # Too deep to parse, NaN, a doubled backslash before u002d (two decodes from a key, so the
+    # text holds none after one) and an escaped Windows path: none holds a key after one JSON
+    # decode, so each keeps its HTTP class (500: ProviderServerError) and its own text.
+    once = KEY.replace("-", "\\\\u002d", 1)  # the text holds \\u002d: one decode leaves \u002d
+    for text in ("[" * 100_000, "NaN", f'{{"e":"{once}"}}', '{"e":"C:\\\\new\\\\t"}'):
+        err = parse("openai", 500, text.encode(), {}, Redactor([KEY]))
+        assert isinstance(err, ProviderError) and err.error_class == "ProviderServerError", text
+        assert err.message == text[:500]
 
 
 def test_exact_non_pattern_key_in_a_200_body_is_flagged() -> None:

@@ -132,6 +132,23 @@ def test_search_query_is_bounded_and_refused_without_state(pack):
     assert tools.search_pack({"query": "Operating expense"}).startswith("1 spans match")
 
 
+def test_search_query_bounds_count_code_points_and_distinct_terms(pack):
+    # review S03S14m. 512 characters of one repeated word and spaces is one distinct term:
+    # allowed. 33 distinct terms split on ideographic spaces (U+3000, whitespace to str.split)
+    # are refused like ASCII-separated ones. 512 two-byte characters is 512 characters, not
+    # 1024 bytes: allowed. A list is not text.
+    tools = PackTools(pack, sources=("fin",))
+    assert tools.search_pack({"query": "ab " * 170 + "ab"}).startswith("0 spans match")  # 512
+    with pytest.raises(ToolError, match="over 32 distinct terms"):
+        tools.search_pack({"query": "\u3000".join(f"w{i}" for i in range(33))})
+    assert tools.search_pack({"query": "\u00e9" * 512}).startswith("0 spans match")
+    with pytest.raises(ToolError, match="over 512 characters"):
+        tools.search_pack({"query": "\u00e9" * 513})
+    with pytest.raises(ToolError, match="non-empty text"):
+        tools.search_pack({"query": ["Operating", "expense"]})
+    assert tools.searched == [None, None]  # only the two allowed calls were recorded
+
+
 def test_extraction_preserves_literal_zero_negative_and_missing(pack):
     table = extract_statement_lines(PAGES[0], "page:1", source_id="fin")
     assert table.headers == ("Year ended December 31  2025  2024",)

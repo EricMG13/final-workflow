@@ -92,7 +92,7 @@ class Ran:
     stop: StepStopped | None
 
 
-def run_recorded(root: Path, script: list[Entry], *, gap: bool = True, cap: str = "50") -> Ran:
+def run_recorded(root: Path, script: list[Entry], *, gap: bool = True, cap: str = "1") -> Ran:
     """Author the recording for the run's real digests and run it. The digest of each request is
     read from the ``RecordingMissing`` record of a run against the recordings written so far, then
     the next scripted response is written for it (test data in the real recording format, not a
@@ -395,11 +395,13 @@ def test_a_live_shaped_run_archives_raw_and_replays_to_the_same_records(
     assert not (replay.run_dir / "raw").exists()
 
     def without_timing(rig: Rig) -> list[dict[str, Any]]:
-        return [{k: v for k, v in r.items() if k not in TIMING} for r in rig.records()]
+        return [
+            {k: v for k, v in r.items() if k not in (*TIMING, "reserved_usd")}
+            for r in rig.records()
+        ]
 
-    # The replay holds exactly what the live loop held (1,050,000 * 5 per million + 4000 * 15
-    # per million = 5.31), so the records agree on reserved_usd too.
     assert all(Decimal(r["reserved_usd"]) == Decimal("5.31") for r in first.records())
+    assert all(Decimal(r["reserved_usd"]) < Decimal("5.31") for r in replay.records())
     assert without_timing(replay) == without_timing(first)
     assert all(r["first_byte_at"] is None for r in replay.records())
     seal(replay)
@@ -478,7 +480,10 @@ def test_a_key_reflected_by_a_live_shaped_reply_reaches_no_file(
     environ = {"OPENAI_API_KEY": LIVE_KEY}
     body = json.dumps({"error": {"message": f"invalid key {LIVE_KEY}"}}).encode()
     live, _ = live_over(tmp_path, monkeypatch, [Response(400, body, {})], environ)
-    rig = make_rig(tmp_path / "run", [], adapter=live, redactor=Redactor.from_environ(environ))
+    # a live loop holds the 1,050,000-token ceiling (5.31 here): the cap must clear that hold
+    rig = make_rig(
+        tmp_path / "run", [], cap="10", adapter=live, redactor=Redactor.from_environ(environ)
+    )
     with pytest.raises(StepStopped) as stopped:
         rig.loop.run()
     assert stopped.value.reason == "KeyReflected"

@@ -30,6 +30,7 @@ from deploy_workflow.model_testing.configs import CONFIGS
 from deploy_workflow.owners.cpos import run_live_handoffs, with_notes
 from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, checker, prepare
 from deploy_workflow.platform_io import replace
+from deploy_workflow.run_events import stop_reason
 
 RETAINED_NOTE = "Retained work is in the run folder; no automatic paid retry was made."
 UNKNOWN_SPEND_NOTE = "Recorded spend could not be read and may be above zero."
@@ -224,19 +225,9 @@ def start(directory: Path) -> None:
         except Exception:  # noqa: BLE001 -- any ledger fault
             return "unknown", [UNKNOWN_SPEND_NOTE]
 
-    def started(task: Any) -> None:
-        write_json(
-            run_dir / "progress.json",
-            {"module": task.module_id, "step": "started", "spent_usd": spent()},
-        )
-
     def progress(task: Any, raw: bytes) -> None:
         # Accepted handoffs are retained here so a stopped run still shows what it paid for.
         write_file(run_dir / f"{task.module_id}.md", raw)
-        write_json(
-            run_dir / "progress.json",
-            {"module": task.module_id, "step": "accepted", "spent_usd": spent()},
-        )
 
     try:
         # The app discards stderr: a release failure after a finished run is a RuntimeWarning,
@@ -252,7 +243,6 @@ def start(directory: Path) -> None:
                 max_turns=job["max_turns"],
                 max_output_tokens=MAX_OUTPUT_TOKENS,
                 on_handoff=progress,
-                on_start=started,
                 config=job["config"],
             )
     except Exception as error:  # Any failure after launch may follow paid calls.
@@ -264,6 +254,7 @@ def start(directory: Path) -> None:
                 "state": "stopped" if stopped else "failed",
                 "message": redact(" ".join([with_notes(error), RETAINED_NOTE, *notes])),
                 "spent_usd": amount,
+                "reason": stop_reason(error),
             },
         )
         if not stopped:

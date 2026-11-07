@@ -6,9 +6,9 @@ async function appRequest(url,body,multipart=false){
   if(!response.ok)throw new Error(await response.text());
   return response.json();
 }
-const WORKFLOW_ACTIVE=['running','starting'];
+const WORKFLOW_ACTIVE=['running'];
 const workflowTitle=value=>String(value).replace(/_/g,' ').replace(/\b[a-z]/g,letter=>letter.toUpperCase());
-const STATE_BADGE={running:'blue',starting:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
+const STATE_BADGE={running:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
 const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
 // The chosen folder's name is dropped: paths are relative to it, as the launcher's --sources are.
 const folderPath=file=>(file.webkitRelativePath||file.name).split('/').slice(file.webkitRelativePath?1:0).join('/');

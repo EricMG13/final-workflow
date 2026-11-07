@@ -5,9 +5,9 @@ import importlib.util
 import json
 import os
 import time
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 import test_cpos_launch
@@ -21,6 +21,7 @@ from test_cpos_launch import (
     issuer_folder,
 )
 
+from deploy_workflow.model.adapter import LiveAdapter
 from deploy_workflow.platform_io import read_at
 
 provider = test_cpos_launch.provider  # The same fake provider fixture.
@@ -152,16 +153,20 @@ def test_start_runs_the_launcher_to_a_report_the_library_can_serve(tmp_path, pro
     seen: list[dict[str, str]] = []
 
     def recording(context):
-        seen.append(json.loads((run_dir / "progress.json").read_text()))
+        # Hand key: the event log's last module_started names the module being asked now.
+        started = [
+            e["module"]
+            for e in map(json.loads, (run_dir / "events.jsonl").read_text().splitlines())
+            if e["event"] == "module_started"
+        ]
+        seen.append(started[-1])
         return answer(context, routes)
 
     provider.answer = recording
     bridge.start(folder)
     assert tuple(call[0] for call in provider.calls) == COVENANT_MODULES
-    assert [{k: v for k, v in item.items() if k != "spent_usd"} for item in seen] == [
-        {"module": m, "step": "started"} for m in COVENANT_MODULES
-    ]
-    assert all(Decimal(item["spent_usd"]) >= 0 for item in seen)
+    assert tuple(seen) == COVENANT_MODULES
+    assert not (run_dir / "progress.json").exists()
     assert {call[1] for call in provider.calls} == {"sol-medium"}
     status = status_of(folder)
     assert status["state"] == "complete" and Decimal(status["spent_usd"]) > 0
@@ -170,8 +175,10 @@ def test_start_runs_the_launcher_to_a_report_the_library_can_serve(tmp_path, pro
     assert ISSUER in report.read_text(encoding="utf-8")
     manifest = json.loads((report.parent / "delivery.json").read_text())
     assert {"report.html", "view.json", "CP-0.md"} <= set(manifest["files"])
-    last = json.loads((run_dir / "progress.json").read_text())
-    assert last["module"] == COVENANT_MODULES[-1] and last["step"] == "accepted"
+    logged = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    accepted = [e["module"] for e in logged if e["event"] == "module_accepted"]
+    assert accepted == list(COVENANT_MODULES)
+    assert logged[-1]["event"] == "delivered" and "reason" not in status
     authorisation = (folder / "start-authorization.md").read_text()
     assert "configs: sol-medium" in authorisation and "by: user" in authorisation
     assert (
@@ -190,6 +197,7 @@ def test_a_rejected_module_stops_with_retained_work_and_no_report(tmp_path, prov
     status = status_of(folder)
     assert status["state"] == "stopped" and "no automatic paid retry" in status["message"]
     assert "not-a-real-key" not in status["message"]
+    assert status["reason"] == "checker"
     assert not list(run_dir.glob("deliveries/*/report.html"))
     assert (run_dir / "live").is_dir()
 
@@ -399,8 +407,7 @@ def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
     tmp_path, provider, monkeypatch, error, state
 ):
     """Hand-derived: one call settled USD 7.42 before the failure, so status.json must say
-    "7.42" whatever the exception type; progress.json still holds the stale "0" from the
-    module start and must not be what the UI reads."""
+    "7.42" whatever the exception type; the bridge no longer writes a progress.json."""
     monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
     folder, run_dir = started(tmp_path, provider)
     settled = {"usd": Decimal(0)}
@@ -413,8 +420,7 @@ def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
         def spent(self):
             return settled["usd"]
 
-    def pays_then_fails(*args, on_start, **kwargs):
-        on_start(SimpleNamespace(module_id="CP-1"))
+    def pays_then_fails(*args, **kwargs):
         settled["usd"] = Decimal("7.42")
         raise error
 
@@ -428,7 +434,7 @@ def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
     status = status_of(folder)
     assert (status["state"], status["spent_usd"]) == (state, "7.42")
     assert "no automatic paid retry was made" in status["message"]
-    assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "0"
+    assert not (run_dir / "progress.json").exists()
 
 
 def test_an_unreadable_spend_ledger_is_never_shown_as_zero_and_hides_no_error(
@@ -533,16 +539,15 @@ def test_an_interrupt_is_not_recorded_as_a_failure_and_leaves_the_running_status
 def test_a_finished_run_whose_ledger_cannot_be_read_says_unknown_not_its_last_progress(
     tmp_path, provider, monkeypatch
 ):
-    """Hand-derived: progress.json last recorded "2.00" before the final call; the ledger then
-    cannot be read. The run still completes (its report exists); status.json says spent_usd
+    """Hand-derived: the ledger held "2.00" before the final call, then cannot be read. The run
+    still completes (its report exists); status.json says spent_usd
     "unknown" with the may-be-above-zero note, never the lower "2.00"."""
     monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
-    folder, run_dir = started(tmp_path, provider)
+    folder, _ = started(tmp_path, provider)
     settled = {"usd": Decimal("2.00")}
     ledger_that_locks(monkeypatch, settled)
 
-    def finishes(*args, on_start, **kwargs):
-        on_start(SimpleNamespace(module_id="CP-1"))
+    def finishes(*args, **kwargs):
         settled["locked"] = True
 
     monkeypatch.setattr(bridge, "run_live_handoffs", finishes)
@@ -551,4 +556,27 @@ def test_a_finished_run_whose_ledger_cannot_be_read_says_unknown_not_its_last_pr
     status = status_of(folder)
     assert (status["state"], status["spent_usd"]) == ("complete", "unknown")
     assert status["message"].endswith(bridge.UNKNOWN_SPEND_NOTE)
-    assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "2.00"
+
+
+def test_a_budget_stop_reports_reason_budget(tmp_path, provider, monkeypatch):
+    """Hand key: sol-medium holds USD 5.73 per call. Cap 6 clears the first call; once that call
+    has really spent about USD 3 (20,000 output tokens), the next hold passes the cap and the
+    run stops on the budget with the first module's work retained."""
+    folder, run_dir = started(tmp_path, provider, cap_usd="6")
+    request = json.loads((folder / "job.json").read_text())
+    routes = bridge.launch(request, folder, tmp_path / "preview").layout.routes
+    provider.answer = lambda context: answer(context, routes)
+    cheap = LiveAdapter.complete
+
+    def expensive(self, request, **kwargs):
+        reply = cheap(self, request, **kwargs)
+        usage = replace(reply.usage, output_tokens=20000)
+        return replace(reply, usage=usage, turn=replace(reply.turn, usage=usage))
+
+    monkeypatch.setattr(LiveAdapter, "complete", expensive)
+    bridge.start(folder)
+    status = status_of(folder)
+    assert (status["state"], status["reason"]) == ("stopped", "budget")
+    logged = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
+    assert logged[-1]["event"] == "stopped" and logged[-1]["reason"] == "budget"
+    assert (run_dir / f"{COVENANT_MODULES[0]}.md").is_file()

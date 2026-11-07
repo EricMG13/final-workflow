@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -53,9 +54,13 @@ print(json.dumps({'parsed':json.load(sys.stdin)['workspace'],'folder':sys.argv[1
 }
 func reviewRequest(t *testing.T, app *Application, paths string) *httptest.ResponseRecorder {
 	t.Helper()
+	return reviewRequestTurns(t, app, paths, "7")
+}
+func reviewRequestTurns(t *testing.T, app *Application, paths, turns string) *httptest.ResponseRecorder {
+	t.Helper()
 	var body bytes.Buffer
 	form := multipart.NewWriter(&body)
-	for key, value := range map[string]string{"context": "{}", "config": "sol-medium", "cap_usd": "10.00", "source_paths": paths, "modules": "CP-4", "max_turns": "7"} {
+	for key, value := range map[string]string{"context": "{}", "config": "sol-medium", "cap_usd": "10.00", "source_paths": paths, "modules": "CP-4", "max_turns": turns} {
 		if err := form.WriteField(key, value); err != nil {
 			t.Fatal(err)
 		}
@@ -749,7 +754,7 @@ func TestUnsavableStartStatusReleasesTheStartClaim(t *testing.T) {
 	waitIdle(t, app)
 }
 
-// Review (S18 medium, A04/C05): after a crash, more stale "running"/"starting" jobs than the
+// Review (S18 medium, A04/C05): after a crash, more stale "running" jobs than the
 // cap. Expected: every active job is listed (40 rows, above the cap of 30), newest first,
 // and no finished job takes a place because no room is left.
 func TestReviewRunListManyStaleActiveJobsExceedTheCap(t *testing.T) {
@@ -759,7 +764,7 @@ func TestReviewRunListManyStaleActiveJobsExceedTheCap(t *testing.T) {
 		writeJob(t, root, fmt.Sprintf("web-%032x", 0x200+i), "running", now.Add(-time.Duration(100+i)*time.Hour))
 	}
 	for i := 0; i < 5; i++ {
-		writeJob(t, root, fmt.Sprintf("web-%032x", 0x300+i), "starting", now.Add(-time.Duration(200+i)*time.Hour))
+		writeJob(t, root, fmt.Sprintf("web-%032x", 0x300+i), "running", now.Add(-time.Duration(200+i)*time.Hour))
 	}
 	for i := 0; i < 10; i++ {
 		writeJob(t, root, fmt.Sprintf("web-%032x", 0x400+i), "complete", now.Add(-time.Duration(i)*time.Minute))
@@ -1471,5 +1476,113 @@ func TestAReviewStartedDuringASwitchRefusesItAtCommit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "intake", value["id"].(string), "review.json")); err != nil {
 		t.Fatalf("review not retained in the workspace it read: %v", err)
+	}
+}
+
+func writeEvents(t *testing.T, root, id, text string) {
+	t.Helper()
+	folder := filepath.Join(root, "runs", id)
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "events.jsonl"), []byte(text), 0600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+const eventsID = "web-" + "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0"
+
+// Hand-written log: CP-0 accepted after one turn; CP-1 on its second turn, then a rejected draft.
+const eventLines = `{"at":"2026-11-07T10:00:00Z","event":"module_started","module":"CP-0"}
+{"at":"2026-11-07T10:00:01Z","event":"turn","module":"CP-0","turn":1,"max_turns":32,"spent_usd":"0","held_usd":"1.50","cap_usd":"10"}
+{"at":"2026-11-07T10:00:02Z","event":"module_accepted","module":"CP-0"}
+{"at":"2026-11-07T10:00:03Z","event":"module_started","module":"CP-1"}
+{"at":"2026-11-07T10:00:04Z","event":"turn","module":"CP-1","turn":1,"max_turns":32,"spent_usd":"0.40","held_usd":"1.50","cap_usd":"10"}
+{"at":"2026-11-07T10:00:05Z","event":"turn","module":"CP-1","turn":2,"max_turns":32,"spent_usd":"0.85","held_usd":"1.60","cap_usd":"10"}
+`
+
+func TestRunProgressFoldsEvents(t *testing.T) {
+	root := t.TempDir()
+	writeEvents(t, root, eventsID, eventLines+`{"at":"2026-11-07T10:00:06Z","event":"draft_rejected","module":"CP-1","writes_left":2}`+"\n")
+	got, ok := runProgress(root, eventsID)
+	if !ok {
+		t.Fatal("no progress from a readable log")
+	}
+	want := map[string]any{"module": "CP-1", "step": "repairing", "turn": 2, "max_turns": 32, "spent_usd": "0.85", "held_usd": "1.60", "cap_usd": "10", "accepted": 1}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"module_accepted","module":"CP-1"}`+"\n"+`{"at":"x","event":"delivery_started"}`+"\n")
+	if got, _ := runProgress(root, eventsID); got["step"] != "delivering" || got["accepted"] != 2 {
+		t.Fatalf("after delivery start: %v", got)
+	}
+	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"stopped","reason":"budget"}`+"\n")
+	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["turn"] != 2 {
+		t.Fatalf("after stop: %v", got)
+	}
+	writeEvents(t, root, eventsID, `{"at":"x","event":"module_started","module":"CP-0"}`+"\n")
+	if got, _ := runProgress(root, eventsID); got["step"] != "started" || got["accepted"] != 0 {
+		t.Fatalf("first module only: %v", got)
+	}
+}
+
+func TestRunProgressIgnoresATruncatedLastLine(t *testing.T) {
+	root := t.TempDir()
+	writeEvents(t, root, eventsID, eventLines+`{"at":"2026-11-07T10:00:06Z","event":"tur`)
+	got, ok := runProgress(root, eventsID)
+	if !ok || got["turn"] != 2 || got["step"] != "running" || got["accepted"] != 1 {
+		t.Fatalf("truncated tail changed the fold: %v %v", got, ok)
+	}
+}
+
+func TestRunProgressFallsBackToProgressJSON(t *testing.T) {
+	root := t.TempDir()
+	if _, ok := runProgress(root, eventsID); ok {
+		t.Fatal("progress from nothing")
+	}
+	folder := filepath.Join(root, "runs", eventsID)
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "progress.json"), []byte(`{"module":"CP-1","step":"started","spent_usd":"0.10"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"module": "CP-1", "step": "started", "spent_usd": "0.10"}
+	if got, ok := runProgress(root, eventsID); !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("retained fallback: %v %v", got, ok)
+	}
+	// An empty log (run started, no module dispatched yet) has no progress; progress.json still serves.
+	writeEvents(t, root, eventsID, "")
+	if got, ok := runProgress(root, eventsID); !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("empty log: %v %v", got, ok)
+	}
+	// A corrupt earlier line skips the whole log (documented fail-open, logged once).
+	writeEvents(t, root, eventsID, "not json\n"+eventLines)
+	if got, ok := runProgress(root, eventsID); !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("corrupt earlier line: %v %v", got, ok)
+	}
+}
+
+func TestRunProgressIsAbsentWithNeitherFile(t *testing.T) {
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	row := call(app, "GET", "/api/runs/status?id="+eventsID, "")
+	var value map[string]any
+	if row.Code != 200 || json.Unmarshal(row.Body.Bytes(), &value) != nil {
+		t.Fatalf("%d %s", row.Code, row.Body.String())
+	}
+	if _, present := value["progress"]; present {
+		t.Fatalf("progress invented: %v", value)
+	}
+}
+
+func TestReviewRefusesMoreTurnsThanTheLoopAllows(t *testing.T) {
+	app, _ := testApp(t)
+	app.engine = fakeEngine(t)
+	if response := reviewRequestTurns(t, app, `["a.txt"]`, "65"); response.Code != 400 {
+		t.Fatalf("65 turns: %d %s", response.Code, response.Body.String())
+	}
+	if response := reviewRequestTurns(t, app, `["a.txt"]`, "64"); response.Code != 200 {
+		t.Fatalf("64 turns: %d %s", response.Code, response.Body.String())
 	}
 }

@@ -1607,3 +1607,37 @@ def test_round13_b3_exempts_only_rule_w_minus_inside_the_value(
     itself, is no wrap split; index 0, after a letter or digit, or before a non-digit still is."""
     refusal = "rate_exposure.rate_basis: reference_rate does not occur in the quote"
     assert _reference_rate_adapter(page, quote, value) == (() if accepted else (refusal,))
+
+
+# --- S06-A07: the reporting currency is a quoted ISO 4217 currency statement -------------------
+def _reporting(quote: str, code: str, locator: str) -> tuple[str, ...]:
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    sub["reporting_currency"] = {
+        "source_id": "financial",
+        "locator": locator,
+        "quote": quote,
+        "code_text": code,
+    }
+    return cp2e.validate_macro_fx(submission=sub, pages=_pages("positive"))
+
+
+def test_a_reporting_code_outside_iso_4217_is_refused() -> None:
+    """The repro quoted a page line naming the revolving credit facility with code_text RCF; every
+    money fact was then stamped RCF and the USD debt read as foreign."""
+    pages = _pages("positive")
+    loc, line = next(
+        (k, ln) for k, v in pages.items() for ln in v.split("\n") if "RCF commitment" in ln
+    )
+    assert _reporting(line[:120], "RCF", loc) == (
+        "reporting_currency: code_text RCF is not an ISO 4217 currency code",
+    )
+
+
+def test_a_reporting_code_must_be_stated_as_the_currency() -> None:
+    """page:5 "USD millions; consolidated group; ..." is a valid debt-currency quote (positive
+    literal) but not a statement of the reporting currency; page:1 "Currency: USD; ..." is."""
+    quote = "USD millions; consolidated group; IFRS carrying values."
+    assert _reporting(quote, "USD", "page:5") == (
+        "reporting_currency: the quote does not state USD as the currency (Currency: USD)",
+    )
+    assert _reporting("Currency: USD; amounts in millions.", "USD", "page:1") == ()

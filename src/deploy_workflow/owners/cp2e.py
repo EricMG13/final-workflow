@@ -56,6 +56,7 @@ from deploy_workflow.owners.blank import is_blank
 from deploy_workflow.owners.cp1a import probe_one_step
 from deploy_workflow.owners.period_basis import DEFAULT_CURRENCY
 from deploy_workflow.owners.pins import pin_issues, pinned_line, pins_of
+from deploy_workflow.research.peer_basis import ISO_4217
 from deploy_workflow.workflow import WorkflowError
 
 MODULE_ID = "CP-2E"
@@ -708,6 +709,9 @@ def _once(token: str, quote: str, page: str) -> bool:
 
 
 _RUN_TEXT: TypeAdapter[str] = TypeAdapter(RunText)
+# S06-A07: the reporting currency's quote names the code right after the word "currency" (an
+# optional ":" or "is" between), as "Currency: USD; amounts in millions." does.
+_CURRENCY_STATED = r"(?i:\bcurrency)\s*(?::|\bis\b)?\s*{code}(?![A-Za-z])"
 
 
 class _Check:
@@ -764,7 +768,9 @@ class _Check:
             return False
         return True
 
-    def code(self, ref: Mapping[str, Any], path: str) -> None:
+    def code(self, ref: Mapping[str, Any], path: str, *, reporting: bool = False) -> None:
+        """A quoted ISO 4217 code (S06-A07); the reporting currency's quote states it as the
+        currency ("Currency: USD"), so a code-like word elsewhere on the page is not read as it."""
         if not self.on_page(ref, path):
             return
         c = ref["code_text"]
@@ -772,6 +778,10 @@ class _Check:
         in_quote = re.search(rf"(?<![A-Za-z]){re.escape(c)}(?![A-Za-z])", quote)
         if not re.fullmatch(r"[A-Z]{3}", c) or not in_quote:
             self.add(f"{path}: code_text {c} does not occur in the quote")
+        elif c not in ISO_4217:
+            self.add(f"{path}: code_text {c} is not an ISO 4217 currency code")
+        elif reporting and not re.search(_CURRENCY_STATED.format(code=c), quote):
+            self.add(f"{path}: the quote does not state {c} as the currency (Currency: {c})")
 
     def labelled(self, ref: Mapping[str, Any], key: str, label: str, path: str) -> Decimal | None:
         """A sentence operand: ``ref[key]`` occurs once in the quote, right after ``label``."""
@@ -965,7 +975,7 @@ def validate_macro_fx(
     """Issues of a macro_fx submission against the pack's financial pages (locator -> text); the
     statement rows must sit under the `periods` fiscal-year column."""
     sub, chk = submission, _Check(pages, periods.header)
-    chk.code(sub["reporting_currency"], "reporting_currency")
+    chk.code(sub["reporting_currency"], "reporting_currency", reporting=True)
     r = sub.get("rate_exposure")
     chk.exactly_one(r, sub.get("rate_absence"), "rate_exposure", ("rate_exposure", "rate_absence"))
     balance = _check_rate_exposure(chk, r) if r else None
@@ -2089,16 +2099,18 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     except ContextRefused:
         # `_pin_lines` reports this context as the one `Context refused: ...` issue below, and
         # nothing is composed on an issue, so the periods read here are not used.
-        periods, context = DEFAULT_PERIODS, None
+        periods, context, refused = DEFAULT_PERIODS, None, True
+    else:
+        refused = False
     content = validate_macro_fx(
         submission=submission.model_dump(mode="json"), pages=_pages_of(pack), periods=periods
     )
     stated = submission.reporting_currency.code_text
-    if context is not None and stated != context.run.reporting_currency:
-        wanted = context.run.reporting_currency
-        content += (
-            f"reporting_currency: the statements state {stated}, the run context states {wanted}",
-        )
+    # S06-A07: with no run context the run's basis is the default (USD) one, as for CP-1.
+    wanted = DEFAULT_CURRENCY.currency if context is None else context.run.reporting_currency
+    if not refused and stated != wanted:
+        run = "the run context states" if context is not None else "the run's default basis is"
+        content += (f"reporting_currency: the statements state {stated}, {run} {wanted}",)
     issues = tuple(dict.fromkeys((*content, *_pin_lines(pack, submission))))
     if issues:
         return StepValidation(issues=issues)

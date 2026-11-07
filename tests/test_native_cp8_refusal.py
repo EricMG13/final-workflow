@@ -35,6 +35,7 @@ from deploy_workflow.owner_workflow import (
     OwnerRunReceipt,
     OwnerWorkflow,
     RefusedBegin,
+    _verify_refusal,
     verify_owner_run_receipt,
 )
 from deploy_workflow.run_inputs import CheckedRun, RunOutcome, check_arguments, stage_sources
@@ -414,3 +415,62 @@ def test_the_registered_spec_and_the_comparison_route_stay_separate() -> None:
     assert OWNER_SPECS["CP-8"].steps[0].step_id == "decision_ledger"  # kept for old receipts
     assert callable(cpos.run_comparison)
     assert "_NativeWorkflow" not in vars(cpos) and "OwnerWorkflow" not in vars(cpos)
+
+
+@pytest.mark.parametrize("module", ["CP-0", "CP-1", "CP-6", "CP-MODEL"])
+def test_the_superseded_reason_cannot_refuse_any_other_module(tmp_path: Path, module: str) -> None:
+    """At the snapshot where CP-8 would begin, CP-0's inputs hold (it needs no command) and every
+    module outside the cut plan is not selected: the superseded text is accepted for CP-8 alone."""
+    _, run_dir = _walk(tmp_path, COMMANDED)
+    store = Execution(run_dir / "execution")
+    before = store.read()
+    genuine = RefusedBegin(
+        module_id="CP-8", snapshot_sha256=before.content_hash(), reason=SUPERSEDED
+    )
+    _verify_refusal(before, genuine, set())  # the one accepted shape
+    for forged in (
+        genuine.model_copy(update={"module_id": module}),
+        genuine.model_copy(update={"module_id": module, "reason": NOT_AUTHORIZED}),
+    ):
+        with pytest.raises(WorkflowError, match="identity_mismatch"):
+            _verify_refusal(before, forged, set())
+
+
+def test_a_superseded_refusal_on_an_earlier_snapshot_fails_verification(tmp_path: Path) -> None:
+    """The refusal names the snapshot the journal would have begun on (the final one here); the
+    empty snapshot before CP-0's begin is a snapshot where CP-8 is not even selected as ready."""
+    _, run_dir = _walk(tmp_path, COMMANDED)
+    receipt = _receipt(run_dir)
+    earlier = receipt.begins[0].snapshot_before_sha256
+    assert earlier != receipt.snapshot_sha256
+    forged = _forged(
+        run_dir,
+        RefusedBegin(module_id="CP-8", snapshot_sha256=earlier, reason=SUPERSEDED),
+    )
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        verify_owner_run_receipt(
+            Execution(run_dir / "execution"), forged, publication_directory=None
+        )
+
+
+def test_a_receipt_with_a_superseded_refusal_and_a_cp8_attempt_fails_the_walk(
+    tmp_path: Path,
+) -> None:
+    """Refused xor settled: a journal that holds a CP-8 attempt cannot also carry CP-8's refusal."""
+    from deploy_workflow import owner_workflow as ow
+
+    _, run_dir = _walk(tmp_path, COMMANDED)
+    store = Execution(run_dir / "execution")
+    receipt = _receipt(run_dir)
+    ow._verify_walk(store, receipt, ("CP-0", "CP-8"), ("CP-0", "CP-8"), None)  # the genuine walk
+    store.begin("CP-8")  # a CP-8 attempt now exists next to the refusal
+    final = store.read().content_hash()
+    (refusal,) = receipt.refusals
+    both = receipt.model_copy(
+        update={
+            "snapshot_sha256": final,
+            "refusals": (refusal.model_copy(update={"snapshot_sha256": final}),),
+        }
+    )
+    with pytest.raises(WorkflowError, match="identity_mismatch"):
+        ow._verify_walk(store, both, ("CP-0", "CP-8"), ("CP-0", "CP-8"), None)

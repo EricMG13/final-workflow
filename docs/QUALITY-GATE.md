@@ -67,9 +67,10 @@ The full suite, slow tests included, runs every night at 01:00 UTC in GitHub Act
 
 - eight pytest shards (`tools/nightly_tests.py run`), balanced by test-file size, with the `live`
   and `browser` markers excluded and provider keys removed; each shard stops after 300 minutes,
-  deletes a passing test's `tmp_path` and a passing module's fixture directories (each workflow
-  store holds about 120 MB of issuer sources; `tests/conftest.py`)
-  and prints its log's last 400 lines, the failure summary or a crash's trace, to the job log;
+  deletes a passing test's `tmp_path` (each workflow store holds about 120 MB of issuer sources;
+  module and session fixtures' directories stay to the shard's end, since some are shared across
+  modules, e.g. `tests/cpdr_runs.py` `closed_run`), frees unused runner toolchains first and
+  prints its log's last 400 lines, the failure summary or a crash's trace, to the job log;
 - the Go server's `go vet` and `go test -race`;
 - a report job (`tools/nightly_tests.py report`) that collects every FAILED and ERROR node id,
   compares them with `tests/nightly-known-failures.txt` and fails only on a failure that is not on

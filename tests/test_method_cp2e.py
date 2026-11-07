@@ -1634,10 +1634,22 @@ def test_a_reporting_code_outside_iso_4217_is_refused() -> None:
 
 
 def test_a_reporting_code_must_be_stated_as_the_currency() -> None:
-    """page:5 "USD millions; consolidated group; ..." is a valid debt-currency quote (positive
-    literal) but not a statement of the reporting currency; page:1 "Currency: USD; ..." is."""
-    quote = "USD millions; consolidated group; IFRS carrying values."
-    assert _reporting(quote, "USD", "page:5") == (
+    """A line that names USD but states no currency of the amounts is refused (here appended to
+    page:1); "Currency: USD; ...", page:2's "USD; amounts in millions" and page:5's "USD
+    millions; ..." state it."""
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    pages = _pages("positive")
+    pages["page:1"] += "\nThe term loan is drawn in USD and repaid at maturity."
+    sub["reporting_currency"] = {
+        "source_id": "financial",
+        "locator": "page:1",
+        "quote": "The term loan is drawn in USD and repaid at maturity.",
+        "code_text": "USD",
+    }
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages) == (
         "reporting_currency: the quote does not state USD as the currency (Currency: USD)",
     )
     assert _reporting("Currency: USD; amounts in millions.", "USD", "page:1") == ()
+    header = "IFRS; consolidated group; USD; amounts in millions; unaudited"
+    assert _reporting(header, "USD", "page:2") == ()
+    assert _reporting("USD millions; consolidated group", "USD", "page:5") == ()

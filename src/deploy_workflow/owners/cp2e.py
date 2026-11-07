@@ -709,9 +709,15 @@ def _once(token: str, quote: str, page: str) -> bool:
 
 
 _RUN_TEXT: TypeAdapter[str] = TypeAdapter(RunText)
-# S06-A07: the reporting currency's quote names the code right after the word "currency" (an
-# optional ":" or "is" between), as "Currency: USD; amounts in millions." does.
-_CURRENCY_STATED = r"(?i:\bcurrency)\s*(?::|\bis\b)?\s*{code}(?![A-Za-z])"
+# S06-A07: the reporting currency's quote states the code as the currency of the amounts: right
+# after the word "currency" ("Currency: USD"), or joined to a unit statement ("USD millions",
+# "USD; amounts in millions", "millions of USD"), never as a word elsewhere in a line.
+_SCALE = r"(?i:thousands|millions|billions)"
+_CURRENCY_STATED = (
+    r"(?i:\bcurrency)\s*(?::|\bis\b)?\s*{code}(?![A-Za-z])"
+    rf"|(?<![A-Za-z]){{code}}\s*(?:[;,]\s*(?i:(?:amounts\s+)?in)\s+)?{_SCALE}\b"
+    rf"|\b{_SCALE}\s+of\s+{{code}}(?![A-Za-z])"
+)
 
 
 class _Check:
@@ -770,7 +776,8 @@ class _Check:
 
     def code(self, ref: Mapping[str, Any], path: str, *, reporting: bool = False) -> None:
         """A quoted ISO 4217 code (S06-A07); the reporting currency's quote states it as the
-        currency ("Currency: USD"), so a code-like word elsewhere on the page is not read as it."""
+        currency of the amounts (`_CURRENCY_STATED`), so a code-like word elsewhere on the page is
+        not read as it."""
         if not self.on_page(ref, path):
             return
         c = ref["code_text"]

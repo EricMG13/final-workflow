@@ -1093,7 +1093,7 @@
    },
    {
     "id": "macro_fx.2",
-    "statement": "`reporting_currency.code_text`, and `fx.debt_currency.code_text` when given, is a three-capital-letter ISO 4217 currency code occurring as a whole word in its own quote; the `reporting_currency` quote states it as the currency, the word currency followed by the code (for example `Currency: USD`).",
+    "statement": "`reporting_currency.code_text`, and `fx.debt_currency.code_text` when given, is a three-capital-letter ISO 4217 currency code occurring as a whole word in its own quote; the `reporting_currency` quote states it as the currency of the amounts: after the word currency (`Currency: USD`) or joined to the unit (`USD millions`, `USD; amounts in millions`, `millions of USD`).",
     "checks": [
      "oracle:cp2e:reporting_code_not_in_quote",
      "fn:deploy_workflow.owners.cp2e:_Check.code"

@@ -98,7 +98,7 @@ def _statement_title_start(lines: list[str]) -> int | None:
     return titles[-1] if titles else None
 
 
-def mapping_headers(  # noqa: C901, PLR0911, PLR0912, PLR0915 - pre-existing complexity (C901 48 at base)
+def mapping_headers(  # noqa: C901, PLR0911, PLR0912, PLR0915 - pre-existing (C901 52 at base, 48 now)
     page_text: str, *, first_data_line: int, statement: Literal["BS", "IS", "CFS"]
 ) -> tuple[str, ...] | None:
     """Recover coherent column headers from this page before its first data row."""

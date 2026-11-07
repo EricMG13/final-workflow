@@ -388,10 +388,12 @@ _last_index: tuple[FinancialBook, _AccountIndex] | None = None
 def _account_index(book: FinancialBook) -> _AccountIndex:
     """The book's effective accounts, by metric, and its cited outflow-magnitude statement lines
     as `(period_id, metric)`. A book is frozen, so the index of the last book asked about is kept:
-    the reconciliation asks per period and metric."""
+    the reconciliation asks per period and metric. The kept pair is read once, so a thread that
+    stores another book's index meanwhile cannot hand that index to this book."""
     global _last_index
-    if _last_index is not None and _last_index[0] is book:
-        return _last_index[1]
+    last = _last_index
+    if last is not None and last[0] is book:
+        return last[1]
     result = list(book.accounts)
     present = {(r.period_id, r.metric_id) for r in result}
     for row in statement_accounts(book):

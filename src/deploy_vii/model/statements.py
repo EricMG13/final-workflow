@@ -37,8 +37,9 @@ balance, so it keeps CP-1's sign (a refinancing that cuts interest is a
 positive adjustment to cash interest); a negative zero reads as zero. A PF
 facility adjustment for
 a facility the LTM has no balance for adds to zero. The PF-LTM's debt
-roll-forward opens at the LTM's opening, keeps the LTM's debt raised and
-non-cash movements, and closes at the pro forma total debt, so it foots.
+roll-forward shows only its closing, the pro forma total debt; its opening,
+debt raised and non-cash lines are `NOT_APPLICABLE`, because the LTM's no
+longer foot to that closing (as the cash roll-forward shows only its closing).
 
 A debt balance that leaves something out (a facility in another currency,
 `debt.py`) passes its note to the balances read from it: net debt and the

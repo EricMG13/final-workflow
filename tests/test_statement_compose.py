@@ -841,8 +841,8 @@ def test_a_zero_outflow_magnitude_row_adds_nothing_to_a_failing_check() -> None:
 @pytest.mark.parametrize(
     "book,text,expected",
     [
-        # By hand: "US$" states USD, "C$"/"CA$" CAD, "A$" AUD; a bare "$" states a dollar
-        # currency without naming it, so it fits dollar books and no EUR or GBP book.
+        # By hand: "US$" states USD, "C$"/"CA$" CAD, "A$" AUD; a bare "$" names no currency, so
+        # with nothing else stated it verifies a USD book only (a CAD book's "$" could be US$).
         ("EUR", "(in millions of us$)", False),
         ("USD", "(in millions of us$)", True),
         ("EUR", "(in c$ millions)", False),
@@ -852,7 +852,12 @@ def test_a_zero_outflow_magnitude_row_adds_nothing_to_a_failing_check() -> None:
         ("EUR", "cash $ 1,000", False),
         ("GBP", "(in $ millions)", False),
         ("USD", "(in $ millions)", True),
-        ("CAD", "(in $ millions)", True),
+        ("CAD", "(in $ millions)", False),
+        ("AUD", "cash $ 1,000", False),
+        ("HKD", "(in $ millions)", False),
+        ("CAD", "(in millions of canadian dollars) revenue $ 10", True),
+        ("CAD", "(in millions of united states dollars)", False),
+        ("USD", "(in millions of united states dollars) revenue $ 10", True),
         ("EUR", "(in millions)", True),
         ("EUR", "(in r$ millions)", True),
     ],

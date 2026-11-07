@@ -870,13 +870,13 @@ def parse_date(name: str, value: str) -> tuple[date, tuple[str, str] | None]:
     return date.min, (f"{name} '{echo(value)}' is {kind} an ISO date YYYY-MM-DD", DATE_FIX)
 
 
-def parse_value(column: Column, value: str) -> tuple[Value, tuple[str, str] | None]:  # noqa: PLR0911 - pre-existing return count
+def parse_value(column: Column, value: str) -> tuple[Value, tuple[str, str] | None]:  # noqa: PLR0911 - nine returns at base, unchanged
     """A non-empty stored lexeme as its typed value, or the (problem, fix) it fails with."""
     name, shown = column.name, echo(value)
     if column.kind == "number":
         number, problem = parse_number(name, value)
         if problem is None and name == "pct_nav" and number < 0:
-            return number, (f"{name} '{shown}' is negative", RULE_FIX["negative"])
+            problem = (f"{name} '{shown}' is negative", RULE_FIX["negative"])
         return number, problem
     if column.kind in ("count", "rank"):
         least = 0 if column.kind == "count" else 1

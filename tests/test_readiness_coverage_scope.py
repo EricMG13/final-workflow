@@ -149,3 +149,47 @@ def test_a_page_range_past_the_pack_named_source_is_not_flagged() -> None:
     # annual-report holds pages 1-100, so pages 101-120 are truly absent
     review = _review(gap="Annual report pages 101-120 not supplied")
     assert coverage_issues(PACK, review) == ()
+
+
+# A source is named by its id or by its file name without directory and extension, as whole words.
+DIR = Source(
+    source_id="src1",
+    name="inputs/Annual Report 2024.pdf",
+    status="ready",
+    sha256=H,
+    spans=tuple(Span(locator=f"page:{i}", text=f"p{i}") for i in range(1, 101)),
+)
+WORD = Source(
+    source_id="report",
+    name="r.pdf",
+    status="ready",
+    sha256=H,
+    spans=(Span(locator="page:1", text="p1"),),
+)
+
+
+def _named_gap(source: Source, gap: str) -> tuple[str, ...]:
+    pack = PreparedPack(run=RUN, sources=(source,))
+    review = _review(gap=gap).model_copy(update={"pack_sha256": pack.content_hash()})
+    return coverage_issues(pack, review)
+
+
+def test_a_file_name_in_a_directory_is_named_without_its_directory_or_extension() -> None:
+    expected = (
+        "Absence claim contradicts extraction coverage: page:30 to page:45 retained in src1",
+    )
+    for gap in (
+        "Annual Report 2024 pages 30-45 not supplied",
+        "annual report 2024.pdf pages 30-45 not supplied",
+        "inputs/Annual Report 2024.pdf pages 30-45 not supplied",
+    ):
+        assert _named_gap(DIR, gap) == expected, gap
+
+
+def test_a_text_naming_part_of_a_file_name_or_only_a_longer_word_names_no_source() -> None:
+    # "Annual Report" lacks "2024"; "reporting" is not the word "report"
+    assert _named_gap(DIR, "Annual Report pages 30-45 not supplied") == ()
+    assert _named_gap(WORD, "Reporting pages 1-1 not supplied") == ()
+    assert _named_gap(WORD, "The report pages 1-1 not supplied") == (
+        "Absence claim contradicts extraction coverage: page:1 to page:1 retained in report",
+    )

@@ -354,15 +354,22 @@ def _words(text: str) -> str:
 
 
 def _source_labels(pack: PreparedPack) -> tuple[tuple[str, tuple[str, ...]], ...]:
-    """Each pack source with the word forms of its id and file name (`annual-report` is
-    " annual report ", `ar.pdf` is " ar pdf "); a label with no such word is left out."""
+    """Each pack source with the word forms of its id and of its file name without directory and
+    extension (`annual-report` is " annual report "; `evidence/Annual Report 2024.pdf` is
+    " annual report 2024 ", found in `Annual Report 2024` and in `Annual Report 2024.pdf` alike);
+    a label with no such word is left out."""
     return tuple(
         (
             source.source_id,
-            tuple(w for w in map(_words, (source.source_id, source.name)) if w.strip()),
+            tuple(w for w in map(_words, (source.source_id, _stem(source.name))) if w.strip()),
         )
         for source in pack.sources
     )
+
+
+def _stem(path: str) -> str:
+    """The file name of `path` without its directories and last extension."""
+    return re.split(r"[\\/]", path)[-1].rsplit(".", 1)[0]
 
 
 def _named(labels: tuple[tuple[str, tuple[str, ...]], ...], text: str) -> tuple[str, ...]:

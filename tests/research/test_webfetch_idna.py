@@ -86,3 +86,43 @@ def test_a_redirect_to_such_a_host_is_refused() -> None:
     with pytest.raises(webfetch.UrlRefused) as raised:
         webfetch._redirect_target("https://good.example/a", "https://www..example.com/b")
     assert str(raised.value) == f"redirect to https://www..example.com/b refused: {REASON}"
+
+
+class _Redirect:
+    """A connection whose one answer is a 302 to `location`."""
+
+    def __init__(self, location: str) -> None:
+        self.location = location
+        self.status = 302
+
+    def request(self, method: str, url: str, *, headers: object) -> None:
+        pass
+
+    def getresponse(self) -> "_Redirect":
+        return self
+
+    def getheader(self, name: str, default: str | None = None) -> str | None:
+        return self.location if name.lower() == "location" else default
+
+    def read(self, amt: int) -> bytes:
+        return b""
+
+    def close(self) -> None:
+        pass
+
+
+@pytest.mark.parametrize(
+    "location", ["https://www..example.com/b", "//" + "b" * 64 + ".example.com/"]
+)
+def test_a_redirect_to_a_host_idna_refuses_is_a_recorded_refusal(location: str) -> None:
+    # even when the manifest names the bad host, the fetch records a refusal (no escaped error)
+    host = location.split("/")[2]
+    record, body, media = _fetch(
+        "https://good.example/a",
+        lambda host: ["93.184.216.34"],
+        lambda target: _Redirect(location),
+        host,
+    )
+    assert record.reason is not None
+    assert record.reason.endswith(f"refused: {REASON}")
+    assert (record.hops, body, media) == (0, None, None)

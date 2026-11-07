@@ -13,5 +13,6 @@
  "max_lines_per_line_read": 200,
  "amended_by": "PF-R9 (controller gate finding PF1-G1: an unbounded last_page made both loops unbounded)",
  "amended_by_cp1h_r10": "CP1H-R10 (user via MANAGER, 2026-11-02: \"Approve 32 KB\"); was 8192 under PF-R7",
- "amended_by_s14_a02": "S14-A02 (review fix, 2026-11-07): a read of max_spans_per_read lines or fewer had no byte bound (five 1 MB lines returned 5 MB while six lines of 36 KB were refused); every line read is now measured. The largest five-line window in the retained text sources is 6,992 bytes, so no retained read changes."
+ "amended_by_s14_a02": "S14-A02 (review fix, 2026-11-07): a read of max_spans_per_read lines or fewer had no byte bound (five 1 MB lines returned 5 MB while six lines of 36 KB were refused); every line read is now measured. The largest five-line window in the retained text sources is 6,992 bytes, so no retained read changes.",
+ "confirmed_s14_a02": "user ruling, 2026-11-07: keep the bound of 200 lines and 32768 bytes on every line read; the PF-R7 exemption for five lines or fewer stays removed. A single line over 32768 bytes is not returned by read_pages; search_pack still finds text in it."
 }

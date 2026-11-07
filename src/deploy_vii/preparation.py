@@ -92,6 +92,10 @@ def text_content(raw: bytes) -> Extraction:
     text = raw.decode("utf-8-sig", errors="strict")
     if "\x00" in text:
         raise ValueError("NUL bytes: not supported UTF-8 text")
+    # `line:N` follows str.splitlines(): besides \n, \r\n and \r it breaks on \v, \f, \x1c-\x1e,
+    # \x85, U+2028 and U+2029. This is the canonical source-span numbering (user ruling on
+    # S15-C05, 2026-11-07): retained citations depend on it. Handoff delivery numbers its own
+    # lines on \n only (handoff_delivery.physical_lines); the two are separate citation spaces.
     spans = tuple(
         Span(locator=f"line:{i}", text=line) for i, line in enumerate(text.splitlines(), 1)
     )

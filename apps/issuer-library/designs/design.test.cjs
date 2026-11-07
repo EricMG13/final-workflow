@@ -28,7 +28,7 @@ test('Every retained body block is reachable in exactly one named section',()=>{
     for(const section of m.sections)assert.equal(section.count,1,`${m.id}: ${section.heading}`);
     for(const view of m.views){
       // A calendar date shows as D Month YYYY; its retained cell stays in the row's title, so it is still present.
-      const fragment=JSDOM.fragment(view.html),text=norm(fragment.textContent+' '+[...fragment.querySelectorAll('.event-date[title]')].map(e=>e.title).join(' '));
+      const fragment=JSDOM.fragment(view.html),text=norm(fragment.textContent+' '+[...fragment.querySelectorAll('.event-date[title]')].map(e=>e.title).filter(t=>/^[A-Z][a-z]+ \d{1,2}, \d{4}$/.test(t)).join(' '));
       for(const block of view.blocks){
         const values=block.type==='text'?[block.text]:block.rows.flatMap(r=>r.cells);
         for(const value of values) assert.ok(text.includes(norm(value)),`${m.id}/${view.id} line ${block.line}: ${value.slice(0,70)}`);
@@ -78,7 +78,7 @@ test('Calendar dates read D Month YYYY; every other shape and the retained cell 
   assert.equal(sept.querySelector('.event-date').title,'September 19, 2024');
   assert.ok(row('October 2024').textContent.includes('Month only'));
   assert.equal(row('May 8, 2023'),undefined);
-  for(const [iso,shown] of [['2024-12-31','31 December 2024'],['2025-05-01','1 May 2025'],['2024-02-29','29 February 2024'],['2024-02-30','2024-02-30'],['2023-02-29','2023-02-29'],['05/08/2023','05/08/2023'],['','']])assert.equal(w.displayDate(iso),shown);
+  for(const [iso,shown] of [['2024-12-31','31 December 2024'],['2025-05-01','1 May 2025'],['2024-02-29','29 February 2024'],['2024-02-30','2024-02-30'],['2023-02-29','2023-02-29'],['0000-01-01','0000-01-01'],['2024-13-01','2024-13-01'],['2024-1-05','2024-1-05'],[' 2024-12-31',' 2024-12-31'],['2024-12-31x','2024-12-31x'],['05/08/2023','05/08/2023'],['','']])assert.equal(w.displayDate(iso),shown);
   dom.window.close();
 });
 test('Six-factor assessment preserves producer grades without fabricated numeric scores',()=>{

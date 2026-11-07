@@ -6,7 +6,7 @@ function displayDate(iso) {
   if(!m) return iso;
   const [year,month,day]=[Number(m[1]),Number(m[2]),Number(m[3])],check=new Date(Date.UTC(2000,month-1,day));
   check.setUTCFullYear(year);
-  if(month<1||month>12||check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day) return iso;
+  if(year<1||month<1||month>12||check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day) return iso;
   return `${day} ${DISPLAY_MONTHS[month-1]} ${year}`;
 }
 function installDestinations() {

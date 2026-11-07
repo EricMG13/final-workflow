@@ -154,7 +154,10 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
   Each supplied metric has a decimal-string `value`, `unit`, `period`, `basis` and
   source key. Units must carry currency/scale where applicable, e.g. `USD m`.
   Keep unavailable values null, distinct from zero. Evidence checks establish
-  literal transport, not an independent financial interpretation of the row.
+  literal transport, not an independent financial interpretation of the row:
+  the value must equal a whole number in the quote, sign and scale included
+  (thousands commas group three digits; an accounting `(12.3)` is `-12.3`). A
+  fragment of a date, range, list or decimal-comma figure does not count.
   Optional `provenance` is the producer's explicit `cited`, `calculated` or
   `synthetic` classification. Omit it when unknown: the interface shows
   **Not classified** beside the source link. A verified source alone does not

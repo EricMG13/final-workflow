@@ -472,3 +472,88 @@ func TestReviewRunDeliveryIdentityAdversarial(t *testing.T) {
 		}
 	}
 }
+
+// admitsMetric reports whether discovery admits value as the revenue metric quoted by quote.
+func admitsMetric(t *testing.T, quote, value string) bool {
+	t.Helper()
+	root, manifest := fixture(t)
+	manifest.Run.Metrics["revenue"].Value = value
+	raw := []byte("Issuer: Example Industries\nSector: Industrials\n" + quote + "\nVerified scope\n")
+	put(t, root, "runs/case-a/CP-0.md", raw)
+	for key, source := range manifest.Sources {
+		source.SHA256 = digest(raw)
+		if key == "revenue" {
+			source.Quote = quote
+		}
+		manifest.Sources[key] = source
+	}
+	putJSON(t, root, "runs/case-a/library.json", manifest)
+	for _, run := range discover(root, Catalogue{}).Real {
+		if run.ID == "case-a" {
+			return run.Metrics["revenue"] != nil
+		}
+	}
+	return false
+}
+
+// A03: a metric must equal a whole number the quote states, sign and scale included; a
+// fragment of a date, range, list or other-convention figure is not evidence of it.
+func TestMetricMustBeAWholeNumberOfTheQuoteWithItsSignAndScale(t *testing.T) {
+	for _, c := range []struct {
+		quote, value string
+		admitted     bool
+	}{
+		// The reported fragments (all admitted before the fix).
+		{"Net loss: (12.3)", "12.3", false},
+		{"As of 2024-12-31 net debt was 450", "-12", false},
+		{"Guidance: margin 3-5%", "-5", false},
+		{"Yield: .5%", "5", false},
+		{"Covenant tests 1,2,3 passed", "123", false},
+		{"Revenue 1.234,5 (EUR format)", "1.234", false},
+		// Whole numbers keep their sign, thousands grouping and decimals.
+		{"Net loss: (12.3)", "-12.3", true},
+		{"Net sales | 7,940 | 6,585", "7940", true},
+		{"Closing cash | -1,676 | x", "-1676", true},
+		{"Leverage 5.96x", "5.96", true},
+		{"As Defined 4,685.", "4685", true},
+		{"Revenue USD 1,234.5m, up 4%", "1234.5", true},
+		{"Revenue 450, 500 and 600.", "500", true},
+		{"As of 2024-12-31 net debt was 450", "450", true},
+		// Dates, ranges and lists state none of their parts.
+		{"As of 2024-12-31 net debt was 450", "2024", false},
+		{"As of 2024-12-31 net debt was 450", "12", false},
+		{"Guidance: margin 3-5%", "3", false},
+		{"Guidance: margin 3–5%", "5", false},
+		{"Covenant tests 1,2,3 passed", "1", false},
+		{"COVID-19 costs", "-19", false},
+		{"COVID-19 costs", "19", false},
+		// A typographic minus or a sign inside parentheses is not dropped.
+		{"Net loss −12.3", "12.3", false},
+		{"Net loss: (-12.3)", "-12.3", false},
+		{"Net loss: (-12.3)", "12.3", false},
+		{"Net loss (USD 12.3m)", "12.3", false},
+		{"Net loss (USD 12.3m)", "-12.3", false},
+		{"Net loss (12.3m)", "12.3", false},
+		{"Net change -(12.3)", "-12.3", false},
+		{"Net change -(12.3)", "12.3", false},
+		{"Net loss (12.3).", "-12.3", true},
+		{"| Net loss | (1,676) |", "-1676", true},
+		{"Net loss (12.3)5", "-12.3", false},
+		{"Net loss –(12.3)", "-12.3", false},
+		// Other separator conventions and malformed groups are refused, never truncated.
+		{"Revenue 1.234,5", "1234.5", false},
+		{"Revenue 1.234.567", "1.234", false},
+		{"Revenue 1,2345", "1", false},
+		{"Revenue 12,34", "12", false},
+		{"Revenue 1 234,5", "1", false},
+		{"Revenue 1 234 567", "234", false},
+		{"Revenue 1 234 567", "1", false},
+		{"Umsatz 1 234,5", "1", false},
+		{"Revenue 1'234.5", "234.5", false},
+		{"Yield: .5%", ".5", false},
+	} {
+		if got := admitsMetric(t, c.quote, c.value); got != c.admitted {
+			t.Errorf("quote %q value %q: admitted=%v, want %v", c.quote, c.value, got, c.admitted)
+		}
+	}
+}

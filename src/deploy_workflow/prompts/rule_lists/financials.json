@@ -24,10 +24,11 @@
   },
   {
    "id": "financials.d",
-   "statement": "d. A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign the statement implies (an expense or outflow negative, a revenue or inflow positive); balance-sheet lines are always `signed`. Use `outflow_magnitude` only when the source prints an expense or outflow as a positive magnitude and you keep that presentation: then `sign_citations` must hold at least one located span showing the printed presentation (repeat the value's citation in `sign_citations`), never empty. A negative amount under `outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure.",
+   "statement": "d. A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign the statement implies (an expense or outflow negative, a revenue or inflow positive); balance-sheet lines are always `signed`. Use `outflow_magnitude` only when the source prints an expense or outflow as a positive magnitude and you keep that presentation: then `sign_citations` must hold at least one located span showing the printed presentation (repeat the value's citation in `sign_citations`), never empty. A negative amount under `outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure. A positive `signed` amount on a line of an outflow account (IS `cogs`, IS `depreciation_amortization`, IS `opex_including_da`, IS `operating_lease_cost`, CFS `dividends_paid`, CFS `cash_taxes_paid`, CFS `cash_interest_paid`, CFS `lease_payments_in_financing`, CFS `interest_paid_in_financing`, CFS `capex_total`) is refused, never flipped: where the source prints that outflow as a positive magnitude, use `outflow_magnitude` with `sign_citations`; where it prints a net inflow on that line (a refund), record the value as status `missing` with a null `amount` and a `reason` saying so.",
    "checks": [
     "fn:deploy_vii.financial_contracts:StatementLine.sign_evidence",
-    "fn:deploy_vii.statement_validation:statement_issues"
+    "fn:deploy_vii.statement_validation:statement_issues",
+    "fn:deploy_vii.statement_validation:_signed_outflow_issues"
    ]
   },
   {

@@ -766,10 +766,11 @@
    },
    {
     "id": "financials.d",
-    "statement": "d. A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign the statement implies (an expense or outflow negative, a revenue or inflow positive); balance-sheet lines are always `signed`. Use `outflow_magnitude` only when the source prints an expense or outflow as a positive magnitude and you keep that presentation: then `sign_citations` must hold at least one located span showing the printed presentation (repeat the value's citation in `sign_citations`), never empty. A negative amount under `outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure.",
+    "statement": "d. A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign the statement implies (an expense or outflow negative, a revenue or inflow positive); balance-sheet lines are always `signed`. Use `outflow_magnitude` only when the source prints an expense or outflow as a positive magnitude and you keep that presentation: then `sign_citations` must hold at least one located span showing the printed presentation (repeat the value's citation in `sign_citations`), never empty. A negative amount under `outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure. A positive `signed` amount on a line of an outflow account (IS `cogs`, IS `depreciation_amortization`, IS `opex_including_da`, IS `operating_lease_cost`, CFS `dividends_paid`, CFS `cash_taxes_paid`, CFS `cash_interest_paid`, CFS `lease_payments_in_financing`, CFS `interest_paid_in_financing`, CFS `capex_total`) is refused, never flipped: where the source prints that outflow as a positive magnitude, use `outflow_magnitude` with `sign_citations`; where it prints a net inflow on that line (a refund), record the value as status `missing` with a null `amount` and a `reason` saying so.",
     "checks": [
      "fn:deploy_vii.financial_contracts:StatementLine.sign_evidence",
-     "fn:deploy_vii.statement_validation:statement_issues"
+     "fn:deploy_vii.statement_validation:statement_issues",
+     "fn:deploy_vii.statement_validation:_signed_outflow_issues"
     ]
    },
    {
@@ -2032,7 +2033,7 @@
    "src/deploy_vii/quality.py": "d1934a5902422d22717217c6961f0ea58e34aa0326ce469c28db1eb815e21426",
    "src/deploy_vii/readiness.py": "04923f2033795a43587768a18d8f897f71c8c25b1de5aeee02ede16096348465",
    "src/deploy_vii/source_context.py": "003423e66c01e1c283425600a2cd2fb92581dfe03a642b68b13afba4a901a08f",
-   "src/deploy_vii/statement_validation.py": "7fdd3161eff917f4c0e32ce0ad7f4d1b96a1530b088c712af0bffc2aa5bdfcf8",
+   "src/deploy_vii/statement_validation.py": "89d91c466fd46f42fcb4cd918566a795363d1d615587df3f92744a35bb1bf87b",
    "src/deploy_workflow/financial_workflow.py": "e3778cffd640d6a888c5896f98e19918142e437a24db0c9721330957592a619a",
    "src/deploy_workflow/owner_workflow.py": "9e7347188727fa13720ac715b03550e9b2b1ddc335f61da3b2f94ba426c301f9",
    "src/deploy_workflow/owners/cp1a.py": "412d4af663a29ae8fe54faf7d044daf353ef694f177b6f955e8fbcec6813eae1",

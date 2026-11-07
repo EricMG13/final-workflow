@@ -55,6 +55,7 @@ from deploy_vii.downstream_readiness import _EVIDENCE_GROUPS
 from deploy_vii.financial_periods import _id
 from deploy_vii.live.context import INTEGRITY, MODULE_CONTEXTS, PACK_SOURCE_STEPS
 from deploy_vii.live.schema import strict_schema
+from deploy_vii.model.history import OUTFLOW_METRICS
 from deploy_vii.narrative import _DIMENSIONS, _FINANCIAL
 from deploy_vii.preparation import PreparedPack
 from deploy_vii.quality import QualityInputs
@@ -148,8 +149,20 @@ ACCOUNT_METRIC_RULE = (
     "account metric belongs in `statement_lines` under its own `item_id` (issuer detail with the "
     "`other:` prefix), with its `statement` and `sign_convention`, not in `accounts`."
 )
+
+
+def _outflow_items() -> str:
+    """The statement items linked to an outflow account, rendered from the validator's tables."""
+    return ", ".join(
+        f"{statement} `{item}`"
+        for (statement, item), metric in ACCOUNT_LINKS.items()
+        if metric in OUTFLOW_METRICS
+    )
+
+
 # Task 7.0f (E1 batch e1-cp1-4): `StatementLine.sign_evidence` and the consumers of
 # `sign_convention` (`statement_validation.account_outflow`, `financial_reconciliation`).
+# S12-A02 (user ruling B, fail closed): `statement_validation._signed_outflow_issues`.
 SIGN_RULE = (
     "A statement line's `sign_convention` is `signed` when its amount carries the arithmetic sign "
     "the statement implies (an expense or outflow negative, a revenue or inflow positive); "
@@ -157,7 +170,11 @@ SIGN_RULE = (
     "an expense or outflow as a positive magnitude and you keep that presentation: then "
     "`sign_citations` must hold at least one located span showing the printed presentation (repeat "
     "the value's citation in `sign_citations`), never empty. A negative amount under "
-    "`outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure."
+    "`outflow_magnitude` is read as -abs(amount); use `signed` for a negative figure. A positive "
+    f"`signed` amount on a line of an outflow account ({_outflow_items()}) is refused, never "
+    "flipped: where the source prints that outflow as a positive magnitude, use "
+    "`outflow_magnitude` with `sign_citations`; where it prints a net inflow on that line (a "
+    "refund), record the value as status `missing` with a null `amount` and a `reason` saying so."
 )
 DECLARED_PERIOD_RULE = "Every `period_id` an entry uses must be declared in its book's `periods`."
 # Task 7.11 (E1 batch e1-cp1-13): `context_binding.validate_financial_context` binds a book only to

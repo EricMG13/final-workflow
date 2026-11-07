@@ -292,6 +292,15 @@ _ENTRY_VALIDATORS: dict[str, Callable[[Execution, PreparedPack, Attempt], StepVa
 _PRE_BEGIN: dict[str, Callable[[Execution, ExecutionSnapshot], object]] = {
     "CP-DR": cpdr.check_begin,
 }
+# AGENTS.md: CP-8's decision-ledger post-mortem is superseded; CP-8 compares delivered bundles
+# through CP-OS. A workflow that will not begin CP-8 (run_pathway's native walk) retains this as
+# its refusal's reason; the verifier accepts it only where the journal itself would have begun CP-8.
+CP8_SUPERSEDED = (
+    "the decision-ledger post-mortem is superseded; compare prior and current deliverables with "
+    "CP-OS run_comparison (deploy_workflow.owners.cpos --compare)"
+)
+# What a refusal names in the submit outcome (`<module>_<kind>`, L2).
+RefusalKind = Literal["not_authorized", "blocked", "superseded"]
 # CP-0 and CP-1 keep the reused financial helpers, which are bound to their 11-field binding.
 _FINANCIAL_MODULES = frozenset({"CP-0", "CP-1"})
 # G6: the bytes a `read_inputs` body may take: the bound a submitted payload already obeys.
@@ -746,7 +755,8 @@ class BeginRecord(Contract):
 
 
 class RefusedBegin(Contract):
-    """A begin the journal refused: why, and what was missing (G3).
+    """A begin the journal refused: why, and what was missing (G3); or a CP-8 the workflow did not
+    begin because it is superseded (reason `CP8_SUPERSEDED`, nothing missing).
 
     `missing_inputs` names the required upstream modules with no usable head;
     `missing_commands` the CP-0 command (`Run <id>`) that is absent. Both are omitted from the
@@ -1539,7 +1549,7 @@ class OwnerWorkflow:
         self._publications: list[PublicationCall] = []
         self._begins: list[BeginRecord] = []
         self._refusals: list[RefusedBegin] = []
-        self._refusal_kind: Literal["not_authorized", "blocked"] | None = None
+        self._refusal_kind: RefusalKind | None = None
         self._model: ModelPublication | None = None
         self._participant = "trusted-python"
         self._transport: Literal["python-api", "bounded-json-lines/1"] = "python-api"
@@ -1745,9 +1755,7 @@ class OwnerWorkflow:
         self._rebuild_publications(got, position)
         self._check_listed()
         if self._refusals:  # the first refusal names the submit outcome (L2)
-            self._refusal_kind = (
-                "not_authorized" if self._refusals[0].missing_commands else "blocked"
-            )
+            self._refusal_kind = _kind_of(self._refusals[0])
         limits: Counter[tuple[str, str, str]] = Counter()
         for call in self._calls:
             limits[(call.binding.ticket_id, call.binding.step_id, "invoke")] += 1
@@ -2149,12 +2157,17 @@ class OwnerWorkflow:
             missing_inputs=missing[0],
             missing_commands=missing[1],
         )
+        return self._refuse(refusal, kind)
+
+    def _refuse(self, refusal: RefusedBegin, kind: RefusalKind) -> bool:
+        """Retain a refused begin, at the snapshot it names, and continue the walk past it (G3);
+        False, as `_begin` returns for a refusal."""
         _retain(self._store, "refused-begin", refusal)
         self._refusals.append(refusal)
         if self._refusal_kind is None:  # the first refusal names the submit outcome (L2)
             self._refusal_kind = kind
-        self._current_sha256 = before.content_hash()
-        self._advance(module_id)
+        self._current_sha256 = refusal.snapshot_sha256
+        self._advance(refusal.module_id)
         return False
 
     def _advance(self, module_id: str) -> None:
@@ -2652,10 +2665,21 @@ def _missing_inputs(
     return tuple(missing), ()
 
 
+def _kind_of(refusal: RefusedBegin) -> RefusalKind:
+    """The kind a retained refusal was named by: a missing CP-0 command, the superseded CP-8, else
+    a blocked edge."""
+    if refusal.missing_commands:
+        return "not_authorized"
+    superseded = (refusal.module_id, refusal.reason) == ("CP-8", CP8_SUPERSEDED)
+    return "superseded" if superseded else "blocked"
+
+
 def _verify_refusal(before: ExecutionSnapshot, refusal: RefusedBegin, refused: set[str]) -> None:
     """The refusal is the journal's own answer at `before`: `current_inputs` raises with the same
     reason, and `_missing_inputs` of that error equals what was recorded. A blocked-edge refusal
-    needs a blocked head in `before` or every missing input itself refused in the walk."""
+    needs a blocked head in `before` or every missing input itself refused in the walk. Where the
+    journal would have begun the module, only CP-8 refused as superseded (`CP8_SUPERSEDED`, nothing
+    missing) is a refusal."""
     try:
         current_inputs(before, refusal.module_id)
     except ValueError as error:
@@ -2669,7 +2693,10 @@ def _verify_refusal(before: ExecutionSnapshot, refusal: RefusedBegin, refused: s
         ):
             raise WorkflowError("identity_mismatch") from None
     else:
-        raise WorkflowError("identity_mismatch")
+        if refusal != RefusedBegin(
+            module_id="CP-8", snapshot_sha256=refusal.snapshot_sha256, reason=CP8_SUPERSEDED
+        ):
+            raise WorkflowError("identity_mismatch")
 
 
 def _retainable(before: ExecutionSnapshot, missing: tuple[str, ...], refused: set[str]) -> bool:

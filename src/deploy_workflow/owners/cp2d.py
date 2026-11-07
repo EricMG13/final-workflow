@@ -1771,6 +1771,11 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
 
 HORIZON_ISSUE = "horizon_months must be between 1 and 60"
 NEGATIVE_MINIMUM_ISSUE = "minimum_cash.amount must not be negative"
+# S06-A05: the bound of every CP-1 amount (`financial_contracts.Number`, |x| < 1e18). A larger
+# finite amount (1e300) passed every check and then could not be spelled exactly, so submit
+# raised and every resume raised again; it is refused here instead.
+MINIMUM_LIMIT = Decimal("1e18")
+LARGE_MINIMUM_ISSUE = "minimum_cash.amount must be less than 1e18, the bound of a CP-1 amount"
 BOTH_ISSUE = "give minimum_cash or minimum_cash_absence, not both"
 NEITHER_ISSUE = "give minimum_cash or minimum_cash_absence"
 SECTION_ISSUE = "assessments must hold exactly one row per section"
@@ -1843,6 +1848,8 @@ def submission_issues(
         issues.append(HORIZON_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash.amount < 0:
         issues.append(NEGATIVE_MINIMUM_ISSUE)
+    if s.minimum_cash is not None and s.minimum_cash.amount >= MINIMUM_LIMIT:
+        issues.append(LARGE_MINIMUM_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash_absence is not None:
         issues.append(BOTH_ISSUE)
     if s.minimum_cash is None and s.minimum_cash_absence is None:

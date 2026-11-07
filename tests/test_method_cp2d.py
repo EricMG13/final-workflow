@@ -502,6 +502,33 @@ def test_cp1_cross_check_mismatch_settles_with_a_limitation() -> None:
     assert _cells(result)["T2E.2.r05"].amount == Decimal(0)
 
 
+@pytest.mark.parametrize(
+    ("amount", "refused"),
+    [("1e300", True), ("1E+40", True), ("1E+18", True), ("999999999999999999.99", False)],
+)
+def test_a_minimum_cash_at_or_above_the_cp1_amount_bound_is_refused(
+    amount: str, refused: bool
+) -> None:
+    """S06-A05: 1e300 passed every check and then raised in the display spelling, so submit
+    raised and every resume raised again. The bound is a CP-1 amount's, |x| < 1e18
+    (financial_contracts.Number): 1E+18 itself is refused, 999999999999999999.99 composes and
+    T2E.6 spells it at 0 dp half-up as 1,000,000,000,000,000,000."""
+    payload = json.loads(json.dumps(SUBMISSIONS["cp2d"]["positive"]))
+    payload["minimum_cash"]["amount"] = amount
+    inputs = replace(_inputs("positive"), submission=_submission(payload))
+    issues = cp2d.submission_issues(
+        submission=inputs.submission, offered_refs=OFFERED, maturity_date_refs=MATURITY_REFS
+    )
+    if refused:
+        assert issues == (cp2d.LARGE_MINIMUM_ISSUE,)
+        with pytest.raises(ValueError, match="less than 1e18"):
+            cp2d.compute(inputs)
+        return
+    assert issues == ()
+    rows = dict(cp2d.compute(inputs).judgments.rows)
+    assert rows["Minimum cash"].startswith("1,000,000,000,000,000,000 ")
+
+
 # --- calculation-level refusals ---------------------------------------------------------------
 
 
@@ -1081,7 +1108,10 @@ def _no_raise_cases() -> list[tuple[str, cp2d.Cp2dInputs]]:
     inputs = _inputs("positive")
     o = inputs.operands
     cases: list[tuple[str, cp2d.Cp2dInputs]] = []
-    for amount in ("1E+30", "123456789012345678901234567890"):
+    # S06-A05 bounds minimum cash below 1e18 (a CP-1 amount's bound), so the largest values kept
+    # here sit under it; 1E+30 is now refused (test_a_minimum_cash_at_or_above_...). The second
+    # still has 30 significant digits, more than the default 28-digit context holds.
+    for amount in ("9.99E+17", "123456789012345678.901234567890"):
         payload = json.loads(json.dumps(SUBMISSIONS["cp2d"]["positive"]))
         payload["minimum_cash"]["amount"] = amount
         cases.append((f"minimum cash {amount}", replace(inputs, submission=_submission(payload))))

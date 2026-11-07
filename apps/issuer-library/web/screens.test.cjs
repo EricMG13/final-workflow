@@ -361,14 +361,23 @@ test('the section bar leads with the run and the module or destination name',asy
   assert.equal(text(prefix()),'TDG-002 · Forecast');
   await go(w,'W-Reports/list?c=tdg-002');
   assert.equal(text(prefix()),'TDG-002 · Reports');
+  for(const destination of ['W-Library/cases','W-NewRun/new','W-Settings/settings','W-Help/help']){
+    await go(w,`${destination}?c=tdg-002`);
+    assert.equal(prefix(),null,`${destination} must not carry a run prefix`);
+  }
+  // A run label that holds markup is shown as text.
+  w.eval(`contexts['tdg-002'].run='<b id=x>R</b>'`);
+  await go(w,'CP-2/assessment?c=tdg-002');
+  assert.equal(d.querySelector('#section-nav b#x'),null);
+  assert.equal(text(prefix()),`<b id=x>R</b> · ${w.eval('moduleNames["CP-2"]')}`);
 });
 
 test('Overview charts carry their period, name their bars, and the lead is not repeated',t=>{
   const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
-  const bridge=[...d.querySelectorAll('.summary-chart')].find(c=>c.querySelector('.axis-label'));
+  const bridge=[...d.querySelectorAll('.summary-chart')].find(c=>c.querySelector('.bridge-key'));
   assert.ok(bridge,'a waterfall chart is on the Overview');
   assert.equal(text(bridge.querySelector('.section-heading span')),'USD millions · FY2024 cash bridge · historical opening basis');
-  assert.equal([...bridge.querySelectorAll('text.axis-label')].map(text).join('|'),'Beginning cash|Operating cash flow|Investing cash flow|Financing cash flow|Exchange-rate effect|Calculated closing cash');
+  assert.equal([...bridge.querySelectorAll('text.axis-label')].map(l=>[...l.querySelectorAll('tspan')].map(s=>s.textContent).join(' ')).join('|'),'Beginning cash|Operating cash flow|Investing cash flow|Financing cash flow|Exchange-rate effect|Calculated closing cash');
   assert.equal(bridge.querySelectorAll('.bridge-key b').length,0);
   const lead=text(d.querySelector('.summary-lead .call-quote'));
   assert.equal(text(d.body).split(lead).length-1,1);

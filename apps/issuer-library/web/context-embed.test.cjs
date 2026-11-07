@@ -93,3 +93,20 @@ test('the form uses the app look: 40 px fields, 16 px text, pills and a styled f
  const rec=p.win.getComputedStyle(p.doc.querySelector('.rtag.rec'));assert.equal(rec.backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(rec.borderTopColor,'rgb(207, 211, 221)');
  assert.match(css,/\.tag\.def \{[^}]*background:#E7ECFF;[^}]*color:#0017E5/);
 });
+const later=()=>new Promise(resolve=>setTimeout(resolve,20));
+test('a host with several text nodes titles all their codes once, and loses the title when they go',async t=>{
+ const p=form(t),host=intro(p);
+ host.textContent='';host.append('Ask CP-0 then ',p.doc.createElement('br'),'CP-2 after.');
+ sendNames(p,{'CP-0':'Source readiness','CP-2':'Review'});
+ assert.equal(host.textContent,'Ask Source readiness then Review after.');
+ assert.equal(host.title,'CP-0, CP-2');
+ host.textContent='No codes here.';await later();
+ assert.equal(host.hasAttribute('title'),false);
+});
+test('a title the host had before the script ran is never overwritten or removed',async t=>{
+ const p=form(t),host=intro(p);host.title='Their own';
+ sendNames(p,{'CP-0':'Source readiness'});
+ assert.equal(host.title,'Their own');
+ host.textContent='None.';await later();
+ assert.equal(host.title,'Their own');
+});

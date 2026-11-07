@@ -24,9 +24,10 @@ function binary(temp){
   assert.equal(built.status,0,`go build failed: ${built.stderr}`);
   return out;
 }
-async function until(check,what,ms=30000){
+async function until(check,what,ms=30000,fatal=()=>null){
   const end=Date.now()+ms;
   for(;;){
+    const dead=fatal();if(dead)throw new Error(`${what}: ${dead}`);
     try{const value=await check();if(value)return value;}catch(error){if(Date.now()>end)throw new Error(`${what}: ${error.message}`);}
     if(Date.now()>end)throw new Error(`${what} timed out`);
     await settle(100);
@@ -40,16 +41,17 @@ async function readWorkspace(){
   const port=await freePort(),base=`http://127.0.0.1:${port}`;
   const env={...process.env,ISSUER_LIBRARY_PYTHON:python,ISSUER_LIBRARY_ENGINE_ROOT:path.join(app,'engine')};
   for(const name of PROVIDER_KEYS)delete env[name];
-  const child=spawn(binary(temp),['--workspace',repo,'--state-dir',path.join(temp,'state'),'--no-browser','--port',String(port)],{env,stdio:'ignore'});
-  let exited=null;child.on('exit',code=>{exited=code;});
+  const child=spawn(binary(temp),['--workspace',repo,'--state-dir',path.join(temp,'state'),'--no-browser','--port',String(port)],{env,stdio:['ignore','ignore','pipe']});
+  let exited=null,stderr='';child.stderr.on('data',chunk=>{stderr+=chunk;});
+  const gone=new Promise(resolve=>child.on('exit',code=>{exited=code;resolve();}));
   try{
-    await until(async()=>{if(exited!==null)throw new Error(`server exited ${exited}`);return (await fetch(`${base}/health`)).ok;},'server not serving');
+    await until(async()=>(await fetch(`${base}/health`)).ok,'server not serving',30000,()=>exited===null?null:`server exited ${exited}: ${stderr}`);
     const read=async url=>{const response=await fetch(base+url,{cache:'no-store'});if(!response.ok)assert.fail(`${url}: ${response.status} ${await response.text()}`);return response.json();};
     const catalogue=await read('/api/catalogue'),store=await read('/api/workspace');
     return {catalogue,store};
   }finally{
     child.kill();
-    await new Promise(resolve=>{if(exited!==null)resolve();else child.on('exit',resolve);});
+    await gone;
     fs.rmSync(temp,{recursive:true,force:true});
   }
 }
@@ -136,13 +138,34 @@ test('The reading toolbar shows the curated status with the acceptance state',as
   assert.ok((await toolbar('tdg-fy2024-snapshot')).includes(key.reports.status['tdg-fy2024-snapshot']));
 });
 
+test('The reading toolbar separates the status from the acceptance badge',async t=>{
+  const w=screens(workspace,'W-Reports/tdg-fy2024-snapshot-7?c=tdg-002').window;t.after(()=>w.close());
+  await settle();
+  const tools=w.document.querySelector('.report-tools'),sep=tools.querySelector('.tool-sep');
+  assert.ok(sep,'no separator');
+  assert.equal(sep.previousElementSibling.textContent,key.reports.status['tdg-fy2024-snapshot-7']);
+  assert.ok(sep.nextElementSibling.classList.contains('badge'));
+  assert.equal(sep.getAttribute('aria-hidden'),'true');
+});
+
+test('A model source with no valid path or hash still renders, flagged, with no hash',async t=>{
+  const forged=structuredClone(workspace);
+  const model=forged.store.models.find(m=>m.id==='tdg-model-3');
+  Object.assign(model.sources[0],{sha256:null,changed:null});
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  const cells=[...d.querySelector('.forecast-built tbody tr').children];
+  assert.equal(cells[2].textContent,'');
+  assert.equal(text(cells[3]),'Invalid path or hash');
+});
+
 test('Each deliverable listed on the run overview shows its report’s state',async t=>{
   const w=screens(workspace,'W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
   await settle();
   const entries=[...d.querySelectorAll('.summary-deliverables .deliverable')];
-  assert.equal(entries.length,key.reports['tdg-002'].built.length);
+  const linked=entry=>entry.querySelector('a').getAttribute('href').split('?')[0].split('/').at(-1);
+  assert.deepEqual(sorted(entries.map(linked)),sorted(key.reports['tdg-002'].built));
   for(const entry of entries){
-    const id=entry.querySelector('a').getAttribute('href').split('?')[0].split('/').at(-1);
+    const id=linked(entry);
     const expected=key.reports.byId[id];
     assert.ok(expected,`${id} not in the answer key`);
     assert.ok(text(entry).includes(expected.state),`${id}: ${expected.state} missing from "${text(entry)}"`);
@@ -189,15 +212,15 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
     assert.deepEqual([...d.querySelectorAll('#model-select option')].map(o=>o.textContent),expected.options);
     assert.deepEqual([...d.querySelectorAll('#model-select option')].filter(o=>o.selected).map(o=>o.textContent),[expected.selected]);
     const tools=d.querySelector('.forecast-tools');
-    assert.deepEqual([...tools.querySelectorAll('.badge')].map(text),[expected.state]);
-    assert.deepEqual([...tools.querySelectorAll('.muted')].map(text),[expected.qualification]);
+    assert.deepEqual([...tools.querySelectorAll('.badge')].map(b=>b.textContent),[expected.state]);
+    assert.deepEqual([...tools.querySelectorAll('.muted')].map(b=>b.textContent),[expected.qualification]);
     assert.equal(text(tools.querySelector('a[download]')),'Download original HTML');
     assert.equal(d.querySelector('.forecast-scope').textContent,expected.scope);
     assert.equal(d.querySelector('.forecast-input').textContent,expected.inputContract);
     assert.equal(d.querySelector('.forecast-revision').textContent,expected.revisionNote);
     assert.deepEqual([...d.querySelectorAll('.forecast > section > h2')].map(text),['Why this model was built','Assumptions and their rationale','Built from']);
     const assumptions=d.querySelector('.forecast-assumptions');
-    assert.equal(text(assumptions.querySelector('h3')),expected.registerHeading);
+    assert.equal(assumptions.querySelector('h3').textContent,expected.registerHeading);
     assert.equal(collapse(assumptions.querySelector('.register-intro').textContent),expected.registerIntro);
     const rows=[...assumptions.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(c=>c.textContent));
     assert.deepEqual(rows.map(r=>r[0]),expected.registerIds);
@@ -238,13 +261,13 @@ test('Choosing another model in the Forecast tab shows that model',async t=>{
 for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>!e.models.length)){
   test(`Forecast for ${run} says no model was published from its files and lists the issuer's other models`,async t=>{
     const w=await forecastTab(workspace,run,t),d=w.document;
-    assert.equal(text(d.querySelector('#content .missing-state h2')),forecast.emptyHeading);
+    assert.equal(d.querySelector('#content .missing-state h2').textContent,forecast.emptyHeading);
     assert.equal(d.getElementById('model-select'),null);
     assert.equal(d.getElementById('model-preview'),null);
     const others=d.querySelector('.forecast-other');
     if(expected.otherHeading===null){assert.equal(others,null);return;}
-    assert.equal(text(others.querySelector('h2')),expected.otherHeading);
-    assert.deepEqual([...others.querySelectorAll('li > a, li > span:first-child')].map(text),expected.others);
+    assert.equal(others.querySelector('h2').textContent,expected.otherHeading);
+    assert.deepEqual([...others.querySelectorAll('li > a, li > span:first-child')].map(e=>e.textContent),expected.others);
   });
 }
 
@@ -269,7 +292,7 @@ test('The model frame shows loading, then the failure with a download link when 
   await go(w,'W-Forecast/forecast?c=tdg-002');
   const status=w.document.querySelector('.forecast .frame-status');
   assert.equal(text(status),'Loading model…');
-  await settle(60);
+  await until(()=>/did not load/.test(status.textContent),'the model frame never reported failure',2000);
   assert.match(text(status),/^The model did not load\. Download original HTML Retry$/);
   assert.match(status.querySelector('a').getAttribute('href'),/model\.html\?sha256=[0-9a-f]{64}&download=1$/);
   w.document.getElementById('model-preview').dispatchEvent(new w.Event('load'));

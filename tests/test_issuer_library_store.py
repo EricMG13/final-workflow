@@ -843,3 +843,56 @@ def test_an_unreadable_model_is_reported_and_the_others_stay(tmp_path):
 )
 def test_display_date_reads_only_a_valid_calendar_date(iso, shown):
     assert store.display_date(iso) == shown
+
+
+def test_a_model_with_untyped_fields_keeps_only_strings(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    record = json.loads((tmp_path / "deliverables/m-1/delivery.json").read_text(encoding="utf-8"))
+    record.update(scope=5, input_contract=["x"], presentation_repair={"a": 1})
+    record["sources"] = {
+        "num": {"path": "runs/alpha-001/CP-1.md", "sha256": 5},
+        "badhex": {"path": "runs/alpha-001/CP-1.md", "sha256": "A" * 64},
+        "short": {"path": "runs/alpha-001/CP-1.md", "sha256": "a" * 63},
+        "path": {"path": 7, "sha256": "a" * 64},
+        "whole": "not an object",
+    }
+    (tmp_path / "deliverables/m-1/delivery.json").write_text(json.dumps(record), encoding="utf-8")
+    result = models_of(tmp_path, artifact)
+    (model,) = result["models"]
+    assert (model["scope"], model["inputContract"], model["revisionNote"]) == (None, None, None)
+    for row in model["sources"]:
+        assert (row["sha256"], row["changed"]) == (None, None), row
+        assert row["path"] is None or isinstance(row["path"], str)
+    for role in ("num", "badhex", "short", "path", "whole"):
+        assert f"deliverables/m-1: source {role} has an invalid path or hash" in result["issues"]
+
+
+def test_source_paths_outside_the_workspace_are_never_opened(tmp_path, monkeypatch):
+    root = tmp_path / "ws"
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    secret = outside / "secret.txt"
+    secret.write_text("secret", encoding="utf-8")
+    digest = hashlib.sha256(b"secret").hexdigest()
+    (root / "runs/alpha-001").mkdir(parents=True)
+    (root / "runs/alpha-001/link.md").symlink_to(secret)
+    (root / "runs/escape").symlink_to(outside, target_is_directory=True)
+    artifact = model_delivery(root, "deliverables/m-1")
+    record = json.loads((root / "deliverables/m-1/delivery.json").read_text(encoding="utf-8"))
+    record["sources"] = {
+        "absolute": {"path": str(secret), "sha256": digest},
+        "dotdot": {"path": "runs/alpha-001/../../../outside/secret.txt", "sha256": digest},
+        "link": {"path": "runs/alpha-001/link.md", "sha256": digest},
+        "dirlink": {"path": "runs/escape/secret.txt", "sha256": digest},
+        "outside_runs": {"path": "deliverables/m-1/view.json", "sha256": digest},
+        "backslash": {"path": "runs\\alpha-001\\x.md", "sha256": digest},
+    }
+    (root / "deliverables/m-1/delivery.json").write_text(json.dumps(record), encoding="utf-8")
+    opened = []
+    real = store.sha256
+    monkeypatch.setattr(store, "sha256", lambda p: opened.append(p) or real(p))
+    result = models_of(root, artifact)
+    (model,) = result["models"]
+    assert [(r["sha256"], r["changed"]) for r in model["sources"]] == [(None, None)] * 6
+    assert not [p for p in opened if "secret" in str(p) or p.name in {"link.md", "x.md"}]
+    assert len([i for i in result["issues"] if "has an invalid path or hash" in i]) == 6

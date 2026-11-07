@@ -11,7 +11,7 @@ import json
 import re
 import sys
 from collections import Counter
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
@@ -610,28 +610,56 @@ def register_of(sections):
     return None
 
 
+def text_or_none(value):
+    return value if isinstance(value, str) else None
+
+
+def source_location(root, path):
+    """The file a model source names, only if it is runs/<folder>/<file> and resolves inside root."""
+    if not isinstance(path, str) or "\\" in path or ":" in path:
+        return None
+    parts = PurePosixPath(path).parts
+    if len(parts) < 3 or parts[0] != "runs" or PurePosixPath(path).is_absolute() or ".." in parts:
+        return None
+    resolved = (root / path).resolve()
+    return resolved if resolved.is_relative_to(root.resolve()) else None
+
+
 def model_sources(root, delivery, outputs):
-    """Each source a model declares, whether its file still has the declared bytes, and the run output holding them."""
+    """Each source a model declares, whether its file still has the declared bytes, and the run output holding them.
+
+    A source whose path is not a confined runs/<folder>/<file> or whose hash is not 64 lowercase hex
+    keeps its row with sha256 and changed null; its file is never opened.
+    """
     rows = []
-    for role, source in (delivery.get("sources") or {}).items():
-        path, declared = source["path"], source["sha256"]
-        try:
-            changed = sha256(root / path) != declared
-        except OSError:
-            changed = True
-        output_id = path.removeprefix("runs/") if path.startswith("runs/") else None
-        held = outputs.get(output_id)
-        match = held if held and held["sha256"] == declared else None
-        rows.append(
-            {
-                "role": role,
-                "path": path,
-                "sha256": declared,
-                "changed": changed,
-                "run": match["run"] if match else None,
-                "output": match["id"] if match else None,
-            }
+    declared_sources = delivery.get("sources")
+    for role, source in (declared_sources if isinstance(declared_sources, dict) else {}).items():
+        source = source if isinstance(source, dict) else {}
+        path, declared = source.get("path"), source.get("sha256")
+        location = source_location(root, path)
+        valid = (
+            location is not None
+            and isinstance(declared, str)
+            and re.fullmatch(r"[0-9a-f]{64}", declared) is not None
         )
+        row = {
+            "role": role,
+            "path": path if isinstance(path, str) else None,
+            "sha256": declared if valid else None,
+            "changed": None,
+            "run": None,
+            "output": None,
+        }
+        if valid:
+            try:
+                row["changed"] = sha256(location) != declared
+            except OSError:
+                row["changed"] = True
+            held = outputs.get(path.removeprefix("runs/"))
+            match = held if held and held["sha256"] == declared else None
+            if match:
+                row["run"], row["output"] = match["run"], match["id"]
+        rows.append(row)
     return rows
 
 
@@ -653,6 +681,11 @@ def catalogue_models(root, catalogue, outputs, keys):
                 run_id = identity["run_id"]
                 issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
                 sources = model_sources(root, delivery, outputs)
+                issues += [
+                    f"{folder}: source {row['role']} has an invalid path or hash"
+                    for row in sources
+                    if row["sha256"] is None
+                ]
                 register = None
                 if "forecast.md" in delivery["files"]:
                     handoff = (root / folder / "forecast.md").read_bytes()
@@ -670,9 +703,9 @@ def catalogue_models(root, catalogue, outputs, keys):
                     "mode": mode if isinstance(mode, str) else None,
                     "qualification": qualification if isinstance(qualification, str) else None,
                     "runId": run_id if isinstance(run_id, str) else None,
-                    "scope": delivery.get("scope"),
-                    "inputContract": delivery.get("input_contract"),
-                    "revisionNote": delivery.get("presentation_repair"),
+                    "scope": text_or_none(delivery.get("scope")),
+                    "inputContract": text_or_none(delivery.get("input_contract")),
+                    "revisionNote": text_or_none(delivery.get("presentation_repair")),
                     "previous": Path(previous).name if isinstance(previous, str) else None,
                     "href": artifact["href"] + "&embedded=1",
                     "download": artifact["href"] + "&download=1",
@@ -744,16 +777,14 @@ def recorded_identity(run_dir, run, curated_name, delivered):
         curated_name
         or manifest.get("issuer_name")
         or (run["name"] if run["name"] != run["id"] else None)
-        or None
     )
     seeded = run.get("issuer")
-    issuer_id = manifest.get("issuer_id") or (seeded if seeded != "Unclassified" else None) or None
+    issuer_id = manifest.get("issuer_id") or (seeded if seeded != "Unclassified" else None)
     if name:
         return name, issuer_id, None
     said = {}
-    for (
-        item
-    ) in delivered:  # In folder order, so the first deliverable's spelling of the ID is kept.
+    # In folder order, so the first deliverable's spelling of the ID is kept.
+    for item in delivered:
         said.setdefault(((item["issuer_id"] or "").casefold(), item["issuer_name"]), item)
     if len(said) > 1:
         return None, issuer_id, "deliverables name different issuers; issuer left unrecorded"

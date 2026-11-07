@@ -1462,6 +1462,8 @@ update();
   // Show module names for the CP- codes the form prints. Text nodes only: attributes, input values and
   // option text (which is the option's value) keep codes, so the emitted context is unchanged.
   let names = null;
+  // Each host's title is the codes of all its text nodes, set only where the host had no title of its own.
+  const titled = new Map();
   const shown = new WeakMap(), skipped = new Set(['SCRIPT', 'STYLE', 'TEXTAREA', 'OPTION']);
   const codePattern = /\bCP-[A-Z0-9]+\b/g;
   const observer = new MutationObserver(() => applyNames());
@@ -1469,7 +1471,7 @@ update();
   function applyNames() {
     if (!names) return;
     observer.disconnect();
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), codes = new Map();
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const host = node.parentElement;
       if (!host || skipped.has(host.tagName) || host.closest('option')) continue;
@@ -1483,7 +1485,18 @@ update();
       if (!found.length) continue;
       node.nodeValue = text;
       shown.set(node, {original, text});
-      host.title = found.join(', ');
+      codes.set(host, (codes.get(host) || []).concat(found));
+    }
+    for (const [host, title] of titled) {
+      if (codes.has(host)) continue;
+      if (host.title === title) host.removeAttribute('title');
+      titled.delete(host);
+    }
+    for (const [host, list] of codes) {
+      const title = list.join(', ');
+      if (titled.has(host) ? host.title !== titled.get(host) : host.hasAttribute('title')) continue;
+      host.title = title;
+      titled.set(host, title);
     }
     watchBody();
   }

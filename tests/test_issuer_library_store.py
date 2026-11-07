@@ -1161,7 +1161,7 @@ def test_a_source_over_64_mib_is_not_read_and_is_reported(tmp_path):
     def big(root):
         (root / "runs/alpha-001").mkdir(parents=True)
         with open(root / "runs/alpha-001/big.bin", "wb") as f:
-            f.truncate(64 * 1024 * 1024 + 1)
+            f.truncate(store.MODEL_FILE_LIMIT + 1)
 
     result, (model,) = source_model(tmp_path, "big", "runs/alpha-001/big.bin", big)
     (row,) = model["sources"]
@@ -1583,7 +1583,7 @@ def test_units_are_read_from_a_request_with_windows_line_endings():
 def test_a_stray_oversize_handoff_beside_a_report_is_never_read_and_the_library_stays(tmp_path):
     report = view_delivery(tmp_path, "deliverables/r-1", "alpha-001", "ALP", "Alpha Holdings")
     with open(tmp_path / "deliverables/r-1/CP-0-attempt-1.md", "wb") as f:
-        f.truncate(64 * 1024 * 1024 + 1)
+        f.truncate(store.MODEL_FILE_LIMIT + 1)
     catalogue = identity_catalogue(tmp_path, {"alpha-001": (None, None, None)}, [report])
     result = store.workspace_store(tmp_path, catalogue)
     assert [r["id"] for r in result["reports"]] == ["r-1"]
@@ -2519,3 +2519,99 @@ def test_a_run_level_failure_names_its_type_and_reason_not_a_repr(tmp_path, monk
     result = store.workspace_store(tmp_path, plain_run("r1"))
     (issue,) = [i for i in result["issues"] if "could not be read" in i]
     assert "(ValueError: " in issue and "ValueError('" not in issue and len(issue) < 200
+
+
+# Task 17: a workspace-wide cash flow budget, no issuer-ID bridging, the run's own model read bounded.
+def cell_count(cashflow):
+    return len(cashflow["rows"]) * len(cashflow["columns"])
+
+
+def three_cashflow_models(tmp_path):
+    return [
+        model_delivery(
+            tmp_path,
+            f"deliverables/{name}",
+            forecast=REQUEST,
+            exact=exact_record(),
+            extra=cashflow_files(),
+        )
+        for name in ("m-3", "m-1", "m-2")
+    ]
+
+
+def test_the_cash_flow_budget_is_250000_cells():
+    assert store.CASHFLOW_CELL_BUDGET == 250_000
+
+
+def test_models_past_the_workspace_cell_budget_get_no_grid_in_delivery_path_order(
+    tmp_path, monkeypatch
+):
+    artifacts = three_cashflow_models(tmp_path)
+    (one,) = models_of(tmp_path, artifacts[1])["models"]
+    cells = cell_count(one["cashflow"])
+    monkeypatch.setattr(store, "CASHFLOW_CELL_BUDGET", cells * 2 + 1)
+    result = models_of(tmp_path, *artifacts)  # the catalogue lists m-3 first
+    by_id = {m["id"]: m for m in result["models"]}
+    assert [m["id"] for m in result["models"]] == ["m-3", "m-1", "m-2"]
+    assert by_id["m-1"]["cashflow"] is not None and by_id["m-2"]["cashflow"] is not None
+    assert by_id["m-3"]["cashflow"] is None
+    assert (
+        result["issues"].count(
+            "deliverables/m-3: the cash flow model is not shown; the workspace's cash flow "
+            f"models exceed {store.CASHFLOW_CELL_BUDGET:,} cells"
+        )
+        == 1
+    )
+    assert not [i for i in result["issues"] if "deliverables/m-1" in i or "deliverables/m-2" in i]
+
+
+def test_a_spec_on_a_column_with_no_record_is_a_layout_error_not_a_dash(tmp_path, monkeypatch):
+    early = store.RowSpec("early", "X", "Early", "money", ("key", "revenue"), None, None)
+    monkeypatch.setattr(store, "TAIL_ROWS", (early, *store.TAIL_ROWS))
+    cashflow, issues = cashflow_issue_texts(tmp_path)
+    assert cashflow is None
+    (issue,) = issues
+    assert issue.startswith("deliverables/m-1: the cash flow model could not be laid out (")
+
+
+def test_different_issuer_ids_are_never_joined_through_a_shared_name(tmp_path):
+    spec = {
+        "a-001": (None, None, {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}),
+        "b-001": (None, None, {"issuer_name": "Alpha Holdings", "issuer_id": "BET"}),
+        "c-001": (None, None, {"issuer_name": "Alpha Holdings"}),
+    }
+    result, runs = identities(tmp_path, spec)
+    assert runs["a-001"]["issuerKey"] == "id:alp"
+    assert runs["b-001"]["issuerKey"] == "id:bet"
+    assert runs["c-001"]["issuerKey"] == "name:Alpha Holdings"
+    assert (
+        result["issues"].count(
+            "issuer name Alpha Holdings is recorded with different issuer IDs: ALP, BET"
+        )
+        == 1
+    )
+
+
+def test_a_name_carried_by_one_id_still_joins_runs_without_an_id(tmp_path):
+    spec = {
+        "a-001": (None, None, {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}),
+        "b-001": (None, None, {"issuer_name": "Alpha Holdings", "issuer_id": "alp"}),
+        "c-001": (None, None, {"issuer_name": "Alpha Holdings"}),
+    }
+    result, runs = identities(tmp_path, spec)
+    assert {r["issuerKey"] for r in runs.values()} == {"id:alp"}
+    assert not [i for i in result["issues"] if "different issuer IDs" in i]
+
+
+def test_the_runs_own_model_check_reads_view_json_bounded(tmp_path):
+    folder = "runs/r1/deliveries/m-1"
+    (tmp_path / folder).mkdir(parents=True)
+    (tmp_path / folder / "model.html").write_text("<html>m</html>")
+    (tmp_path / folder / "delivery.json").write_text(
+        json.dumps({"files": {"model.html": "0" * 64, "view.json": "0" * 64}})
+    )
+    os.mkfifo(tmp_path / folder / "view.json")
+    artifact = {"folder": folder, "kind": "model", "available": True, "href": "/x"}
+    catalogue = {"real": [{"id": "r1", "name": "r1", "artifacts": [artifact]}], "issues": []}
+    shown, _ = within(10, lambda: store.shown_models(tmp_path, catalogue))
+    assert shown == {folder}

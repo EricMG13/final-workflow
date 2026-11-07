@@ -474,6 +474,17 @@ test("a report built from a run opens under that run even when its issuer differ
   assert.ok(w.document.getElementById('report-preview'),text(w.document.getElementById('content')).slice(0,120));
   assert.equal(w.eval('current.context'),'tdg-002');
 });
+test('the Report select lists the same reports as the report tabs and selects the open one under the built-from route',async t=>{
+  const w=fixture('W-Reports/list?c=tdg-002').window;t.after(()=>w.close());
+  const copy=Object.assign(JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.reports[0])),{id:'erste-parse',issuerKey:null});
+  copy.builtFrom=copy.builtFrom.map(b=>({...b,run:'tdg-002'}));
+  w.DESIGN_WORKSPACE.reports.push(copy);
+  await go(w,'W-Library/cases');await go(w,'W-Reports/erste-parse?c=tdg-002');
+  const select=w.document.getElementById('report-select');
+  assert.equal(select.value,'erste-parse');
+  const tabs=[...w.eval('reportSections("tdg-002")')].filter(s=>s[0]!=='list').map(s=>s[0]).sort();
+  assert.deepEqual([...select.options].map(o=>o.value).sort(),[...tabs]);
+});
 test('the rail closes 300 ms after the pointer leaves it for an embedded frame',async t=>{
   const {w,rail,move}=railFixture(false);t.after(()=>w.close());
   move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);

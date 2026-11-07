@@ -1457,7 +1457,9 @@ def op_table_sum(c: CellContext, name: str, first: str, second: str) -> Cell:
 
 def op_key(c: CellContext, key: str, negate: bool = False) -> Cell:
     missing = not_modelled_cell if c.column["kind"] == "fc" else absent_cell
-    record = c.column["record"] or {}
+    record = c.column["record"]
+    if record is None:
+        raise ValueError(f"the {c.column['label']} column holds no record to read {key} from")
     return held_cell(record[key], c.kind, negate) if key in record else missing()
 
 
@@ -1871,6 +1873,9 @@ def cashflow_of(
     }
 
 
+# Across every model of one page load; a model whose grid would pass it is listed without a grid.
+CASHFLOW_CELL_BUDGET = 250_000
+
 # Errors a malformed input file or layout can raise; each is reported, never ends the store.
 CASHFLOW_ERRORS = (
     OSError,
@@ -1974,9 +1979,7 @@ def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[
         # Documented fail-open: an unreadable view.json means "not known to be the run's own"; the
         # model read in catalogue_models reports the same failure as a Workspace issue.
         try:
-            recorded = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"][
-                "run_id"
-            ]
+            recorded = listed_view(root / folder, delivery_json(root / folder))["run"]["run_id"]
         except (
             OSError,
             ValueError,
@@ -2002,84 +2005,110 @@ def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[
     return shown, issues
 
 
+def read_model(
+    root: Path,
+    artifact: dict[str, Any],
+    outputs: dict[str, Any],
+    keys: dict[str, str],
+    issues: list[str],
+) -> dict[str, Any] | None:
+    """One published model with its grid, or None with an issue when its record cannot be read."""
+    folder = artifact["folder"]
+    # Documented fail-open: reported in Settings; the other models stay readable. A model too
+    # large to parse (MemoryError) is reported the same way, never ends the store.
+    try:
+        delivery = delivery_json(root / folder)
+        view = listed_view(root / folder, delivery)
+        identity = view["run"]
+        run_id = identity["run_id"]
+        issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
+        sources = model_sources(root, delivery, outputs, folder, issues)
+        register = handoff_text = None
+        files = delivery["files"]
+        if "forecast.md" in files:
+            handoff = listed_bytes(root / folder, delivery, "forecast.md")
+            if handoff is None:
+                issues.append(f"{folder}: forecast.md does not match its delivery record")
+            else:
+                handoff_text = handoff.decode("utf-8")
+                register = register_of(sections_of(handoff_text))
+        inputs = {
+            name: listed_bytes(root / folder, delivery, name) if name in files else None
+            for name in CASHFLOW_FILES
+        }
+        previous = delivery.get("previous_directory")
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RecursionError,
+        MemoryError,
+    ) as error:
+        issues.append(f"{folder}: could not be read ({describe(error)})")
+        return None
+    cashflow = cashflow_or_issues(folder, files, inputs, handoff_text, issues)
+    mode, qualification = view.get("mode"), view.get("analytical_qualification")
+    return {
+        "id": Path(folder).name,
+        "issuerKey": issuer_key,
+        "mode": mode if isinstance(mode, str) else None,
+        "qualification": qualification if isinstance(qualification, str) else None,
+        "runId": run_id if isinstance(run_id, str) else None,
+        "scope": text_or_none(delivery.get("scope")),
+        "inputContract": text_or_none(delivery.get("input_contract")),
+        "revisionNote": text_or_none(delivery.get("presentation_repair")),
+        "previous": Path(previous).name if isinstance(previous, str) else None,
+        "href": artifact["href"] + "&embedded=1",
+        "download": artifact["href"] + "&download=1",
+        "files": [
+            {"name": n, "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1"}
+            for n, h in sorted(files.items())
+        ],
+        "sources": sources,
+        "register": register,
+        "cashflow": cashflow,
+    }
+
+
 def catalogue_models(
     root: Path, catalogue: dict[str, Any], outputs: dict[str, Any], keys: dict[str, str]
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Published models the server verified, each once, with why and from what they were built."""
-    models: list[dict[str, Any]] = []
-    done: set[str] = set()
+    """Published models the server verified, each once, with why and from what they were built.
+
+    The models share one budget of CASHFLOW_CELL_BUDGET grid cells. They are laid out in delivery
+    path order; a model whose grid would pass the budget is listed without one, with an issue.
+    """
     shown, issues = shown_models(root, catalogue)
+    listed: list[dict[str, Any]] = []
+    done: set[str] = set()
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
             folder = artifact["folder"]
-            name = Path(folder).name
-            if not artifact.get("available") or artifact.get("kind") != "model":
-                continue
-            if folder not in shown or folder in done:
-                continue
-            done.add(folder)
-            # Documented fail-open: reported in Settings; the other models stay readable. A model
-            # too large to parse (MemoryError) is reported the same way, never ends the store.
-            try:
-                delivery = delivery_json(root / folder)
-                view = listed_view(root / folder, delivery)
-                identity = view["run"]
-                run_id = identity["run_id"]
-                issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
-                sources = model_sources(root, delivery, outputs, folder, issues)
-                register = handoff_text = None
-                files = delivery["files"]
-                if "forecast.md" in files:
-                    handoff = listed_bytes(root / folder, delivery, "forecast.md")
-                    if handoff is None:
-                        issues.append(f"{folder}: forecast.md does not match its delivery record")
-                    else:
-                        handoff_text = handoff.decode("utf-8")
-                        register = register_of(sections_of(handoff_text))
-                inputs = {
-                    name: listed_bytes(root / folder, delivery, name) if name in files else None
-                    for name in CASHFLOW_FILES
-                }
-                previous = delivery.get("previous_directory")
-            except (
-                OSError,
-                ValueError,
-                KeyError,
-                TypeError,
-                AttributeError,
-                RecursionError,
-                MemoryError,
-            ) as error:
-                issues.append(f"{folder}: could not be read ({describe(error)})")
-                continue
-            cashflow = cashflow_or_issues(folder, files, inputs, handoff_text, issues)
-            mode, qualification = view.get("mode"), view.get("analytical_qualification")
-            models.append(
-                {
-                    "id": name,
-                    "issuerKey": issuer_key,
-                    "mode": mode if isinstance(mode, str) else None,
-                    "qualification": qualification if isinstance(qualification, str) else None,
-                    "runId": run_id if isinstance(run_id, str) else None,
-                    "scope": text_or_none(delivery.get("scope")),
-                    "inputContract": text_or_none(delivery.get("input_contract")),
-                    "revisionNote": text_or_none(delivery.get("presentation_repair")),
-                    "previous": Path(previous).name if isinstance(previous, str) else None,
-                    "href": artifact["href"] + "&embedded=1",
-                    "download": artifact["href"] + "&download=1",
-                    "files": [
-                        {
-                            "name": n,
-                            "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1",
-                        }
-                        for n, h in sorted(files.items())
-                    ],
-                    "sources": sources,
-                    "register": register,
-                    "cashflow": cashflow,
-                }
-            )
-    return models, issues
+            model = artifact.get("available") and artifact.get("kind") == "model"
+            if model and folder in shown and folder not in done:
+                done.add(folder)
+                listed.append(artifact)
+    built: dict[int, dict[str, Any]] = {}
+    cells = 0
+    for position in sorted(range(len(listed)), key=lambda i: listed[i]["folder"]):
+        model = read_model(root, listed[position], outputs, keys, issues)
+        if model is None:
+            continue
+        grid = model["cashflow"]
+        if grid is not None:
+            size = len(grid["rows"]) * len(grid["columns"])
+            if cells + size > CASHFLOW_CELL_BUDGET:
+                model["cashflow"] = None
+                issues.append(
+                    f"{listed[position]['folder']}: the cash flow model is not shown; the "
+                    f"workspace's cash flow models exceed {CASHFLOW_CELL_BUDGET:,} cells"
+                )
+            else:
+                cells += size
+        built[position] = model
+    return [built[position] for position in sorted(built)], issues
 
 
 def visual_catalogue() -> list[dict[str, str]]:
@@ -2179,15 +2208,35 @@ def recorded_identity(
     return None, issuer_id, None
 
 
+def ids_by_name(named: dict[str, tuple[str, str | None]]) -> dict[str, dict[str, str]]:
+    """Each recorded name's IDs as recorded, by case-folded ID."""
+    carried: dict[str, dict[str, str]] = {}
+    for name, issuer_id in named.values():
+        if issuer_id:
+            carried.setdefault(name, {}).setdefault(issuer_id.casefold(), issuer_id)
+    return carried
+
+
 def issuer_groups(
-    recorded: dict[str, tuple[str | None, str | None]],
+    recorded: dict[str, tuple[str | None, str | None]], issues: list[str] | None = None
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
     """Group runs by issuer. recorded maps run key to (name or None, ID or None).
 
-    Runs with a name join when they share a case-folded ID or an exact name, transitively. Returns
-    the identity fields of every run and a map from each case-folded ID to its group's key.
+    Runs with a name join when they share a case-folded ID. A name joins runs without an ID to the
+    one ID that carries it; two different IDs are never joined through a name. A name carried by
+    several IDs leaves its runs without an ID in a group of their own and, when `issues` is given,
+    adds one issue naming the IDs. Returns the identity fields of every run and a map from each
+    case-folded ID to its group's key.
     """
     named = {key: (name, issuer_id) for key, (name, issuer_id) in recorded.items() if name}
+    carried = ids_by_name(named)
+    if issues is not None:
+        issues.extend(
+            f"issuer name {name} is recorded with different issuer IDs: "
+            + ", ".join(sorted(ids.values()))
+            for name, ids in sorted(carried.items())
+            if len(ids) > 1
+        )
     parent = {key: key for key in named}
 
     def root_of(key: str) -> str:
@@ -2198,8 +2247,13 @@ def issuer_groups(
 
     first: dict[tuple[str, str], str] = {}
     for key, (name, issuer_id) in named.items():
-        for token in [("name", name), *([("id", issuer_id.casefold())] if issuer_id else [])]:
-            parent[root_of(key)] = root_of(first.setdefault(token, key))
+        # An ID joins its runs; a run without an ID joins its name's one ID, else other such runs.
+        if issuer_id:
+            token = ("id", issuer_id.casefold())
+        else:
+            holders = carried.get(name, {})
+            token = ("id", next(iter(holders))) if len(holders) == 1 else ("name", name)
+        parent[root_of(key)] = root_of(first.setdefault(token, key))
     members: dict[str, list[str]] = {}
     for key in named:
         members.setdefault(root_of(key), []).append(key)
@@ -2311,7 +2365,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
             sources.setdefault(digest, []).extend(matches)
         pins |= part[4]
         found += part[5]
-    fields, keys = issuer_groups({key: recorded[key] for key in runs})
+    fields, keys = issuer_groups({key: recorded[key] for key in runs}, found)
     for key, identity in fields.items():
         runs[key].update(identity)
     reports, unread = catalogue_reports(root, catalogue, sources, keys)

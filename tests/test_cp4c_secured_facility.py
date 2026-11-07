@@ -221,10 +221,43 @@ def test_two_secured_rows_of_one_facility_are_counted_not_merged(tmp_path: Path)
 
 def test_the_alias_of_a_newly_selected_facility_must_agree(tmp_path: Path) -> None:
     # The only SECURED q4-2025 row is renamed 'senior-notes' and its fy-2025 alias (also renamed)
-    # is UNSECURED: the alias check reads the selected id, not term-loan, and still fails closed.
+    # is UNSECURED: the alias check reads the selected id, not term-loan, and refuses with a typed
+    # facility issue (hand-written below), no longer a ValueError.
     renamed = _renamed(conn.cp1_facts(alias=("UNSECURED", "SENIOR")), "term-loan", "senior-notes")
-    with pytest.raises(ValueError, match="senior-notes secured_status differs between its q4-2025"):
-        _upstream(tmp_path, renamed)
+    _, _, upstream = _upstream(tmp_path, renamed)
+    assert upstream.cp1.facility_issue == (
+        "CP-4C: senior-notes secured_status differs between its q4-2025 row and its fy-2025 alias"
+    )
+
+
+def test_an_unreadable_alias_or_period_is_refused_by_validator_and_view(tmp_path: Path) -> None:
+    # Ruling: the two former raises settle like the count issue. Alias disagreement: the validator
+    # returns exactly the one issue line (no raise) and the view offers nothing but that line.
+    cp1 = conn.cp1_facts(alias=("SECURED", "SUBORDINATED"))
+    store, _, upstream = _upstream(tmp_path, cp1)
+    line = "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias"
+    assert upstream.cp1.facility_issue == line
+    pack = store.pack()
+    assert cp4c.validate_restructuring(
+        pack=pack, submission=conn._submission(), upstream=upstream
+    ) == (line,)
+    block = cp4c.context_block(pack=pack, upstream=upstream)
+    assert block["context_issue"] == line
+    assert set(block) == {"upstream", "context_issue", "inherited_limitations"}
+    # No T4.14 period at all: the same shape with its own line.
+    bare = tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14")
+    _, _, none = _upstream(tmp_path / "none", bare)
+    assert none.cp1.facility_issue == "CP-4C: CP-1 states no T4.14 period"
+    # Two QUARTER periods ending on the same latest day: no single current period (2025-12-31).
+    twin = tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14") + conn._t414(
+        (
+            ("q3-2025", "QUARTER", "2025-09-30"),
+            ("q4-2025", "QUARTER", "2025-12-31"),
+            ("q4b-2025", "QUARTER", "2025-12-31"),
+        )
+    )
+    _, _, two = _upstream(tmp_path / "two", twin)
+    assert two.cp1.facility_issue == "CP-4C: CP-1 has no single current T4.18 period at 2025-12-31"
 
 
 def test_a_rejected_attempt_has_one_repair_and_then_no_further_begin(tmp_path: Path) -> None:
@@ -239,3 +272,74 @@ def test_a_rejected_attempt_has_one_repair_and_then_no_further_begin(tmp_path: P
     assert conn._finished(store, repair).issues == (ZERO,)
     with pytest.raises(ValueError, match="one repair has been consumed"):
         store.begin(cp4c.MODULE_ID)
+
+
+# --- second-model review of the typed CP-1 faults: every former raise path, end to end ---
+# Each line is hand-written from the rows below: the facility is term-loan, its quarter row is
+# q4-2025 (SECURED, SENIOR), the alias is fy-2025, and the latest T4.14 end is 2025-12-31.
+
+
+def _missing(fact: Fact) -> Fact:
+    return fact.model_copy(update={"text": None, "status": "missing", "limitation": "not stated"})
+
+
+_BASE = conn.cp1_facts()
+_NO_T414 = tuple(f for f in _BASE if f.table_id != "T4.14")
+FAULTS = [
+    # The alias row states no seniority at all (`theirs is None`), not a different one.
+    (
+        tuple(f for f in _BASE if f.fact_id != "cp1-T4.18-term-loan-fy-seniority"),
+        "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias",
+    ),
+    (
+        conn.cp1_facts(alias=("UNSECURED", "SUBORDINATED")),  # both differ: the first term named
+        "CP-4C: term-loan secured_status differs between its q4-2025 row and its fy-2025 alias",
+    ),
+    # T4.14 rows whose end dates are all unsettled state no period.
+    (
+        tuple(_missing(f) if (f.table_id, f.field) == ("T4.14", "end_date") else f for f in _BASE),
+        "CP-4C: CP-1 states no T4.14 period",
+    ),
+    # Two FY periods and no quarter on the latest day: the FY fallback is not single either.
+    (
+        _NO_T414
+        + conn._t414(
+            (
+                ("q3-2025", "QUARTER", "2025-09-30"),
+                ("fy-2025", "FY", "2025-12-31"),
+                ("fyb-2025", "FY", "2025-12-31"),
+            )
+        ),
+        "CP-4C: CP-1 has no single current T4.18 period at 2025-12-31",
+    ),
+]
+
+
+@pytest.mark.parametrize("cp1,line", FAULTS)
+def test_each_former_raise_is_one_line_in_validator_view_and_settled_attempt(
+    cp1: tuple[Fact, ...], line: str, tmp_path: Path
+) -> None:
+    store, attempt, upstream = _upstream(tmp_path, cp1)
+    assert upstream.cp1.facility_issue == line
+    assert upstream.cp1.facility_id == ""
+    pack = store.pack()
+    assert cp4c.validate_restructuring(
+        pack=pack, submission=conn._submission(), upstream=upstream
+    ) == (line,)
+    _, body = cp4c.view(store, attempt)  # the view serialises, never raises
+    assert conn.json.loads(body)["context_issue"] == line
+    # The attempt settles rejected with exactly that issue and its one repair carries it.
+    conn._submit(store, attempt, conn.json.dumps(conn._payload("positive")))
+    assert conn._finished(store, attempt).issues == (line,)
+    repair = store.begin(cp4c.MODULE_ID)
+    assert (repair.number, repair.repair_issues) == (1, (line,))
+
+
+def test_a_single_fy_period_without_a_quarter_is_still_read(tmp_path: Path) -> None:
+    # Not a fault: the latest end holds one FY period and no quarter, so fy-2025 is the period
+    # and its SECURED row (the alias rows of cp1_facts) is the facility; no issue.
+    t414 = conn._t414((("q3-2025", "QUARTER", "2025-09-30"), ("fy-2025", "FY", "2025-12-31")))
+    _, _, upstream = _upstream(tmp_path, _NO_T414 + t414)
+    assert upstream.cp1.facility_issue is None
+    cp1 = upstream.cp1
+    assert (cp1.facility_id, cp1.secured_status.period) == ("term-loan", "fy-2025")

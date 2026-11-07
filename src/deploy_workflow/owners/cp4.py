@@ -38,16 +38,27 @@ _MISSING_DOCUMENT_ISSUE = (
 )
 _WHITESPACE = re.compile(r"\s+")
 # "defined in the Credit Agreement", "has the meaning given to it in the Senior Facility Agreement",
-# "meanings assigned to such terms in Article I of that certain Credit Agreement": a pointer
-# (singular or plural "meaning"; optionally "Section 1.1 of"), then up to five words ending in a
-# document noun or its plural (the Trust Indenture Act is a statute, not a document). A
-# determiner as the first word (this Agreement, such Indenture) refers to the document itself.
+# "meanings assigned to such terms in Article I of that certain Credit Agreement", "set forth in",
+# "specified in", "ascribed to such term in": a pointer (singular or plural "meaning"; optionally
+# "Section 1.1 of"), then up to five words ending in a document noun (agreement, indenture,
+# instrument, deed, debenture, memorandum, prospectus; not facility, notes, documents, conditions
+# or letter, which usually name the loan or securities themselves) or its plural, a trailing
+# "supplement" included (the Trust Indenture Act is a statute, not a document). A determiner as
+# the first word (this Agreement, such Indenture) refers to the document itself, and so does one
+# after a locator the optional "Section 1.1 of" does not take ("Section 7 of this Agreement",
+# "Exhibit A to such Indenture", "Article II of the Indenture"): no word of the name is this, such,
+# that, these, its, each or any, nor "the" directly before the noun.
+_DOCUMENT_NOUN = (
+    r"(?:agreement|indenture|instrument|deed|debenture|memorandum|memoranda|prospectus(?:es)?)s?"
+    r"(?:\s+supplement)?\b"
+)
 _NAMED_DOCUMENT = re.compile(
-    r"\b(?:defined|meanings?\s+(?:given|assigned)(?:\s+to\s+\w+(?:\s+\w+)?)?)\s+in\s+"
+    r"\b(?:defined|set\s+forth|specified"
+    r"|(?:meanings?\s+(?:given|assigned)|ascribed)(?:\s+to\s+\w+(?:\s+\w+)?)?)\s+in\s+"
     r"(?:(?:section|clause|article|schedule|paragraph)\s+[\w.()]+\s+of\s+)?"
     r"(?:the\s+|that\s+certain\s+)?"
-    r"((?!(?:the|this|such|that|these|its|each|any)\b)(?:[\w&'’-]+\s+){1,5}?"
-    r"(?:agreement|indenture|instrument|deed|debenture)s?)\b(?!\s+act\b)",
+    r"((?!the\b)(?:(?!(?:this|such|that|these|its|each|any)\b|the\s+" + _DOCUMENT_NOUN + r")"
+    r"[\w&'’-]+\s+){1,5}?" + _DOCUMENT_NOUN + r")(?!\s+act\b)",
     re.IGNORECASE,
 )
 # A source name's folder and file extension: "sources/notes-indenture.pdf" is "notes-indenture".

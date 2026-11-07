@@ -709,12 +709,18 @@ def test_the_quarter_row_wins_over_its_fy_alias_and_an_earlier_quarter(tmp_path:
         (tuple(f for f in cp1_facts() if f.table_id != "T4.14"), "states no T4.14 period"),
     ],
 )
-def test_t418_terms_that_cannot_be_read_fail_closed(
+def test_t418_terms_that_cannot_be_read_are_a_typed_facility_issue(
     facts: tuple[Fact, ...], message: str, tmp_path: Path
 ) -> None:
+    """Ruling (CP-4C follow-ups): these three used to raise ValueError out of `cp1_of`, which
+    reached the view and the validator as a crash. They are now the CP-1 `facility_issue`, so the
+    validator refuses with that one line and the view offers nothing (the same as a CP-1 with no
+    single secured facility). Reason for changing the pin: the data fault is CP-1's, not the
+    model's, and a raise there left the attempt neither rejected nor blocked."""
     store, _, attempt = seed(tmp_path, cp1=facts)
-    with pytest.raises(ValueError, match=message):
-        _upstream(store, attempt)
+    cp1 = _upstream(store, attempt).cp1
+    assert cp1.facility_issue is not None and message in cp1.facility_issue
+    assert cp1.facility_id == ""
 
 
 def test_without_an_alias_row_the_quarter_row_is_read(tmp_path: Path) -> None:

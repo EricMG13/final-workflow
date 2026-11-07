@@ -37,13 +37,14 @@
   },
   {
    "id": "macro_fx.4",
-   "statement": "Each of `earnings.ebitda`, `earnings.interest`, `earnings.fcf`, `earnings.total_debt` and `fx.fx_cash_effect` quotes one whole page line that begins with its row label (Reported EBITDA, Cash interest paid, Levered free cash flow, Total debt, FX effect on cash) followed by two spaces, on a page whose header ends in the FY column and which states its amounts in millions (as does the page of the `rate_exposure.facility_balance` quote); the line has one value for each column of that header, and its `value_text` is the last value of that line exactly as printed (a cash interest figure printed in parentheses is the amount paid).",
+   "statement": "Each of `earnings.ebitda`, `earnings.interest`, `earnings.fcf`, `earnings.total_debt` and `fx.fx_cash_effect` quotes one whole page line that begins with its row label (Reported EBITDA, Cash interest paid, Levered free cash flow, Total debt, FX effect on cash) followed by two spaces, on a page whose header ends in the FY column and which states its amounts in millions (as does the page of the `rate_exposure.facility_balance` quote), naming no currency other than the run's reporting currency (`EUR millions` on a USD book is refused); the line has one value for each column of that header, and its `value_text` is the last value of that line exactly as printed (a cash interest figure printed in parentheses is the amount paid).",
    "checks": [
     "oracle:cp2e:row_not_whole_line",
     "oracle:cp2e:row_wrong_label",
     "oracle:cp2e:row_value_not_last",
     "fn:deploy_workflow.owners.cp2e:_Check.row",
-    "fn:deploy_workflow.owners.cp2e:_Check.millions"
+    "fn:deploy_workflow.owners.cp2e:_Check.millions",
+    "fn:deploy_workflow.owners.cp2e:_unit_currencies"
    ]
   },
   {

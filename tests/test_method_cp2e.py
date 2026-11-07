@@ -772,6 +772,13 @@ def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
     assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == ()
 
 
+_EUR_ON_USD = (
+    "earnings.ebitda: page:2 states its unit in EUR (EUR), but the reporting currency is USD: "
+    "restate the unit in USD"
+)
+_GBP_ON_USD = _EUR_ON_USD.replace("EUR", "GBP")
+
+
 @pytest.mark.parametrize(
     ("statement", "want"),
     [
@@ -800,8 +807,8 @@ def test_a04_share_count_and_negated_unit_clauses_state_no_unit() -> None:
         ("(000s);", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         # Review of the ruling: only the USD spellings were ruled in. Another code + "m" (and an
         # acronym such as "NAVm") states no unit, and "USDm" glued to a letter is no whole token.
-        ("EURm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
-        ("GBPm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        ("EURm;", (_EUR_ON_USD,)),
+        ("GBPm;", (_GBP_ON_USD,)),
         ("NAVm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         ("XUSDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         ("A$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
@@ -837,6 +844,79 @@ def test_a04_unit_statement_spellings(statement: str, want: tuple[str, ...]) -> 
     assert "amounts in millions;" in pages["page:2"]
     pages["page:2"] = pages["page:2"].replace("amounts in millions;", statement)
     assert cp2e.validate_macro_fx(submission=SUBMISSIONS["positive"], pages=pages) == want
+
+
+# Ruling (units): a unit statement naming a currency other than the book's reporting currency is
+# refused. Hand-derived: each form below names exactly one currency; "?" marks a form that
+# names a different one on the other book. USD book: refused iff the form names a non-dollar
+# currency; EUR book: refused iff it names anything but EUR ("$"/"US$"/"USD" are dollars).
+_CCY_FORMS = [
+    ("EUR millions;", "EUR"),
+    ("€ millions;", "EUR"),
+    ("millions of euros;", "EUR"),
+    ("millions of EUR;", "EUR"),
+    ("in EUR millions;", "EUR"),
+    ("EUR in millions;", "EUR"),
+    ("USD millions;", "USD"),
+    ("US$ millions;", "USD"),
+    ("$ millions;", "USD"),
+    ("millions of US dollars;", "USD"),
+    ("USDm;", "USD"),
+    ("$m;", "USD"),
+    ("US$m;", "USD"),
+    ("GBP millions;", "GBP"),
+    ("£ millions;", "GBP"),
+    ("£m;", "GBP"),
+    ("millions of pounds;", "GBP"),
+    ("JPY millions;", "JPY"),
+    ("¥ millions;", "JPY"),
+    ("millions of yen;", "JPY"),
+]
+
+
+def _book(book: str) -> tuple[dict[str, Any], dict[str, str]]:
+    """The positive case restated as a ``book``-currency book: pages and quotes say ``book``."""
+    sub = json.loads(json.dumps(SUBMISSIONS["positive"]).replace("USD", book))
+    return sub, {k: v.replace("USD", book) for k, v in _pages("positive").items()}
+
+
+@pytest.mark.parametrize(("statement", "named"), _CCY_FORMS)
+@pytest.mark.parametrize("book", ["USD", "EUR"])
+def test_unit_statement_currency_against_book(statement: str, named: str, book: str) -> None:
+    sub, pages = _book(book)
+    assert f"{book}; amounts in millions;" in pages["page:2"]
+    pages["page:2"] = pages["page:2"].replace(f"{book}; amounts in millions;", statement)
+    issues = cp2e.validate_macro_fx(submission=sub, pages=pages, currency=book)
+    if named == book:
+        # "€m"-style acceptance is not added: EUR spellings are all scale-word forms here
+        assert issues == ()
+    else:
+        assert len(issues) == 1 and f"but the reporting currency is {book}" in issues[0], issues
+        assert issues[0].startswith("earnings.ebitda: page:2 states its unit in ")
+
+
+def test_unit_statement_ambiguous_code_words_name_no_currency() -> None:
+    # "ALL amounts in millions" is prose (ALL is also the lek's code): no currency is named.
+    sub, pages = _book("USD")
+    pages["page:2"] = pages["page:2"].replace(
+        "USD; amounts in millions;", "ALL amounts in millions;"
+    )
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages, currency="USD") == ()
+
+
+def test_unit_statement_naming_no_currency_keeps_the_scale_reading() -> None:
+    for book in ("USD", "EUR"):
+        sub, pages = _book(book)
+        pages["page:2"] = pages["page:2"].replace(f"{book}; amounts in millions;", "in millions;")
+        assert cp2e.validate_macro_fx(submission=sub, pages=pages, currency=book) == ()
+
+
+def test_unit_statement_euro_symbol_m_is_not_accepted_on_a_euro_book() -> None:
+    sub, pages = _book("EUR")
+    pages["page:2"] = pages["page:2"].replace("EUR; amounts in millions;", "€m;")
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages, currency="EUR") == (
+        "earnings.ebitda: page:2 does not state the unit of its amounts",
+    )
 
 
 @pytest.mark.parametrize(

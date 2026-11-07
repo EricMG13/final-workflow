@@ -1482,3 +1482,20 @@ def test_blank_text_twin_is_accepted(field: tuple[str, tuple[str | int, ...]]) -
     path, keys = field
     issues = _blank_adapter(keys)("", "", "The peer figures are desk-supplied.")
     assert EMPTY_TEXT.format(path=path) not in issues, issues
+
+
+def test_c08_one_compute_parses_and_composes_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Hand-derived: a valid payload needs one peer-sheet parse and one composition; the
+    # composition built to check the references is the one the result is made from.
+    calls = {"parse_peer_source": 0, "_compose": 0}
+    for name in calls:
+        original = getattr(cp1c, name)
+
+        def counted(*args: object, _o: object = original, _n: str = name, **kw: object) -> object:
+            calls[_n] += 1
+            return _o(*args, **kw)  # type: ignore[operator]
+
+        monkeypatch.setattr(cp1c, name, counted)
+    case = inputs("positive")
+    assert cp1c.compute(case).facts
+    assert calls == {"parse_peer_source": 1, "_compose": 1}

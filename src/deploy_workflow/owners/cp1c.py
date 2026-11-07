@@ -2642,18 +2642,15 @@ def _prose_texts(submission: PeerBenchmarkSubmission) -> list[str]:
     return [a.rationale for a in submission.assessments] + [submission.overall.rationale]
 
 
-def calculation_issues(inputs: PeerBenchmarkInputs) -> tuple[str, ...]:
-    """Every content issue of the analyst payload against the peer source and the module's own
-    facts. An unreadable peer table returns alone (1C4). References in the analyst's text are
-    checked against the composed facts only when the assessment set is consistent (before that there
-    are no facts to bind them to, and the set issues already refuse the payload). A line that
-    quotes the payload is cut by `clipped` before it is built whole, and the list is bounded
-    (`_bounded`), so the issue text cannot outgrow the payload (protocol section 6)."""
+def _calculation(inputs: PeerBenchmarkInputs) -> tuple[tuple[str, ...], _Composed | None]:
+    """`calculation_issues` and the composition it built to bind the references (None when it
+    built none: an unreadable table or an inconsistent assessment set). With no issue the
+    composition is always built, so `compute` and `_checked` reuse it (S05-C08)."""
     submission = inputs.submission
     try:
         sheet = _sheet_of(inputs)
     except PeerTableError as error:
-        return (str(error),)
+        return (str(error),), None
     set_issues = _assessment_set_issues(submission, sheet)
     issues = [*set_issues, *_content_issues(submission, sheet, inputs.basis.ltm_end)]
     issues += _citation_issues(submission, inputs.sources)
@@ -2661,23 +2658,38 @@ def calculation_issues(inputs: PeerBenchmarkInputs) -> tuple[str, ...]:
         if is_blank(text):  # round 11, round 12 B10: blank text is refused (no CP-1C frame)
             issues.append(f"{path}: empty text")
         issues += prohibited_issues(path, text, kinds=PROHIBITED_KINDS)
+    composed = None
     if not set_issues:
-        bound = prose.bind(item.fact for item in _compose(inputs, sheet).facts)
+        composed = _compose(inputs, sheet)
+        bound = prose.bind(item.fact for item in composed.facts)
         names = (inputs.issuer_name,)
         for text in _prose_texts(submission):
             # a prose line can quote a payload word whole (`Bare figure: <token>`)
             issues += [clipped((line,)) for line in prose.issues(text, bound, names=names)]
-    return _bounded(dict.fromkeys(issues))
+    return _bounded(dict.fromkeys(issues)), composed
+
+
+def calculation_issues(inputs: PeerBenchmarkInputs) -> tuple[str, ...]:
+    """Every content issue of the analyst payload against the peer source and the module's own
+    facts. An unreadable peer table returns alone (1C4). References in the analyst's text are
+    checked against the composed facts only when the assessment set is consistent (before that
+    there are no facts to bind them to, and the set issues already refuse the payload). A line
+    that quotes the payload is cut by `clipped` before it is built whole, and the list is bounded
+    (`_bounded`), so the issue text cannot outgrow the payload (protocol section 6)."""
+    return _calculation(inputs)[0]
+
+
+def _result(composed: _Composed, submission: PeerBenchmarkSubmission) -> PeerBenchmarkResult:
+    claims = _claims(composed, submission)
+    return PeerBenchmarkResult(composed.facts, composed.tables, claims, composed.limitations)
 
 
 def compute(inputs: PeerBenchmarkInputs) -> PeerBenchmarkResult:
     """The module's facts, tables, claims and own limitations; ValueError on any issue."""
-    if issues := calculation_issues(inputs):
+    issues, composed = _calculation(inputs)
+    if issues or composed is None:
         raise ValueError("; ".join(issues))
-    sheet = _sheet_of(inputs)
-    composed = _compose(inputs, sheet)
-    claims = _claims(composed, inputs.submission)
-    return PeerBenchmarkResult(composed.facts, composed.tables, claims, composed.limitations)
+    return _result(composed, inputs.submission)
 
 
 # =============================================================================================
@@ -3029,14 +3041,14 @@ def _checked(
         return (str(error),), None
     except ValueError as error:
         return (clipped(("CP-1 facts unavailable: ", str(error))),), None
-    issues = calculation_issues(inputs)
-    if issues:
+    issues, composed = _calculation(inputs)
+    if issues or composed is None:
         return issues, None
     texts = _model_text_issues(submission)
     if texts:
         return _bounded(texts), None
     try:
-        return (), _report(pack, submission, compute(inputs))
+        return (), _report(pack, submission, _result(composed, submission))
     except ValidationError as error:
         return _bounded(
             clipped((".".join(map(str, e["loc"])) or "(root)", ": ", e["msg"]))

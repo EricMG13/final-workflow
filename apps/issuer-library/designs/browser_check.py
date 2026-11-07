@@ -33,6 +33,7 @@ R = HERE.parents[2]
 # Set by main(): importing this module creates nothing and starts nothing.
 S = Path()
 PY = ""
+NEW_SESSION = False
 APP = ""
 ISSUER = "Northbridge Synthetic Group"
 # Every provider key the Redactor knows, from its one list; the fake engine gets a dummy key only.
@@ -54,7 +55,7 @@ def note(ok: bool, what: str, fault: bool = True, kind: str = "check") -> None:
     results.append((ok, what))
     if not ok and fault:
         FAULTS.add(WALK, kind, what)
-    print(("PASS " if ok else "FAIL ") + what, flush=True)
+    print(redact(("PASS " if ok else "FAIL ") + what, secrets()), flush=True)
 
 
 def serve(
@@ -93,6 +94,7 @@ def serve(
         env=env,
         stdout=subprocess.PIPE,
         stderr=stderr,
+        start_new_session=NEW_SESSION,  # live_check sets it, to stop the server's whole group
     )
     stderr.close()  # the child holds its own copy
     try:

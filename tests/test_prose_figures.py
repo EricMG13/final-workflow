@@ -178,3 +178,59 @@ def test_each_label_needs_a_figure_of_its_own_period() -> None:
             "rev-fy2024 is FY2024: 2023-10-01 to 2024-09-30)"
         ),
     )
+
+
+# --- Second-model review: hyphen and fiscal-year-end variants (hand-derived) ----------------
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # A year joined to a quantity word by a hyphen is as much a figure as one set apart.
+        ("A 2024-basis-point rise.", ("2024-basis-point",)),
+        ("Spreads moved 2024-bp.", ("2024-bp",)),
+        ("A 2024 basis-point rise.", ("2024",)),
+        ("A 2024 per-cent rise.", ("2024",)),
+        # Controls: an ISO date and a year range are labels, not figures.
+        ("Results to 2026-06-30 were flat.", ()),
+        ("Notes due 2031-2033 rank first.", ()),
+    ],
+)
+def test_bare_figures_hyphen_variants(text: str, expected: tuple[str, ...]) -> None:
+    assert prose.bare_figures(text) == expected
+
+
+YEAR_ENDS = prose.bind(
+    [
+        # Target's fiscal 2023 ended 2024-02-03: a balance date in the year after its label.
+        _fact("cash-fy2023", "Balance at 2024-02-03"),
+        _fact("rev-12m", "Twelve months to 2026-03-31"),
+        _fact("rev-label", "FY2024"),
+        _fact("rev-ltm", "LTM Q4 25: 2025-01-01 to 2025-12-31"),
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("text", "ok"),
+    [
+        # The fiscal year closing 2024-02-03 is FY2023 by start year, FY2024 by end year.
+        ("FY2023 cash was {cash-fy2023}.", True),
+        ("FY2024 cash was {cash-fy2023}.", True),
+        ("FY2025 cash was {cash-fy2023}.", False),
+        ("FY2022 cash was {cash-fy2023}.", False),
+        # Twelve months to 2026-03-31 are FY2025 (start year) or FY2026 (end year).
+        ("FY2025 revenue was {rev-12m}.", True),
+        ("FY2026 revenue was {rev-12m}.", True),
+        ("FY2027 revenue was {rev-12m}.", False),
+        ("FY2024 revenue was {rev-12m}.", False),
+        # An explicit fiscal label is exact: nothing widens FY2024.
+        ("FY2024 revenue was {rev-label}.", True),
+        ("FY2023 revenue was {rev-label}.", False),
+        # A window with both dates is exact: January to December 2025 is not FY2024.
+        ("FY2025 revenue was {rev-ltm}.", True),
+        ("FY2024 revenue was {rev-ltm}.", False),
+    ],
+)
+def test_a_lone_date_period_admits_the_fiscal_year_it_closes(text: str, ok: bool) -> None:
+    assert (prose.issues(text, YEAR_ENDS) == ()) is ok

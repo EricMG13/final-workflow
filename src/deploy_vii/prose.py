@@ -64,13 +64,13 @@ _E = r"(?![0-9A-Za-z])"
 _YEAR = r"(?:19|20)[0-9]{2}"
 # A quantity word: written after a number it makes that number a figure.
 _QUANTITY = (
-    r"(?i:basis points?|bps?|percent|per cent|percentage points?|pp|times|x|bn|mn|million|"
-    r"billion|thousand)(?![0-9A-Za-z])"
+    r"(?i:basis[\s-]+points?|bps?|percent|per[\s-]+cent|percentage[\s-]+points?|pp|times|x|bn|mn|"
+    r"million|billion|thousand)(?![0-9A-Za-z])"
 )
 # A bare year is a detached token: a percent sign after it makes a figure (1900%), as a unit
 # letter already did (1900x, 1900bn) (task 7.10 item 15), and so does a quantity word after
-# whitespace (2024 basis points, 2024 %) (S13 A04).
-_YEAR_E = rf"(?![0-9A-Za-z%])(?!\s+(?:%|{_QUANTITY}))"
+# whitespace or a hyphen (2024 basis points, 2024 %, 2024-bp) (S13 A04).
+_YEAR_E = rf"(?![0-9A-Za-z%])(?!(?:\s+|-)(?:%|{_QUANTITY}))"
 _MONTH = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|"
     r"December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.?"
@@ -176,15 +176,8 @@ _NUMBER_WORD = (
     r"seventy|eighty|ninety|hundred|thousand)"
 )
 _WORD_FIGURE = re.compile(
-    "|".join(
-        (
-            (
-                rf"{_B}(?i:{_NUMBER_WORD}(?:(?:-|\s+){_NUMBER_WORD})*)"
-                rf"(?:(?:-|\s+){_QUANTITY}|-?(?i:fold){_E})"
-            ),
-            rf"{_B}(?i:halved|doubled|tripled|quadrupled){_E}",
-        )
-    )
+    rf"{_B}(?i:{_NUMBER_WORD}(?:(?:-|\s+){_NUMBER_WORD})*)(?:(?:-|\s+){_QUANTITY}|-?(?i:fold){_E})"
+    rf"|{_B}(?i:halved|doubled|tripled|quadrupled){_E}"
 )
 _PUNCTUATION = ".,;:!?()\"'"
 
@@ -339,6 +332,7 @@ _FISCAL = re.compile(
     rf"{_B}(?:(?:FY|CY)[ -]?|(?i:fiscal(?:\s+year)?)\s+)({_YEAR}|[0-9]{{2}})"
     rf"(?:/({_YEAR}|[0-9]{{2}}))?{_E}"
 )
+_DATE = re.compile(rf"{_B}{_YEAR}-[0-9]{{2}}-[0-9]{{2}}{_E}")
 _PERIOD_YEAR = re.compile(rf"(?<![0-9])({_YEAR})(?![0-9])|{_B}(?:FY|CY) ?([0-9]{{2}}){_E}")
 # A clause ends at sentence punctuation, a colon or a semicolon; a comma does not end it, so an
 # opening "In FY2025," still labels the figure after it.
@@ -352,9 +346,18 @@ def _years(groups: Iterable[Iterable[str | None]]) -> frozenset[int]:
 
 def _fact_years(period: str | None) -> frozenset[int] | None:
     """Every year a fact's period spans (first to last year it names); None when it names none,
-    so the period cannot be compared."""
-    named = _years(_PERIOD_YEAR.findall(period or ""))
-    return frozenset(range(min(named), max(named) + 1)) if named else None
+    so the period cannot be compared. A period with one date and no fiscal label of its own (a
+    balance date, ``Twelve months to 2026-03-31``) has no stated start: the fiscal year it
+    closes may carry the year it began in (Target's fiscal 2023 ended 2024-02-03), so the year
+    before is admitted too."""
+    text = period or ""
+    named = _years(_PERIOD_YEAR.findall(text))
+    if not named:
+        return None
+    first = min(named)
+    if len(_DATE.findall(text)) == 1 and not _FISCAL.search(text):
+        first -= 1
+    return frozenset(range(first, max(named) + 1))
 
 
 def _clauses(runs: Iterable[Run]) -> list[list[Run]]:

@@ -16,10 +16,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import test_connect_cp2a as tc2a
 import test_connect_cp2g as tc2g
 import test_connect_cp2h as tc2h
 
-from deploy_workflow.owners import cp2g, cp2h
+from deploy_workflow.owners import cp2a, cp2g, cp2h
 
 
 def _count(monkeypatch: pytest.MonkeyPatch, module: Any, *names: str) -> Counter[str]:
@@ -95,3 +96,30 @@ def test_cp2h_public_guards_still_refuse(tmp_path: Path) -> None:
         cp2h.rating_triggers(pack=pack, submission=submission, upstream=upstream)
     with pytest.raises(ValueError, match="High is not allowed"):
         cp2h.compute(cp2h._inputs(pack, submission, upstream))
+
+
+def test_cp2a_submit_validates_once_per_step(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, _, _ = tc2a.seed(tmp_path)
+    attempt = store.begin("CP-2A")
+    calls = _count(monkeypatch, cp2a, "validate", "_pin_lines", "offered_bases", "_operands")
+    tc2a._submit(store, attempt, json.dumps(tc2a._positive_payload()))
+    finished = next(a for a in store.read().attempts if a.ticket_id == attempt.ticket_id)
+    assert finished.status == "finished" and finished.issues == ()
+    # per step: one content check, one pin check, one CP-1 base offer and one composition
+    # (was 6, 4, 6 and 2 per submit)
+    assert calls == Counter({"validate": 2, "_pin_lines": 2, "offered_bases": 2, "_operands": 2})
+
+
+def test_cp2a_public_guards_still_refuse(tmp_path: Path) -> None:
+    store, pack, _ = tc2a.seed(tmp_path)
+    attempt = store.begin("CP-2A")
+    payload = tc2a._positive_payload()
+    payload["base_period"] = "LTM Q4 24: 2024-01-01 to 2024-12-31"  # not an offered period
+    submission = cp2a.DownsideSubmission.model_validate_json(json.dumps(payload))
+    upstream = cp2a.cp2a_upstream(store, attempt)
+    issues = cp2a.validate_downside(pack=pack, submission=submission, upstream=upstream)
+    assert issues and issues[0].startswith("base_period: not an offered period")
+    with pytest.raises(ValueError, match="base_period: not an offered period"):
+        cp2a.downside_report(pack=pack, submission=submission, upstream=upstream)

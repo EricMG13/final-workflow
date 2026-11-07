@@ -8,6 +8,7 @@ import json
 import shutil
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
 HERE = Path(__file__).resolve().parent
@@ -28,9 +29,11 @@ from store import (
 OUT = ROOT / "artifacts/issuer-library/design-fixture"
 
 
-def prepare_reports(sources, keys):
-    """Keep original bytes, trace each handoff to its run file by hash, and add the app's presentation."""
-    reports = []
+def prepare_reports(
+    sources: dict[str, list[dict[str, Any]]], keys: dict[str, str]
+) -> list[dict[str, Any]]:
+    """Keep original bytes, trace each handoff to its run file by hash, add the presentation."""
+    reports: list[dict[str, Any]] = []
     web = HERE.parent / "web"
     adapter = (web / "report-adapter.js").read_text()
     adapter_css = (web / "report-adapter.css").read_text() + (web / "brand.css").read_text()
@@ -83,9 +86,9 @@ def prepare_reports(sources, keys):
     return reports
 
 
-def prepare_models(outputs, keys):
-    """Published models, read by the app's own catalogue function; the page is copied beside the reports."""
-    artifacts = []
+def prepare_models(outputs: dict[str, Any], keys: dict[str, str]) -> list[dict[str, Any]]:
+    """Published models, read by the app's own catalogue function; each page is copied beside."""
+    artifacts: list[dict[str, Any]] = []
     for folder in sorted((ROOT / "deliverables").glob("*/model.html")):
         destination = OUT / "models" / folder.parent.name
         destination.mkdir(parents=True, exist_ok=True)
@@ -104,7 +107,7 @@ def prepare_models(outputs, keys):
     return models
 
 
-def build():
+def build() -> None:
     shutil.rmtree(OUT, ignore_errors=True)
     (OUT / "sources").mkdir(parents=True)
     catalog = json.loads((HERE.parent / "engine/catalog.json").read_text())
@@ -120,7 +123,8 @@ def build():
     for record in [*outputs.values(), *inputs.values()]:
         folder = record["file"].split("--")[0]
         shutil.copyfile(ROOT / "runs" / folder / record["source"], OUT / "sources" / record["file"])
-    # The same identity rules as the app; the seeded catalogue supplies the issuer IDs Go discovery would.
+    # The same identity rules as the app; the seeded catalogue supplies the issuer IDs Go
+    # discovery would.
     seeded = json.loads((HERE.parent / "web/legacy-catalog.json").read_text(encoding="utf-8"))
     seeds = {run["id"]: run for run in seeded["real"]}
     recorded = {
@@ -168,7 +172,8 @@ def build():
         encoding="utf-8",
     )
     print(
-        f"Built {OUT}: {len(runs)} runs, {len(outputs)} saved outputs, {len(inputs)} inputs, {len(reports)} reports, {len(workspace['models'])} models."
+        f"Built {OUT}: {len(runs)} runs, {len(outputs)} saved outputs, {len(inputs)} inputs, "
+        f"{len(reports)} reports, {len(workspace['models'])} models."
     )
 
 

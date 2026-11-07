@@ -262,6 +262,10 @@ test('Forecast for tdg-002 lays the calculation record out as a cash flow model'
   assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(text),cashflow.groups);
   assert.deepEqual([...headRows[0].querySelectorAll('th[colspan]')].map(th=>Number(th.getAttribute('colspan'))),[2,3,3,3]);
   assert.deepEqual([...headRows[1].querySelectorAll('th')].map(text),cashflow.columns);
+  // A year-to-date header puts "(YTD)" in its own span; the header text is unchanged.
+  const ytd=[...headRows[1].querySelectorAll('th')].filter(th=>th.textContent.endsWith(' (YTD)'));
+  assert.equal(ytd.length,2);
+  ytd.forEach(th=>{assert.equal(th.querySelector('span.col-sub').textContent,'(YTD)');assert.equal(th.querySelectorAll('*').length,1);});
   const body=[...table.querySelectorAll('tbody tr')];
   assert.deepEqual(body.filter(tr=>tr.classList.contains('band-row')).map(text),cashflow.bands);
   const rows=body.filter(tr=>!tr.classList.contains('band-row'));

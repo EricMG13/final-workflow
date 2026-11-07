@@ -354,7 +354,7 @@ function cashflowSection(model) {
   if(!c)return '<section class="forecast-cashflow"><h2>Cash flow model</h2><p>This model has no readable calculation record.</p></section>';
   const groups=[];
   for(const col of c.columns){const last=groups[groups.length-1];if(last&&last.name===col.group)last.span++;else groups.push({name:col.group,span:1});}
-  const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${esc(col.label)}</th>`).join('')}</tr>`;
+  const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${col.label.endsWith(' (YTD)')?`${esc(col.label.slice(0,-6))} <span class="col-sub">(YTD)</span>`:esc(col.label)}</th>`).join('')}</tr>`;
   const na=[],seen=new Set();
   let band=null,body='';
   for(const row of c.rows){

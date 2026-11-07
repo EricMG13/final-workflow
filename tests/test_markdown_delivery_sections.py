@@ -562,11 +562,11 @@ def test_every_heading_with_content_is_in_the_coverage_record(tmp_path):
 
 def test_routed_sections_name_their_block_and_the_rest_name_evidence(tmp_path):
     entries = coverage_of(deliver(tmp_path, COVERED, [ROUTE])["files"])["modules"]["CP-1B"]
-    seen = {(e["line"], e["kind"]): (e["heading"], e["block"]) for e in entries}
-    assert seen[(7, "table")] == ("Financials", "headline-results")
-    assert seen[(7, "prose")] == ("Financials", "evidence")
-    assert seen[(14, "prose")] == ("Notes", "evidence")
-    assert seen[(2, "prose")] == ("Request", "evidence")
+    seen = {(e["line"], e["kind"]): (e["heading"], e["blocks"]) for e in entries}
+    assert seen[(7, "table")] == ("Financials", ["headline-results"])
+    assert seen[(7, "prose")] == ("Financials", ["evidence"])
+    assert seen[(14, "prose")] == ("Notes", ["evidence"])
+    assert seen[(2, "prose")] == ("Request", ["evidence"])
 
 
 def test_a_dropped_section_fails_the_build(tmp_path, monkeypatch):
@@ -591,8 +591,10 @@ def test_check_coverage_ignores_fenced_commented_and_empty_headings():
         "## D\n| x |\n"  # 9-10
     )
     with pytest.raises(ValueError, match="M line 9 D is not presented"):
-        check_coverage({"M": raw}, {"modules": {"M": [{"line": 5}]}})
-    check_coverage({"M": raw}, {"modules": {"M": [{"line": 5}, {"line": 9}]}})
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 5, "kind": "prose"}]}})
+    check_coverage(
+        {"M": raw}, {"modules": {"M": [{"line": 5, "kind": "prose"}, {"line": 9, "kind": "prose"}]}}
+    )
 
 
 RECOVERY = Path(__file__).parent.parent / (
@@ -608,3 +610,41 @@ def test_recovery_handoffs_are_fully_covered():
     modules = coverage_of(files)["modules"]
     assert set(modules) == set(request.handoffs)
     assert all(modules[m] for m in modules)
+
+
+def test_a_section_routed_in_part_names_every_block_its_rows_reach(tmp_path):
+    two = COVERED.replace(
+        "### Notes\nMargin held.\n", "### Notes\nMargin held.\n\nLeverage fell.\n"
+    )
+    route = {"heading": "Notes", "kind": "prose", "prefix": "Margin"}
+    entries = coverage_of(deliver(tmp_path, two, [route])["files"])["modules"]["CP-1B"]
+    notes = next(e for e in entries if e["heading"] == "Notes")
+    assert notes["blocks"] == ["headline-results", "evidence"]
+
+
+def test_a_dropped_prose_group_is_refused_though_a_table_shares_its_heading(tmp_path, monkeypatch):
+    from deploy_workflow import markdown_delivery as md
+
+    real = md._prose_groups
+    monkeypatch.setattr(
+        md,
+        "_prose_groups",
+        lambda lines, t: [g for g in real(lines, t) if g.heading != "Financials"],
+    )
+    with pytest.raises(ValueError, match=r"CP-1B line 7 Financials is not presented"):
+        deliver(tmp_path, COVERED, [ROUTE])
+
+
+def test_a_table_entry_does_not_present_a_heading_with_only_a_table_dropped():
+    raw = "## A\nText.\n| x | y |\n|---|---|\n| 1 | 2 |\n"
+    with pytest.raises(ValueError, match="M line 1 A is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})
+    check_coverage(
+        {"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}, {"line": 1, "kind": "table"}]}}
+    )
+
+
+def test_content_under_a_level_four_heading_is_checked():
+    raw = "## A\n#### Deep\nText.\n"
+    with pytest.raises(ValueError, match="M line 2 Deep is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": []}})

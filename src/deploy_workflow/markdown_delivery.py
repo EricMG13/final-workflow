@@ -716,9 +716,13 @@ def coverage_record(
     module_views: list[ModuleView],
     metadata: dict[str, dict[str, tuple[str, str]]],
     owner_lines: dict[str, dict[str, int]],
+    entries: dict[str, list[Binding]],
     routed: dict[tuple[str, str], str],
 ) -> dict[str, Any]:
-    """Where each handoff table and prose section went: its routed block, else `evidence`."""
+    """Where each handoff table and prose section went: every block its rows were bound to, in
+    binding order (`evidence` for rows no route took). A chart route binds a typed copy of its
+    table, so its routed block leads the list. CP-MODEL is derived from CP-1/CP-2 and has no
+    handoff lines, so it is not in the record."""
     modules: dict[str, list[dict[str, Any]]] = {}
     for module in (m for m in module_views if m.module_id in owner_lines):
         lines = owner_lines[module.module_id]
@@ -728,7 +732,18 @@ def coverage_record(
                 "heading": metadata[module.module_id][t.table_id][0],
                 "kind": metadata[module.module_id][t.table_id][1],
                 "line": lines[t.table_id],
-                "block": routed.get((module.module_id, t.table_id), "evidence"),
+                "blocks": list(
+                    dict.fromkeys(
+                        [
+                            *([r] if (r := routed.get((module.module_id, t.table_id))) else []),
+                            *(
+                                b.block_id
+                                for b in entries[module.module_id]
+                                if b.fact_coord.table_id == t.table_id
+                            ),
+                        ]
+                    )
+                ),
             }
             for t in module.tables
             if t.table_id in lines  # a typed chart table repeats its source table's section
@@ -736,40 +751,63 @@ def coverage_record(
     return {"schema": "delivery-coverage/1", "modules": modules}
 
 
-def _headings_with_content(raw: str, name: str) -> list[tuple[int, str]]:
-    """`##`/`###` heading lines (outside fences and comments) with content before the next
-    heading of any level; a line inside a fence is content."""
-    found: list[tuple[int, str]] = []
+TABLE_SEPARATOR = re.compile(r"\|[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-{3,}:?[ \t]*)*\|?[ \t]*")
+
+
+def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bool]]:
+    """Each heading line of level two or deeper (outside fences and comments) with content before
+    the next heading of any level, as (line, text, has non-table content, has table lines). A
+    line inside a fence is content; a pipe-line run with a separator second line is a table."""
+    found: dict[int, tuple[str, bool, bool]] = {}
     current: tuple[int, str] | None = None
     fenced = False
+    run: list[str] = []
+
+    def flush() -> None:
+        nonlocal run
+        if current is not None and run:
+            is_table = len(run) >= 3 and TABLE_SEPARATOR.fullmatch(run[1].strip()) is not None
+            text, prose, tabular = found.get(current[0], (current[1], False, False))
+            found[current[0]] = (text, prose or not is_table, tabular or is_table)
+        run = []
+
     for number, line in enumerate(hide_comments(physical_lines(raw), name), 1):
         head = heading_of(line)
         if fenced and head and head[0] == 2:
             fenced = False
+        if not fenced and line.startswith("|"):
+            run.append(line)
+            continue
+        flush()
         if FENCE.match(line):
             fenced = not fenced
         elif not fenced and head:
-            current = (number, head[1]) if head[0] in (2, 3) else None
+            current = (number, head[1]) if head[0] >= 2 else None
             continue
         elif not line.strip() or (not fenced and line.startswith("<!--")):
             continue
-        if current is not None and current not in found:
-            found.append(current)
-    return found
+        if current is not None:
+            text, _, tabular = found.get(current[0], (current[1], False, False))
+            found[current[0]] = (text, True, tabular)
+    flush()
+    return [(n, t, p, b) for n, (t, p, b) in found.items()]
 
 
 def check_coverage(raw_by_module: dict[str, str], record: dict[str, Any]) -> None:
-    """Refuse a delivery in which a handoff section with content is in no coverage entry."""
+    """Refuse a delivery in which a handoff section with content lacks a prose entry (for its
+    non-table content) or a table entry (for its tables) at its heading line."""
     for module_id, raw in raw_by_module.items():
-        presented = {entry["line"] for entry in record["modules"].get(module_id, [])}
-        for number, heading in _headings_with_content(raw, module_id):
-            if number not in presented:
-                raise ValueError(
-                    f"delivery_coverage: {module_id} line {number} {heading} is not presented"
-                )
+        presented = {(e["line"], e["kind"]) for e in record["modules"].get(module_id, [])}
+        for number, heading, prose, tabular in _headings_with_content(raw, module_id):
+            for kind, needed in (("prose", prose), ("table", tabular)):
+                if needed and (number, kind) not in presented:
+                    raise ValueError(
+                        f"delivery_coverage: {module_id} line {number} {heading} "
+                        f"is not presented ({kind})"
+                    )
 
 
-def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C901 40 at base)
+def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
     request: DeliveryRequest, base: Path
 ) -> dict[str, bytes]:
     """Select literal source sections into the existing requested pathway design."""
@@ -1147,7 +1185,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
     anchor = '<div id="call-root"></div>'
     if rendered.count(anchor) != 1:
         raise ValueError("Existing renderer scope-banner location changed")
-    record_of = coverage_record(module_views, metadata, owner_lines, routed)
+    record_of = coverage_record(module_views, metadata, owner_lines, entries, routed)
     check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
     files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(

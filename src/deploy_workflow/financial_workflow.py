@@ -2655,6 +2655,46 @@ def verify_financial_slice_receipt(
         raise WorkflowError("identity_mismatch") from None
 
 
+_BAD_LINE_ANSWER = '{"status": "refused", "error_code": "bad_arguments"}\n'
+
+
+def _drain(reader: TextIO, line: str) -> None:
+    """Read on to the end of an over-length line. If the rest of it is not UTF-8 the drain ends
+    there: the caller answers `bad_arguments` for the line, once."""
+    try:
+        while line and not line.endswith("\n"):
+            line = reader.readline(MAX_LINE + 1)
+    except UnicodeDecodeError:
+        return
+
+
+def _require_whole_line(reader: TextIO, line: str) -> None:
+    """Refuse a line that is over-length or unterminated, after reading on to its end."""
+    if len(line) > MAX_LINE or not line.endswith("\n"):
+        _drain(reader, line)
+        raise WorkflowError("bad_arguments")
+
+
+def _request_of(reader: TextIO, line: str) -> dict[str, Any]:
+    """The request object on one whole line; anything else is `bad_arguments`."""
+    _require_whole_line(reader, line)
+    request = json.loads(line, parse_constant=_nonfinite_json)
+    if type(request) is not dict:
+        raise WorkflowError("bad_arguments")
+    return request
+
+
+def _read_line(reader: TextIO, writer: TextIO) -> str:
+    """The next line, or "" at the end of the stream. The text reader decodes in chunks, so its
+    position after a bad byte is unknown: answer the line that could not be read and end there."""
+    try:
+        return reader.readline(MAX_LINE + 1)
+    except UnicodeDecodeError:
+        writer.write(_BAD_LINE_ANSWER)
+        writer.flush()
+        return ""
+
+
 def serve_json_lines(
     workflow: FinancialWorkflow,
     reader: TextIO,
@@ -2667,17 +2707,11 @@ def serve_json_lines(
         raise WorkflowError("not_permitted")
     workflow._participant, workflow._transport = participant, "bounded-json-lines/1"
     for _ in range(MAX_MESSAGES):
-        line = reader.readline(MAX_LINE + 1)
+        line = _read_line(reader, writer)
         if not line:
             return
         try:
-            if len(line) > MAX_LINE or not line.endswith("\n"):
-                while line and not line.endswith("\n"):
-                    line = reader.readline(MAX_LINE + 1)
-                raise WorkflowError("bad_arguments")
-            request = json.loads(line, parse_constant=_nonfinite_json)
-            if type(request) is not dict:
-                raise WorkflowError("bad_arguments")
+            request = _request_of(reader, line)
             operation = request.get("operation")
             if operation == "invoke" and set(request) == {"operation", "tool", "arguments"}:
                 result = workflow.invoke(request["tool"], request["arguments"])

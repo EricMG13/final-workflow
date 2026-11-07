@@ -1500,6 +1500,11 @@ class _Composer:
     def limit(self, limitation: str | None) -> Cell:
         return Cell(self.text(limitation) if limitation else NONE_STATED)
 
+    def stored(self, limitation: str | None) -> str | None:
+        """A claim's limitation as stored: spelled like its table cell (`text`), never with raw
+        `{ref|unit}` braces (S06-cp2-ade-C03, S10-cp6-cp8-cpl10-C04); None stays None."""
+        return None if limitation is None else self.text(limitation)
+
     def basis(self, row: Instrument | Preference | Risk) -> Cell:
         """Python's basis cell: each cited CP-2 row with its label in catalogue (register)
         order, each quoted market evidence by source and locator in the model's order, then
@@ -1802,6 +1807,10 @@ def relative_value(
     preference = _preference(submission, offered, out)
     _risks_and_gaps(submission, out)
     out.front([("preference", "Preference", preference), *lines])
+    # A limitation is plain stored text: spelled before the references are carried (each
+    # table cell already referenced its figures).
+    preference_limitation = out.stored(submission.preference.limitation)
+    instrument_limitations = [out.stored(row.limitation) for row in submission.instruments]
     referenced = [
         fact.model_copy(
             update={"table_id": CP1_REFERENCES, "row_id": f"ref{index:02d}", "field": "value"}
@@ -1834,16 +1843,18 @@ def relative_value(
             claim_id="T3.4.preference",
             text=preference_row.rationale,
             citations=out.cited(preference_row.basis),
-            limitation=preference_row.limitation,
+            limitation=preference_limitation,
         ),
         *(
             Claim(
                 claim_id=f"T3.1.i{index:02d}",
                 text=row.market_observation,
                 citations=out.cited(row.basis),
-                limitation=row.limitation,
+                limitation=limitation,
             )
-            for index, row in enumerate(submission.instruments, 1)
+            for index, (row, limitation) in enumerate(
+                zip(submission.instruments, instrument_limitations, strict=True), 1
+            )
             if not _none(row.market_observation)
         ),
     )

@@ -1004,6 +1004,11 @@ class _Composer:
     def limit(self, limitation: str | None) -> Cell:
         return Cell(self.text(limitation) if limitation else NONE_STATED)
 
+    def stored(self, limitation: str | None) -> str | None:
+        """A claim's limitation as stored: spelled like its table cell (`text`), never with raw
+        `{ref|unit}` braces (S06-cp2-ade-C03, S10-cp6-cp8-cpl10-C04); None stays None."""
+        return None if limitation is None else self.text(limitation)
+
     def basis(self, row: Recommendation | ThesisChallenge | RecoveryView | Risk) -> Cell:
         """Python's basis cell: the cited CP-2, CP-3 and CP-5 rows, each in catalogue
         (register) order with its label whatever order the model listed them in (a finding id
@@ -1295,9 +1300,13 @@ def committee_challenge(
     _recovery(submission, out)
     _risks_and_gaps(submission, out)
     out.front(COMMITTEE_CHALLENGE, [("recommendation", "Action bias", action), *lines])
+    row = submission.recommendation
+    # A limitation is plain stored text: spelled before the references are carried (its table
+    # cell already referenced its figures).
+    final_limitation = out.stored(row.limitation)
+    view_limitations = [out.stored(view.limitation) for view in submission.recovery_view]
     referenced, table = _references(out)
     tables = [*out.tables, *((table,) if table else ())]
-    row = submission.recommendation
     # Claims are the model's run text as written; references resolve against the carried CP-1
     # facts (`execution.candidate_issues`). CP-6 quotes no pack source.
     claims = (
@@ -1305,7 +1314,7 @@ def committee_challenge(
             claim_id=f"{FINAL_BIAS_TABLE}.{FINAL_BIAS_ROW}",
             text=row.rationale,
             citations=(),
-            limitation=row.limitation,
+            limitation=final_limitation,
         ),
         *(
             Claim(claim_id=f"{CROSS_EXAMINATION}.c{index:02d}", text=c.counter_case, citations=())
@@ -1316,9 +1325,11 @@ def committee_challenge(
                 claim_id=f"{EVIDENCE_WEIGHTING}.v{index:02d}",
                 text=view.view,
                 citations=(),
-                limitation=view.limitation,
+                limitation=limitation,
             )
-            for index, view in enumerate(submission.recovery_view, 1)
+            for index, (view, limitation) in enumerate(
+                zip(submission.recovery_view, view_limitations, strict=True), 1
+            )
             if view.confidence != INSUFFICIENT
         ),
     )

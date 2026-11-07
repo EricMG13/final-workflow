@@ -612,6 +612,11 @@ class _Composer:
     def limit(self, limitation: str | None) -> Cell:
         return Cell(self.text(limitation) if limitation else NONE_STATED)
 
+    def stored(self, limitation: str | None) -> str | None:
+        """A claim's limitation as stored: spelled like its table cell (`text`), never with raw
+        `{ref|unit}` braces (S06-cp2-ade-C03, S10-cp6-cp8-cpl10-C04); None stays None."""
+        return None if limitation is None else self.text(limitation)
+
     def basis(self, row: SynthesisRow) -> Cell:
         """Python's basis cell: each cited CP-1A row with its label, in catalogue (register)
         order whatever order the model listed them in, then each CP-1 figure in reading order."""
@@ -845,6 +850,8 @@ def credit_synthesis(
     out.limitations.extend(item.limitation for item in upstream.signals if item.limits)
     for compose in (_assessment, _sides, _findings, _risks_and_gaps):
         compose(submission, out)
+    # Spelled before the references are carried; the T2.1 cell already referenced its figures.
+    assessment_limitation = out.stored(submission.assessment.limitation)
     referenced = [
         fact.model_copy(
             update={"table_id": CP1_REFERENCES, "row_id": f"ref{index:02d}", "field": "value"}
@@ -870,13 +877,14 @@ def credit_synthesis(
             )
         )
     # Claims are the model's run text as written; their references resolve against the carried
-    # CP-1 facts (`prose_issues` in `execution.candidate_issues`).
+    # CP-1 facts (`prose_issues` in `execution.candidate_issues`). A limitation is plain stored
+    # text, so it is spelled.
     claims = (
         Claim(
             claim_id="T2.1.assessment",
             text=submission.assessment.rationale,
             citations=(),
-            limitation=submission.assessment.limitation,
+            limitation=assessment_limitation,
         ),
         *(
             Claim(claim_id=f"T2.10.kf{index:02d}", text=finding.text, citations=())

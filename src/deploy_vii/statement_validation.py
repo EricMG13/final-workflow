@@ -2,6 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
+from typing import NamedTuple
 
 from deploy_vii.financial_contracts import (
     AccountObservation,
@@ -375,19 +376,56 @@ def statement_issues(book: FinancialBook) -> tuple[str, ...]:
     return tuple(issues)
 
 
-def effective_accounts(book: FinancialBook) -> tuple[AccountObservation, ...]:
-    """Fill only absent canonical accounts from exactly equivalent statement items.
+class _AccountIndex(NamedTuple):
+    effective: tuple[AccountObservation, ...]
+    by_metric: dict[str, tuple[AccountObservation, ...]]
+    outflow_magnitude: frozenset[tuple[str, str]]
 
-    Explicit accounts, including explicit gaps/conflicts, take precedence. The
-    original source Observation stays intact; the Model owns sign normalization.
-    """
+
+_last_index: tuple[FinancialBook, _AccountIndex] | None = None
+
+
+def _account_index(book: FinancialBook) -> _AccountIndex:
+    """The book's effective accounts, by metric, and its cited outflow-magnitude statement lines
+    as `(period_id, metric)`. A book is frozen, so the index of the last book asked about is kept:
+    the reconciliation asks per period and metric."""
+    global _last_index
+    if _last_index is not None and _last_index[0] is book:
+        return _last_index[1]
     result = list(book.accounts)
     present = {(r.period_id, r.metric_id) for r in result}
     for row in statement_accounts(book):
         if (row.period_id, row.metric_id) not in present:
             result.append(row)
             present.add((row.period_id, row.metric_id))
-    return tuple(result)
+    by_metric: dict[str, list[AccountObservation]] = {}
+    for account in result:
+        by_metric.setdefault(account.metric_id, []).append(account)
+    outflow = frozenset(
+        (row.period_id, metric)
+        for row in book.statement_lines
+        if row.sign_convention == "outflow_magnitude"
+        and (metric := ACCOUNT_LINKS.get((row.statement, row.item_id))) is not None
+    )
+    index = _AccountIndex(
+        tuple(result), {m: tuple(rows) for m, rows in by_metric.items()}, outflow
+    )
+    _last_index = (book, index)
+    return index
+
+
+def effective_accounts(book: FinancialBook) -> tuple[AccountObservation, ...]:
+    """Fill only absent canonical accounts from exactly equivalent statement items.
+
+    Explicit accounts, including explicit gaps/conflicts, take precedence. The
+    original source Observation stays intact; the Model owns sign normalization.
+    """
+    return _account_index(book).effective
+
+
+def metric_accounts(book: FinancialBook, metric: str) -> tuple[AccountObservation, ...]:
+    """The effective accounts of one metric, in `effective_accounts` order."""
+    return _account_index(book).by_metric.get(metric, ())
 
 
 def statement_accounts(book: FinancialBook) -> tuple[AccountObservation, ...]:
@@ -400,9 +438,6 @@ def statement_accounts(book: FinancialBook) -> tuple[AccountObservation, ...]:
 
 def account_outflow(book: FinancialBook, period_id: str, metric: str) -> bool:
     """Canonical outflow semantics or an explicitly cited source presentation."""
-    return metric in OUTFLOW_METRICS or any(
-        row.period_id == period_id
-        and ACCOUNT_LINKS.get((row.statement, row.item_id)) == metric
-        and row.sign_convention == "outflow_magnitude"
-        for row in book.statement_lines
+    return (
+        metric in OUTFLOW_METRICS or (period_id, metric) in _account_index(book).outflow_magnitude
     )

@@ -32,7 +32,7 @@ from deploy_vii.model._cells import CONTEXT, half_unit
 from deploy_vii.model.dates import fiscal_year_number
 from deploy_vii.model.history import FLOW_METRICS
 from deploy_vii.preparation import PreparedPack
-from deploy_vii.statement_validation import account_outflow, effective_accounts
+from deploy_vii.statement_validation import account_outflow, metric_accounts
 
 CheckType = Literal[
     "SEGMENT_REVENUE",
@@ -201,14 +201,7 @@ def _check(  # noqa: PLR0913 - existing signature, unchanged here
 def _account(
     book: FinancialBook, period_id: str, metric: str, *, sign: Literal[-1, 1] = 1
 ) -> ReconciliationTerm:
-    value = next(
-        (
-            r.value
-            for r in effective_accounts(book)
-            if r.period_id == period_id and r.metric_id == metric
-        ),
-        None,
-    )
+    value = next((r.value for r in metric_accounts(book, metric) if r.period_id == period_id), None)
     return _term(metric, value, coefficient=sign, outflow=account_outflow(book, period_id, metric))
 
 
@@ -216,9 +209,7 @@ def _balance(
     book: FinancialBook, day: date | None, metric: str, *, sign: Literal[-1, 1] = 1
 ) -> ReconciliationTerm:
     ids = {p.period_id for p in book.periods if day is not None and p.end_date == day}
-    rows = [
-        r.value for r in effective_accounts(book) if r.period_id in ids and r.metric_id == metric
-    ]
+    rows = [r.value for r in metric_accounts(book, metric) if r.period_id in ids]
     conflict = next((v for v in rows if v.status == "conflicting"), None)
     value = conflict or next((v for v in rows if v.amount is not None), next(iter(rows), None))
     return _term(metric, value, coefficient=sign)

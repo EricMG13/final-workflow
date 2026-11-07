@@ -16,8 +16,9 @@ SRC = Path(__file__).resolve().parents[1] / "src" / "deploy_vii"
 PHRASE = "executed, filed or, on a draft-documents run, draft"
 OLD_CP4_SHA = "99ec34c7a8257e15325456eb5466388eeb656fa01cf30db91e8474334bb39ff0"
 # S13 C01 restated the kpi evidence line (period_basis_id); S09 C06 passes the caller's
-# python_checks to integrity_projection (integrity_scope); the pin follows those edits.
-OLD_CONTEXT_SHA = "c917b64c99114e3d712337300c7f9104fab4cd77ea956b313af261b56c2fec91"
+# python_checks to integrity_projection (integrity_scope); S14-C06 passes an already-built
+# pack to the source scopes (`session_scope`); the pin follows those edits.
+OLD_CONTEXT_SHA = "40328fb41b5953f7d7bc4a91430c8fe8a1474e4eb8b2df71da1c31ed140a5ff6"
 
 
 def flat(text: str) -> str:

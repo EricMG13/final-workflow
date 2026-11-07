@@ -276,7 +276,33 @@ def xml_part(archive: ZipFile, path: str) -> ET.Element:
     return ET.fromstring(raw)
 
 
-def xlsx_content(raw: bytes) -> Extraction:
+def _cell_address(stated: str | None, row_number: int, previous: int) -> tuple[str, int]:
+    """A cell's address and 1-based column index: the stated `r`, or, when the cell has none (or
+    an empty one), the column after the row's previous cell (`previous`) in row `row_number`
+    (ECMA-376 18.3.1.4)."""
+    if not stated:
+        column, letters = previous + 1, ""
+        while column:
+            column, rest = divmod(column - 1, 26)
+            letters = chr(65 + rest) + letters
+        return f"{letters}{row_number}", previous + 1
+    index = 0
+    for char in stated:
+        if char.isalpha():
+            index = index * 26 + ord(char.upper()) - 64
+    return stated, index
+
+
+def _sheet_status(spans: list[Span]) -> Literal["retained", "empty"]:
+    """A sheet's coverage: retained when a cell holds non-blank text or a formula. Blank styled
+    cells and merged-range metadata are no content (S15-C06)."""
+    content = any(
+        span.data_type != "metadata" and (span.text.strip() or span.formula) for span in spans
+    )
+    return "retained" if content else "empty"
+
+
+def xlsx_content(raw: bytes) -> Extraction:  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 21, 21 branches, 72 statements at base)
     """Read OOXML lexemes, never calculate formulas, execute macros or follow links."""
     with ZipFile(io.BytesIO(raw)) as archive:
         infos = archive.infolist()
@@ -342,9 +368,13 @@ def xlsx_content(raw: bytes) -> Extraction:
             hidden_sheet = sheet.get("state", "visible") != "visible"
             columns = tree.findall("s:cols/s:col", NS)
             before = len(spans)
+            row_number = 0
             for row in tree.findall("s:sheetData/s:row", NS):
+                # `r` is optional on a row and on a cell: one without it follows the previous
+                row_number = int(row.get("r", row_number + 1))
+                column_index = 0
                 for cell in row.findall("s:c", NS):
-                    address = cell.attrib["r"]
+                    address, column_index = _cell_address(cell.get("r"), row_number, column_index)
                     kind = cell.get("t", "n")
                     value = cell.find("s:v", NS)
                     stored = value.text if value is not None else None
@@ -375,10 +405,6 @@ def xlsx_content(raw: bytes) -> Extraction:
                         )
                         cache_label = stored if stored is not None else "[absent]"
                         text = f"Formula: {formula_label}\nStored cache: {cache_label}"
-                    column_index = 0
-                    for char in address:
-                        if char.isalpha():
-                            column_index = column_index * 26 + ord(char.upper()) - 64
                     hidden_column = any(
                         item.get("hidden") in {"1", "true"}
                         and int(item.attrib["min"]) <= column_index <= int(item.attrib["max"])
@@ -410,9 +436,7 @@ def xlsx_content(raw: bytes) -> Extraction:
                         hidden=hidden_sheet,
                     )
                 )
-            coverage.append(
-                Coverage(locator=prefix, status="retained" if len(spans) > before else "empty")
-            )
+            coverage.append(Coverage(locator=prefix, status=_sheet_status(spans[before:])))
         # Keep cell comments with their native XML identity; no linked source is fetched.
         for name in sorted(archive.namelist()):
             if ("/comments/" in name and name.endswith(".xml")) or (

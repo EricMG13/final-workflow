@@ -906,3 +906,27 @@ def test_cfs_opening_cash_without_a_balance_at_its_date_stays_missing() -> None:
     opening = values[("Q2 24", "opening_cash")]
     assert opening.amount is None  # never 480 - 480 = 0
     assert opening.calculation_status != "Calculated"
+
+
+@pytest.mark.parametrize(
+    ("raw", "shown", "value_class"),
+    [
+        # S15-C03: an outflow is shown negative, but a source zero keeps its lexeme (never "-0"),
+        # so it stays an unchanged source value. Expected by hand.
+        ("0", "0", "source"),
+        ("0.00", "0.00", "source"),
+        ("-0", "-0", "source"),  # the source's own lexeme
+        ("-0.00", "-0.00", "source"),
+        ("12.5", "-12.5", "normalized"),
+        ("-12.5", "-12.5", "source"),
+    ],
+)
+def test_an_outflow_zero_keeps_its_source_lexeme(raw: str, shown: str, value_class: str) -> None:
+    from deploy_vii.model_interface import _observed
+
+    cite = Citation(source_id="s", source_sha256="a" * 64, locator="page:1", quote="Dividends 0")
+    amount = Decimal(raw)
+    observed = Observation(observation_id="o", status="known", amount=amount, citations=(cite,))
+    book = SimpleNamespace(unit="MILLIONS", currency="USD")
+    cell = _observed(observed, book, outflow=True)  # type: ignore[arg-type]
+    assert (str(cell.value), cell.value_class, str(cell.source_amount)) == (shown, value_class, raw)

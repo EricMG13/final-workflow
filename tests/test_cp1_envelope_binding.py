@@ -186,3 +186,26 @@ def test_a_genuine_export_is_refused_when_the_journal_holds_another_handoff(
     with pytest.raises(EnvelopeRefused) as refused:
         read_cp1_envelope(store, _export(GENUINE, tmp_path / "x"))
     assert refused.value.issues == (PREFIX + "gap limitations",)
+
+
+def test_envelope_issues_are_bounded_like_every_other_issue_list() -> None:
+    # S14-C03: a tampered 2,000,000-character Identity cell is quoted in its issue line; the line
+    # is cut to execution.MAX_ISSUE_CHARS: 599 characters and "…" (600).
+    from deploy_vii.envelope import envelope_issues
+
+    run = Run(
+        run_id="r1", issuer_id="i1", issuer_name="Acme", as_of=date(2026, 1, 1), case_kind="public"
+    )
+    module = Module(
+        run_id="r1",
+        issuer_id="i1",
+        as_of=date(2026, 1, 1),
+        module_id="CP-1",
+        inputs=(Input(input_id="pack", sha256="a" * 64),),
+    )
+    markdown, sidecar = write_envelope(Envelope(run=run, module=module, registers_sha256="b" * 64))
+    assert envelope_issues(markdown, sidecar) == ()
+    big = markdown.replace("| issuer_name | Acme |", f"| issuer_name | {'X' * 2_000_000} |", 1)
+    (issue,) = envelope_issues(big, sidecar)
+    assert len(issue) == 600 and issue.endswith("X…")
+    assert issue.startswith("Module Handoff / Identity: row 4 'Value' reads 'XXX")

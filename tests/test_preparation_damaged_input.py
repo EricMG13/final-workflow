@@ -184,3 +184,66 @@ def test_one_damaged_file_still_lets_the_pack_be_written(tmp_path: Path) -> None
         ("deck", "unreadable"),
     ]
     assert (tmp_path / "out").exists()
+
+
+def _two_sheet_xlsx(data: str, notes: str) -> bytes:
+    """A workbook of sheets Data and Notes whose sheetData (and any mergeCells) are given."""
+    rels = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    sheet = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr(
+            "xl/workbook.xml",
+            f'<workbook {NS} xmlns:r="{rels}"><sheets><sheet name="Data" sheetId="1" r:id="d"/>'
+            '<sheet name="Notes" sheetId="2" r:id="n"/></sheets></workbook>',
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            f'<Relationship Id="d" Type="{sheet}" Target="worksheets/d.xml"/>'
+            f'<Relationship Id="n" Type="{sheet}" Target="worksheets/n.xml"/></Relationships>',
+        )
+        archive.writestr("xl/worksheets/d.xml", f"<worksheet {NS}>{data}</worksheet>")
+        archive.writestr("xl/worksheets/n.xml", f"<worksheet {NS}>{notes}</worksheet>")
+    return buffer.getvalue()
+
+
+def test_cells_and_rows_without_r_take_the_next_address() -> None:
+    # S15-C04: `r` is optional (ECMA-376 18.3.1.4). Expected by hand: after B3 comes C3; the row
+    # after row 3 is row 4, its first cell A4; after Z5 comes AA5.
+    data = (
+        '<sheetData><row r="3"><c r="B3"><v>1</v></c><c><v>2</v></c></row>'
+        '<row><c><v>3</v></c></row><row r="5"><c r="Z5"><v>4</v></c><c><v>5</v></c></row>'
+        "</sheetData>"
+    )
+    notes = '<sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>n</t></is></c></row></sheetData>'
+    source = prepare_source(
+        SourceRequest(source_id="wb", path="wb.xlsx", media_type=XLSX), _two_sheet_xlsx(data, notes)
+    )
+    assert source.status == "ready", source.limitation
+    cells = [(s.locator, s.text) for s in source.spans if s.locator.startswith("sheet:Data!")]
+    assert cells == [
+        ("sheet:Data!B3", "1"),
+        ("sheet:Data!C3", "2"),
+        ("sheet:Data!A4", "3"),
+        ("sheet:Data!Z5", "4"),
+        ("sheet:Data!AA5", "5"),
+    ]
+
+
+def test_a_sheet_of_blank_styled_cells_and_merges_is_empty() -> None:
+    # S15-C06: blank styled cells and a merged range are no content, so Notes is "empty" and the
+    # limitation says so; a formula with no cache is content.
+    data = '<sheetData><row r="1"><c r="A1"><f>B1*2</f></c></row></sheetData>'
+    notes = (
+        '<sheetData><row r="1"><c r="A1" s="0"/><c r="B1" s="0" t="inlineStr"><is><t> </t></is>'
+        '</c></row></sheetData><mergeCells count="1"><mergeCell ref="A1:B1"/></mergeCells>'
+    )
+    source = prepare_source(
+        SourceRequest(source_id="wb", path="wb.xlsx", media_type=XLSX), _two_sheet_xlsx(data, notes)
+    )
+    assert [(c.locator, c.status) for c in source.coverage] == [
+        ("sheet:Data", "retained"),
+        ("sheet:Notes", "empty"),
+    ]
+    assert source.limitation is not None and "sheet:Notes: empty" in source.limitation

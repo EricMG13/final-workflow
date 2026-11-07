@@ -520,6 +520,36 @@ def test_session_error_is_reported(rig: Rig) -> None:
     assert rig.session.disconnected == 1 and rig.client.stopped == 1
 
 
+def test_session_error_text_and_archived_body_hold_no_home_directory(rig: Rig) -> None:
+    # S03-A04/C03: the runtime's own error names local files. Expected by hand: each home
+    # directory ("/home/jane.doe", r"C:\Users\Jane Doe") becomes "<home>"; the error type, the
+    # rest of the message and the status are kept.
+    message = r"ENOENT: open '/home/jane.doe/.copilot/c.json' and C:\Users\Jane Doe\AppData\x.js"
+    data = {"errorType": "fs", "message": message, "statusCode": 500}
+    reply = call(rig.make([Emit(wire("session.error", data))]), request())
+    scrubbed = r"ENOENT: open '<home>/.copilot/c.json' and <home>\AppData\x.js"
+    assert (reply.kind, reply.error_class, reply.http_status) == (
+        "sent_unknown",
+        "SessionError",
+        500,
+    )
+    assert reply.message == f"fs: {scrubbed}"
+    assert reply.raw is not None and b"jane.doe" not in reply.raw and b"Jane Doe" not in reply.raw
+    (event,) = json.loads(reply.raw)
+    assert event["data"]["message"] == scrubbed
+    assert event["data"]["statusCode"] == 500
+    rig.released()
+
+
+def test_a_private_path_is_replaced_only_as_whole_segments() -> None:
+    # S03-C03: "/home/jan" is not a prefix to cut out of "/home/janet" or "/home/jan.doe"; a
+    # path ending in a separator, or followed by a sentence's ".", still is replaced.
+    paths = ["/home/jan", "/opt/run/"]
+    text = "/home/janet/x /home/jan.doe/y /home/jan/z /home/jan. /opt/run/bin"
+    expected = "/home/janet/x /home/jan.doe/y <path>/z <path>. <path>bin"
+    assert copilot_adapter._paths_in(text, paths) == expected
+
+
 def test_model_mismatch_is_sent_usage(rig: Rig) -> None:
     script: list[Step] = [said("x"), usage(model="other-model"), Idle()]
     reply = call(rig.make(script), request())

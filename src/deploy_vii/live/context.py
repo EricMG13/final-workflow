@@ -52,6 +52,7 @@ from deploy_vii.cp1_workflow import FinancialStage
 from deploy_vii.downstream_readiness import DownstreamInputs
 from deploy_vii.execution import Attempt, Execution
 from deploy_vii.narrative import EvidenceRecord
+from deploy_vii.preparation import PreparedPack
 from deploy_vii.registry import FULL as FULL
 from deploy_vii.registry import NARRATIVE_EVIDENCE as NARRATIVE_EVIDENCE
 from deploy_vii.registry import OMITTED as OMITTED
@@ -116,40 +117,68 @@ def module_context(store: Execution, attempt: Attempt, step_id: str) -> dict[str
     return None if build is None else build(store, attempt)
 
 
-def _cp3_market_sources(store: Execution, attempt: Attempt) -> tuple[str, ...]:
+def _cp3_market_sources(
+    store: Execution, attempt: Attempt, pack: PreparedPack | None
+) -> tuple[str, ...]:
     market = cp3_relative_value.cp3_upstream(store, attempt).market_sources
-    return tuple(
-        s.source_id for s in store.pack().sources if s.source_id in market and s.status == "ready"
-    )
+    sources = (store.pack() if pack is None else pack).sources
+    return tuple(s.source_id for s in sources if s.source_id in market and s.status == "ready")
 
 
 # The steps whose SOURCE blocks are the bound upstream's choice, not every pack source: CP-4's
 # legal sources (task 8.2 ruling 1) and CP-3's market sources (task 8.3 ruling 1), pack order.
-SOURCE_SCOPES: Mapping[str, Callable[[Execution, Attempt], tuple[str, ...]]] = {
-    cp4_legal.STEP_ID: lambda store, attempt: cp4_legal.upstream_of(store, attempt).legal_sources,
+# Each takes the store's pack when the caller has already built it (None: read it).
+_Scope = Callable[[Execution, Attempt, PreparedPack | None], tuple[str, ...]]
+SOURCE_SCOPES: Mapping[str, _Scope] = {
+    cp4_legal.STEP_ID: lambda store, attempt, _: (
+        cp4_legal.upstream_of(store, attempt).legal_sources
+    ),
     cp3_relative_value.STEP_ID: _cp3_market_sources,
 }
 
 
 def declared_sources(
-    store: Execution, attempt: Attempt, step_id: str, source_ids: Sequence[str]
+    store: Execution,
+    attempt: Attempt,
+    step_id: str,
+    source_ids: Sequence[str],
+    pack: PreparedPack | None = None,
 ) -> tuple[str, ...]:
     """The pack sources `step_id` is sent on `attempt`: its source scope's, in pack order and
-    within `source_ids`, else `step_sources`."""
+    within `source_ids`, else `step_sources`. `pack` is the store's pack when already built."""
     scope = SOURCE_SCOPES.get(step_id)
     if scope is None:
         return step_sources(step_id, source_ids)
-    return tuple(source_id for source_id in scope(store, attempt) if source_id in source_ids)
+    return tuple(source_id for source_id in scope(store, attempt, pack) if source_id in source_ids)
 
 
-def readable_sources(store: Execution, attempt: Attempt, step_id: str) -> tuple[str, ...]:
+def readable_sources(
+    store: Execution, attempt: Attempt, step_id: str, pack: PreparedPack | None = None
+) -> tuple[str, ...]:
     """The pack sources a pack-tool step's tools read on `attempt` (task 8.9): its source
     scope's (`SOURCE_SCOPES`: CP-4's legal, CP-3's market sources), else every pack source
-    (the whole pack, as the 8.0d CP-1 loops read it)."""
-    every = tuple(source.source_id for source in store.pack().sources)
+    (the whole pack, as the 8.0d CP-1 loops read it). `pack` is the store's pack when already
+    built; it is read once either way."""
+    pack = store.pack() if pack is None else pack
+    every = tuple(source.source_id for source in pack.sources)
     if step_id not in SOURCE_SCOPES:
         return every
-    return declared_sources(store, attempt, step_id, every)
+    return declared_sources(store, attempt, step_id, every, pack)
+
+
+def session_scope(
+    store: Execution, attempt: Attempt, step_id: str, pack: PreparedPack
+) -> tuple[str, ...]:
+    """The pack sources a source session of `step_id` reads on `attempt`, in `pack` order: the
+    declared sources (`declared_sources` over every source of `pack`) that are also readable
+    (`readable_sources`), with the source scope walked once over the already-built `pack`. Every
+    source of `pack` is readable for a step with no source scope; for one with a scope the two
+    lists are the same scope."""
+    ids = tuple(source.source_id for source in pack.sources)
+    if step_id not in SOURCE_SCOPES:
+        return step_sources(step_id, ids)
+    chosen = set(declared_sources(store, attempt, step_id, ids, pack))
+    return tuple(source_id for source_id in ids if source_id in chosen)
 
 
 def integrity_projection(

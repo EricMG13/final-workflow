@@ -140,8 +140,25 @@ def _echoes(item: ErrorDetails, failed: dict[tuple[int | str, ...], set[int | st
     return isinstance(actual, int) and isinstance(minimum, int) and actual + len(items) >= minimum
 
 
+# Per source id, a {locator: first position} map built on the source's first lookup: one call (or
+# one `validate_review`) builds at most one map per cited source, however many citations name it.
+Positions = dict[str, dict[str, int]]
+
+
+def _position(positions: Positions, source: Source, locator: str) -> int | None:
+    """The first index of `locator` in `source.spans`, read from the source's map."""
+    found = positions.get(source.source_id)
+    if found is None:
+        found = positions[source.source_id] = {}
+        for i, item in enumerate(source.spans):
+            found.setdefault(item.locator, i)
+    return found.get(locator)
+
+
 def citation_issues(
-    citations: tuple[Citation, ...], sources: tuple[Source, ...]
+    citations: tuple[Citation, ...],
+    sources: tuple[Source, ...],
+    positions: Positions | None = None,
 ) -> tuple[str, ...]:
     """One issue per citation whose source, locator or quote does not hold in the pack.
 
@@ -149,17 +166,17 @@ def citation_issues(
     still a contiguous substring of that one span). The issue names the quote's prefix and,
     where `quotes.explain` finds one (task 7.0), why it failed; it never accepts a quote. A quote
     that `prose.is_blank` is refused at its span, as a blank quote, before the match: invisible
-    characters would otherwise match a span that holds the same ones."""
+    characters would otherwise match a span that holds the same ones. `positions` lets several
+    calls over the same `sources` share their locator maps (`_position`)."""
     index = {source.source_id: source for source in sources}
+    positions = {} if positions is None else positions
     issues: list[str] = []
     for citation in citations:
         source = index.get(citation.source_id)
         if source is None or source.status != "ready" or source.sha256 != citation.source_sha256:
             issues.append(f"Unavailable or changed source: {citation.source_id}")
             continue
-        position = next(
-            (i for i, item in enumerate(source.spans) if item.locator == citation.locator), None
-        )
+        position = _position(positions, source, citation.locator)
         if position is None:
             issues.append(
                 f"Quote/locator mismatch: no locator {citation.locator} in "
@@ -238,9 +255,14 @@ def extraction_coverage(source: Source) -> dict[str, object]:
     return record
 
 
-# A claim that pages are absent: a page range and an absence word in the same clause.
-_PAGE_RANGE = re.compile(
-    r"\bpages?\s*:?\s*([0-9]+)\s*(?:-|\u2013|\u2014|to|through)\s*(?:\[?pages?\s*:?\s*)?([0-9]+)",
+# A claim that pages are absent: pages named after "page", "pages", "p." or "pp." and an absence
+# word in the same clause. The pages are one page (`page:7`), a range (`pages 33-52`, `pp. 3-5`)
+# or a list of them (`pages 3 and 4`, `pages 3, 5-7 and 9`); each item is a (first, last) range.
+_TO = r"\s*(?:-|\u2013|\u2014|to|through)\s*(?:\[?pages?\s*:?\s*)?"
+_PAGE_ITEM = re.compile(rf"([0-9]+)(?:{_TO}([0-9]+))?", re.IGNORECASE)
+_ITEM = rf"[0-9]+(?:{_TO}[0-9]+)?"
+_PAGE_LIST = re.compile(
+    rf"(?:\bpages?|\bpp?\.)\s*:?\s*{_ITEM}(?:\s*(?:,|&|\band\b)\s*(?:pages?\s*:?\s*)?{_ITEM})*",
     re.IGNORECASE,
 )
 _ABSENT = re.compile(
@@ -268,23 +290,32 @@ _NEGATED = re.compile(
 # "missing from pages 40-60": the range says where content was looked for, on pages the claim
 # itself treats as present; that is a judgment about content, not an absence claim.
 _LOCATIVE = re.compile(r"\b(?:from|in|on|within)\s+(?:\S+\s+){0,2}$", re.IGNORECASE)
+# It is looked for in the 200 characters before the pages only, so a long claim naming many
+# pages is read in linear time (the two words a locative allows are never that long).
+_LOCATIVE_REACH = 200
 
 
 def absent_page_ranges(text: str) -> tuple[tuple[int, int], ...]:
     """Page ranges `text` says are absent (`pages 33-52 not present`, `pages 12 to 180 ... are
-    absent`; en and em dashes too). A range with no absence word in its clause is not one, nor
-    is a range introduced by a locative preposition (`missing from pages 40-60`). A negated
-    absence (`no pages missing`, `none missing`, `not missing`) or the coverage field restated
-    as empty is not an absence word."""
+    absent`; en and em dashes too), a single page as (N, N) (`page:7 is missing`) and each item of
+    a list (`pages 3 and 4`, `pp. 3-5, 9`). Pages with no absence word in their clause are not
+    one, nor are pages introduced by a locative preposition (`missing from pages 40-60`). A
+    negated absence (`no pages missing`, `none missing`, `not missing`) or the coverage field
+    restated as empty is not an absence word."""
     found: list[tuple[int, int]] = []
     for clause in _CLAUSE.split(text):
         clause = _NEGATED.sub(" ", clause)
         if _ABSENT.search(clause):
-            found += [
-                (int(m.group(1)), int(m.group(2)))
-                for m in _PAGE_RANGE.finditer(clause)
-                if int(m.group(1)) <= int(m.group(2)) and not _LOCATIVE.search(clause[: m.start()])
-            ]
+            for named in _PAGE_LIST.finditer(clause):
+                start = named.start()
+                if _LOCATIVE.search(clause, max(0, start - _LOCATIVE_REACH), start):
+                    continue
+                for item in _PAGE_ITEM.finditer(named.group(0)):
+                    digits = (item.group(1), item.group(2) or item.group(1))
+                    if max(map(len, digits)) > 9:
+                        continue  # no pack holds such a page (and int() refuses 4,300 digits)
+                    first, last = map(int, digits)
+                    found += [(first, last)] if first <= last else []
     return tuple(found)
 
 
@@ -407,7 +438,9 @@ def context_authority_issues(pack: PreparedPack, review: ReadinessReview) -> lis
     return issues
 
 
-def validate_review(pack: PreparedPack, review: ReadinessReview) -> tuple[str, ...]:
+def validate_review(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 31, 30 branches, 69 statements at base; now 30, 29, 70: one shared locator map)
+    pack: PreparedPack, review: ReadinessReview
+) -> tuple[str, ...]:
     try:
         pack = PreparedPack.model_validate_json(pack.model_dump_json())
         review = ReadinessReview.model_validate_json(review.model_dump_json())
@@ -418,6 +451,7 @@ def validate_review(pack: PreparedPack, review: ReadinessReview) -> tuple[str, .
     if review.pack_sha256 != pack.content_hash():
         issues.append("Review does not bind the current prepared pack")
     sources_by_id = {source.source_id: source for source in pack.sources}
+    positions: Positions = {}  # the locator maps of this pack, shared by every citation check
     if len(review.sources) != len(sources_by_id) or {
         item.source_id for item in review.sources
     } != set(sources_by_id):
@@ -453,7 +487,7 @@ def validate_review(pack: PreparedPack, review: ReadinessReview) -> tuple[str, .
             )
         if any(citation.source_id != source.source_id for citation in source_review.citations):
             issues.append(f"Classification cites a different source: {source.source_id}")
-        issues.extend(citation_issues(source_review.citations, pack.sources))
+        issues.extend(citation_issues(source_review.citations, pack.sources, positions))
     issues.extend(context_authority_issues(pack, review))
 
     assessments_by_id = {item.source_id: item for item in review.sources}
@@ -499,23 +533,22 @@ def validate_review(pack: PreparedPack, review: ReadinessReview) -> tuple[str, .
             issues.append(f"Consumer citation not in its attachment set: {consumer.module_id}")
         if not review.issuer_confirmed and runnable:
             issues.append(f"Issuer unconfirmed: {consumer.module_id}")
-        issues.extend(citation_issues(consumer.citations, pack.sources))
+        issues.extend(citation_issues(consumer.citations, pack.sources, positions))
 
     for gap in review.gaps:
-        issues.extend(citation_issues(gap.citations, pack.sources))
+        issues.extend(citation_issues(gap.citations, pack.sources, positions))
         if not set(gap.affected_modules) <= selected | {"CP-0"}:
             issues.append(f"Gap names unselected consumers: {gap.gap_id}")
         omitted = sorted(
             (m for m in dict.fromkeys(gap.affected_modules) if m in ready_rank),
             key=ready_rank.__getitem__,
         )
-        for module_id in omitted:
-            issues.append(f"Consumer omits relevant gap: {module_id} {gap.gap_id}")
+        issues.extend(f"Consumer omits relevant gap: {m} {gap.gap_id}" for m in omitted)
 
     for claim in review.analysis:
         if not claim.citations and not claim.limitation:
             issues.append(f"Unsupported readiness claim: {claim.claim_id}")
-        issues.extend(citation_issues(claim.citations, pack.sources))
+        issues.extend(citation_issues(claim.citations, pack.sources, positions))
 
     issues.extend(coverage_issues(pack, review))
     return tuple(dict.fromkeys(issues))

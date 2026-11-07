@@ -16,11 +16,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import test_claim_limitation_spelled as limits
 import test_connect_cp2a as tc2a
 import test_connect_cp2d as tc2d
 import test_connect_cp2g as tc2g
 import test_connect_cp2h as tc2h
 
+from deploy_vii import cp2_synthesis
 from deploy_workflow.owners import cp2a, cp2d, cp2g, cp2h
 
 
@@ -152,3 +154,54 @@ def test_cp2d_public_guards_still_refuse(tmp_path: Path) -> None:
     assert cp2d.HORIZON_ISSUE in issues
     with pytest.raises(ValueError, match=cp2d.HORIZON_ISSUE):
         cp2d.liquidity_bridge(pack=store.pack(), submission=submission, upstream=upstream)
+
+
+class _Store:
+    """The one store method a VII `_validate_step` reads before its upstream adapter."""
+
+    def __init__(self, payload: str) -> None:
+        self.text = payload
+
+    def payload(self, _sha256: str) -> str:
+        return self.text
+
+
+class _Step:
+    payload_sha256 = "0" * 64
+
+
+class _Attempt:
+    steps = (_Step(),)
+
+
+def _vii_step(
+    monkeypatch: pytest.MonkeyPatch, module: Any, adapter: str, case: tuple[Any, Any, Any]
+) -> Any:
+    """`module._validate_step` over a (pack, submission, upstream) case, the upstream adapter
+    returning the case's upstream."""
+    pack, submission, upstream = case
+    monkeypatch.setattr(module, adapter, lambda *_a, **_k: upstream)
+    return module._validate_step(_Store(submission.model_dump_json()), pack, _Attempt())
+
+
+def test_cp2_step_validates_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    pack, submission, upstream = limits._cp2_case("Leverage of {T4.10.lev|x} is LTM only.")
+    calls = _count(monkeypatch, cp2_synthesis, "_provenance_issues", "_assessment")
+    outcome = _vii_step(monkeypatch, cp2_synthesis, "cp2_upstream", (pack, submission, upstream))
+    assert outcome.issues == () and outcome.output is not None
+    # one validation pass and one composition (was two validation passes)
+    assert calls == Counter({"_provenance_issues": 1, "_assessment": 1})
+    # the step's output is the guarded composer's
+    report = cp2_synthesis.credit_synthesis(pack, submission, upstream)
+    assert outcome.output == report.model_dump_json()
+
+
+def test_cp2_public_guard_still_refuses() -> None:
+    pack, submission, upstream = limits._cp2_case("Leverage of {T4.10.lev|x} is LTM only.")
+    bad = submission.model_copy(
+        update={"key_findings": (cp2_synthesis.Finding(text="Leverage is 4.2x.", cp1a_refs=()),)}
+    )
+    issues = cp2_synthesis.validate_credit_synthesis(pack, bad, upstream)
+    assert issues
+    with pytest.raises(ValueError, match="key_findings"):
+        cp2_synthesis.credit_synthesis(pack, bad, upstream)

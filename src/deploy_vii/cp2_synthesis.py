@@ -840,6 +840,14 @@ def credit_synthesis(
     issues = validate_credit_synthesis(pack, submission, upstream)
     if issues:
         raise ValueError("; ".join(issues))
+    return _composed(pack, submission, upstream)
+
+
+def _composed(
+    pack: PreparedPack, submission: CreditSynthesisSubmission, upstream: Upstream
+) -> CreditSynthesisReport:
+    """`credit_synthesis` of a submission `validate_credit_synthesis` already accepted (one
+    validation per step, S06-cp2-ade-C06)."""
     pack = PreparedPack.model_validate_json(pack.model_dump_json())
     submission = CreditSynthesisSubmission.model_validate_json(submission.model_dump_json())
     out = _Composer(prose.bind(referencable(upstream.cp1.facts)), upstream.catalogue)
@@ -936,7 +944,7 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     issues = validate_credit_synthesis(pack, submission, upstream)
     if issues:
         return StepValidation(issues=issues)
-    return StepValidation(output=credit_synthesis(pack, submission, upstream).model_dump_json())
+    return StepValidation(output=_composed(pack, submission, upstream).model_dump_json())
 
 
 def submit_cp2_step(store: Execution, ticket_id: str, step_id: str, payload: str) -> Attempt:

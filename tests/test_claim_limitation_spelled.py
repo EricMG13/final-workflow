@@ -22,7 +22,9 @@ from deploy_vii.preparation import PreparedPack
 from deploy_workflow.owners import cp3
 
 
-def _cp2_report(limitation: str | None) -> cs.CreditSynthesisReport:
+def _cp2_case(
+    limitation: str | None,
+) -> tuple[PreparedPack, cs.CreditSynthesisSubmission, cs.Upstream]:
     fact = Fact(
         fact_id="T4.10.lev",
         label="Total leverage",
@@ -58,8 +60,13 @@ def _cp2_report(limitation: str | None) -> cs.CreditSynthesisReport:
         risks=(),
         gaps=(),
     )
-    assert cs.validate_credit_synthesis(tb._pack(), submission, upstream) == ()
-    return cs.credit_synthesis(tb._pack(), submission, upstream)
+    return tb._pack(), submission, upstream
+
+
+def _cp2_report(limitation: str | None) -> cs.CreditSynthesisReport:
+    pack, submission, upstream = _cp2_case(limitation)
+    assert cs.validate_credit_synthesis(pack, submission, upstream) == ()
+    return cs.credit_synthesis(pack, submission, upstream)
 
 
 def test_cp2_claim_limitation_is_spelled_like_its_cell() -> None:

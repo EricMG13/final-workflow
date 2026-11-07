@@ -84,6 +84,8 @@ def test_refuses_an_out_that_is_a_file_or_a_used_folder(tmp_path: Path, make) ->
     make(tmp_path / "out")
     done = refuse(tmp_path, "--cap", "5", keep=True)
     assert done.returncode == 2 and "--out" in done.stderr and (tmp_path / "out").exists()
+    out = tmp_path / "out"
+    assert (out if out.is_file() else out / "x").read_text() == "1"
 
 
 def test_stop_group_kills_the_whole_group() -> None:
@@ -104,7 +106,7 @@ def test_spend_of_sums_the_ledger_and_counts_unknown_cost_and_torn_rows(tmp_path
     assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.30"), 0)
     rows = [{"settled_usd": "0.05"}, {"settled_usd": None, "cost_status": "unknown"}]
     (live / "calls.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows) + '{"settled_u')
-    assert live_check.spend_of(tmp_path)[1:] == (Decimal("0.05"), 2)
+    assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.05"), 2)
 
 
 def test_check_run_and_spend_of_read_the_same_intake_status(tmp_path: Path) -> None:

@@ -174,7 +174,10 @@ SIGN_RULE = (
     f"`signed` amount on a line of an outflow account ({_outflow_items()}) is refused, never "
     "flipped: where the source prints that outflow as a positive magnitude, use "
     "`outflow_magnitude` with `sign_citations`; where it prints a net inflow on that line (a "
-    "refund), record the value as status `missing` with a null `amount` and a `reason` saying so."
+    "refund), record that period's value as status `missing` with a null `amount` and a `reason` "
+    "saying the source prints a net inflow, never a negative or zero figure (for an "
+    "`extract_statements` row, leave the row out of its unit's `rows` in `unit_maps` and write "
+    "its lines yourself, citing the row)."
 )
 DECLARED_PERIOD_RULE = "Every `period_id` an entry uses must be declared in its book's `periods`."
 # Task 7.11 (E1 batch e1-cp1-13): `context_binding.validate_financial_context` binds a book only to

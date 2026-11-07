@@ -67,12 +67,14 @@ from deploy_vii.live.submission import (
     submit_model_payload,
 )
 from deploy_vii.live.tools import ToolRules, cited_locators
+from deploy_vii.model.history import OUTFLOW_METRICS
 from deploy_vii.narrative import NarrativeReview
 from deploy_vii.preparation import OCR_MARK, PreparedPack
 from deploy_vii.quality import QualityReview, assess_quality
 from deploy_vii.readiness import ReadinessReview
 from deploy_vii.source_context import SourceContextReview
 from deploy_vii.statement_extract import FOOTNOTE_MARKER, extract_statement_lines
+from deploy_vii.statement_validation import ACCOUNT_LINKS
 from deploy_workflow import pdf_headers
 from deploy_workflow import statement_compose as sc
 from deploy_workflow.host import SourceSession
@@ -708,6 +710,21 @@ def _amount_matches(amount: Any, value: Any) -> bool:
     return amount in (None, 0) if value is None else bool(amount == value)
 
 
+def _amount_holds(line: StatementLine, value: Any) -> bool:
+    """`_amount_matches`, or a withheld refund (S12-A02, user ruling B): a positive printed cell (a
+    net inflow) on a line of an outflow account recorded as `missing` with a null amount and a
+    reason, never as a flipped figure. Any other missing line still fails the amount check."""
+    observation = line.value
+    return _amount_matches(observation.amount, value) or (
+        value is not None
+        and value > 0
+        and observation.amount is None
+        and observation.status == "missing"
+        and bool(observation.reason)
+        and ACCOUNT_LINKS.get((line.statement, line.item_id)) in OUTFLOW_METRICS
+    )
+
+
 def _ids_text(ids: frozenset[str]) -> str:
     return f"one of {', '.join(sorted(ids))}" if len(ids) > 1 else next(iter(ids))
 
@@ -732,7 +749,7 @@ def _cites_row(line: StatementLine, table: Any, extracted: Any, *, quoting: bool
     )
 
 
-def _column_failure(
+def _column_failure(  # noqa: PLR0911, PLR0913 - pre-existing (9 returns, 7 arguments at base, unchanged)
     book: Any,
     table: Any,
     extracted: Any,
@@ -768,7 +785,10 @@ def _column_failure(
     typed = [line for line in pool if line.quantity is not None or line.label_parts is not None]
     typed_unit = any(
         (line.quantity is not None or line.label_parts is not None)
-        and any(c.source_id == table.source_id and c.locator == extracted.locator for c in line.value.citations)
+        and any(
+            c.source_id == table.source_id and c.locator == extracted.locator
+            for c in line.value.citations
+        )
         for line in book.statement_lines
     )
     family = sc.source_quantity_family(table, extracted)
@@ -787,7 +807,7 @@ def _column_failure(
     labelled = [line for line in pool if line in typed or " ".join(line.label.split()) == label]
     if not labelled:
         return 2, f'label: {where} cites this row with label "{_short(pool[0].label)}"'
-    pool = [line for line in labelled if _amount_matches(line.value.amount, value)]
+    pool = [line for line in labelled if _amount_holds(line, value)]
     if not pool:
         return 3, f"amount: {where} expects {value}"
     if not typed and not any(_cites_row(line, table, extracted, quoting=True) for line in pool):

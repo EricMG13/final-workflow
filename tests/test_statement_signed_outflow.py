@@ -35,8 +35,11 @@ from deploy_vii.model import history
 from deploy_vii.model._cells import Cell
 from deploy_vii.model.history import OUTFLOW_METRICS
 from deploy_vii.preparation import PreparedPack
+from deploy_vii.statement_extract import ExtractedTable
 from deploy_vii.statement_output import StatementCell, statement_report
 from deploy_vii.statement_validation import ACCOUNT_LINKS, statement_issues
+from deploy_workflow import financial_workflow as fw
+from deploy_workflow.statement_lines import line_table
 
 # Every statement item linked to an outflow account, by hand: (statement, item, account).
 OUTFLOW_ITEMS = (
@@ -363,3 +366,169 @@ def test_zero_and_a_negative_signed_amount_read_unchanged_downstream(
     assert cell.normalization == "identity"
     assert check.calculated_value == Decimal(-17)
     assert (q2_cell.value, ltm_cell.value) == (Decimal(-15), Decimal(-17))
+
+
+# --- the live coverage gate: a withheld refund row written by hand -------------------------------
+# The CFS unit prints "Income taxes refunded (paid), net  (1)  15  (1)  0  13": Q1 and Q3 paid 1
+# (signed -1), Q2 a net refund of 15 and FY a net refund of 13 (-1 + 15 - 1 + 0 = 13), Q4 nil 0.
+# The two refunds are withheld as `missing` with a reason; the gate expects the printed amount
+# otherwise, so a missing line on the -1 or the 0 column, or without a reason, stays uncovered.
+
+ROW = "Income taxes refunded (paid), net"
+UNIT = (
+    "CONSOLIDATED CASH FLOW STATEMENT",
+    "Period  Q1 2025  Q2 2025  Q3 2025  Q4 2025  FY 2025",
+    f"{ROW}  (1)  15  (1)  0  13",
+)
+PRINTED = {"q1-2025": -1, "q2-2025": 15, "q3-2025": -1, "q4-2025": 0, "fy-2025": 13}
+
+
+def unit_table() -> ExtractedTable:
+    spans = {n: Span(locator=f"line:{n}", text=text) for n, text in enumerate(UNIT, 1)}
+    return line_table(spans, "line:1-3", "filing")
+
+
+def row_line(
+    period_id: str, observation: Observation, item: str = "cash_taxes_paid"
+) -> StatementLine:
+    return StatementLine(
+        line_id="cfs-income-taxes-refunded-paid-net",
+        statement="CFS",
+        item_id=item,
+        label=ROW,
+        period_id=period_id,
+        display_priority=1,
+        line_kind="detail",
+        value=observation,
+        quantity=None,
+    )
+
+
+def row_value(period_id: str, withheld: frozenset[str]) -> Observation:
+    citation = (cite(ROW, locator="line:3"),)
+    if period_id in withheld:
+        return Observation(
+            observation_id=f"tax-{period_id}",
+            status="missing",
+            amount=None,
+            citations=citation,
+            reason=WITHHELD,
+        )
+    return Observation(
+        observation_id=f"tax-{period_id}",
+        status="known",
+        amount=Decimal(PRINTED[period_id]),
+        citations=citation,
+    )
+
+
+def refund_book(
+    withheld: frozenset[str] = frozenset({"q2-2025", "fy-2025"}),
+    item: str = "cash_taxes_paid",
+    replace: dict[str, Observation] | None = None,
+) -> FinancialBook:
+    fy = period("fy-2025", 2025).model_copy(
+        update={"start_date": date(2025, 1, 1), "end_date": date(2025, 12, 31), "day_count": 365}
+    )
+    lines = tuple(
+        row_line(pid, (replace or {}).get(pid) or row_value(pid, withheld), item) for pid in PRINTED
+    )
+    return book(lines).model_copy(update={"periods": (*(quarter(*q) for q in QUARTERS), fy)})
+
+
+def gate(book_value: FinancialBook) -> str | None:
+    table = unit_table()
+    [row] = table.lines
+    return fw._uncovered_reason(table, row, "CFS", (book_value,))
+
+
+def test_the_unit_prints_the_refund_row_as_described() -> None:
+    [row] = unit_table().lines
+    assert (row.locator, row.label, row.values) == ("line:3", ROW, (-1, 15, -1, 0, 13))
+
+
+def test_a_withheld_refund_row_passes_the_coverage_gate_and_reads_missing_downstream() -> None:
+    refund = refund_book()
+    assert gate(refund) is None
+    pack, review = case(refund)
+    assert validate_financial_review(pack, review) == ()
+    cells = {
+        c.period_id: c
+        for c in statement_report(pack, review, "book").cells
+        if c.item_id == "cash_taxes_paid"
+    }
+    assert (cells["q2-2025"].status, cells["q2-2025"].normalized_amount) == ("missing", None)
+    assert cells["q2-2025"].limitation == WITHHELD
+    assert cells["q1-2025"].normalized_amount == Decimal(-1)
+    check = next(
+        c
+        for c in reconcile_financials(pack, review, "book").checks
+        if c.check_type == "FY_QUARTERS" and c.metric_id == "cash_taxes_paid"
+    )
+    # The FY refund and the Q2 refund are withheld: no reported value, Q2 term None with reason.
+    assert (check.reported_value, check.calculated_value, check.status) == (None, None, "BLOCK")
+    assert [t.amount for t in check.components] == [-1, None, -1, 0]
+    assert check.components[1].reason == WITHHELD
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    q2 = frame[column["q2-2025"]]["acct:cash_taxes_paid"]
+    assert (q2.value, q2.reason) == (None, "NOT_STATED")
+    q4_ltm = ltm[column["q4-2025"]]["acct:cash_taxes_paid"]
+    assert (q4_ltm.value, q4_ltm.reason) == (None, "COMPONENT_MISSING")
+
+
+@pytest.mark.parametrize(
+    ("period_id", "printed"), [("q1-2025", "-1"), ("q3-2025", "-1"), ("q4-2025", "0")]
+)
+def test_a_missing_line_on_a_negative_or_zero_cell_is_still_uncovered(
+    period_id: str, printed: str
+) -> None:
+    reason = gate(refund_book(frozenset({"q2-2025", "fy-2025", period_id})))
+    assert reason == f"amount: {period_id} expects {printed}"
+
+
+def test_a_missing_line_without_a_reason_is_refused() -> None:
+    with pytest.raises(ValidationError, match="unsettled observation requires null amount"):
+        Observation(observation_id="x", status="missing", amount=None, citations=(cite(ROW),))
+    # A line that bypassed the contract is still not a withheld refund for the gate.
+    bare = Observation.model_construct(
+        observation_id="tax-q2-2025",
+        status="missing",
+        amount=None,
+        citations=(cite(ROW, locator="line:3"),),
+        reason=None,
+        alternatives=(),
+    )
+    full = refund_book()
+    lines = tuple(
+        line.model_copy(update={"value": bare}) if line.period_id == "q2-2025" else line
+        for line in full.statement_lines
+    )
+    assert gate(full.model_copy(update={"statement_lines": lines})) == "amount: q2-2025 expects 15"
+
+
+@pytest.mark.parametrize(
+    "item", ["other:income-taxes-refunded-paid-net", "debt_repayment", "capex_maintenance"]
+)
+def test_a_missing_line_off_the_outflow_accounts_is_still_uncovered(item: str) -> None:
+    assert gate(refund_book(item=item)) == "amount: q2-2025 expects 15"
+
+
+def test_a_not_applicable_refund_is_still_uncovered() -> None:
+    other = Observation(
+        observation_id="tax-q2-2025",
+        status="not_applicable",
+        amount=None,
+        citations=(cite(ROW, locator="line:3"),),
+        reason=WITHHELD,
+    )
+    assert gate(refund_book(replace={"q2-2025": other})) == "amount: q2-2025 expects 15"
+
+
+def test_a_signed_refund_is_covered_by_the_gate_but_refused_by_validation() -> None:
+    signed = refund_book(withheld=frozenset())
+    assert gate(signed) is None
+    assert len(refused(statement_issues(signed))) == 2  # Q2 +15 and FY +13

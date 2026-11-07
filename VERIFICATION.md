@@ -5752,3 +5752,53 @@ Not verified:
 Superseded: reviewer probe `task10-display-table.py`, which asserts the Task 10 grid.
 
 The Task 12 diff is about 1,300 changed lines, over the 800-line PR cap, so whether it ships as its own PR is the owner's decision.
+
+## Issuer Library adversarial review of all session work and its fixes, 2026-11-07 (macOS only)
+
+Main was merged twice: e5d1fa3c (f1eb6bb2) and e562c366 (de3c12f4). Both were plain git merges, because the app's sync could not fetch. The second merge had no conflicts and touched no Issuer Library file.
+
+A three-persona adversarial review of all the session's work (Saboteur, New Hire, Security Auditor) returned BLOCK. Commits d7db51e2..c4199f1f (Tasks 13–18) fixed every Critical, Warning and Note it raised:
+- Forecast and report routing:
+  - a Forecast with no run context;
+  - another issuer's model shown on a run;
+  - a report reached only through the run it was built from, including its Report select;
+  - the rail opening over a frame.
+- Cash flow reader:
+  - limits per model, plus a workspace-wide budget of 250,000 cells; models a run shows are laid out first, and a dropped grid is named in a Workspace issue;
+  - labels cut to 200 characters;
+  - one Q1/YTD column per fiscal year, from the period register;
+  - growth only between adjacent years;
+  - debt classes matched case-insensitively;
+  - a repeated debt label voids leverage only when it drops a carrying value;
+  - layout errors named.
+- Reads:
+  - delivery records, views, run manifests and identities are read bounded, with no link followed;
+  - read errors are reported by type and reason;
+  - the discovery hook is race-free (`atomic.Pointer`).
+- Issuer grouping: two different recorded issuer IDs are never joined through a shared name. Each such conflict is one Workspace issue.
+- Main's quality gate: typed cells, column and row specs, one context object for the cell operations, split functions.
+
+No method, prompt, retained run or deliverable changed, and no provider was called.
+
+Checks:
+- Frozen keys are unchanged: `forecast-answer-key.json` (sha256 073ef11a…) and `library-answer-key.json` (5f7f139d…).
+- `/api/workspace` saved from the real server is byte-identical before and after Task 17.
+- Every reviewer probe for a fixed finding exits 0 on a `git archive` export. Probes whose exit 1 the ledger accepts as superseded or out of scope stay at 1.
+- Each task got a task review or persona re-review. The whole-branch mx-architect review, with confidence-review and rewrite-tournament, approved with fixes; its Important finding I1 and Minors M2 and M3 are fixed, and their probes exit 0.
+- Gates:
+  - `validate.py full` passes at 06cda0b5;
+  - `validate.py quick` passes at de3c12f4 (node 260, python 502, 1 deselected);
+  - main's `tools/quality_gate.py --base e562c366` gives 0 findings at de3c12f4.
+- In-app browser at 903c28b3:
+  - the built-from route's Report select names its report;
+  - tdg-model-3's grid has 43 rows, senior secured FY2024 is 4.80x, and nothing scrolls sideways at 1366 px.
+
+Owner items:
+- Predates this range:
+  - a run recorded with a name but no issuer ID never shows its own model (`name:` key against `id:` key);
+  - 28 runs sharing one hardlinked 20 MB handoff give a 560 MB `/api/workspace` on main too;
+  - `screens.test.cjs` "the report frame shows loading…" fails under CPU load, because its 20 ms frame timeout is shorter than the test's own settle.
+- Deferred: each model's manifests are read up to four times per page load (2.04x); an over-budget grid is computed and then dropped (9.7 s for 100 maximal models).
+- The branch is well over the 800-line PR cap.
+
+Not verified: Windows (cross-compiled and vetted only); real issuer handoffs beyond the TDG models and synthetic registers; mutation testing; jscpd and complexipy (not installed).

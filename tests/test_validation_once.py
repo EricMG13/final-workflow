@@ -22,7 +22,7 @@ import test_connect_cp2d as tc2d
 import test_connect_cp2g as tc2g
 import test_connect_cp2h as tc2h
 
-from deploy_vii import cp2_synthesis
+from deploy_vii import cp2_synthesis, cp6_committee
 from deploy_workflow.owners import cp2a, cp2d, cp2g, cp2h
 
 
@@ -205,3 +205,25 @@ def test_cp2_public_guard_still_refuses() -> None:
     assert issues
     with pytest.raises(ValueError, match="key_findings"):
         cp2_synthesis.credit_synthesis(pack, bad, upstream)
+
+
+def test_cp6_step_validates_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    case = limits._cp6_case("CP-1 shows EBITDA of {T4.10.ebitda.fy2025|US$ m} only")
+    calls = _count(
+        monkeypatch, cp6_committee, "_provenance_issues", "_reference_issues", "_recommendation"
+    )
+    outcome = _vii_step(monkeypatch, cp6_committee, "cp6_upstream", case)
+    assert outcome.issues == () and outcome.output is not None
+    # one validation pass and one composition (was two validation passes)
+    assert calls == Counter({"_provenance_issues": 1, "_reference_issues": 1, "_recommendation": 1})
+    assert outcome.output == cp6_committee.committee_challenge(*case).model_dump_json()
+
+
+def test_cp6_public_guard_still_refuses() -> None:
+    pack, submission, upstream = limits._cp6_case("No market evidence")
+    rec = submission.recommendation.model_copy(update={"rationale": "EBITDA is 120 million"})
+    bad = submission.model_copy(update={"recommendation": rec})
+    issues = cp6_committee.validate_committee(pack, bad, upstream)
+    assert issues
+    with pytest.raises(ValueError, match="recommendation"):
+        cp6_committee.committee_challenge(pack, bad, upstream)

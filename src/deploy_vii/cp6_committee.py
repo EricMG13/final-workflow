@@ -1286,6 +1286,14 @@ def committee_challenge(
     issues = validate_committee(pack, submission, upstream)
     if issues:
         raise ValueError("; ".join(issues))
+    return _composed(pack, submission, upstream)
+
+
+def _composed(
+    pack: PreparedPack, submission: CommitteeSubmission, upstream: Upstream
+) -> CommitteeReport:
+    """`committee_challenge` of a submission `validate_committee` already accepted (one
+    validation per step, S10-cp6-cp8-cpl10-C05)."""
     pack = PreparedPack.model_validate_json(pack.model_dump_json())
     submission = CommitteeSubmission.model_validate_json(submission.model_dump_json())
     out = _Composer(upstream)
@@ -1375,7 +1383,7 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     issues = validate_committee(pack, submission, upstream)
     if issues:
         return StepValidation(issues=issues)
-    return StepValidation(output=committee_challenge(pack, submission, upstream).model_dump_json())
+    return StepValidation(output=_composed(pack, submission, upstream).model_dump_json())
 
 
 def submit_cp6_step(store: Execution, ticket_id: str, step_id: str, payload: str) -> Attempt:

@@ -65,14 +65,21 @@ whole suite, the `test_owner_*` suites or anything whose fixture promotes CP-0/C
 The full suite, slow tests included, runs every night at 01:00 UTC in GitHub Actions
 (`.github/workflows/nightly-tests.yml`, also startable by hand with "Run workflow"):
 
-- six pytest shards (`tools/nightly_tests.py run`), balanced by test-file size, with the `live`
-  and `browser` markers excluded and provider keys removed; each shard stops after 300 minutes;
+- eight pytest shards (`tools/nightly_tests.py run`), balanced by test-file size, with the `live`
+  and `browser` markers excluded and provider keys removed; each shard stops after 300 minutes,
+  deletes a passing test's `tmp_path` (each workflow store holds about 120 MB of issuer sources)
+  and prints its log's last 400 lines, the failure summary or a crash's trace, to the job log;
 - the Go server's `go vet` and `go test -race`;
 - a report job (`tools/nightly_tests.py report`) that collects every FAILED and ERROR node id,
   compares them with `tests/nightly-known-failures.txt` and fails only on a failure that is not on
   that list or a shard that did not finish. The summary lists new failures and known failures that
   now pass; `failures.txt` is kept as an artifact for 30 days.
 
+To triage a failure, start the workflow by hand with `tests` set to the failing node ids
+(space-separated) and, to compare with an earlier commit, `ref` set to that commit. Only a `rerun`
+job runs, and it prints short tracebacks to the job log.
+
 To accept a pre-existing failure, add its node id to the known list with a reason. Remove a line
 once its test passes again. GitHub runs scheduled workflows from the default branch only, and on
-this private repository the run uses the account's Actions minutes (several runner-hours a night).
+this private repository the run uses the account's Actions minutes: the first full run
+(2026-11-07) took about 17 runner-hours with three shards cut short.

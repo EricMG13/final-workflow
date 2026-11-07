@@ -81,3 +81,18 @@ def test_command_excludes_paid_and_browser_tests_and_keeps_going() -> None:
     command = nightly.pytest_command("python", ["tests/a.py"])
     assert command[command.index("-m", 3) + 1] == "not live and not browser"
     assert "--continue-on-collection-errors" in command and command[-1] == "tests/a.py"
+    assert "tmp_path_retention_policy=failed" in command
+
+
+def test_run_prints_the_log_tail_to_the_job_log(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def fake(root: Path, shard: int, shards: int, out: Path, minutes: float) -> str:
+        _shard(out, shard, "-11", "".join(f"line {n}\n" for n in range(nightly.TAIL + 5)))
+        return "-11"
+
+    monkeypatch.setattr(nightly, "run_shard", fake)
+    code = nightly.main(["run", "--shard", "3", "--shards", "8", "--out", str(tmp_path)])
+    printed = capsys.readouterr().out.splitlines()
+    assert code == 1 and printed[-1] == "shard 3: pytest exit -11"
+    assert printed[:-1] == [f"line {n}" for n in range(5, nightly.TAIL + 5)]

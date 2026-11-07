@@ -5,7 +5,8 @@
 
 ``run`` gives each shard test files of roughly equal total size (largest first), runs pytest on
 them with the ``live`` and ``browser`` markers excluded and provider keys removed, and writes
-``shard-<n>.log`` and ``shard-<n>.exit``. ``report`` collects every FAILED and ERROR node id from
+``shard-<n>.log`` and ``shard-<n>.exit``, then prints the log's last lines (the failure summary,
+or a crash's trace) to the job log. ``report`` collects every FAILED and ERROR node id from
 the logs, compares them with the known list and prints a Markdown summary (also appended to
 ``$GITHUB_STEP_SUMMARY`` when set). It exits 1 when a failure is not on the known list or a shard
 did not finish its tests, so a red run means something new broke.
@@ -34,6 +35,7 @@ TEST_FILE = re.compile(r"(^|/)test_[^/]*\.py$")
 OUTCOME = re.compile(r"^(FAILED|ERROR) (\S+)")
 SUMMARY = re.compile(r"\d+ (passed|failed|errors?|skipped).* in [\d.]+s")
 RAN = {"0", "1"}  # pytest exits 0 or 1 only after it ran the tests
+TAIL = 400  # log lines printed to the job log: -rfE lists every failure at the end
 
 
 def test_files(root: Path) -> list[str]:
@@ -69,6 +71,8 @@ def pytest_command(python: str, files: list[str]) -> list[str]:
         "-rfE",
         "-o",
         "faulthandler_timeout=900",
+        "-o",
+        "tmp_path_retention_policy=failed",  # a passing test's tmp_path goes; stores fill disks
         "-o",
         "pythonpath=src . tests",
         *files,
@@ -171,6 +175,8 @@ def main(argv: list[str] | None = None) -> int:
         status = run_shard(
             ROOT, arguments.shard, arguments.shards, arguments.out, arguments.minutes
         )
+        log = arguments.out / f"shard-{arguments.shard}.log"
+        print(*log.read_text(errors="replace").splitlines()[-TAIL:], sep="\n")
         print(f"shard {arguments.shard}: pytest exit {status}")
         return 0 if status in RAN else 1
     text, passed = report(

@@ -100,3 +100,68 @@ weekly (user ruling, 2026-11-07). The names `nightly-tests` and `nightly-known-f
 - Decision record: jsdom 26.1.0 and Playwright 1.64.0 are the test-only tools `validate.py`
   already requires. CI installs those pinned versions outside the project lock (`npm install
   --no-save`, a separate `uv venv`); they are not runtime dependencies. No job sets a provider key.
+
+## Live testing and repair
+
+Commands run from `apps/issuer-library`; `runs/` and `data/` paths are relative to the repository root
+(use `../../runs/...`). `FW_PYTHON` is the project's Python, `ISSUER_LIBRARY_JSDOM`
+a jsdom install, `FW_PLAYWRIGHT_PYTHON` a Python with Playwright (test-only tools).
+
+**Offline commands (no provider is called)**
+- `python validate.py quick`: retained-data check, fixture build, Node tests, Python tests.
+- `python validate.py browser`: builds the Go server, then runs the browser walk in chromium and
+  firefox. Needs `FW_PYTHON` and `FW_PLAYWRIGHT_PYTHON`; `FW_BROWSER_OUT` picks the output folder.
+- To see every PASS/FAIL line, run `$FW_PLAYWRIGHT_PYTHON designs/browser_check.py chromium firefox`
+  directly (needs `FW_PYTHON` and `ISSUER_LIBRARY_BINARY`, a built server).
+
+**faults.json** (in the output folder, redacted)
+- Top level: `scope` (what the run covered), `mode` (live walk only: `rehearsal` or `live`),
+  `passed` (checks that passed) and `failed` (faults recorded). The units differ: one check can
+  record several faults, and a fault need not come from a check.
+- Each fault: `walk`, `kind`, `detail`, `url`, `artifacts`.
+- Kinds: `check` (a failed check), `console`, `pageerror`, `http` (5xx, or an unexpected 4xx),
+  `requestfailed`, `server-log` (a crash in the Go server's log), `flow` (a flow-check finding),
+  `exception` (the walk stopped; later checks did not run). The live walk adds `worker` (a process
+  left after stop) and `interrupted` (SIGINT or SIGTERM; spend may be above zero).
+- Artifacts: `<walk>-failure.png` and `.html`, `server-<port>.log`, `state-<port>/library.log`.
+- `server-log` covers the Go server's log only. `jobs.go` discards the engine's stdout and stderr,
+  so an engine traceback never reaches a scanned log.
+
+**flow_check.py on a retained run**
+- `python designs/flow_check.py runs/<run> [--sources data/public-corpus/v1/TDG]`; it exits 1 on any fault.
+- Four checks: each upstream handoff a module received equals the accepted one; each source copy
+  hashes to its recorded digest; every number in a handoff appears in what the module read or
+  received; every accepted handoff has a delivered copy, byte-identical.
+- Numbers are compared as normalised strings: thousands commas, trailing zeros, a unit suffix
+  (x, bn, mm, m, k), dates and page lists are stripped, and long calculation results match their
+  roundings.
+- A flagged number is a finding to classify, not an automatic defect. Example:
+  `runs/cpos-launch-live-002` CP-1 "SOFR + 250 bps" against the source's "2.50%" is a conversion
+  the source does not quote.
+
+**Paid walk: `designs/live_check.py`**
+- Always rehearse first: `--rehearse --cap 12` is free, uses the fake engine, and labels in its
+  scope that the flow and evidence checks were skipped.
+- The paid run is an explicit command. CI and `validate.py` never run it. Needs `FW_PYTHON` and
+  `ISSUER_LIBRARY_BINARY`; flags `--cap USD`, `--config` (default sol-medium), `--modules`
+  (default "CP-1 CP-1A"), `--minutes`, `--out`.
+- The provider key comes from the launching environment only (`OPENAI_API_KEY` for sol-medium).
+  It is removed from the walk's own environment and passed only to the server. Unset unrelated
+  tokens first: other environment secrets still reach the server and worker.
+- `--cap` must cover the per-call hold (USD 5.73 for sol-medium); use 12. Recorded cost for
+  CP-0..CP-1A was about USD 0.93 in `runs/cpos-launch-live-002`.
+- Checks: the review screen against the arguments before Start; the run completes; the app's
+  spend equals `status.json`; "Built from" matches the accepted handoffs; flow checks with
+  `--sources data/public-corpus/v1/TDG`; `live_evidence` (calls, models, spend within the cap);
+  filed values in the report; and, for sol-medium with CP-0/CP-1/CP-1A, the answer key
+  `assert_live_evidence` in `tests/test_cpos_launch.py`.
+- The server and worker are stopped on every exit. Spend is reported from `status.json` and the
+  ledger. Output in `--out`: `faults.json` and `summary.json`.
+
+**Repair loop**
+1. Read `faults.json` and its artifacts.
+2. Write a test that fails for the reported cause, at the surface where it was seen. The walk's own
+   FAIL line counts when it already fails.
+3. Fix.
+4. Rerun the gate or walk.
+5. A fault that predates the change goes to the owner, not into the task.

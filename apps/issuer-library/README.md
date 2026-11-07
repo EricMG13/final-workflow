@@ -120,22 +120,28 @@ read. A moved workspace needs one configuration update. Store the canonical file
 in the workspace, not in the index; the index is disposable and rebuilt on launch.
 Per-user state must not be redirected to a shared index used by multiple users.
 
-**Local session.** Loopback is shared by every user and process on the machine, so the
-headers the app checks (Host, Origin, Sec-Fetch-Site, `X-Issuer-Library`) are not enough on
-their own. Sec-Fetch-Site is accepted only as `same-origin` (the app's page, its report and
-context frames and its downloads) or `none` (the address the launcher opens), or absent;
-`same-site` is refused with 403 like `cross-site`, because a page on another `127.0.0.1` port is
-the same site and the SameSite=Strict cookie goes with its requests. Each launch makes a random one-time ticket and a random session secret (32 bytes
-each, `crypto/rand`), held in memory only: never in `library.log`, settings, the index or a
-response body. The launcher opens `/launch?ticket=…`; the first GET exchanges the ticket for an
-`HttpOnly; SameSite=Strict; Path=/` cookie and redirects to `/`, so the ticket leaves the
-address bar (a HEAD or a wrong ticket does not spend it; a used ticket is refused). The cookie
-has no `Secure` flag because plain loopback HTTP has no TLS, and no expiry. Every request
-except `/launch` and `/health` (the instance check, which reads no workspace data) needs the
-cookie, compared in constant time; without it the answer is 403 "Open Issuer Library from its
-launcher…". With `--no-browser` the one-time
-link is printed on standard output only, for whoever started the library. Cookies are not
-separated by port, so the cookie name carries the port.
+**Local session.** Loopback is shared by every user and process on the machine, so the headers
+the app checks (Host, Origin, Sec-Fetch-Site, `X-Issuer-Library`) are not enough on their own.
+Sec-Fetch-Site is accepted only as `same-origin` (the app's page, its report and context frames
+and its downloads) or `none` (the address the launcher opens), or absent; `same-site` is
+refused with 403 like `cross-site`, because a page on another `127.0.0.1` port is the same site
+and the SameSite=Strict cookie goes with its requests. Each launch makes a random one-time
+ticket and a random session secret (32 bytes each, `crypto/rand`), held in memory only: never
+in `library.log`, settings, the index or a response body. The launcher opens
+`/launch?ticket=…`; the first GET exchanges the ticket for an `HttpOnly; SameSite=Strict;
+Path=/` cookie and redirects to `/`, so the ticket leaves the address bar (a HEAD or a wrong
+ticket does not spend it; a used ticket is refused). The ticket expires 120 seconds after the
+library is ready (after its first discovery): an expired ticket gets the same 403 and is never
+accepted, and starting the library again opens a fresh link (see **Relaunch**). On a shared
+Linux or macOS host other local users can read the ticket on the command line of the browser
+opener (`xdg-open` or `open`) and of a browser it starts, for that short window: until the
+browser has exchanged it, 120 seconds at most. Windows is the target platform. The cookie has
+no `Secure` flag because plain loopback HTTP has no TLS, and no expiry. Every request except
+`/launch` and `/health` (the instance check, which reads no workspace data) needs the cookie,
+compared in constant time; without it the answer is 403 "Open Issuer Library from its
+launcher…". With `--no-browser` the one-time link is printed on standard output only, for
+whoever started the library. Cookies are not separated by port, so the cookie name carries the
+port.
 
 **Relaunch.** A second launch asks `/health` and finds its own instance, whose secret it cannot
 learn. It asks that instance to quit through the per-user state folder instead: no network
@@ -252,12 +258,12 @@ Windows amd64/arm64 executables and a macOS arm64 development binary are produce
 No issuer runs, uploaded PDFs, provider credentials or complete reports enter the ZIP.
 A clearly fictional context is included only for the explicit offline smoke test.
 
-`--state-dir` provides an isolated state directory for tests. `--port` overrides
-the stable per-user loopback port if another application occupies it. A relaunch, with or
-without `--workspace`, asks an idle running instance to quit first (see **Relaunch**). `--no-browser`
-prints `Issuer Library: http://127.0.0.1:<port>/launch?ticket=…`; open that link once
-(`packaging/smoke_test.py` and `designs/browser_check.py` read it from the pipe and keep
-the cookie in memory).
+`--state-dir` provides an isolated state directory for tests. `--port` overrides the stable
+per-user loopback port if another application occupies it. A relaunch, with or without
+`--workspace`, asks an idle running instance to quit first (see **Relaunch**). `--no-browser`
+prints `Issuer Library: http://127.0.0.1:<port>/launch?ticket=…`; open that link once, within
+120 seconds (`packaging/smoke_test.py` and `designs/browser_check.py` read it from the pipe and
+keep the cookie in memory).
 
 DOM simulation tests (existing optional local jsdom installation). `designs/build.py`
 writes their fixture from the curated retained runs and fails if a curated pin goes stale:

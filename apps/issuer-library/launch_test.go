@@ -577,3 +577,42 @@ func TestOnlySameOriginOrUserInitiatedRequestsAreServed(t *testing.T) {
 		t.Fatalf("the launcher's navigation (none) after the refused ones: %d", w.Code)
 	}
 }
+
+// S18 ruling 3: the ticket expires 120 seconds after start, counted from when the library is
+// ready (after its first discovery, which here moves the test clock 30 s). Expected by hand: ready
+// at T = start+30 s, so the ticket works until T+120 s: at T+120 s-1 ns it is exchanged (303 with
+// the cookie). On fresh apps, at exactly T+120 s and at T+120 s+1 ns it gets the 403 launcher page
+// with no cookie, and moving the clock back to T+1 s afterwards does not revive it.
+func TestTheLaunchTicketExpires120SecondsAfterStart(t *testing.T) {
+	start := time.Date(2026, 11, 7, 9, 0, 0, 0, time.UTC)
+	current := start
+	savedClock, savedDiscover := clock, discoverWorkspace
+	t.Cleanup(func() { clock, discoverWorkspace = savedClock, savedDiscover })
+	clock = func() time.Time { return current }
+	discoverWorkspace = func(workspace string, seed Catalogue) Catalogue {
+		current = current.Add(30 * time.Second)
+		return savedDiscover(workspace, seed)
+	}
+	ready := start.Add(30 * time.Second)
+	app, _ := testApp(t)
+	if want := ready.Add(120 * time.Second); !app.expires.Equal(want) {
+		t.Fatalf("ticket expires at %v, want %v", app.expires, want)
+	}
+	current = ready.Add(120*time.Second - time.Nanosecond)
+	if w := launchRequest(app, "GET", "?ticket="+app.ticket); w.Code != http.StatusSeeOther || len(w.Result().Cookies()) != 1 {
+		t.Fatalf("1 ns before expiry: %d %v", w.Code, w.Result().Cookies())
+	}
+	for _, after := range []time.Duration{0, time.Nanosecond} {
+		current = start
+		late, _ := testApp(t)
+		ticket := late.ticket
+		current = ready.Add(120*time.Second + after)
+		if w := launchRequest(late, "GET", "?ticket="+ticket); w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" || w.Body.String() != launcherOnly+"\n" {
+			t.Errorf("%v after expiry: %d %q %q", after, w.Code, w.Header().Get("Set-Cookie"), w.Body.String())
+		}
+		current = ready.Add(time.Second)
+		if w := launchRequest(late, "GET", "?ticket="+ticket); w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%v after expiry, clock moved back: %d (the expired ticket was revived)", after, w.Code)
+		}
+	}
+}

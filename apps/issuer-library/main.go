@@ -120,7 +120,7 @@ func run(arguments []string) (err error) {
 		go func() {
 			if err := launchBrowser(launch); err != nil {
 				log.Printf("Open browser: %v", err)
-				showError("Open this link in your browser; it works once:\n" + launch + "\n" + err.Error())
+				showError("Open this link in your browser within 2 minutes; it works once:\n" + launch + "\n" + err.Error())
 			}
 		}()
 	}

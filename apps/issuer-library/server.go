@@ -35,7 +35,8 @@ type Application struct {
 	host       string
 	stop       func()
 	launch     sync.Mutex // guards ticket
-	ticket     string     // one-time launch ticket, in memory only; empty once exchanged
+	ticket     string     // one-time launch ticket, in memory only; empty once exchanged or expired
+	expires    time.Time  // when the ticket stops working; fixed at start
 	session    string     // this launch's session cookie value, in memory only; fixed at start
 }
 
@@ -427,5 +428,7 @@ func newApplication(loc Locations, override string) (*Application, error) {
 	}
 	app.catalogue = app.buildCatalogue(config.Workspace)
 	app.adoptJobsLocked(config.Workspace)
+	// Counted from here, once the library is ready, so a slow first discovery does not use it up.
+	app.expires = clock().Add(ticketLifetime)
 	return app, nil
 }

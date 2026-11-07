@@ -36,9 +36,15 @@ def handoff(request: str, findings: str, tail: str = TAIL) -> str:
     )
 
 
-def deliver(tmp_path: Path, text: str, routes: list[dict]) -> dict:
+def deliver(
+    tmp_path: Path,
+    text: str,
+    routes: list[dict],
+    module: str = "CP-1B",
+    execution: str | None = None,
+) -> dict:
     raw = text.encode()
-    path = tmp_path / "CP-1B.md"
+    path = tmp_path / (module + ".md")
     path.write_bytes(raw)
     request = DeliveryRequest.model_validate_json(
         json.dumps(
@@ -50,18 +56,22 @@ def deliver(tmp_path: Path, text: str, routes: list[dict]) -> dict:
                     "as_of": "2024-12-28",
                     "case_kind": "public",
                     "pathway": "earnings_update",
-                    "requested_modules": ["CP-1B"],
+                    "requested_modules": [module],
                 },
                 "handoffs": {
-                    "CP-1B": {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
+                    module: {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
                 },
                 "layout": {
                     "blocks": ["headline-results"],
                     "routes": [
-                        {"module_id": "CP-1B", "block_id": "headline-results", **r} for r in routes
+                        {"module_id": module, "block_id": "headline-results", **r}
+                        for r in routes
+                        if r.get("block_id") != "front"
                     ],
                     "scope": "synthetic regression",
+                    "front": [r for r in routes if r.get("block_id") == "front"],
                 },
+                **({} if execution is None else {"module_execution": {module: execution}}),
             }
         )
     )
@@ -569,15 +579,17 @@ def test_routed_sections_name_their_block_and_the_rest_name_evidence(tmp_path):
     assert seen[(2, "prose")] == ("Request", ["evidence"])
 
 
-def test_a_dropped_section_fails_the_build(tmp_path, monkeypatch):
+def drop_prose_group(monkeypatch, heading: str) -> None:
     from deploy_workflow import markdown_delivery as md
 
     real = md._prose_groups
     monkeypatch.setattr(
-        md,
-        "_prose_groups",
-        lambda lines, in_table: [g for g in real(lines, in_table) if g.heading != "Notes"],
+        md, "_prose_groups", lambda lines, t: [g for g in real(lines, t) if g.heading != heading]
     )
+
+
+def test_a_dropped_section_fails_the_build(tmp_path, monkeypatch):
+    drop_prose_group(monkeypatch, "Notes")
     with pytest.raises(
         ValueError, match=r"delivery_coverage: CP-1B line 14 Notes is not presented"
     ):
@@ -623,14 +635,7 @@ def test_a_section_routed_in_part_names_every_block_its_rows_reach(tmp_path):
 
 
 def test_a_dropped_prose_group_is_refused_though_a_table_shares_its_heading(tmp_path, monkeypatch):
-    from deploy_workflow import markdown_delivery as md
-
-    real = md._prose_groups
-    monkeypatch.setattr(
-        md,
-        "_prose_groups",
-        lambda lines, t: [g for g in real(lines, t) if g.heading != "Financials"],
-    )
+    drop_prose_group(monkeypatch, "Financials")
     with pytest.raises(ValueError, match=r"CP-1B line 7 Financials is not presented"):
         deliver(tmp_path, COVERED, [ROUTE])
 
@@ -671,70 +676,28 @@ def test_a_stray_pipe_line_before_a_real_table_still_finds_the_table():
         check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})
 
 
-# --- Execution words and front limits (hand-written expected strings) ---------------------
-
+# Handoff lines: Reader summary heading 7, its first data row 10, Action Bias heading 16, 17.
 CP6_FINDINGS = (
-    "### Reader summary\n"  # line 7
-    "| Bottom line | Confidence | Main limitation |\n"  # 8
-    "|---|---|---|\n"  # 9
-    "| Hold the position. | Moderate | Quarter data unaudited. |\n"  # 10
-    "\n"  # 11
-    "| Finding | Creditor impact | Confidence |\n"  # 12
-    "|---|---|---|\n"  # 13
-    "| Leverage | Higher | Low |\n"  # 14
-    "\n"  # 15
-    "### Action Bias Determination\n"  # 16
-    "Final Action Bias: Watchlist. Spreads do not pay for the risk.\n"  # 17
-    "\n"  # 18
+    "### Reader summary\n| Bottom line | Confidence | Main limitation |\n|---|---|---|\n"
+    "| Hold the position. | Moderate | Quarter data unaudited. |\n\n"
+    "| Finding | Creditor impact | Confidence |\n|---|---|---|\n| Leverage | Higher | Low |\n\n"
+    "### Action Bias Determination\n"
+    "Final Action Bias: Watchlist. Spreads do not pay for the risk.\n\n"
     "### Financials\n" + TABLE
 )
+ACTION_BIAS = {"kind": "prose", "prefix": "Final Action Bias:"}
+TABLE_FRONT = {"kind": "table", "table_header": "Bottom line | Confidence | Main limitation"}
 FRONT = [
-    {
-        "module_id": "CP-6",
-        "block_id": "front",
-        "heading": "Reader summary",
-        "kind": "table",
-        "table_header": "Bottom line | Confidence | Main limitation",
-        "label": "Challenge view",
-    },
-    {
-        "module_id": "CP-6",
-        "block_id": "front",
-        "heading": "Action Bias Determination",
-        "kind": "prose",
-        "prefix": "Final Action Bias:",
-        "label": "Committee action bias",
-    },
+    {"module_id": "CP-6", "block_id": "front", "label": label, "heading": heading, **rest}
+    for label, heading, rest in (
+        ("Committee decision", "Reader summary", TABLE_FRONT),
+        ("Committee action bias", "Action Bias Determination", ACTION_BIAS),
+    )
 ]
 
 
 def deliver_cp6(tmp_path: Path, text: str, front: list[dict], execution: str | None = None):
-    raw = text.encode()
-    path = tmp_path / "CP-6.md"
-    path.write_bytes(raw)
-    body = {
-        "run": {
-            "run_id": "r1",
-            "issuer_id": "TDG",
-            "issuer_name": "TransDigm Group Incorporated",
-            "as_of": "2024-12-28",
-            "case_kind": "public",
-            "pathway": "earnings_update",
-            "requested_modules": ["CP-6"],
-        },
-        "handoffs": {"CP-6": {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}},
-        "layout": {
-            "blocks": ["headline-results"],
-            "routes": [
-                {"module_id": "CP-6", "block_id": "headline-results", **ROUTE},
-            ],
-            "scope": "synthetic regression",
-            "front": front,
-        },
-    }
-    if execution is not None:
-        body["module_execution"] = {"CP-6": execution}
-    return markdown_files(DeliveryRequest.model_validate_json(json.dumps(body)), Path("/"))
+    return deliver(tmp_path, text, [ROUTE, *front], "CP-6", execution)["files"]
 
 
 def cp6_text(findings: str = CP6_FINDINGS) -> str:
@@ -746,12 +709,11 @@ def test_front_routes_put_the_cited_line_above_the_call(tmp_path):
     html_text = files["report.html"].decode()
     assert 'id="delivery-limits"' in html_text
     assert (
-        "Challenge view: confidence Moderate; main limitation: Quarter data unaudited. "
+        "Committee decision: confidence Moderate; main limitation: Quarter data unaudited. "
         "(CP-6 line 10)"
     ) in html_text
     assert (
-        "Committee action bias: Final Action Bias: Watchlist. Spreads do not pay for the risk. "
-        "(CP-6 line 17)"
+        "<li>Final Action Bias: Watchlist. Spreads do not pay for the risk. (CP-6 line 17)</li>"
     ) in html_text
     assert html_text.index('id="delivery-limits"') < html_text.index('id="call-root"')
     coverage = json.loads(files["coverage.json"])["modules"]["CP-6"]
@@ -763,7 +725,7 @@ def test_a_front_route_with_no_match_says_not_stated(tmp_path):
     text = cp6_text(CP6_FINDINGS.replace("Final Action Bias:", "Bias:"))
     html_text = deliver_cp6(tmp_path, text, FRONT)["report.html"].decode()
     assert "Committee action bias: not stated in the handoff" in html_text
-    assert "<li>Challenge view: confidence Moderate;" in html_text
+    assert "<li>Committee decision: confidence Moderate;" in html_text
 
 
 def test_front_text_is_escaped(tmp_path):
@@ -772,22 +734,22 @@ def test_front_text_is_escaped(tmp_path):
     assert "main limitation: A &lt;b&gt;&amp;&lt;/b&gt; B. (CP-6 line 10)" in html_text
 
 
+LIVE_WORDS = (
+    "Produced by a live model run and accepted by the CP-OS check; not native contract acceptance."
+)
+
+
 @pytest.mark.parametrize(
     ("execution", "sentence"),
     [
-        (
-            "live-provider",
-            (
-                "Produced by a live model run and accepted by the CP-OS check; "
-                "not native contract acceptance."
-            ),
-        ),
+        ("live-provider", LIVE_WORDS),
         (
             "retained-response-replay",
             "Replayed from a retained response; no new model call was made.",
         ),
         ("host-session", "Produced in a host session and accepted by the CP-OS check."),
         ("synthetic", "Synthetic test content, not issuer analysis."),
+        (None, FIXED),  # no execution given: the fixed limitation stays first, no front section
     ],
 )
 def test_live_execution_reaches_each_module_limitation(tmp_path, execution, sentence):
@@ -795,25 +757,23 @@ def test_live_execution_reaches_each_module_limitation(tmp_path, execution, sent
     module = json.loads(files["view.json"])["modules"][0]
     assert module["limitations"][0] == sentence
     assert module["status"] == "candidate"
-
-
-def test_without_module_execution_the_fixed_limitation_stays_first(tmp_path):
-    module = json.loads(deliver_cp6(tmp_path, cp6_text(), [])["view.json"])["modules"][0]
-    assert module["limitations"][0].startswith("Literal checked analytical handoff")
-    assert "delivery-limits" not in deliver_cp6(tmp_path, cp6_text(), [])["report.html"].decode()
+    assert "delivery-limits" not in files["report.html"].decode()
 
 
 RETAINED_LAYOUT_MANIFESTS = [
+    "runs/cpos-sol-medium-20261105/delivery-a2b23229572f1704c8b932bf2fbe41b76b5e3614fed7577d56b6f44f2cbc4053.json",
     "runs/cpos-launch-cp2-reader-001/delivery-593bc6819bec6be2624a19fef19f4702fe424c88c2a5fb916b0ac8375f461fca.json",
     "runs/cpos-launch-live-002/delivery-1b851b108d950efee6a7638c8754ebcd8531aa2635fcef1b892bdb0e52d80814.json",
     "runs/cpos-sol-remaining-20261105/recovery/execution/delivery-94f5c089fa806476746a0df4d861ed406930b92f8208246f18d0cc08c2ebddca.json",
+    "runs/cpos-tdg-fresh-001/execution/delivery-5e88643b42cb134a0ac0d826f0841215f817d7db79a4a2d3abdab150efb6b272.json",
+    "runs/cpos-tdg-fresh-001/execution/delivery-98ceb8fec71b78d4288cc7ad8c8ffff72c1a50bce4aa42999ca72682edbe09f1.json",
     "runs/web-04cd5a5d02ea7d1dea714a8a6632cd21/delivery-81e5fda8cf24771b8979b3da4cd6d51b60e4804133383e0b3b8f102b93821cae.json",
 ]
 
 
 @pytest.mark.parametrize("name", RETAINED_LAYOUT_MANIFESTS)
 def test_existing_layout_manifests_serialise_unchanged(name):
-    # The four of 22 retained layout manifests that round-tripped at a06406a2; the rest were
+    # The seven of 24 retained layout manifests that round-tripped at a06406a2; the rest were
     # written by older schemas. New optional fields must not alter these bytes.
     raw = (Path(__file__).resolve().parent.parent / name).read_bytes()
     assert DeliveryRequest.model_validate_json(raw).model_dump_json(indent=2).encode() == raw

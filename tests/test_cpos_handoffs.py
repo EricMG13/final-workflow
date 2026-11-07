@@ -1255,3 +1255,18 @@ def test_a_live_run_without_a_layout_is_refused_before_any_call(tmp_path, monkey
     ):
         run_handoffs(path, state, execute=executor, check=checked)
     assert calls == []
+
+
+def test_a_front_route_naming_an_unselected_module_is_refused_before_any_call(tmp_path):
+    path = job(tmp_path)
+    data = json.loads(path.read_bytes())
+    with_live_layout(data)
+    front = {**LIVE_LAYOUT["routes"][0], "module_id": "CP-6", "block_id": "front"}
+    data["layout"] = {**LIVE_LAYOUT, "front": [front]}
+    path.write_text(json.dumps(data))
+    calls = []
+    with pytest.raises(ValueError, match="cpos_layout: route selected modules"):
+        run_handoffs(
+            path, tmp_path / "state", execute=lambda task: calls.append(task), check=checked
+        )
+    assert calls == []

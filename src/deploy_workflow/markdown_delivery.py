@@ -774,12 +774,10 @@ def front_lines(
     module_views: list[ModuleView],
     metadata: dict[str, dict[str, tuple[str, str]]],
 ) -> tuple[list[str], set[tuple[str, str]]]:
-    """One sentence per front route, copied from the handoff and cited by module and line, and
-    the (module, entry id) of each handoff section a sentence came from. A route that finds
-    nothing says `not stated in the handoff`; a blank cell is the same, never zero. A table
-    route reads the first data row of the table with the routed header: its first value column
-    as `<column> <cell>` and the rest as `<column>: <cell>`. A prose route reads the first
-    paragraph of the section that opens with the route's prefix, whole."""
+    """One cited sentence per front route and the (module, entry id) each was read from. No match
+    gives `not stated in the handoff` (a blank cell too, never zero). A table route reads the first
+    data row of the table with the routed header (`<column> <cell>`, then `<column>: <cell>`); a
+    prose route the first paragraph opening with the prefix, without the label."""
     lines: list[str] = []
     sources: set[tuple[str, str]] = set()
     for route in routes:
@@ -793,17 +791,10 @@ def front_lines(
             lines.append(f"{label}: {NOT_STATED}")
         else:
             text, number, entry = got
-            lines.append(f"{label}: {text} ({module.module_id} line {number})")
+            shown = text if route.kind == "prose" else f"{label}: {text}"
+            lines.append(f"{shown} ({module.module_id} line {number})")
             sources.add((module.module_id, entry))
     return lines, sources
-
-
-def mark_front(record: dict[str, Any], sources: set[tuple[str, str]]) -> None:
-    """Add `front` last to the blocks of each coverage entry a front line was read from."""
-    for module_id, entries in record["modules"].items():
-        for entry in entries:
-            if (module_id, entry["id"]) in sources:
-                entry["blocks"].append("front")
 
 
 def coverage_record(
@@ -1289,7 +1280,10 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
         raise ValueError("Existing renderer scope-banner location changed")
     front_text, front_sources = front_lines(layout.front, module_views, metadata)
     record_of = coverage_record(module_views, metadata, owner_lines, entries, source_of)
-    mark_front(record_of, front_sources)
+    for module_id, listed in record_of["modules"].items():  # `front` goes last in blocks
+        for entry in listed:
+            if (module_id, entry["id"]) in front_sources:
+                entry["blocks"].append("front")
     check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
     files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(

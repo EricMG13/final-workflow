@@ -1190,7 +1190,6 @@ def test_a_release_note_on_the_stop_is_shown_in_stderr(
 
 
 def test_launcher_layout_adds_front_routes_only_for_requested_modules(tmp_path):
-    (tmp_path / "second").mkdir()
     full = prepare(
         context_file(tmp_path),
         issuer_folder(tmp_path),
@@ -1198,38 +1197,27 @@ def test_launcher_layout_adds_front_routes_only_for_requested_modules(tmp_path):
         config="sol-medium",
         cap="50",
     )
-    # CP-5, CP-2 and CP-0 are in the covenant run, CP-6 is not; titles are the registry's.
+    # CP-5, CP-2 and CP-0 are in the covenant run, CP-6 is not.
     assert [(r.module_id, r.kind, r.label) for r in full.plan.layout.front] == [
-        ("CP-5", "table", "Evidence trace validator"),
-        ("CP-2", "table", "Fundamental credit synthesizer"),
+        ("CP-5", "table", "Evidence validation"),
+        ("CP-2", "table", "Fundamental credit"),
         ("CP-0", "table", "Source readiness"),
     ]
-    assert {r.heading for r in full.plan.layout.front} == {"Reader summary"}
-    assert {r.table_header for r in full.plan.layout.front} == {
-        "Bottom line | Confidence | Main limitation"
+    assert {(r.heading, r.table_header) for r in full.plan.layout.front} == {
+        ("Reader summary", "Bottom line | Confidence | Main limitation")
     }
-    narrow = prepare(
-        context_file(tmp_path / "second"),
-        issuer_folder(tmp_path / "second"),
-        tmp_path / "out2",
-        config="sol-medium",
-        cap="50",
-        modules=("CP-4",),
-    )
-    assert [r.module_id for r in narrow.plan.layout.front] == ["CP-0"]
+    assert [r.module_id for r in cpos_launch._front_routes(("CP-0", "CP-1", "CP-4"))] == ["CP-0"]
 
 
 def test_cp6_front_routes_lead_with_its_summary_then_its_action_bias():
     routes = cpos_launch._front_routes(("CP-0", "CP-2", "CP-6"))
-    assert [(r.module_id, r.heading, r.kind, r.prefix, r.label) for r in routes] == [
-        ("CP-6", "Reader summary", "table", None, "Ic debate challenge"),
-        ("CP-2", "Reader summary", "table", None, "Fundamental credit synthesizer"),
-        ("CP-0", "Reader summary", "table", None, "Source readiness"),
-        (
-            "CP-6",
-            "Action Bias Determination",
-            "prose",
-            "Final Action Bias:",
-            "Committee action bias",
-        ),
+    assert [(r.module_id, r.kind, r.label) for r in routes] == [
+        ("CP-6", "table", "Committee decision"),
+        ("CP-2", "table", "Fundamental credit"),
+        ("CP-0", "table", "Source readiness"),
+        ("CP-6", "prose", "Committee action bias"),
     ]
+    assert (routes[-1].heading, routes[-1].prefix) == (
+        "Action Bias Determination",
+        "Final Action Bias:",
+    )

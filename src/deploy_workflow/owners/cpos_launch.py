@@ -26,7 +26,6 @@ from pathlib import Path
 
 from deploy_vii.contracts import PATHWAY_MODULES, Run
 from deploy_vii.live.prompts import STEP_CONTRACTS
-from deploy_vii.registry import modules as module_descriptors
 from deploy_vii.registry import plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow.context import CONTEXT_SOURCE_ID, load_context
@@ -395,12 +394,16 @@ def chart_issues(text: str, route: MarkdownRoute) -> tuple[str, ...]:
 # The lines the report states above the call, front-most first: the Reader summary's first table
 # (instructed by READER_SECTION_RULES) of each module that is in the run, and CP-6's instructed
 # `Final Action Bias:` paragraph. Nothing is read that no instruction asks the module to write.
-FRONT_MODULES = ("CP-6", "CP-5", "CP-2", "CP-0")
+FRONT_TITLES = {
+    "CP-6": "Committee decision",
+    "CP-5": "Evidence validation",
+    "CP-2": "Fundamental credit",
+    "CP-0": "Source readiness",
+}
 READER_SUMMARY_HEADER = "Bottom line | Confidence | Main limitation"
 
 
 def _front_routes(ordered: tuple[str, ...]) -> tuple[MarkdownRoute, ...]:
-    titles = {m.module_id: m.title for m in module_descriptors()}
     routes = [
         MarkdownRoute(
             module_id=module_id,
@@ -408,9 +411,9 @@ def _front_routes(ordered: tuple[str, ...]) -> tuple[MarkdownRoute, ...]:
             kind="table",
             block_id="front",
             table_header=READER_SUMMARY_HEADER,
-            label=titles[module_id],
+            label=title,
         )
-        for module_id in FRONT_MODULES
+        for module_id, title in FRONT_TITLES.items()
         if module_id in ordered
     ]
     if "CP-6" in ordered:

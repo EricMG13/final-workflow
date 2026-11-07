@@ -331,6 +331,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
                 and not (r.module_id == "CP-MODEL" and request.model is not None)
                 for r in request.layout.routes
             )
+            or any(r.module_id not in selected_modules for r in request.layout.front)
         ):
             raise ValueError(
                 "cpos_layout: route selected modules to unique blocks of the requested pathway"

@@ -7,11 +7,11 @@
     if(!response.ok)throw new Error(await response.text());
     return response.json();
   };
-  let catalogue={},store={runs:{},outputs:{},inputs:{},pins:{},reports:[],visuals:[],issues:[]},problem='';
+  let catalogue={},store={runs:{},outputs:{},inputs:{},pins:{},reports:[],models:[],visuals:[],issues:[]},problem='';
   try{catalogue=await read('/api/catalogue');store=await read('/api/workspace');}
   catch(error){problem=error.message;}
   window.DESIGN_DATA={runs:store.runs,outputs:store.outputs,inputs:store.inputs,pins:store.pins};
-  window.DESIGN_WORKSPACE={reports:store.reports,visuals:store.visuals};
+  window.DESIGN_WORKSPACE={reports:store.reports,models:store.models,visuals:store.visuals};
   window.DESIGN_APP={workspace:catalogue.workspace||'',policy_locked:!!catalogue.policy_locked,issues:problem?catalogue.issues||[]:store.issues,problem};
   // Discovery runs every 30 seconds. Offer the change rather than moving the screen under the reader.
   const shape=value=>JSON.stringify(value.real?.map(run=>[run.id,run.files?.length,run.artifacts?.filter(item=>item.available).map(item=>item.folder)]));

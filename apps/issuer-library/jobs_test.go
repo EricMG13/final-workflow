@@ -1270,14 +1270,15 @@ func TestWorkspaceSwitchIsRefusedWhileAReviewIsInFlight(t *testing.T) {
 	t.Cleanup(func() { releaseReviews(t, root, 0) })
 	other := t.TempDir()
 	discovered := 0 // discoveries of other; only this test goroutine switches to it
-	saved := discoverWorkspace
-	discoverWorkspace = func(folder string, seeds Catalogue) Catalogue {
+	saved := discoverWorkspace.Load()
+	count := func(folder string, seeds Catalogue) Catalogue {
 		if folder == other {
 			discovered++
 		}
-		return saved(folder, seeds)
+		return (*saved)(folder, seeds)
 	}
-	t.Cleanup(func() { discoverWorkspace = saved })
+	discoverWorkspace.Store(&count)
+	t.Cleanup(func() { discoverWorkspace.Store(saved) })
 	done := make(chan *httptest.ResponseRecorder)
 	go func() { done <- reviewRequest(t, app, `["annual.txt"]`) }()
 	waitReviews(t, app, 1)

@@ -350,7 +350,7 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	}
 	// Every chosen file is kept, so the launcher itself reports the ones no module can read.
 	for i, file := range files {
-		if file.Size > 64<<20 {
+		if file.Size > maxFileBytes {
 			http.Error(w, "Files must be up to 64 MiB each: "+paths[i], 400)
 			return
 		}
@@ -373,14 +373,14 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 		// Streamed into the retained file and its hash together, never held whole in memory; a
 		// refusal below leaves the partial file to the folder's removal.
 		hash := sha256.New()
-		size, err := io.Copy(io.MultiWriter(destination, hash), io.LimitReader(stream, (64<<20)+1))
+		size, err := io.Copy(io.MultiWriter(destination, hash), io.LimitReader(stream, maxFileBytes+1))
 		stream.Close()
 		closeErr := destination.Close()
 		if err != nil || closeErr != nil {
 			http.Error(w, "Could not retain source", 500)
 			return
 		}
-		if size > 64<<20 {
+		if size > maxFileBytes {
 			http.Error(w, "Source upload is too large or unreadable: "+paths[i], 400)
 			return
 		}

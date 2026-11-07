@@ -4,11 +4,12 @@ const {JSDOM,VirtualConsole}=require(process.env.ISSUER_LIBRARY_JSDOM||'jsdom');
 const root=path.resolve(__dirname,'../../../artifacts/issuer-library/design-fixture');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const settle=(ms=10)=>new Promise(resolve=>setTimeout(resolve,ms));
-function fixture(hash,timeout){
+function fixture(hash,timeout,before){
   const dom=new JSDOM(html,{url:`file://${__dirname}/index.html#${hash}`,runScripts:'outside-only'});
   const w=dom.window;w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});
   w.HTMLElement.prototype.scrollIntoView=function(){};
   if(timeout!==undefined)w.DESIGN_FRAME_TIMEOUT_MS=timeout;
+  if(before)before(w);
   for(const name of ['data.js','workspace-data.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
@@ -18,10 +19,10 @@ const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 
 test('tab and rail vocabulary follows the approved destinations',t=>{
   const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
-  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Reports','Evidence']);
-  assert.ok(d.querySelector('.rail a[aria-label="Reports"]'));
-  assert.equal(d.querySelector('.rail a[aria-label="Deliverables"]'),null);
-  assert.ok(d.querySelector('.rail a[aria-label="Run activity"] img').getAttribute('src').endsWith('icons/activity.svg'));
+  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Forecast','Reports','Evidence']);
+  assert.ok(d.querySelector('.rail a[data-place="Reports"]'));
+  assert.equal(d.querySelector('.rail a[data-place="Deliverables"]'),null);
+  assert.ok(d.querySelector('.rail a[data-place="Run activity"] img').getAttribute('src').endsWith('icons/activity.svg'));
   w.location.hash='W-Reports/list?c=tdg-002';w.dispatchEvent(new w.Event('hashchange'));
   assert.equal(d.title,'Reports · Issuer Library');
   assert.equal(d.getElementById('section-title').textContent,'Reports');
@@ -75,7 +76,7 @@ test('the run context frame shows loading, failure with retry, and ready',async 
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-NewRun/run',runScripts:'outside-only',virtualConsole}),w=dom.window,d=w.document;
   w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};w.setInterval=()=>1;w.clearInterval=()=>{};
   w.fetch=async()=>({ok:true,json:async()=>[]});
-  w.eval('window.DESIGN_FRAME_TIMEOUT_MS=20;window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
+  w.eval('window.DESIGN_FRAME_TIMEOUT_MS=20;window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   t.after(()=>{w.close();assert.deepEqual(errors.map(e=>e.message),[]);});
   const status=()=>d.querySelector('#context-step .frame-status');
@@ -141,7 +142,7 @@ test('Help names Reports, not Deliverables',async t=>{
 test('Settings lists workspace issues as path and message and quits as a tertiary action',async t=>{
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-Settings/workspace',runScripts:'outside-only'});
   const w=dom.window;t.after(()=>w.close());w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
-  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:['deliverables/x: Delivery manifest requires report.html: and view.json','plain note'],problem:''};");
+  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:['deliverables/x: Delivery manifest requires report.html: and view.json','plain note'],problem:''};");
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   const d=w.document,quit=d.getElementById('quit-library');
@@ -158,7 +159,7 @@ function emptyPage(hash,t){
   const errors=[],virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',e=>errors.push(e));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only',virtualConsole}),w=dom.window;
   t.after(()=>w.close());w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};
-  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:[],problem:''};");
+  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:[],problem:''};");
   return {dom,w,errors,load:()=>{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}};
 }
 async function settingsPage(t,fail){
@@ -208,7 +209,7 @@ async function bootPage(t,hash,reply){
   vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());await settle(30);
   return {w,d:w.document,errors,tick:async()=>{await tick();}};
 }
-const GOOD={real:[],runs:{},outputs:{},inputs:{},pins:{},reports:[],visuals:[],issues:[],workspace:'/r'};
+const GOOD={real:[],runs:{},outputs:{},inputs:{},pins:{},reports:[],models:[],visuals:[],issues:[],workspace:'/r'};
 test('H2 the service banner appears after two failed checks and clears on success',async t=>{
   let mode='ok';
   const reply=()=>{if(mode==='down')throw new Error('down');return{ok:true,json:async()=>GOOD};};
@@ -319,4 +320,205 @@ test('layout: toggle label, issuer title, library band offset and row labels', a
   assert.ok(cells.length>0);
   for(const c of cells)assert.ok(c.dataset.label,c.outerHTML);
   assert.deepEqual([...new Set(cells.map(c=>c.dataset.label))].sort(),['Period','Reports','Run','Workflow']);
+});
+
+test('a group stays open across searches because its state is keyed by the issuer key',async t=>{
+  const w=fixture('W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const group=()=>d.querySelector('tbody.run-list[data-group="id:tdg"]');
+  group().querySelector('.run-toggle').click();
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
+  assert.deepEqual([...w.eval('expandedIssuers')],['id:tdg']);
+  const box=d.getElementById('library-query');
+  box.value='transdigm';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
+  assert.ok([...group().querySelectorAll('.run-row')].every(row=>!row.hidden));
+});
+
+test('other runs of the issuer are found by issuer key, never by display name, and an unrecorded run matches nothing',async t=>{
+  const w=fixture('W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const module=w.eval(`Object.keys(moduleNames).find(m=>isAnalytical(m)&&contexts['tdg-003'].modules[m]?.outputs.length&&!contexts['tdg-002'].modules[m]?.outputs.length)`);
+  assert.ok(module,'the fixture has a module tdg-003 holds and tdg-002 lacks');
+  const others=()=>[...d.querySelectorAll('.available-case a')].map(a=>text(a)),third=w.eval(`contexts['tdg-003'].run`);
+  const show=async()=>{await go(w,'W-Help/help');await go(w,`${module}?c=tdg-002`);};
+  await show();
+  assert.ok(others().includes(third),'a run of the same issuer is offered');
+  w.eval(`contexts['tdg-003'].issuer='A different recorded name'`);await show();
+  assert.ok(others().includes(third),'a different recorded name is still the same issuer');
+  w.eval(`contexts['tdg-003'].issuerKey='id:someone-else'`);await show();
+  assert.ok(!others().includes(third),'another key is another issuer');
+  w.eval(`contexts['tdg-003'].issuerKey=null;contexts['tdg-002'].issuerKey=null`);await show();
+  assert.deepEqual(others(),[],'an unrecorded issuer equals nothing, not even itself');
+  assert.equal(w.eval('sameIssuer(null,null)'),false);
+  assert.equal(w.eval('issuerReports("tdg-002").length'),0);
+});
+
+test('the section bar leads with the run and the module or destination name',async t=>{
+  const w=fixture('CP-1/performance?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  const prefix=()=>d.querySelector('#section-nav .section-context');
+  assert.equal(text(prefix()),'TDG-002 · Financial foundation');
+  assert.equal(d.querySelector('#section-nav').firstElementChild,prefix());
+  await go(w,'W-Forecast/forecast?c=tdg-002');
+  assert.equal(text(prefix()),'TDG-002 · Forecast');
+  await go(w,'W-Reports/list?c=tdg-002');
+  assert.equal(text(prefix()),'TDG-002 · Reports');
+  for(const destination of ['W-Library/cases','W-NewRun/new','W-Settings/settings','W-Help/help']){
+    await go(w,`${destination}?c=tdg-002`);
+    assert.equal(prefix(),null,`${destination} must not carry a run prefix`);
+  }
+  // A run label that holds markup is shown as text.
+  w.eval(`contexts['tdg-002'].run='<b id=x>R</b>'`);
+  await go(w,'CP-2/assessment?c=tdg-002');
+  assert.equal(d.querySelector('#section-nav b#x'),null);
+  assert.equal(text(prefix()),`<b id=x>R</b> · ${w.eval('moduleNames["CP-2"]')}`);
+});
+
+test('Overview charts carry their period, name their bars, and the lead is not repeated',t=>{
+  const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  const bridge=[...d.querySelectorAll('.summary-chart')].find(c=>c.querySelector('.bridge-key'));
+  assert.ok(bridge,'a waterfall chart is on the Overview');
+  assert.equal(text(bridge.querySelector('.section-heading span')),'USD millions · FY2024 cash bridge · historical opening basis');
+  assert.equal([...bridge.querySelectorAll('text.axis-label')].map(l=>[...l.querySelectorAll('tspan')].map(s=>s.textContent).join(' ')).join('|'),'Beginning cash|Operating cash flow|Investing cash flow|Financing cash flow|Exchange-rate effect|Calculated closing cash');
+  assert.equal(bridge.querySelectorAll('.bridge-key b').length,0);
+  const lead=text(d.querySelector('.summary-lead .call-quote'));
+  assert.equal(text(d.body).split(lead).length-1,1);
+  const owner=text(d.querySelector('.summary-lead .summary-owner'));
+  assert.equal(d.querySelector(`.summary-card[data-module]`)&&[...d.querySelectorAll('.summary-card')].some(c=>text(c.querySelector('h3'))===owner),false);
+  for(const s of d.querySelectorAll('.question-map>section'))assert.ok(s.querySelector('.summary-card'));
+});
+
+// Rail proximity: the rail opens 100 ms after the pointer is within 16 px of its right edge, closes 300 ms after it leaves.
+function railFixture(coarse){
+  const dom=fixture('W-Library/cases',undefined,w=>{w.matchMedia=query=>({matches:coarse&&query==='(hover: none), (pointer: coarse)',media:query});}),w=dom.window,rail=w.document.querySelector('.rail');
+  rail.getBoundingClientRect=()=>({left:0,top:0,right:56,bottom:800,width:56,height:800});
+  return {dom,w,rail,move:(x,pointerType='mouse')=>{const e=new w.MouseEvent('pointermove',{clientX:x,clientY:100,bubbles:true});Object.defineProperty(e,'pointerType',{value:pointerType});w.document.dispatchEvent(e);}};
+}
+test('rail items carry their names as visually hidden labels, found by data-place',t=>{
+  const {w,rail}=railFixture(false);t.after(()=>w.close());
+  const items=[...rail.querySelectorAll('[data-place]')];
+  assert.deepEqual(items.map(i=>i.dataset.place),['Issuer library','Research workspace','Reports','Run activity','New run','Search','Settings','Help']);
+  for(const item of items){
+    assert.equal(item.querySelector('.rail-label').textContent,item.dataset.place);
+    assert.equal(item.textContent.trim(),item.dataset.place);
+    assert.equal(item.hasAttribute('title'),false);assert.equal(item.hasAttribute('aria-label'),false);
+  }
+  assert.equal(rail.querySelector('a[href="#W-Library/cases"] .symbol'),null);
+  const symbol=rail.querySelector('img.symbol');assert.ok(symbol);assert.equal(symbol.closest('a'),null);
+});
+test('rail opens within 16 px of its edge after 100 ms and closes 300 ms after the pointer leaves',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);assert.equal(rail.classList.contains('rail-open'),false);
+  await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);await settle(150);assert.equal(rail.classList.contains('rail-open'),true);
+  await settle(300);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('rail stays closed with the pointer 40 px away, and re-entering cancels a pending close',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(96);await settle(160);assert.equal(rail.classList.contains('rail-open'),false);
+  move(72);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);await settle(150);move(30);await settle(400);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);move(30);await settle(0);
+  move(96);await settle(50);move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+});
+test('leaving the zone cancels a pending open',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);await settle(30);move(200);await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('a coarse pointer or no hover never opens the rail by proximity',async t=>{
+  const {w,rail,move}=railFixture(true);t.after(()=>w.close());
+  move(10);await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('a touch or pen pointer never opens the rail by proximity',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66,'touch');move(66,'pen');await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
+});
+
+// Task 13: Forecast wiring and report routing (adversarial review).
+function bare(hash,models){
+  const dom=new JSDOM(html,{url:`file://${__dirname}/index.html#${hash}`,runScripts:'outside-only'}),w=dom.window;
+  w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
+  w.eval(`window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:${JSON.stringify(models)},visuals:[]};window.DESIGN_APP={workspace:'',policy_locked:false,issues:[],problem:''};`);
+  let error=null;
+  try{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}catch(e){error=e;}
+  return {w,error};
+}
+test('every route renders in a workspace with no run, whatever it holds',t=>{
+  const model={id:'m-1',issuerKey:'id:ex',mode:'candidate',qualification:null,runId:'r-1',scope:null,inputContract:null,revisionNote:null,previous:null,href:'/files/deliverables/m-1/model.html?sha256=0',download:'/files/x',files:[],sources:[],register:null,cashflow:null};
+  for(const hash of ['W-Library/cases','W-Forecast/forecast','W-Forecast/m-1','W-Reports/list','W-Reports/x','W-Settings/settings','CP-OS/activity']){
+    const {w,error}=bare(hash,[model]);t.after(()=>w.close());
+    assert.equal(error,null,`${hash}: ${error&&error.message}`);
+    assert.ok(w.document.getElementById('content').textContent.trim().length>0,hash);
+  }
+});
+test("another issuer's model, or one with no recorded issuer, is not a run's published model",async t=>{
+  const w=fixture('W-Forecast/tdg-model-1?c=tdg-002').window;t.after(()=>w.close());
+  const base=JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.models[0])),folder=w.eval('contexts["tdg-002"].folder');
+  const foreign=Object.assign(JSON.parse(JSON.stringify(base)),{id:'beta-model',runId:folder,issuerKey:'id:bet',sources:[]});
+  const unkeyed=Object.assign(JSON.parse(JSON.stringify(base)),{id:'null-model',runId:folder,issuerKey:null,sources:[]});
+  const own=Object.assign(JSON.parse(JSON.stringify(base)),{id:'own-model',runId:folder,sources:[]});
+  // Naming the run in its sources does not make another issuer's model the run's own when its runId is elsewhere.
+  const reach=Object.assign(JSON.parse(JSON.stringify(base)),{id:'reach-model',runId:'elsewhere',issuerKey:'id:bet',sources:[{run:'tdg-002'}]});
+  w.DESIGN_WORKSPACE.models.push(foreign,unkeyed,own,reach);
+  await go(w,'W-Forecast/own-model?c=tdg-002');
+  const options=[...w.document.querySelectorAll('#model-select option')].map(o=>o.textContent);
+  assert.ok(options.some(o=>o.startsWith('own-model')),JSON.stringify(options));
+  assert.equal(options.some(o=>o.startsWith('beta-model')||o.startsWith('null-model')||o.startsWith('reach-model')),false,JSON.stringify(options));
+});
+test("a report built from a run opens under that run even when its issuer differs from the run's",async t=>{
+  const w=fixture('W-Reports/list?c=tdg-002').window;t.after(()=>w.close());
+  const copy=Object.assign(JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.reports[0])),{id:'erste-parse',issuerKey:null});
+  copy.builtFrom=copy.builtFrom.map(b=>({...b,run:'tdg-002'}));
+  w.DESIGN_WORKSPACE.reports.push(copy);
+  await go(w,'W-Library/cases');await go(w,'W-Reports/list?c=tdg-002');
+  assert.ok([...w.document.querySelectorAll('.report-row a')].some(a=>a.getAttribute('href').includes('erste-parse')));
+  await go(w,'W-Reports/erste-parse?c=tdg-002');
+  assert.ok(w.document.getElementById('report-preview'),text(w.document.getElementById('content')).slice(0,120));
+  assert.equal(w.eval('current.context'),'tdg-002');
+});
+test('the Report select lists the same reports as the report tabs and selects the open one under the built-from route',async t=>{
+  const w=fixture('W-Reports/list?c=tdg-002').window;t.after(()=>w.close());
+  const copy=Object.assign(JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.reports[0])),{id:'erste-parse',issuerKey:null});
+  copy.builtFrom=copy.builtFrom.map(b=>({...b,run:'tdg-002'}));
+  w.DESIGN_WORKSPACE.reports.push(copy);
+  await go(w,'W-Library/cases');await go(w,'W-Reports/erste-parse?c=tdg-002');
+  const select=w.document.getElementById('report-select');
+  assert.equal(select.value,'erste-parse');
+  const tabs=[...w.eval('reportSections("tdg-002")')].filter(s=>s[0]!=='list').map(s=>s[0]).sort();
+  assert.deepEqual([...select.options].map(o=>o.value).sort(),[...tabs]);
+});
+test('an Other models row links only to a run whose Forecast lists that model',async t=>{
+  const w=fixture('W-Forecast/forecast?c=tdg-002').window;t.after(()=>w.close());
+  const base=w.DESIGN_WORKSPACE.models[0],keys=w.eval('Object.fromEntries(Object.entries(contexts).map(([k,c])=>[k,[c.issuerKey,c.folder]]))');
+  const mine=keys['tdg-002'][0],elsewhere=Object.values(keys).find(([key])=>key!==mine);
+  assert.ok(elsewhere);
+  // The model has tdg-002's issuer key but names a run of another issuer: no run lists it on its Forecast.
+  w.DESIGN_WORKSPACE.models.splice(0,w.DESIGN_WORKSPACE.models.length,Object.assign(JSON.parse(JSON.stringify(base)),{id:'stray-model',issuerKey:mine,runId:elsewhere[1],sources:[]}));
+  await go(w,'W-Library/cases');await go(w,'W-Forecast/forecast?c=tdg-002');
+  const section=w.document.querySelector('.forecast-other');
+  assert.ok(section,'the Other models list is shown');
+  assert.match(text(section),/stray-model/);
+  assert.equal(section.querySelector('a'),null,'no link to a Forecast page that lists nothing');
+});
+test('the rail closes 300 ms after the pointer leaves it for an embedded frame',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  rail.dispatchEvent(new w.Event('pointerleave'));
+  await settle(150);assert.equal(rail.classList.contains('rail-open'),true);
+  await settle(300);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('the cash flow grid reads cell status and column ytd, never the display or label text',async t=>{
+  const w=fixture('W-Forecast/tdg-model-1?c=tdg-002').window;t.after(()=>w.close());
+  const cf=w.DESIGN_WORKSPACE.models[0].cashflow,d=w.document;
+  const ytdColumns=cf.columns.filter(c=>c.ytd).length;
+  assert.ok(ytdColumns>0&&cf.columns.some(c=>!c.ytd));
+  cf.columns[cf.columns.findIndex(c=>c.ytd)].label='Q1 FY1 (YTD)';
+  const plain=cf.columns.find(c=>!c.ytd);plain.label='Looks (YTD)';
+  const cell=cf.rows[0].cells.find(c=>c.status==='value');
+  cell.display='n.a.';cell.reason='text only';
+  const gone=cf.rows.flatMap(r=>r.cells).find(c=>c.status==='gap');
+  gone.status='na';gone.display='shown as text';gone.reason='by status';
+  await go(w,'W-Library/cases');await go(w,'W-Forecast/tdg-model-1?c=tdg-002');
+  assert.equal(d.querySelectorAll('.cashflow thead .col-sub').length,ytdColumns);
+  const lines=[...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent);
+  assert.equal(lines.some(l=>l.includes('text only')),false,lines.join('|'));
+  assert.ok(lines.some(l=>l.endsWith('by status')),lines.join('|'));
 });

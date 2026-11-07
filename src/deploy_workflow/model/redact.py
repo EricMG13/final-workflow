@@ -36,11 +36,12 @@ _NAME = r"[^\s\\/:*?\"'<>|(),;]"  # one character of a path segment
 # A home directory: "/home/<user>", "/var/home/<user>", "/Users/<user>", "/root", and on Windows
 # "<drive>:\Users\<user>", a UNC share's "\\host\share\Users\<user>" or WSL's
 # "/mnt/<drive>/Users/<user>", in either slash, repr-escaped or not. A Windows user name may hold
-# spaces when a backslash follows it ("C:\Users\Jane Doe\AppData"). A path inside a longer name or
-# a URL's host part ("example.com/home/x") is not one; "file:///home/<user>" is.
+# spaces when a backslash or a closing quote follows it ("C:\Users\Jane Doe\AppData",
+# "'C:\Users\Jane Doe'"). A path inside a longer name or a URL's host part
+# ("example.com/home/x") is not one; "file:///home/<user>" is.
 _HOME_PATH = re.compile(
     r"(?<![\w.-])(?:(?:[A-Za-z]:|\\\\[^\s\\/]+[\\/]+[^\s\\/]+|/mnt/[A-Za-z])[\\/]+|[\\/])"
-    rf"(?:(?i:users|home|var[\\/]+home)[\\/]+(?:{_NAME}+(?: {_NAME}+)*(?=\\)|{_NAME}+)"
+    rf"(?:(?i:users|home|var[\\/]+home)[\\/]+(?:{_NAME}+(?: {_NAME}+)*(?=[\\'\"])|{_NAME}+)"
     rf"|root(?!{_NAME}))"
 )
 

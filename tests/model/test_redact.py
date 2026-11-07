@@ -87,6 +87,7 @@ def test_exact_value_in_exception_redacted() -> None:
         ("/mnt/c/Users/jane/x", "<home>/x"),  # WSL
         ("open 'file:///home/jane/x.txt'", "open 'file://<home>/x.txt'"),
         (r"C:\Users\jane and /home/bob/x", "<home> and <home>/x"),  # a space ends a name here
+        (r"profile 'C:\Users\Jane Doe' set", "profile '<home>' set"),  # a quote closes the name
         # not a home directory: a longer name, a URL host's path, a bare folder
         ("/homework/x /rootfs/y /home https://example.com/Users/jane/p", None),
     ],

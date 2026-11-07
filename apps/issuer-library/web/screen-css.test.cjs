@@ -120,3 +120,12 @@ test('layout: controls reach 32px', () => {
     assert.ok(rule(s).some((b) => /(^|;)(min-)?height:32px/.test(b)), `${s} under 32px`);
   }
 });
+
+test('every custom property screen.css reads without a fallback is defined in screen.css', () => {
+  // index.html loads screen.css alone, so a token from another stylesheet (such as the report's
+  // --rb-ink-2) would silently fall back to the inherited colour. --band-h has a fallback (set by JS).
+  const defined = new Set([...screen.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]));
+  const bare = [...screen.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(bare.filter((name) => !defined.has(name)))], []);
+  assert.match(screen, /\.ref\{[^}]*color:var\(--muted\)/);
+});

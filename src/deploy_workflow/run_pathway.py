@@ -28,7 +28,7 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from deploy_vii.contracts import PathwayId
-from deploy_vii.execution import Execution
+from deploy_vii.execution import Attempt, Execution, ExecutionSnapshot, current_inputs
 from deploy_vii.live.prompts import PromptError
 from deploy_vii.preparation import PreparedPack, load_pack
 from deploy_vii.registry import plan
@@ -864,12 +864,49 @@ def _drive_resumed(workflow: OwnerWorkflow, loop: _Walk) -> str | None:
     return None
 
 
+class NativeCp8Refused(WorkflowError):
+    """The walk reached CP-8 whose owner step is the superseded decision-ledger post-mortem
+    (AGENTS.md: not an input gate). CP-8 compares delivered bundles through CP-OS."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "native CP-8 is refused: the decision-ledger post-mortem is superseded; compare "
+            "prior and current deliverables with CP-OS run_comparison "
+            "(deploy_workflow.owners.cpos --compare)"
+        )
+
+
+class _NativeWorkflow(OwnerWorkflow):
+    """The native pathway's workflow: it never begins or resumes a CP-8 attempt. The owner API
+    and ``OWNER_SPECS["CP-8"]`` stay for the retained owner oracles and receipts. A CP-8 that
+    would not begin (CP-0 judged it ``DO NOT RUN``, or its upstream is blocked) keeps its ordinary
+    retained refusal, so a preset that lists it (portfolio_decision) still walks; only a CP-8
+    that would begin is refused, before its begin."""
+
+    def _begin(self, module_id: str) -> bool:
+        if module_id == "CP-8":
+            try:  # the inputs check `Execution.begin` makes; it writes nothing
+                current_inputs(self._store.read(), module_id)
+            except ValueError:  # not authorized or blocked: the refusal below is retained
+                pass
+            else:
+                raise NativeCp8Refused
+        return super()._begin(module_id)
+
+    def _activate(
+        self, attempt: Attempt, step_id: str, *, at: ExecutionSnapshot | None = None
+    ) -> None:
+        if attempt.module_id == "CP-8":  # a CP-8 attempt an earlier run left pending
+            raise NativeCp8Refused
+        super()._activate(attempt, step_id, at=at)
+
+
 def _enter(run_dir: Path, pack: PreparedPack, resume: bool) -> OwnerWorkflow:
     """Create the workflow over a fresh run directory, or reopen the killed run's."""
     execution, publication = run_dir / "execution", run_dir / "publication"
     if resume:
-        return OwnerWorkflow.open(execution, publication_directory=publication)
-    return OwnerWorkflow.create(execution, pack, publication_directory=publication)
+        return _NativeWorkflow.open(execution, publication_directory=publication)
+    return _NativeWorkflow.create(execution, pack, publication_directory=publication)
 
 
 def _prior_spend(checked: CheckedRun, execution: Path) -> Decimal:

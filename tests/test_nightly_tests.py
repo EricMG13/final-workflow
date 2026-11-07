@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -96,3 +98,31 @@ def test_run_prints_the_log_tail_to_the_job_log(
     printed = capsys.readouterr().out.splitlines()
     assert code == 1 and printed[-1] == "shard 3: pytest exit -11"
     assert printed[:-1] == [f"line {n}" for n in range(5, nightly.TAIL + 5)]
+
+
+def test_a_passing_module_fixture_directory_is_dropped_when_only_failed_are_kept(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "conftest.py").write_text((Path(__file__).parent / "conftest.py").read_text())
+    (tmp_path / "test_m.py").write_text(
+        "import pytest\n"
+        "@pytest.fixture(scope='module')\n"
+        "def store(tmp_path_factory):\n"
+        "    return tmp_path_factory.mktemp('store')\n"
+        "def test_a(store): (store / 'f').write_text('x')\n"
+        "def test_b(store): assert (store / 'f').exists()\n"
+    )
+    (tmp_path / "test_n.py").write_text(
+        "def test_d(tmp_path_factory):\n"
+        "    assert not list(tmp_path_factory.getbasetemp().glob('store[0-9]*'))\n"
+    )
+    command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-o"]
+    done = subprocess.run(
+        [*command, "tmp_path_retention_policy=failed", "test_m.py", "test_n.py"],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+        timeout=120,
+    )
+    assert done.returncode == 0 and "3 passed" in done.stdout, done.stdout

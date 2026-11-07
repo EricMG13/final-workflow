@@ -117,7 +117,8 @@ jobs:
       - env:
           TESTS: ${{ inputs.tests }}
         run: |
-          read -ra ids <<< "$TESTS"
+          read -ra ids -d "" <<< "$TESTS" || true
+          [ "${#ids[@]}" -gt 0 ] || { echo "no test ids given"; exit 1; }
           env -u ANTHROPIC_API_KEY -u OPENAI_API_KEY -u OPENROUTER_API_KEY \
             -u COPILOT_GITHUB_TOKEN -u GH_TOKEN -u GITHUB_TOKEN \
             uv run python -m pytest -q -p no:cacheprovider -m "not live and not browser" \

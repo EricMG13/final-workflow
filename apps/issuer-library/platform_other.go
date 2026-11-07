@@ -69,3 +69,26 @@ func workerAlive(name string) (bool, error) {
 	}
 	return false, err
 }
+
+// privateFolder returns an error unless name is a folder of this user's that no other user can
+// write to (no group or world write bit).
+func privateFolder(name string) error {
+	info, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+	if stat, ok := info.Sys().(*syscall.Stat_t); !info.IsDir() || !ok || int(stat.Uid) != os.Getuid() {
+		return fmt.Errorf("the state folder %s does not belong to this user", name)
+	}
+	if info.Mode().Perm()&0o022 != 0 {
+		return fmt.Errorf("other users can write to the state folder %s", name)
+	}
+	return nil
+}
+
+// ownerOnly reports whether info describes a plain file of this user's that only they can read or
+// write, as a relaunch creates its quit request.
+func ownerOnly(info fs.FileInfo) bool {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	return info.Mode().IsRegular() && ok && int(stat.Uid) == os.Getuid() && info.Mode().Perm()&0o077 == 0
+}

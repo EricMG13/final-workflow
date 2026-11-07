@@ -299,6 +299,11 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	// The review writes into this workspace until it ends, however it ends (refusal, error, the
 	// review bound, a client that went away), so a workspace switch is refused until then.
 	app.mu.Lock()
+	if app.quitting {
+		app.mu.Unlock()
+		http.Error(w, libraryQuitting, 503)
+		return
+	}
 	app.reviews++
 	workspace := app.config.Workspace
 	app.mu.Unlock()
@@ -431,6 +436,10 @@ func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	app.mu.Lock()
 	defer app.mu.Unlock()
+	if app.quitting {
+		http.Error(w, libraryQuitting, 503)
+		return
+	}
 	if len(app.activeJobs) > 0 {
 		http.Error(w, "A CP-OS run is already active; wait for it to finish", 409)
 		return

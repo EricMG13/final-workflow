@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
-	"flag"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -433,15 +431,10 @@ func freePort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// runLauncher runs run() as a launch of the executable with arguments; flags and os.Args are
-// restored afterwards.
+// runLauncher runs run() as a launch of the executable with arguments.
 func runLauncher(t *testing.T, arguments ...string) error {
 	t.Helper()
-	savedArgs, savedFlags := os.Args, flag.CommandLine
-	defer func() { os.Args, flag.CommandLine = savedArgs, savedFlags }()
-	flag.CommandLine = flag.NewFlagSet("issuer-library", flag.ContinueOnError)
-	os.Args = append([]string{"issuer-library"}, arguments...)
-	return run()
+	return run(arguments)
 }
 
 // captureStdout sends os.Stdout to a pipe until the returned function is called, which restores it
@@ -460,109 +453,6 @@ func captureStdout(t *testing.T) func() string {
 		os.Stdout = saved
 		writer.Close()
 		return <-read
-	}
-}
-
-// C03 relaunch, through run() as the executable runs it. Expected by hand: the first launch opens
-// the browser once, at http://127.0.0.1:<port>/launch?ticket=<64 hex>, and prints only the address;
-// a second launch (with and without --no-browser) finds its port taken, asks /health, sees its own
-// instance and returns errAlreadyRunning without opening anything; with --workspace it returns the
-// workspace message. The first instance keeps working, and library.log never holds a secret.
-func TestRelaunchReportsTheRunningLibraryAndOpensNoWindow(t *testing.T) {
-	saved, savedLog := launchBrowser, log.Writer()
-	t.Cleanup(func() { launchBrowser = saved; log.SetOutput(savedLog) })
-	opened := make(chan string, 4)
-	launchBrowser = func(url string) error { opened <- url; return nil }
-	state, workspace, port := t.TempDir(), t.TempDir(), freePort(t)
-	arguments := []string{"-state-dir", state, "-port", strconv.Itoa(port)}
-	stdout := captureStdout(t)
-	restored := false
-	defer func() {
-		if !restored {
-			stdout()
-		}
-	}()
-	first := make(chan error, 1)
-	go func() { first <- runLauncher(t, append(arguments, "-workspace", workspace)...) }()
-	var launch string
-	select {
-	case launch = <-opened:
-	case err := <-first:
-		t.Fatalf("first launch ended: %v", err)
-	case <-time.After(20 * time.Second):
-		t.Fatal("the first launch opened no browser")
-	}
-	base := "http://127.0.0.1:" + strconv.Itoa(port)
-	if !regexp.MustCompile(`^` + regexp.QuoteMeta(base) + `/launch\?ticket=[0-9a-f]{64}$`).MatchString(launch) {
-		t.Fatalf("launch URL %q", launch)
-	}
-	ticket := strings.TrimPrefix(launch, base+"/launch?ticket=")
-	client := &http.Client{Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := client.Get(launch)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != 303 || len(response.Cookies()) != 1 {
-		t.Fatalf("exchange: %d %v", response.StatusCode, response.Cookies())
-	}
-	session := response.Cookies()[0]
-	get := func() int {
-		r, _ := http.NewRequest("GET", base+"/api/catalogue", nil)
-		r.AddCookie(session)
-		response, err := client.Do(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		response.Body.Close()
-		return response.StatusCode
-	}
-	if get() != 200 {
-		t.Fatal("the first instance refused its own session")
-	}
-	for _, extra := range [][]string{nil, {"-no-browser"}} {
-		if err := runLauncher(t, append(arguments, extra...)...); !errors.Is(err, errAlreadyRunning) {
-			t.Errorf("second launch %v: %v", extra, err)
-		}
-	}
-	if err := runLauncher(t, append(arguments, "-workspace", t.TempDir())...); err == nil || !strings.Contains(err.Error(), "already running; change its workspace in Settings or quit it first") {
-		t.Errorf("second launch with a workspace: %v", err)
-	}
-	select {
-	case url := <-opened:
-		t.Errorf("a second launch opened %q", url)
-	default:
-	}
-	if get() != 200 {
-		t.Error("a second launch disturbed the first instance's session")
-	}
-	quit, _ := http.NewRequest("POST", base+"/api/quit", strings.NewReader("{}"))
-	quit.AddCookie(session)
-	quit.Header.Set("X-Issuer-Library", "1")
-	quit.Header.Set("Content-Type", "application/json")
-	quit.Header.Set("Origin", base)
-	if response, err := client.Do(quit); err != nil || response.StatusCode != 200 {
-		t.Fatalf("quit: %v %v", response, err)
-	}
-	select {
-	case err := <-first:
-		if err != nil {
-			t.Fatalf("first launch: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("the first instance did not stop")
-	}
-	printed := stdout()
-	restored = true
-	if printed != "Issuer Library: "+base+"\n" {
-		t.Errorf("stdout %q", printed)
-	}
-	logged, _ := os.ReadFile(filepath.Join(state, "library.log"))
-	if strings.Contains(string(logged), ticket) || strings.Contains(string(logged), session.Value) {
-		t.Errorf("library.log carries a secret: %q", logged)
-	}
-	if strings.Count(string(logged), errAlreadyRunning.Error()) != 2 {
-		t.Errorf("library.log does not record both refused launches: %q", logged)
 	}
 }
 

@@ -23,7 +23,8 @@ var resources embed.FS
 type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
-	reviews    int // reviews in flight, each writing into the workspace it read; guarded by mu
+	reviews    int  // reviews in flight, each writing into the workspace it read; guarded by mu
+	quitting   bool // set when the library agrees to quit for a relaunch; guarded by mu
 	mu         sync.RWMutex
 	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations

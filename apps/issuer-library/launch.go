@@ -16,11 +16,12 @@ import (
 // Neither is written to disk, the log, settings, the index or any response body.
 
 // launcherOnly is the whole answer to a request without the session cookie.
-const launcherOnly = "Open Issuer Library from its launcher. This page is not part of the library's current session. If the library is already running, quit it (Settings > Quit library, or end Issuer Library in Task Manager) and start it again."
+const launcherOnly = "Open Issuer Library from its launcher. This page is not part of the library's current session. If the library is already running, start it again: a library with no run or review in progress quits and the new launch opens a fresh window."
 
-// errAlreadyRunning is what a second launch reports: the running instance's secret is in its
-// memory only, so this launch cannot sign a browser in to it and opens no window.
-var errAlreadyRunning = errors.New("Issuer Library is already running, and a second launch cannot open it. Quit the running library (Settings > Quit library, or end Issuer Library in Task Manager), then start it again.")
+// errAlreadyRunning is what a second launch reports when the running instance neither quits nor
+// answers its quit request (quit.go): its secret is in its memory only, so this launch cannot sign
+// a browser in to it and opens no window.
+var errAlreadyRunning = errors.New("Issuer Library is already running and did not quit for this launch. Quit the running library (Settings > Quit library, or end Issuer Library in Task Manager), then start it again.")
 
 // randomSecret returns 32 random bytes from crypto/rand, hex encoded.
 func randomSecret() (string, error) {

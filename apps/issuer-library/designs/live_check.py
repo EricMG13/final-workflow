@@ -394,7 +394,6 @@ def run_walk(
             engine,
             key="not-a-real-key" if args.rehearse else None,
             extra=held,
-            new_session=True,
         )
         with sync_playwright() as driver:
             browser = bc.SignedBrowser(driver.chromium.launch())
@@ -452,6 +451,7 @@ def main(argv: list[str]) -> int:
     bc.secrets = lambda: [*known(), *popped.values()]
     out = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="issuer-library-live-"))
     out.mkdir(parents=True, exist_ok=True)
+    bc.NEW_SESSION = True  # each server in its own process group
     bc.S, bc.PY, bc.APP = out, os.environ["FW_PYTHON"], os.environ["ISSUER_LIBRARY_BINARY"]
     mode = "REHEARSAL (fake engine, no provider)" if args.rehearse else "PAID RUN"
     print(

@@ -484,6 +484,27 @@ document.addEventListener('keydown',event=>{
   if($('navigator').classList.contains('mobile-open')){showNavigator(false);$('module-toggle').focus();}
 });
 window.addEventListener('hashchange',renderRoute);
+// The rail opens 100 ms after the pointer comes within 16 px of its right edge and closes 300 ms after it leaves; touch has no proximity.
+(()=>{
+  const rail=document.querySelector('.rail');let openTimer=null,closeTimer=null;
+  const clear=()=>{clearTimeout(openTimer);clearTimeout(closeTimer);openTimer=closeTimer=null;};
+  const inZone=x=>x<=rail.getBoundingClientRect().right+16;
+  document.addEventListener('pointermove',event=>{
+    if(window.matchMedia('(hover: none), (pointer: coarse)').matches)return;
+    const near=inZone(event.clientX),isOpen=rail.classList.contains('rail-open');
+    if(near){
+      clearTimeout(closeTimer);closeTimer=null;
+      if(!isOpen&&!openTimer)openTimer=setTimeout(()=>{openTimer=null;rail.classList.add('rail-open');},100);
+    }else{
+      clearTimeout(openTimer);openTimer=null;
+      if(isOpen&&!closeTimer)closeTimer=setTimeout(()=>{closeTimer=null;rail.classList.remove('rail-open');},300);
+    }
+  });
+  document.documentElement.addEventListener('pointerleave',()=>{
+    clearTimeout(openTimer);openTimer=null;
+    if(rail.classList.contains('rail-open')&&!closeTimer)closeTimer=setTimeout(()=>{closeTimer=null;rail.classList.remove('rail-open');},300);
+  });
+})();
 const newRun=installNewRun();
 installSettings();
 renderRoute();

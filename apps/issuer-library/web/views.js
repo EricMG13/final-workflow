@@ -518,10 +518,10 @@ function updateWorkspaceChrome(module) {
   $('workbench').classList.toggle('tools-workspace',!isHome&&!report&&module!=='W-Overview'&&!isAnalytical(module));
   $('content').classList.toggle('report-content',report);
   // The rail shows where you are, and its run-level links keep the selected run.
-  const rail=label=>document.querySelector(`.rail a[aria-label="${label}"]`);
+  const rail=label=>document.querySelector(`.rail [data-place="${label}"]`);
   const place={'W-Library':'Issuer library','W-NewRun':'New run','W-Settings':'Settings','W-Help':'Help','W-Reports':'Reports','CP-OS':'Run activity'}[module]||'Research workspace';
-  document.querySelectorAll('.rail a[title]').forEach(link=>{
-    const here=link.getAttribute('aria-label')===place;
+  document.querySelectorAll('.rail a[data-place]').forEach(link=>{
+    const here=link.dataset.place===place;
     link.classList.toggle('rail-active',here);
     if(here)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
   });

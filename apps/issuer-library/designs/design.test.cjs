@@ -727,7 +727,7 @@ test('The / key opens search unless typing or modified, as in Deploy VII',()=>{
   assert.equal(press(w,main,'/').defaultPrevented,true);assert.equal(d.activeElement.id,'module-search');
   assert.ok(d.getElementById('navigator').classList.contains('mobile-open'));assert.equal(d.getElementById('module-toggle').getAttribute('aria-expanded'),'true');
   assert.equal(press(w,box,'/').defaultPrevented,false);
-  main.focus();const rail=d.querySelector('.rail button[aria-label="Search (/)"]');assert.ok(rail);rail.click();assert.equal(d.activeElement.id,'module-search');
+  main.focus();const rail=d.querySelector('.rail button[data-place="Search"]');assert.ok(rail);rail.click();assert.equal(d.activeElement.id,'module-search');
   contentOf(dom,'W-Library/cases');rail.click();assert.equal(d.activeElement.id,'library-query');
   dom.window.close();
 });
@@ -843,14 +843,14 @@ function appFixture(hash,store,workspace,app={workspace:'/research',policy_locke
 const goTo=(dom,hash)=>{dom.window.location.hash=hash;dom.window.eval('renderRoute()');return dom.window.document;};
 test('The rail reaches every destination, marks where you are and keeps the selected run',()=>{
   const dom=fixture('CP-2H?c=ford-otosan-2024'),d=dom.window.document;
-  const rail=label=>d.querySelector(`.rail a[aria-label="${label}"]`);
+  const rail=label=>d.querySelector(`.rail a[data-place="${label}"]`);
   for(const label of ['Issuer library','Research workspace','Reports','Run activity','New run','Settings','Help'])assert.ok(rail(label),label);
   assert.equal(rail('Reports').getAttribute('href'),'#W-Reports/list?c=ford-otosan-2024');
   assert.equal(rail('Run activity').getAttribute('href'),'#CP-OS/activity?c=ford-otosan-2024');
   assert.equal(rail('Research workspace').getAttribute('aria-current'),'page');
   for(const [route,label] of [['W-Library/cases','Issuer library'],['W-NewRun/run','New run'],['W-Settings/workspace','Settings'],['W-Help/help','Help'],['W-Reports/list','Reports'],['CP-OS/activity','Run activity']]){
     goTo(dom,route);
-    assert.deepEqual([...d.querySelectorAll('.rail a[aria-current]')].map(a=>a.getAttribute('aria-label')),[label],route);
+    assert.deepEqual([...d.querySelectorAll('.rail a[aria-current]')].map(a=>a.dataset.place),[label],route);
   }
   dom.window.close();
 });
@@ -957,8 +957,8 @@ test('An empty workspace opens on the library with only what can work',()=>{
   assert.equal(dom.window.eval('current.module'),'W-Library');
   assert.match(d.getElementById('content').textContent,/No runs in this workspace yet/);
   assert.equal(d.getElementById('library-new-run').getAttribute('href'),'#W-NewRun/run');
-  for(const label of ['Research workspace','Run activity','Reports'])assert.equal(d.querySelector(`.rail a[aria-label="${label}"]`).hidden,true,label);
-  for(const label of ['Issuer library','New run','Settings','Help'])assert.equal(d.querySelector(`.rail a[aria-label="${label}"]`).hidden,false,label);
+  for(const label of ['Research workspace','Run activity','Reports'])assert.equal(d.querySelector(`.rail a[data-place="${label}"]`).hidden,true,label);
+  for(const label of ['Issuer library','New run','Settings','Help'])assert.equal(d.querySelector(`.rail a[data-place="${label}"]`).hidden,false,label);
   for(const route of ['W-Overview/overview','W-Calendar','W-Evidence/sources','CP-OS/activity','CP-1'])assert.equal(dom.window.eval(`location.hash='${route}';renderRoute();current.module`),'W-Library',route);
   assert.match(goTo(dom,'W-Reports/list').getElementById('content').textContent,/No deliverables yet/);
   for(const route of ['W-NewRun/run','W-Settings/workspace','W-Help/help','W-Help/visuals','W-Library/cases'])assert.doesNotThrow(()=>goTo(dom,route),route);

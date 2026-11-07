@@ -141,3 +141,15 @@ test('the section bar is sticky with its run and module prefix at 720px and belo
   assert.ok(bar[0].includes('top:0') && bar[0].includes('background:#fff') && bar[0].includes('border-bottom:1px solid var(--rule)'), bar[0]);
   assert.match(media, /#section-nav \.section-context\{display:block/);
 });
+
+test('the rail opens as an overlay, for focus too, and stops animating under reduced motion', () => {
+  const open = screen.match(/\.rail\.rail-open[^{}]*\{[^}]*\}/g) || [];
+  assert.ok(open.some((r) => r.includes('width:220px')), 'open rail is 220px wide');
+  assert.ok(!/\.app\{[^}]*margin-left:220px/.test(screen), 'the page does not reflow');
+  assert.match(screen, /\.rail:focus-within/, 'keyboard focus opens the rail');
+  assert.match(screen, /\.rail:not\(\.rail-open\)[^{]*\.rail-label|\.rail-label\{[^}]*clip:rect\(0,0,0,0\)/, 'labels are clipped at rest');
+  assert.ok(!/\.rail-label\{[^}]*display:none/.test(screen), 'labels keep their accessible name');
+  const reduced = [...screen.matchAll(/@media\(prefers-reduced-motion:reduce\)\{(.*)\}/g)].map((m) => m[1]).join('');
+  assert.match(reduced, /\.rail\{[^}]*transition:none/);
+  assert.match(screen, /\.rail\{[^}]*transition:width/);
+});

@@ -129,7 +129,7 @@ def real_workspace(browser, name, port, full):
         f"{name}: navigation shows names, not module codes",
     )
     note(
-        page.locator(".rail a[aria-label='Reports'][aria-current]").count() == 1,
+        page.locator(".rail a[data-place='Reports'][aria-current]").count() == 1,
         f"{name}: rail stays beside the report and marks Reports",
     )
     page.screenshot(path=str(S / f"{name}-report.png"))
@@ -173,14 +173,14 @@ def real_workspace(browser, name, port, full):
         and "TransDigm" in page.frame_locator("#report-preview").locator("body").inner_text(),
         f"{name}: CLI launcher delivery opens as a deliverable",
     )
-    page.click(".rail a[aria-label='Settings']")
+    page.click(".rail a[data-place='Settings']")
     page.wait_for_selector("#workspace-path")
     note(
         page.input_value("#workspace-path") == str(R),
         f"{name}: Settings shows the workspace folder",
     )
     page.screenshot(path=str(S / f"{name}-settings.png"))
-    page.click(".rail a[aria-label='Help']")
+    page.click(".rail a[data-place='Help']")
     page.wait_for_selector(".help-copy")
     page.keyboard.press("/")
     note(
@@ -296,7 +296,7 @@ def new_run(browser, name, port, workspace, start):
         f"{name}: empty workspace opens on the library",
     )
     note(
-        not page.locator(".rail a[aria-label='Run activity']").is_visible(),
+        not page.locator(".rail a[data-place='Run activity']").is_visible(),
         f"{name}: run-level rail links are hidden when empty",
     )
     page.screenshot(path=str(S / f"{name}-empty.png"))
@@ -325,9 +325,9 @@ def new_run(browser, name, port, workspace, start):
         f"{name}: New run fields, buttons and stages use the shared controls ({form})",
     )
     # Navigation away and back keeps the prepared run.
-    page.click(".rail a[aria-label='Help']")
+    page.click(".rail a[data-place='Help']")
     page.wait_for_selector(".help-copy")
-    page.click(".rail a[aria-label='New run']")
+    page.click(".rail a[data-place='New run']")
     page.wait_for_selector("#source-step:not([hidden])")
     note(
         page.input_value("#run-budget") == "50",
@@ -452,7 +452,7 @@ def new_run(browser, name, port, workspace, start):
         )
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
-    page.click(".rail a[aria-label='Issuer library']")
+    page.click(".rail a[data-place='Issuer library']")
     page.wait_for_selector(".run-list a")
     note(
         ISSUER in page.inner_text("#library-results"),

@@ -56,6 +56,13 @@ main{min-width:0;min-height:0;display:flex;flex-direction:column}#module-head{pa
 /* The app's own controls: New run, Settings and the library's primary action. */
 .app-problem{margin:0;padding:8px 22px;background:var(--amber-bg);color:var(--amber);font-weight:600}
 .rail a[hidden]{display:none}
+.rail{transition:width .15s ease}.rail-label{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip:rect(0,0,0,0)}
+.rail.rail-open,.rail:focus-within{width:220px;align-items:stretch;box-shadow:4px 0 18px #0a0e2a40}
+.rail.rail-open>a,.rail.rail-open>button,.rail:focus-within>a,.rail:focus-within>button{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 10px;color:#fff;text-decoration:none}
+.rail.rail-open .rail-label,.rail:focus-within .rail-label{position:static;width:auto;height:auto;overflow:visible;clip:auto;white-space:nowrap;font-size:var(--fs-compact);font-weight:600}
+.rail.rail-open .symbol,.rail:focus-within .symbol{align-self:flex-start;margin-left:3px}
+.rail.rail-open .rail-rule,.rail:focus-within .rail-rule{align-self:flex-start;margin-left:6px}
+@media(prefers-reduced-motion:reduce){.rail{transition:none}}
 
 
 .primary-action:disabled{background:#c8cddb;border-color:#c8cddb;color:var(--muted);cursor:not-allowed}

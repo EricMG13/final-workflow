@@ -19,9 +19,9 @@ const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 test('tab and rail vocabulary follows the approved destinations',t=>{
   const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
   assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Forecast','Reports','Evidence']);
-  assert.ok(d.querySelector('.rail a[aria-label="Reports"]'));
-  assert.equal(d.querySelector('.rail a[aria-label="Deliverables"]'),null);
-  assert.ok(d.querySelector('.rail a[aria-label="Run activity"] img').getAttribute('src').endsWith('icons/activity.svg'));
+  assert.ok(d.querySelector('.rail a[data-place="Reports"]'));
+  assert.equal(d.querySelector('.rail a[data-place="Deliverables"]'),null);
+  assert.ok(d.querySelector('.rail a[data-place="Run activity"] img').getAttribute('src').endsWith('icons/activity.svg'));
   w.location.hash='W-Reports/list?c=tdg-002';w.dispatchEvent(new w.Event('hashchange'));
   assert.equal(d.title,'Reports · Issuer Library');
   assert.equal(d.getElementById('section-title').textContent,'Reports');
@@ -374,4 +374,47 @@ test('Overview charts carry their period, name their bars, and the lead is not r
   const owner=text(d.querySelector('.summary-lead .summary-owner'));
   assert.equal(d.querySelector(`.summary-card[data-module]`)&&[...d.querySelectorAll('.summary-card')].some(c=>text(c.querySelector('h3'))===owner),false);
   for(const s of d.querySelectorAll('.question-map>section'))assert.ok(s.querySelector('.summary-card'));
+});
+
+// Rail proximity: the rail opens 100 ms after the pointer is within 16 px of its right edge, closes 300 ms after it leaves.
+function railFixture(coarse){
+  const dom=fixture('W-Library/cases'),w=dom.window,rail=w.document.querySelector('.rail');
+  rail.getBoundingClientRect=()=>({left:0,top:0,right:56,bottom:800,width:56,height:800});
+  w.matchMedia=query=>({matches:coarse&&query==='(hover: none), (pointer: coarse)',media:query,addEventListener(){},removeEventListener(){}});
+  return {dom,w,rail,move:x=>w.document.dispatchEvent(new w.MouseEvent('pointermove',{clientX:x,clientY:100,bubbles:true}))};
+}
+test('rail items carry their names as visually hidden labels, found by data-place',t=>{
+  const {w,rail}=railFixture(false);t.after(()=>w.close());
+  const items=[...rail.querySelectorAll('[data-place]')];
+  assert.deepEqual(items.map(i=>i.dataset.place),['Issuer library','Research workspace','Reports','Run activity','New run','Search','Settings','Help']);
+  for(const item of items){
+    assert.equal(item.querySelector('.rail-label').textContent,item.dataset.place);
+    assert.equal(item.textContent.trim(),item.dataset.place);
+    assert.equal(item.hasAttribute('title'),false);assert.equal(item.hasAttribute('aria-label'),false);
+  }
+  assert.equal(rail.querySelector('a[href="#W-Library/cases"] .symbol'),null);
+  const symbol=rail.querySelector('img.symbol');assert.ok(symbol);assert.equal(symbol.closest('a'),null);
+});
+test('rail opens within 16 px of its edge after 100 ms and closes 300 ms after the pointer leaves',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);assert.equal(rail.classList.contains('rail-open'),false);
+  await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);await settle(150);assert.equal(rail.classList.contains('rail-open'),true);
+  await settle(300);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('rail stays closed with the pointer 40 px away, and re-entering cancels a pending close',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(96);await settle(160);assert.equal(rail.classList.contains('rail-open'),false);
+  move(72);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);await settle(150);move(30);await settle(400);assert.equal(rail.classList.contains('rail-open'),true);
+  move(200);move(30);await settle(0);
+  move(96);await settle(50);move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);
+});
+test('leaving the zone cancels a pending open',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66);await settle(30);move(200);await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('a coarse pointer or no hover never opens the rail by proximity',async t=>{
+  const {w,rail,move}=railFixture(true);t.after(()=>w.close());
+  move(10);await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
 });

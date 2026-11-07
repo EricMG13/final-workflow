@@ -787,6 +787,27 @@ def test_c1_cost_claim_with_neither_cover_known() -> None:
     )
 
 
+def test_a_positive_cp1_cash_interest_leaves_both_pro_forma_values_not_meaningful() -> None:
+    """S08-A09/C05: CP-1 stores cash interest as a negative outflow. A stored +2.00 negates to
+    paid -2.00 (T3D.3.r01, exact); with a 1000 bp step-up the added interest is still known
+    (T3D.3.r06), but pro forma interest (-2.00 + added) and its cover are not meaningful, as the
+    base cover is: before the fix the pro forma cover printed 10.0000x (30 / 3.00)."""
+    inputs = _with_cp1(cash_interest=_cp1_amount("cash_interest", "2.00"))
+    result = cp3c.compute(_with_step_up(inputs, 1000))
+    cells = _cells_of(result)
+    assert cells["T3D.3.r01"].amount == Decimal("-2.00")
+    assert cells["T3D.3.r06"].status == "known"
+    for fact_id in ("T3D.3.r03", "T3D.3.r07", "T3D.3.r08"):
+        assert (cells[fact_id].status, cells[fact_id].reason) == (
+            "not_applicable",
+            cp3c.NM_INTEREST,
+        ), fact_id
+    assert _claim(result, "CP-3C-COST-01") == (
+        f"{COST}{{T3D.3.r06|US$ m}} to annual cash interest; interest cover is [T3D.3.r03] "
+        "before and [T3D.3.r08] after it."
+    )
+
+
 # C-2 reasons
 
 

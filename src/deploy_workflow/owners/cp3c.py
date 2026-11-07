@@ -823,7 +823,12 @@ def compose_refinancing(*, operands: Operands, step_up_bps: int | None) -> Refin
         ]
         step: Num = Gap(REASON_STEP_UP) if step_up_bps is None else Decimal(step_up_bps)
         added = _repriced(payable, step)
-        pro_forma = _total((paid, added))
+        # S08-A09/C05: CP-1 stores cash interest as a negative outflow, so a positive stored
+        # value (net interest received, or a sign anomaly) gives paid < 0. Its cover is not
+        # meaningful, and a step-up netted against it is not a pro forma cost: both pro forma
+        # values carry the same not-meaningful reason.
+        nm_paid = not isinstance(paid, Gap) and paid < 0
+        pro_forma = Gap(NM_INTEREST, applicable=False) if nm_paid else _total((paid, added))
         undated = none or _first(*(f.maturity_date for f in ordered), *extra)
         return Refinancing(
             operands=o,

@@ -60,11 +60,15 @@ def required(name):
     return value
 
 
-def report(name, passed, output=""):
+def report(name: str, passed: bool, output: str = "") -> bool:
     counted = re.findall(r"\d+ passed[^\n]*|(?<=ℹ )pass \d+", output) if passed else ()
     print(("PASS " if passed else "FAIL ") + name, *(f"({c})" for c in counted[-1:]), flush=True)
     if not passed:
-        print("\n".join(output.splitlines()[-40:]), flush=True)
+        lines = output.splitlines()
+        print(
+            "\n".join([line for line in lines if line.startswith("FAIL ")] + lines[-40:]),
+            flush=True,
+        )
     return passed
 
 

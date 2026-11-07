@@ -15,6 +15,7 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import expect, sync_playwright
@@ -33,7 +34,7 @@ KEYS = tuple(runpy.run_path(str(R / "src/deploy_workflow/model/redact.py"))["KEY
 results = []
 
 
-def note(ok, what):
+def note(ok: bool, what: str) -> None:
     results.append((ok, what))
     print(("PASS " if ok else "FAIL ") + what, flush=True)
 
@@ -83,8 +84,8 @@ def serve(
     raise SystemExit("server did not start")
 
 
-def errors_of(page):
-    errors = []
+def errors_of(page: Any) -> list[str]:
+    errors: list[str] = []
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
     return errors
@@ -291,7 +292,10 @@ FORM_WANT = {
 }
 
 
-def new_run(browser, name, port, workspace, start):
+# One browser walk through New run, kept in page order; splitting it would hide the sequence.
+def new_run(  # noqa: PLR0915
+    browser: Any, name: str, port: int, workspace: Path, start: bool | str
+) -> None:
     page = browser.new_page(viewport={"width": 1366, "height": 768})
     errors = errors_of(page)
     page.goto(f"http://127.0.0.1:{port}/")
@@ -357,7 +361,11 @@ def new_run(browser, name, port, workspace, start):
     )
     page.screenshot(path=str(S / f"{name}-review.png"))
     if not start:
-        note("not set" in page.inner_text("#run-review") or True, f"{name}: review only")
+        # A server started without a key (key=None): review names the key the model needs.
+        note(
+            "Cannot start · OPENAI_API_KEY is not set" in page.inner_text("#run-review"),
+            f"{name}: review only, the missing provider key is named",
+        )
         note(not errors, f"{name}: no console errors {errors[:4]}")
         page.close()
         return

@@ -146,7 +146,12 @@ test('the rail opens as an overlay, for focus too, and stops animating under red
   const open = screen.match(/\.rail\.rail-open[^{}]*\{[^}]*\}/g) || [];
   assert.ok(open.some((r) => r.includes('width:220px')), 'open rail is 220px wide');
   assert.ok(!/\.app\{[^}]*margin-left:220px/.test(screen), 'the page does not reflow');
-  assert.match(screen, /\.rail:focus-within/, 'keyboard focus opens the rail');
+  assert.ok(!screen.includes('.rail:focus-within'), 'a mouse click must not leave the rail open');
+  const covered = screen.split('\n').filter((l) => /^\.rail\.rail-open/.test(l));
+  assert.ok(covered.length >= 4);
+  for (const l of covered) for (const sel of l.slice(0, l.indexOf('{')).split(',').filter((x) => x.includes('.rail-open'))) {
+    assert.ok(l.slice(0, l.indexOf('{')).includes(sel.replace('.rail-open', ':has(:focus-visible)')), `keyboard focus mirrors ${sel}`);
+  }
   assert.match(screen, /\.rail:not\(\.rail-open\)[^{]*\.rail-label|\.rail-label\{[^}]*clip:rect\(0,0,0,0\)/, 'labels are clipped at rest');
   assert.ok(!/\.rail-label\{[^}]*display:none/.test(screen), 'labels keep their accessible name');
   const reduced = [...screen.matchAll(/@media\(prefers-reduced-motion:reduce\)\{(.*)\}/g)].map((m) => m[1]).join('');

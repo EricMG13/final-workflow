@@ -487,10 +487,10 @@ window.addEventListener('hashchange',renderRoute);
 // The rail opens 100 ms after the pointer comes within 16 px of its right edge and closes 300 ms after it leaves; touch has no proximity.
 (()=>{
   const rail=document.querySelector('.rail');let openTimer=null,closeTimer=null;
-  const clear=()=>{clearTimeout(openTimer);clearTimeout(closeTimer);openTimer=closeTimer=null;};
+  const coarse=window.matchMedia?.('(hover: none), (pointer: coarse)')||{matches:false}; // no matchMedia (test DOMs): treat as a fine pointer
   const inZone=x=>x<=rail.getBoundingClientRect().right+16;
   document.addEventListener('pointermove',event=>{
-    if(window.matchMedia('(hover: none), (pointer: coarse)').matches)return;
+    if(coarse.matches||event.pointerType!=='mouse')return;
     const near=inZone(event.clientX),isOpen=rail.classList.contains('rail-open');
     if(near){
       clearTimeout(closeTimer);closeTimer=null;

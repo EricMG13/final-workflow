@@ -4,11 +4,12 @@ const {JSDOM,VirtualConsole}=require(process.env.ISSUER_LIBRARY_JSDOM||'jsdom');
 const root=path.resolve(__dirname,'../../../artifacts/issuer-library/design-fixture');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const settle=(ms=10)=>new Promise(resolve=>setTimeout(resolve,ms));
-function fixture(hash,timeout){
+function fixture(hash,timeout,before){
   const dom=new JSDOM(html,{url:`file://${__dirname}/index.html#${hash}`,runScripts:'outside-only'});
   const w=dom.window;w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});
   w.HTMLElement.prototype.scrollIntoView=function(){};
   if(timeout!==undefined)w.DESIGN_FRAME_TIMEOUT_MS=timeout;
+  if(before)before(w);
   for(const name of ['data.js','workspace-data.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
@@ -378,10 +379,9 @@ test('Overview charts carry their period, name their bars, and the lead is not r
 
 // Rail proximity: the rail opens 100 ms after the pointer is within 16 px of its right edge, closes 300 ms after it leaves.
 function railFixture(coarse){
-  const dom=fixture('W-Library/cases'),w=dom.window,rail=w.document.querySelector('.rail');
+  const dom=fixture('W-Library/cases',undefined,w=>{w.matchMedia=query=>({matches:coarse&&query==='(hover: none), (pointer: coarse)',media:query});}),w=dom.window,rail=w.document.querySelector('.rail');
   rail.getBoundingClientRect=()=>({left:0,top:0,right:56,bottom:800,width:56,height:800});
-  w.matchMedia=query=>({matches:coarse&&query==='(hover: none), (pointer: coarse)',media:query,addEventListener(){},removeEventListener(){}});
-  return {dom,w,rail,move:x=>w.document.dispatchEvent(new w.MouseEvent('pointermove',{clientX:x,clientY:100,bubbles:true}))};
+  return {dom,w,rail,move:(x,pointerType='mouse')=>{const e=new w.MouseEvent('pointermove',{clientX:x,clientY:100,bubbles:true});Object.defineProperty(e,'pointerType',{value:pointerType});w.document.dispatchEvent(e);}};
 }
 test('rail items carry their names as visually hidden labels, found by data-place',t=>{
   const {w,rail}=railFixture(false);t.after(()=>w.close());
@@ -417,4 +417,8 @@ test('leaving the zone cancels a pending open',async t=>{
 test('a coarse pointer or no hover never opens the rail by proximity',async t=>{
   const {w,rail,move}=railFixture(true);t.after(()=>w.close());
   move(10);await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
+});
+test('a touch or pen pointer never opens the rail by proximity',async t=>{
+  const {w,rail,move}=railFixture(false);t.after(()=>w.close());
+  move(66,'touch');move(66,'pen');await settle(200);assert.equal(rail.classList.contains('rail-open'),false);
 });

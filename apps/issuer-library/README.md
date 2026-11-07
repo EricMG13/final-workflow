@@ -279,10 +279,6 @@ ISSUER_LIBRARY_JSDOM=/tmp/issuer-library-dom-check/node_modules/jsdom node --tes
 DOM simulation and HTTP checks do not establish browser visual or Windows launcher
 acceptance. See the single repository `VERIFICATION.md` record for actual scope.
 
-Offline browser walks, the flow check on a retained run, the paid live walk (rehearse first),
-and the fault-repair loop are described in `docs/QUALITY-GATE.md`, section "Live testing and
-repair". `python validate.py browser` runs the offline walk; no provider is called.
-
 For macOS development only, set `ISSUER_LIBRARY_PYTHON` to the absolute path of
 this project's Python 3.13 environment; `ISSUER_LIBRARY_ENGINE_ROOT` can point to
 `apps/issuer-library/engine`. Packaged Windows uses the bundled engine automatically.

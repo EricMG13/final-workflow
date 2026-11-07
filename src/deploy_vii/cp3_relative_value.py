@@ -1148,11 +1148,42 @@ def _market_row(
         return [*issues, f"{path}: malformed citation (empty locator or quote)"], None
     issues.extend(f"{path}: {i}" for i in citation_issues((citation,), pack.sources))
     if row.kind == "observed":
+        own = _found(_TALK, quote.quote)
+        issues.extend(f'{path}: an observed row quotes indicative talk: "{m}"' for m in own)
         issues.extend(
-            f'{path}: an observed row quotes indicative talk: "{marker}"'
-            for marker in _found(_TALK, quote.quote)
+            f'{path}: an observed row quotes a sentence of indicative talk: "{m}"'
+            for m in _found(_TALK, _sentences_of(quote, pack))
+            if m not in own
         )
     return issues, citation
+
+
+_SENTENCE_END = re.compile(r"[.!?](?=\s|$)")
+
+
+def _sentences_of(quote: Quote, pack: PreparedPack) -> str:
+    """S08-cp3-A08: the whole sentences of the cited span that hold each occurrence of the quote
+    (both normalised), so a sub-span cut out of a talk sentence still reads as talk. A sentence
+    ends at ".", "!" or "?" before a space or the end, never inside "99.75". The quote alone when
+    the span is not in the pack or does not hold it (`citation_issues` reports that)."""
+    spans = [
+        x.text
+        for s in pack.sources
+        if s.source_id == quote.source_id
+        for x in s.spans
+        if x.locator == quote.locator
+    ]
+    needle = normalise(quote.quote)
+    text = normalise(spans[0]) if spans else ""
+    ends = [m.end() for m in _SENTENCE_END.finditer(text)]
+    found: list[str] = []
+    at = text.find(needle) if needle else -1
+    while at >= 0:
+        stop = at + len(needle)
+        start = max((e for e in ends if e <= at), default=0)
+        found.append(text[start : min((e for e in ends if e >= stop), default=len(text))])
+        at = text.find(needle, at + 1)
+    return " ".join(found) or quote.quote
 
 
 def _basis_issues(

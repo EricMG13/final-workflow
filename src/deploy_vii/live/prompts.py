@@ -596,7 +596,8 @@ CP3_EVIDENCE_RULE = (
 )
 CP3_TALK_RULE = (
     "Indicative talk is never a market level: an `observed` row never quotes talk wording (talk, "
-    "indicative, guidance, initial price thoughts), and neither an indicative_talk row's own text "
+    "indicative, guidance, initial price thoughts), nor part of a sentence that carries it, and "
+    "neither an indicative_talk row's own text "
     "nor a text whose basis is talk alone uses a level verb (trades at, quoted at, priced at, "
     "yields). With talk only, the preference's `confidence` is below High."
 )

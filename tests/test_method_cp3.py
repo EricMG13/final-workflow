@@ -716,3 +716,39 @@ def test_review_s08_a06_a_newer_page_date_does_not_stand_for_an_older_quotes() -
             "as-of 2026-01-10 (limit 30)"
         )
     ]
+
+
+# --- S08-cp3-A08: an observed row's quote is read with its whole sentence -------------------------
+def _talk_sub_span_as_observed(sub: str) -> CP3Inputs:
+    """The positive literal with only its page:2 row, re-quoted as `sub` and called observed."""
+    lit = copy.deepcopy(SUBMISSIONS["positive"]["relative_value"])
+    row = lit["market_evidence"][1]
+    row.update(kind="observed", limitation=None)
+    row["quote"]["quote"] = sub
+    lit["market_evidence"] = [row]
+    for item in (*lit["instruments"], lit["preference"]):
+        quotes = [q for q in item["basis"]["quotes"] if q["locator"] == "page:2"]
+        for q in quotes:
+            q["quote"] = sub
+        item["basis"]["quotes"] = quotes
+    return make_inputs("positive", lit)
+
+
+def test_an_observed_sub_span_of_a_talk_sentence_is_refused() -> None:
+    """page:2 reads "Dealers describe the indicative fair value of the Northbridge Term Loan as
+    around 99.75. This is talk ...". Quoting only "the Northbridge Term Loan as around 99.75"
+    held no marker, so it published as Observed; its sentence holds "indicative"."""
+    result = compute(_talk_sub_span_as_observed("the Northbridge Term Loan as around 99.75"))
+    assert result.issues == (
+        'market_evidence[0]: an observed row quotes a sentence of indicative talk: "indicative"',
+    )
+
+
+def test_an_observed_quote_with_the_marker_keeps_the_quote_issue_once() -> None:
+    whole = (
+        "Dealers describe the indicative fair value of the Northbridge Term Loan as around 99.75."
+    )
+    result = compute(_talk_sub_span_as_observed(whole))
+    assert result.issues == (
+        'market_evidence[0]: an observed row quotes indicative talk: "indicative"',
+    )

@@ -1,0 +1,663 @@
+"""S12-A02 (user ruling B, fail closed): a positive `signed` amount on an outflow account is
+refused for the model to repair, never flipped to minus its absolute value.
+
+Hand-derived expectations (no production arithmetic): every reader of an outflow account takes
+-abs(amount). A source printing "Income taxes refunded (paid), net | 15" recorded `signed` +15
+would read -15, wrong by 2 x 15 = 30, so it is refused. The two repairs:
+- the source prints the outflow as a positive magnitude: `outflow_magnitude` with `sign_citations`,
+  read as -15;
+- the source prints a net inflow (a refund): the value is `missing` with a reason, read as missing
+  (never 0, never -15, never +15).
+Zero is not positive and negative signed amounts are unchanged (-15 stays -15).
+"""
+
+from datetime import date
+from decimal import Decimal
+
+import pytest
+from pydantic import ValidationError
+from test_statement_quantities import SHA, book, cite, period
+
+from deploy_vii.contracts import Citation, Run, Source, Span
+from deploy_vii.financial_adapter import kernel_registers
+from deploy_vii.financial_contracts import (
+    AccountObservation,
+    Alternative,
+    FinancialBook,
+    FinancialPeriod,
+    FinancialReview,
+    Observation,
+    StatementLine,
+    StatementQuantity,
+)
+from deploy_vii.financial_reconciliation import Reconciliation, reconcile_financials
+from deploy_vii.financial_validation import records, validate_financial_review
+from deploy_vii.model import history
+from deploy_vii.model._cells import Cell
+from deploy_vii.model.history import OUTFLOW_METRICS
+from deploy_vii.preparation import PreparedPack
+from deploy_vii.statement_extract import ExtractedTable
+from deploy_vii.statement_output import StatementCell, statement_report
+from deploy_vii.statement_validation import ACCOUNT_LINKS, statement_issues
+from deploy_workflow import financial_workflow as fw
+from deploy_workflow.statement_lines import line_table
+
+# Every statement item linked to an outflow account, by hand: (statement, item, account).
+OUTFLOW_ITEMS = (
+    ("IS", "cogs", "cogs"),
+    ("IS", "depreciation_amortization", "depreciation_amortization"),
+    ("IS", "opex_including_da", "opex_including_da"),
+    ("IS", "operating_lease_cost", "operating_lease_cost"),
+    ("CFS", "dividends_paid", "dividends_paid"),
+    ("CFS", "cash_taxes_paid", "cash_taxes_paid"),
+    ("CFS", "cash_interest_paid", "cash_interest_paid"),
+    ("CFS", "lease_payments_in_financing", "lease_payments_in_financing"),
+    ("CFS", "interest_paid_in_financing", "interest_paid_in_financing"),
+    ("CFS", "capex_total", "capex_and_intangible_investment"),
+)
+REFUND = "Income taxes refunded (paid), net | 15"
+WITHHELD = "The source prints a net income tax refund of 15; a refund is not an outflow"
+ISSUE = "Positive signed amount on an outflow account"
+
+
+def observation(oid: str, amount: Decimal | None, quote: str = REFUND) -> Observation:
+    if amount is None:
+        return Observation(
+            observation_id=oid,
+            status="missing",
+            amount=None,
+            citations=(cite(quote),),
+            reason=WITHHELD,
+        )
+    return Observation(observation_id=oid, status="known", amount=amount, citations=(cite(quote),))
+
+
+def outflow_line(  # noqa: PLR0913 - one keyword per field the cases vary
+    statement: str,
+    item: str,
+    amount: Decimal | None,
+    *,
+    convention: str = "signed",
+    period_id: str = "FY2024",
+    line_kind: str = "detail",
+    priority: int = 1,
+) -> StatementLine:
+    line_id = f"{statement.lower()}-{item.replace('_', '-')}"
+    return StatementLine(
+        line_id=line_id,
+        statement=statement,
+        item_id=item,
+        label=item,
+        period_id=period_id,
+        display_priority=priority,
+        line_kind=line_kind,
+        value=observation(f"obs-{line_id}-{period_id}", amount),
+        sign_convention=convention,
+        sign_citations=(cite(REFUND),) if convention == "outflow_magnitude" else (),
+        quantity=StatementQuantity(kind="monetary", scale="MILLIONS", citations=(cite("unit"),)),
+    )
+
+
+def refused(issues: tuple[str, ...]) -> list[str]:
+    return [issue for issue in issues if ISSUE in issue]
+
+
+def test_the_hand_list_is_every_item_linked_to_an_outflow_account() -> None:
+    linked = {(s, i, m) for (s, i), m in ACCOUNT_LINKS.items() if m in OUTFLOW_METRICS}
+    assert linked == set(OUTFLOW_ITEMS)
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_a_positive_signed_amount_on_an_outflow_account_is_refused(
+    statement: str, item: str, account: str
+) -> None:
+    row = outflow_line(statement, item, Decimal(15))
+    [issue] = refused(statement_issues(book((row,))))
+    # The line, its period, the account and both repairs, in one sentence.
+    assert f"{row.line_id} FY2024 ({statement} {item}, account {account})" in issue
+    assert "`sign_convention: outflow_magnitude` with `sign_citations`" in issue
+    assert "net inflow (a refund)" in issue and "status `missing`" in issue
+    assert "`reason`" in issue and ". " not in issue
+
+
+@pytest.mark.parametrize("line_kind", ["subtotal", "total"])
+def test_a_positive_signed_subtotal_or_total_on_an_outflow_account_is_refused(
+    line_kind: str,
+) -> None:
+    row = outflow_line("CFS", "capex_total", Decimal("2.5"), line_kind=line_kind)
+    assert len(refused(statement_issues(book((row,))))) == 1
+
+
+@pytest.mark.parametrize(
+    "amount",
+    [Decimal(0), Decimal("0.00"), Decimal(-15), Decimal("-0.01")],
+    ids=["zero", "zero-two-places", "negative", "small-negative"],
+)
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_zero_and_negative_signed_amounts_are_accepted(
+    statement: str, item: str, account: str, amount: Decimal
+) -> None:
+    del account
+    assert refused(statement_issues(book((outflow_line(statement, item, amount),)))) == []
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_a_magnitude_or_a_withheld_refund_is_accepted(
+    statement: str, item: str, account: str
+) -> None:
+    del account
+    magnitude = outflow_line(statement, item, Decimal(15), convention="outflow_magnitude")
+    withheld = outflow_line(statement, item, None)
+    assert refused(statement_issues(book((magnitude,)))) == []
+    assert refused(statement_issues(book((withheld,)))) == []
+
+
+def test_an_outflow_magnitude_without_sign_citations_is_still_refused_by_the_contract() -> None:
+    data = outflow_line("CFS", "cash_taxes_paid", Decimal(15)).model_dump()
+    data["sign_convention"] = "outflow_magnitude"
+    with pytest.raises(ValidationError, match="outflow magnitude normalization requires"):
+        StatementLine.model_validate(data)
+
+
+@pytest.mark.parametrize(
+    ("statement", "item"),
+    [
+        ("IS", "revenue"),  # an inflow account: +15 is a revenue, read +15
+        ("CFS", "capex_maintenance"),  # not linked to an account: printed sign kept
+        ("CFS", "debt_repayment"),
+        ("CFS", "other:income-taxes-refunded-net"),  # issuer detail, not an account
+        ("IS", "income_tax_total"),  # linked, but income_tax_expense is not an outflow account
+    ],
+)
+def test_a_positive_signed_amount_off_the_outflow_accounts_is_not_caught(
+    statement: str, item: str
+) -> None:
+    assert refused(statement_issues(book((outflow_line(statement, item, Decimal(15)),)))) == []
+
+
+@pytest.mark.parametrize(
+    "item", ["inventory", "lease_obligations", "total_debt", "other_current_liabilities"]
+)
+def test_a_balance_sheet_line_is_a_signed_balance_and_not_caught(item: str) -> None:
+    bs = period("FY2024-END", 2024).model_copy(
+        update={"period_type": "PERIOD_END", "start_date": None, "day_count": None}
+    )
+    row = outflow_line("BS", item, Decimal(15), period_id="FY2024-END")
+    forged = book((row,)).model_copy(update={"periods": (*book().periods, bs)})
+    assert refused(statement_issues(forged)) == []
+
+
+def test_a_conflicting_observation_on_an_outflow_account_is_not_caught() -> None:
+    conflict = Observation(
+        observation_id="obs-conflict",
+        status="conflicting",
+        amount=None,
+        citations=(cite(REFUND),),
+        reason="Two figures are printed",
+        alternatives=(
+            Alternative(amount=Decimal(15), citations=(cite(REFUND),), explanation="table"),
+            Alternative(amount=Decimal(-15), citations=(cite("note"),), explanation="note"),
+        ),
+    )
+    row = outflow_line("CFS", "cash_taxes_paid", None).model_copy(update={"value": conflict})
+    assert refused(statement_issues(book((row,)))) == []
+
+
+# --- end to end: validation, the statement report, the reconciliation and the history/LTM ------
+
+QUARTERS = (
+    ("q1-2025", 1, date(2025, 1, 1), date(2025, 3, 31), 90),
+    ("q2-2025", 2, date(2025, 4, 1), date(2025, 6, 30), 91),
+    ("q3-2025", 3, date(2025, 7, 1), date(2025, 9, 30), 92),
+    ("q4-2025", 4, date(2025, 10, 1), date(2025, 12, 31), 92),
+)
+
+
+def quarter(pid: str, number: int, start: date, end: date, days: int) -> FinancialPeriod:
+    return period(pid, 2025).model_copy(
+        update={
+            "period_type": "QUARTER",
+            "fiscal_quarter": number,
+            "start_date": start,
+            "end_date": end,
+            "day_count": days,
+        }
+    )
+
+
+def flow_book(statement: str, item: str, q2: StatementLine) -> FinancialBook:
+    """One outflow item over four calendar 2025 quarters and FY2025: Q1 a printed magnitude 1
+    (read -1), Q2 the case, Q3 a printed (1) (signed -1), Q4 zero, FY a printed (2) (signed -2)."""
+    fy = period("fy-2025", 2025).model_copy(
+        update={"start_date": date(2025, 1, 1), "end_date": date(2025, 12, 31), "day_count": 365}
+    )
+    lines = (
+        outflow_line(
+            statement, item, Decimal(1), convention="outflow_magnitude", period_id="q1-2025"
+        ),
+        q2,
+        outflow_line(statement, item, Decimal(-1), period_id="q3-2025"),
+        outflow_line(statement, item, Decimal(0), period_id="q4-2025"),
+        outflow_line(statement, item, Decimal(-2), period_id="fy-2025"),
+    )
+    return book(lines).model_copy(update={"periods": (*(quarter(*q) for q in QUARTERS), fy)})
+
+
+def case(book_value: FinancialBook) -> tuple[PreparedPack, FinancialReview]:
+    """A pack whose one source `filing` holds every quote the book cites, and its review."""
+    run = Run(
+        run_id="signed-outflow",
+        issuer_id="issuer",
+        issuer_name="Signed Outflow Fixture",
+        as_of=date(2026, 6, 30),
+        case_kind="synthetic",
+    )
+    review = FinancialReview(
+        pack_sha256=SHA,
+        run_id=run.run_id,
+        issuer_id=run.issuer_id,
+        as_of=run.as_of,
+        books=(book_value,),
+        analysis=(),
+    )
+    spans: dict[str, set[str]] = {}
+    for citation in records(review, Citation):
+        spans.setdefault(citation.locator, set()).add(citation.quote)
+    source = Source(
+        source_id="filing",
+        name="Signed outflow fixture",
+        status="ready",
+        sha256=SHA,
+        spans=tuple(
+            Span(locator=locator, text="\n".join(sorted(quotes)))
+            for locator, quotes in sorted(spans.items())
+        ),
+        extraction_status="complete",
+    )
+    pack = PreparedPack(run=run, sources=(source,))
+    return pack, review.model_copy(update={"pack_sha256": pack.content_hash()})
+
+
+def _downstream(
+    statement: str, item: str, account: str, amount: Decimal | None, convention: str = "signed"
+) -> tuple[StatementCell, Reconciliation, Cell, Cell]:
+    """The Q2 statement cell, the FY_QUARTERS check, the Q2 history cell and the LTM at Q4."""
+    q2 = outflow_line(statement, item, amount, convention=convention, period_id="q2-2025")
+    pack, review = case(flow_book(statement, item, q2))
+    assert validate_financial_review(pack, review) == ()
+    cell = next(
+        c
+        for c in statement_report(pack, review, "book").cells
+        if c.item_id == item and c.period_id == "q2-2025"
+    )
+    check = next(
+        c
+        for c in reconcile_financials(pack, review, "book").checks
+        if c.check_type == "FY_QUARTERS" and c.metric_id == account
+    )
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    q2_column = next(c.column_id for c in columns if c.period_id == "q2-2025")
+    q4_column = next(c.column_id for c in columns if c.period_id == "q4-2025")
+    key = f"acct:{account}"
+    return cell, check, frame[q2_column][key], ltm[q4_column][key]
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_a_positive_signed_refund_fails_the_whole_review_closed(
+    statement: str, item: str, account: str
+) -> None:
+    q2 = outflow_line(statement, item, Decimal(15), period_id="q2-2025")
+    pack, review = case(flow_book(statement, item, q2))
+    [issue] = validate_financial_review(pack, review)
+    assert issue.startswith(f"book: {ISSUE}: {q2.line_id} q2-2025 ({statement} {item}, account")
+    for build in (statement_report, reconcile_financials, kernel_registers):
+        with pytest.raises(ValueError, match=ISSUE):
+            build(pack, review, "book")
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_a_printed_magnitude_is_read_as_the_negative_outflow(
+    statement: str, item: str, account: str
+) -> None:
+    cell, check, q2_cell, ltm_cell = _downstream(
+        statement, item, account, Decimal(15), "outflow_magnitude"
+    )
+    # Source 15 printed as a magnitude: normalized -15.
+    assert (cell.source_amount, cell.normalized_amount) == (Decimal(15), Decimal(-15))
+    assert cell.normalization == "negative absolute source amount"
+    # FY_QUARTERS: Q1 -1, Q2 -15, Q3 -1, Q4 0 sum to -17 against the reported FY -2.
+    assert [t.amount for t in check.components] == [-1, -15, -1, 0]
+    assert check.calculated_value == Decimal(-17) and check.reported_value == Decimal(-2)
+    # History: Q2 reads -15; the LTM at Q4 is -1 - 15 - 1 + 0 = -17.
+    assert (q2_cell.value, ltm_cell.value) == (Decimal(-15), Decimal(-17))
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_a_withheld_refund_is_read_as_missing_downstream(
+    statement: str, item: str, account: str
+) -> None:
+    cell, check, q2_cell, ltm_cell = _downstream(statement, item, account, None)
+    # Statement report: missing, no source or normalized figure, the reason as the limitation.
+    assert (cell.status, cell.source_amount, cell.normalized_amount) == ("missing", None, None)
+    assert (cell.normalization, cell.limitation) == ("identity", WITHHELD)
+    # Reconciliation: the Q2 term has no amount (never 0, -15 or +15) and carries the reason, so
+    # the quarters do not sum.
+    q2_term = check.components[1]
+    assert (q2_term.original_amount, q2_term.amount, q2_term.reason) == (None, None, WITHHELD)
+    assert check.calculated_value is None and check.status == "BLOCK"
+    # History and LTM: Q2 has no figure; the LTM at Q4 cannot be summed.
+    assert q2_cell.value is None and q2_cell.reason == "NOT_STATED"
+    assert ltm_cell.value is None and ltm_cell.reason == "COMPONENT_MISSING"
+
+
+@pytest.mark.parametrize(("statement", "item", "account"), OUTFLOW_ITEMS)
+def test_zero_and_a_negative_signed_amount_read_unchanged_downstream(
+    statement: str, item: str, account: str
+) -> None:
+    zero_cell, zero_check, zero_q2, zero_ltm = _downstream(statement, item, account, Decimal(0))
+    # Zero is not positive: no normalization; Q1 -1, Q2 0, Q3 -1, Q4 0 = -2, the reported FY.
+    assert (zero_cell.normalization, zero_q2.value, zero_ltm.value) == ("identity", 0, -2)
+    assert zero_check.calculated_value == Decimal(-2)
+    cell, check, q2_cell, ltm_cell = _downstream(statement, item, account, Decimal(-15))
+    # -15 printed as (15): unchanged, no normalization; Q1 -1, Q2 -15, Q3 -1, Q4 0 = -17.
+    assert (cell.source_amount, cell.normalized_amount) == (Decimal(-15), Decimal(-15))
+    assert cell.normalization == "identity"
+    assert check.calculated_value == Decimal(-17)
+    assert (q2_cell.value, ltm_cell.value) == (Decimal(-15), Decimal(-17))
+
+
+# --- the live coverage gate: a withheld refund row written by hand -------------------------------
+# The CFS unit prints "Income taxes refunded (paid), net  (1)  15  (1)  0  13": Q1 and Q3 paid 1
+# (signed -1), Q2 a net refund of 15 and FY a net refund of 13 (-1 + 15 - 1 + 0 = 13), Q4 nil 0.
+# The two refunds are withheld as `missing` with a reason; the gate expects the printed amount
+# otherwise, so a missing line on the -1 or the 0 column, or without a reason, stays uncovered.
+
+ROW = "Income taxes refunded (paid), net"
+UNIT = (
+    "CONSOLIDATED CASH FLOW STATEMENT",
+    "Period  Q1 2025  Q2 2025  Q3 2025  Q4 2025  FY 2025",
+    f"{ROW}  (1)  15  (1)  0  13",
+)
+PRINTED = {"q1-2025": -1, "q2-2025": 15, "q3-2025": -1, "q4-2025": 0, "fy-2025": 13}
+
+
+def unit_table() -> ExtractedTable:
+    spans = {n: Span(locator=f"line:{n}", text=text) for n, text in enumerate(UNIT, 1)}
+    return line_table(spans, "line:1-3", "filing")
+
+
+def row_line(
+    period_id: str, observation: Observation, item: str = "cash_taxes_paid"
+) -> StatementLine:
+    return StatementLine(
+        line_id="cfs-income-taxes-refunded-paid-net",
+        statement="CFS",
+        item_id=item,
+        label=ROW,
+        period_id=period_id,
+        display_priority=1,
+        line_kind="detail",
+        value=observation,
+        quantity=None,
+    )
+
+
+def row_value(period_id: str, withheld: frozenset[str]) -> Observation:
+    citation = (cite(ROW, locator="line:3"),)
+    if period_id in withheld:
+        return Observation(
+            observation_id=f"tax-{period_id}",
+            status="missing",
+            amount=None,
+            citations=citation,
+            reason=WITHHELD,
+        )
+    return Observation(
+        observation_id=f"tax-{period_id}",
+        status="known",
+        amount=Decimal(PRINTED[period_id]),
+        citations=citation,
+    )
+
+
+def refund_book(
+    withheld: frozenset[str] = frozenset({"q2-2025", "fy-2025"}),
+    item: str = "cash_taxes_paid",
+    replace: dict[str, Observation] | None = None,
+) -> FinancialBook:
+    fy = period("fy-2025", 2025).model_copy(
+        update={"start_date": date(2025, 1, 1), "end_date": date(2025, 12, 31), "day_count": 365}
+    )
+    lines = tuple(
+        row_line(pid, (replace or {}).get(pid) or row_value(pid, withheld), item) for pid in PRINTED
+    )
+    return book(lines).model_copy(update={"periods": (*(quarter(*q) for q in QUARTERS), fy)})
+
+
+def gate(book_value: FinancialBook) -> str | None:
+    table = unit_table()
+    [row] = table.lines
+    return fw._uncovered_reason(table, row, "CFS", (book_value,))
+
+
+def test_the_unit_prints_the_refund_row_as_described() -> None:
+    [row] = unit_table().lines
+    assert (row.locator, row.label, row.values) == ("line:3", ROW, (-1, 15, -1, 0, 13))
+
+
+def test_a_withheld_refund_row_passes_the_coverage_gate_and_reads_missing_downstream() -> None:
+    refund = refund_book()
+    assert gate(refund) is None
+    pack, review = case(refund)
+    assert validate_financial_review(pack, review) == ()
+    cells = {
+        c.period_id: c
+        for c in statement_report(pack, review, "book").cells
+        if c.item_id == "cash_taxes_paid"
+    }
+    assert (cells["q2-2025"].status, cells["q2-2025"].normalized_amount) == ("missing", None)
+    assert cells["q2-2025"].limitation == WITHHELD
+    assert cells["q1-2025"].normalized_amount == Decimal(-1)
+    check = next(
+        c
+        for c in reconcile_financials(pack, review, "book").checks
+        if c.check_type == "FY_QUARTERS" and c.metric_id == "cash_taxes_paid"
+    )
+    # The FY refund and the Q2 refund are withheld: no reported value, Q2 term None with reason.
+    assert (check.reported_value, check.calculated_value, check.status) == (None, None, "BLOCK")
+    assert [t.amount for t in check.components] == [-1, None, -1, 0]
+    assert check.components[1].reason == WITHHELD
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    q2 = frame[column["q2-2025"]]["acct:cash_taxes_paid"]
+    assert (q2.value, q2.reason) == (None, "NOT_STATED")
+    q4_ltm = ltm[column["q4-2025"]]["acct:cash_taxes_paid"]
+    assert (q4_ltm.value, q4_ltm.reason) == (None, "COMPONENT_MISSING")
+
+
+@pytest.mark.parametrize(
+    ("period_id", "printed"), [("q1-2025", "-1"), ("q3-2025", "-1"), ("q4-2025", "0")]
+)
+def test_a_missing_line_on_a_negative_or_zero_cell_is_still_uncovered(
+    period_id: str, printed: str
+) -> None:
+    reason = gate(refund_book(frozenset({"q2-2025", "fy-2025", period_id})))
+    assert reason == f"amount: {period_id} expects {printed}"
+
+
+def test_a_missing_line_without_a_reason_is_refused() -> None:
+    with pytest.raises(ValidationError, match="unsettled observation requires null amount"):
+        Observation(observation_id="x", status="missing", amount=None, citations=(cite(ROW),))
+    # A line that bypassed the contract is still not a withheld refund for the gate.
+    bare = Observation.model_construct(
+        observation_id="tax-q2-2025",
+        status="missing",
+        amount=None,
+        citations=(cite(ROW, locator="line:3"),),
+        reason=None,
+        alternatives=(),
+    )
+    full = refund_book()
+    lines = tuple(
+        line.model_copy(update={"value": bare}) if line.period_id == "q2-2025" else line
+        for line in full.statement_lines
+    )
+    assert gate(full.model_copy(update={"statement_lines": lines})) == "amount: q2-2025 expects 15"
+
+
+@pytest.mark.parametrize(
+    "item", ["other:income-taxes-refunded-paid-net", "debt_repayment", "capex_maintenance"]
+)
+def test_a_missing_line_off_the_outflow_accounts_is_still_uncovered(item: str) -> None:
+    assert gate(refund_book(item=item)) == "amount: q2-2025 expects 15"
+
+
+def test_a_not_applicable_refund_is_still_uncovered() -> None:
+    other = Observation(
+        observation_id="tax-q2-2025",
+        status="not_applicable",
+        amount=None,
+        citations=(cite(ROW, locator="line:3"),),
+        reason=WITHHELD,
+    )
+    assert gate(refund_book(replace={"q2-2025": other})) == "amount: q2-2025 expects 15"
+
+
+def test_a_signed_refund_is_covered_by_the_gate_but_refused_by_validation() -> None:
+    signed = refund_book(withheld=frozenset())
+    assert gate(signed) is None
+    assert len(refused(statement_issues(signed))) == 2  # Q2 +15 and FY +13
+
+
+# --- confidence review (second model): adversarial cases, hand-derived expectations ---------------
+
+
+@pytest.mark.parametrize("amount", [Decimal("0.000000001"), Decimal("1E+17")], ids=["tiny", "huge"])
+def test_any_positive_signed_amount_is_refused_however_small_or_large(amount: Decimal) -> None:
+    # Positive is the only test: no tolerance, no rounding to zero.
+    assert len(refused(statement_issues(book((outflow_line("CFS", "capex_total", amount),))))) == 1
+
+
+def test_one_issue_per_offending_line_and_none_for_the_clean_neighbours() -> None:
+    # Five periods of cash_taxes_paid: +1 (Q1), -1 (Q2), 0 (Q3), +2 (Q4), a printed magnitude 3
+    # (FY). By hand the offending lines are Q1 and Q4: two issues, one naming each period.
+    pids = ("q1-2025", "q2-2025", "q3-2025", "q4-2025", "fy-2025")
+    amounts = (Decimal(1), Decimal(-1), Decimal(0), Decimal(2), Decimal(3))
+    lines = tuple(
+        outflow_line(
+            "CFS",
+            "cash_taxes_paid",
+            amount,
+            convention="outflow_magnitude" if pid == "fy-2025" else "signed",
+            period_id=pid,
+        )
+        for pid, amount in zip(pids, amounts, strict=True)
+    )
+    forged = flow_book("CFS", "cash_taxes_paid", lines[1]).model_copy(
+        update={"statement_lines": lines}
+    )
+    found = refused(statement_issues(forged))
+    assert len(found) == 2
+    assert " q1-2025 (" in found[0] and " q4-2025 (" in found[1]
+
+
+def test_an_explicit_account_that_agrees_with_the_flip_no_longer_hides_the_refund() -> None:
+    # The pre-fix blind spot: account cash_taxes_paid -15 and a signed +15 line normalise to the
+    # same -15, so no disagreement was raised. The +15 line is now refused on its own.
+    account = AccountObservation(
+        metric_id="cash_taxes_paid", period_id="FY2024", value=observation("acct-tax", Decimal(-15))
+    )
+    row = outflow_line("CFS", "cash_taxes_paid", Decimal(15))
+    forged = book((row,)).model_copy(update={"accounts": (account,)})
+    assert len(refused(statement_issues(forged))) == 1
+
+
+def test_an_explicit_account_row_keeps_its_documented_magnitude_reading() -> None:
+    # book.accounts rows are untouched by the ruling: +15 on an outflow account stays accepted and
+    # is read -15 (history.OUTFLOW_METRICS).
+    account = AccountObservation(
+        metric_id="cash_taxes_paid", period_id="FY2024", value=observation("acct-tax", Decimal(15))
+    )
+    forged = book().model_copy(update={"accounts": (account,)})
+    assert statement_issues(forged) == ()
+
+
+IS_UNIT = (
+    "CONSOLIDATED INCOME STATEMENT",
+    "Period  Q1 2025  Q2 2025",
+    "Cost of sales  15  15",
+)
+
+
+def _cost_of_sales_book(*, withheld: bool, cites_row: bool) -> FinancialBook:
+    locator = "line:3" if cites_row else "line:2"
+    lines = tuple(
+        StatementLine(
+            line_id="is-cost-of-sales",
+            statement="IS",
+            item_id="cogs",
+            label="Cost of sales",
+            period_id=pid,
+            display_priority=1,
+            line_kind="detail",
+            value=Observation(
+                observation_id=f"cogs-{pid}",
+                status="missing",
+                amount=None,
+                citations=(cite("Cost of sales", locator=locator),),
+                reason="withheld",
+            )
+            if withheld
+            else Observation(
+                observation_id=f"cogs-{pid}",
+                status="known",
+                amount=Decimal(15),
+                citations=(cite("Cost of sales", locator=locator),),
+            ),
+            quantity=None,
+        )
+        for pid in ("q1-2025", "q2-2025")
+    )
+    return book(lines).model_copy(update={"periods": tuple(quarter(*q) for q in QUARTERS[:2])})
+
+
+def test_an_ordinary_printed_outflow_can_be_withheld_but_only_as_a_missing_value() -> None:
+    # Accepted breadth, stated: the gate cannot tell a refund from a printed magnitude, so a model
+    # may withhold "Cost of sales 15 15". Hand-derived consequence: the value is lost, the report
+    # reads it missing (never 0, 15 or -15) and the reason is kept.
+    table = line_table(
+        {n: Span(locator=f"line:{n}", text=t) for n, t in enumerate(IS_UNIT, 1)},
+        "line:1-3",
+        "filing",
+    )
+    [row] = table.lines
+    held = _cost_of_sales_book(withheld=True, cites_row=True)
+    assert fw._uncovered_reason(table, row, "IS", (held,)) is None
+    pack, review = case(held)
+    assert validate_financial_review(pack, review) == ()
+    cells = [c for c in statement_report(pack, review, "book").cells if c.item_id == "cogs"]
+    assert {c.period_id: (c.status, c.source_amount, c.normalized_amount) for c in cells} == {
+        "q1-2025": ("missing", None, None),
+        "q2-2025": ("missing", None, None),
+    }
+    assert {c.limitation for c in cells} == {"withheld"}
+
+
+def test_a_withheld_outflow_must_still_cite_its_row() -> None:
+    # The relaxation is the amount check only: a missing line that does not cite the unit's own
+    # row (line:3) is still uncovered, as a period failure.
+    table = line_table(
+        {n: Span(locator=f"line:{n}", text=t) for n, t in enumerate(IS_UNIT, 1)},
+        "line:1-3",
+        "filing",
+    )
+    [row] = table.lines
+    elsewhere = _cost_of_sales_book(withheld=True, cites_row=False)
+    reason = fw._uncovered_reason(table, row, "IS", (elsewhere,))
+    assert reason is not None and reason.startswith("period: no IS line")

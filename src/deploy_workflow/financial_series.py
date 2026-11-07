@@ -317,9 +317,9 @@ def _maturity_figure(
                 # FY/Q4 are aliases only when the facility identity AND its terms agree.
                 for alias in current:
                     other = indexed.get((fid, alias.identity))
-                    if other is None:
-                        raise ValueError("Incomplete same-date facility snapshot alias")
-                    if other is row:
+                    # The selected quarter's snapshot is complete; an alias without this
+                    # facility's row has nothing to compare, and is not plotted.
+                    if other is None or other is row:
                         continue
                     for key in _FACILITY_FIELDS:
                         if key == "period_id":

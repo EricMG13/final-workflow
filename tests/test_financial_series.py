@@ -525,3 +525,47 @@ def test_trailing_period_of_another_window_fails_closed(periods):
 def test_money_series_do_not_take_the_trailing_period():
     with pytest.raises(ValueError, match="canonical QUARTER dates"):
         cp1_chart_series(trailing(fixture(), METRICS[3:], LTM))
+
+
+def _fy_alias(module, *, facility):
+    """`module` plus an FY 2025 period ending on q4-2025's date (2025-12-31), copied from q4-2025,
+    with or without the q4-2025 facility row copied to it."""
+    rows = {"T4.14.q4-2025", "T4.18.q4-2025"} if facility else {"T4.14.q4-2025"}
+    added = []
+    for f in module.facts:
+        if f.row_id not in rows:
+            continue
+        updates = {
+            "fact_id": f.fact_id.replace("q4-2025", "fy-2025"),
+            "row_id": f.row_id.replace("q4-2025", "fy-2025"),
+            "period": "fy-2025",
+        }
+        text = {"period_id": "fy-2025", "period_type": "FY", "start_date": "2025-01-01"}
+        if f.field in text:
+            updates["text"] = text[f.field]
+        if f.field == "fiscal_quarter":
+            updates.update(text=None, status="not_applicable", limitation="FY")
+        added.append(f.model_copy(update=updates))
+    return module.model_copy(update={"facts": (*module.facts, *added)})
+
+
+def test_fy_alias_without_facility_rows_uses_the_selected_quarter_snapshot():
+    # S11-C03. By hand: q4-2025 and fy-2025 both end 2025-12-31; the explicit quarter is selected
+    # and carries the only facility (term-loan, principal 50, maturity 2029-12-31). The FY alias
+    # has no facility row, so there is nothing to compare: S.4 is the quarter's one point, 50.
+    module = _fy_alias(fixture(), facility=False)
+    figures = cp1_chart_series(module)
+    assert [f.reason for f in figures] == [None] * 5
+    assert amounts(module, figures[3]) == [Decimal(50)]
+    assert [p.category for p in figures[3].points] == ["2029-12-31"]
+    assert figures[3].points[0].fact_id == "T4.18.q4-2025.principal"
+    # An alias that does carry the facility is still compared, and a conflict still refuses.
+    conflicting = change(
+        _fy_alias(fixture(), facility=True),
+        table="T4.18",
+        row="T4.18.fy-2025",
+        field="principal",
+        amount=Decimal(51),
+    )
+    with pytest.raises(ValueError, match="Conflicting same-date facility snapshot aliases"):
+        cp1_chart_series(conflicting)

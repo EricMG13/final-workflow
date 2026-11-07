@@ -91,3 +91,14 @@ test('a chart cell that is not a number shows its retained text, escaped, and dr
   assert.deepEqual(tracks,['','missing','missing','missing','missing','missing','missing','missing']);
   assert.match(html,/<i class="series-0" style="width:100%">/);
 });
+
+test('an escaped slash, a doubled escape or a path-like id cannot make a second route segment',()=>{
+  // Expected by hand: the path is split on "/" and "?" before decoding, so %2F and %3F stay inside
+  // their segment; %252F decodes once to the literal text "%2F".
+  const parse=hash=>route('list',()=>hash).parsed;
+  assert.deepEqual(parse('W-Reports/a%2Fb'),['W-Reports','a/b']);
+  assert.deepEqual(parse('W-Reports/a%252Fb'),['W-Reports','a%2Fb']);
+  assert.deepEqual(parse('W-Library%2Fcases'),['W-Library/cases',undefined]);
+  assert.deepEqual(parse('W-Reports/a%3Fc=1'),['W-Reports','a?c=1']);
+  assert.deepEqual(parse('W-Reports/..%2F..'),['W-Reports','../..']);
+});

@@ -146,3 +146,30 @@ def test_a_linked_engine_folder_is_refused_before_anything_is_deleted(tmp_path: 
         )
     assert (outside / "runtime/precious.txt").read_text() == "keep"
     assert (outside / "runtime-manifest.json").read_text() == "{}"
+
+
+def test_a_runtime_path_that_climbs_out_of_the_build_is_refused(tmp_path: Path) -> None:
+    # Expected by hand: engine/../../elsewhere/runtime resolves to tmp_path/elsewhere/runtime,
+    # which is outside tmp_path/build, so nothing is deleted.
+    target, outside = tmp_path / "build", tmp_path / "elsewhere"
+    (target / "engine").mkdir(parents=True)
+    (outside / "runtime").mkdir(parents=True)
+    (outside / "runtime/precious.txt").write_text("keep")
+    manifest = target / "engine/runtime-manifest.json"
+    manifest.write_text("{}")
+    with pytest.raises(ValueError, match="outside the build"):
+        runtime.clear_runtime(target, target / "engine/../../elsewhere/runtime", manifest)
+    assert (outside / "runtime/precious.txt").read_text() == "keep"
+    assert manifest.read_text() == "{}"
+
+
+def test_a_missing_runtime_folder_is_created_empty_and_the_manifest_removed(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "build"
+    (target / "engine").mkdir(parents=True)
+    manifest = target / "engine/runtime-manifest.json"
+    manifest.write_text("{}")
+    runtime.clear_runtime(target, target / "engine/runtime", manifest)
+    assert (target / "engine/runtime").is_dir() and not list((target / "engine/runtime").iterdir())
+    assert not manifest.exists()

@@ -360,15 +360,6 @@ def new_run(  # noqa: PLR0915
         f"{name}: review lists the file no module can read",
     )
     page.screenshot(path=str(S / f"{name}-review.png"))
-    if not start:
-        # A server started without a key (key=None): review names the key the model needs.
-        note(
-            "Cannot start · OPENAI_API_KEY is not set" in page.inner_text("#run-review"),
-            f"{name}: review only, the missing provider key is named",
-        )
-        note(not errors, f"{name}: no console errors {errors[:4]}")
-        page.close()
-        return
     page.check("#run-confirm")
     page.click("#start-run")
     page.wait_for_selector("#progress-step:not([hidden])")

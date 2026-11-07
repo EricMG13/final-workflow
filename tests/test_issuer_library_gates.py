@@ -50,3 +50,10 @@ def test_the_browser_and_smoke_checks_read_the_same_list(script: str) -> None:
     assert 'src/deploy_workflow/model/redact.py"' in source.replace("'", '"')
     assert "KEY_ENV_NAMES" in source
     assert "'OPENROUTER_API_KEY'" not in source and '"OPENROUTER_API_KEY"' not in source
+
+
+def test_the_nightly_runner_strips_the_same_keys() -> None:
+    # tools/nightly_tests.py keeps its own copy of the list; it must not drift from the Redactor's.
+    from tools import nightly_tests
+
+    assert set(nightly_tests.KEYS) == set(KEY_ENV_NAMES)

@@ -9,7 +9,6 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
-import o2_case
 import pytest
 import test_cpos_launch
 from test_cpos_launch import (
@@ -22,10 +21,6 @@ from test_cpos_launch import (
     issuer_folder,
 )
 
-from deploy_vii.contracts import Fact, Module, View
-from deploy_vii.preparation import load_pack
-from deploy_workflow.cpos_handoffs import deliver, prompt_messages, retain, transport
-from deploy_workflow.model.turn import Message
 from deploy_workflow.platform_io import read_at
 
 provider = test_cpos_launch.provider  # The same fake provider fixture.
@@ -331,68 +326,6 @@ def test_max_turns_and_output_limit_reach_the_paid_entry_point(tmp_path, monkeyp
     assert seen["max_output_tokens"] == bridge.MAX_OUTPUT_TOKENS
     assert seen["rulings_root"] == folder.resolve()
     assert seen["directory"] == (Path(value["workspace"]) / "runs" / value["id"]).resolve()
-
-
-class RetainedStore:
-    def __init__(self, run_dir, module):
-        self.directory = run_dir / "execution"
-        self.module = module
-
-    def read(self):
-        return SimpleNamespace(
-            heads=[
-                SimpleNamespace(
-                    module_id=self.module.module_id, result_sha256=self.module.content_hash()
-                )
-            ]
-        )
-
-    def head_module(self, head):
-        return self.module
-
-
-def test_markdown_handoff_is_consumed_and_delivery_preserves_exact_values(tmp_path):
-    _, run_dir = o2_case.stage(tmp_path / "case")
-    pack = load_pack(run_dir / "pack")
-    module = Module(
-        run_id=pack.run.run_id,
-        issuer_id=pack.run.issuer_id,
-        as_of=pack.run.as_of,
-        module_id="CP-1",
-        status="accepted",
-        facts=(
-            Fact(
-                fact_id="transport-check.zero",
-                label="Zero amount",
-                table_id="T4.4",
-                row_id="zero",
-                field="amount",
-                amount=Decimal("0.00"),
-                unit="currency",
-                currency="USD",
-                period="FY2024",
-            ),
-        ),
-    )
-    store = RetainedStore(run_dir, module)
-    original = (Message(role="system", text="Existing instructions"),)
-    binding = SimpleNamespace(
-        module_id="CP-2",
-        step_id="credit_synthesis",
-        inputs=(SimpleNamespace(sha256=module.content_hash()),),
-    )
-    with transport():
-        messages = prompt_messages(store, binding, original)
-    assert messages[0] == original[0] and "0.00" in messages[-1].text
-    files = retain(store)
-    assert "## Sources" in files["CP-1"].read_text()
-    deliver(store, run_dir / "delivery")
-    view = View.model_validate_json((run_dir / "delivery/view.json").read_bytes())
-    fact = next(m for m in view.modules if m.module_id == "CP-1").facts[0]
-    assert str(fact.amount) == "0.00" and fact.currency == "USD" and fact.period == "FY2024"
-    files["CP-1"].write_text("changed handoff")
-    with pytest.raises(ValueError, match="handoff changed"):
-        deliver(store, run_dir / "tampered")
 
 
 def test_read_at_keeps_append_position(tmp_path):

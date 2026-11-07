@@ -42,10 +42,14 @@ from deploy_vii.report_view import (
 )
 from deploy_workflow.handoff_delivery import (
     HEADINGS,
+    SOURCE_NUMBER,
     HandoffInput,
     ModelDelivery,
     heading_of,
+    hide_comments,
+    is_gap,
     names_issuer,
+    physical_lines,
     plain,
     table,
 )
@@ -129,7 +133,7 @@ class ModelPublication(NamedTuple):
 
 class _AnnualReader:
     def __init__(self, raw: bytes, spec: HandoffInput, layout: ModelDelivery) -> None:
-        self.lines = raw.decode("utf-8").splitlines()
+        self.lines = physical_lines(raw.decode("utf-8"))
         self.spec, self.layout = spec, layout
         self.citations: dict[str, Citation] = {}
 
@@ -225,14 +229,11 @@ class _AnnualReader:
         self.citations[locator] = Citation(
             source_id="annual", source_sha256=self.spec.sha256, locator=locator, quote=quote
         )
-        if lexeme in {"", "—", "Insufficient Information", "Not reconstructed"}:
+        if is_gap(lexeme):
             return Cell(
                 None, "NOT_STATED", sources=(ref,), note="Source missing/dash retained, never zero"
             )
-        if not re.fullmatch(
-            r"(?:-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?\))",
-            lexeme,
-        ):
+        if not SOURCE_NUMBER.fullmatch(lexeme):
             raise ValueError(f"model_number: unsupported source spelling {lexeme}")
         value = Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", ""))
         if not value.is_finite():
@@ -289,7 +290,7 @@ def _annual_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
 def _literal_tables(
     key: str, raw: bytes, digest: str
 ) -> tuple[Source, list[Fact], list[ReportTable], list[Binding]]:
-    lines = raw.decode("utf-8").splitlines()
+    lines = physical_lines(raw.decode("utf-8"))
     if tuple(line[3:] for line in lines if line.startswith("## ")) != HEADINGS:
         raise ValueError(f"model_handoff: six ordered headings required in {key}")
     source = Source(
@@ -305,6 +306,7 @@ def _literal_tables(
         extraction_status="complete",
         limitation="Actual analytical handoff; underlying source qualifications and scope remain.",
     )
+    lines = hide_comments(lines, key)  # The source keeps every line; tables come from shown ones.
     facts: list[Fact] = []
     tables: list[ReportTable] = []
     bindings: list[Binding] = []
@@ -435,7 +437,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         # anywhere. A name counts only as whole words.
         declared = key in {"quarter", "forecast"}
         if not names_issuer(
-            text.splitlines()[0] if declared else text,
+            physical_lines(text)[0] if declared else text,
             (run.issuer_name, run.issuer_id) if declared else (run.issuer_name,),
         ):
             raise ValueError(f"model_issuer: {key}")

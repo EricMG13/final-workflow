@@ -51,10 +51,15 @@ from deploy_vii.report_view import (
     pathways,
 )
 from deploy_workflow.handoff_delivery import (
+    FENCE,
+    SOURCE_NUMBER,
     DeliveryRequest,
     MarkdownRoute,
     heading_of,
+    hide_comments,
+    is_gap,
     names_issuer,
+    physical_lines,
     plain,
     section,
 )
@@ -70,7 +75,6 @@ STRIP_FIGURES = {
 
 
 LIST_ITEM = re.compile(r"[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]")
-FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
 
 
 @dataclass(frozen=True)
@@ -187,7 +191,7 @@ def literal_module(
 
     digest = hashlib.sha256(raw).hexdigest()
     source, facts, tables, _ = _literal_tables(module_id, raw, digest)
-    lines = raw.decode("utf-8").splitlines()
+    lines = hide_comments(physical_lines(raw.decode("utf-8")), module_id)
     headings = [(n, found[1]) for n, line in enumerate(lines, 1) if (found := heading_of(line))]
     metadata: dict[str, tuple[str, str]] = {}
     fact_map = {f.fact_id: f for f in facts}
@@ -442,6 +446,53 @@ def _token_decimals(token: str, chart_unit: str | None) -> int:
     return min(6, max(0, written - 2) if chart_unit == "%" else written)
 
 
+YEAR = re.compile(r"(?<![0-9])([0-9]{4})(?:-([0-9]{2})-[0-9]{2})?(?![0-9])")
+PART = re.compile(r"(?<![A-Za-z])([QH])([1-4])(?![0-9])")
+
+
+def _period_key(label: str) -> tuple[str, int, int] | None:
+    """(granularity, year, part) of a period label: `FY2024` ("year", 2024, 0), `Q3 2024`
+    ("Q", 2024, 3), `H1 2024` ("H", 2024, 1), `2024-09-30` ("date", 2024, 9); None without a
+    year."""
+    year = YEAR.search(label)
+    if year is None:
+        return None
+    if year[2]:
+        return ("date", int(year[1]), int(year[2]))
+    part = PART.search(label)
+    return (part[1], int(year[1]), int(part[2])) if part else ("year", int(year[1]), 0)
+
+
+def _chronological(points: tuple[_ChartPoint, ...]) -> tuple[_ChartPoint, ...]:
+    """Oldest period first, so time reads left to right whatever order the table was written in.
+
+    Only the order of the points changes, never a value or label. The authored order stays unless
+    every category has a key, all of one granularity, and no two categories share one: a label
+    without a year, `Jun 2024` beside `Dec 2024`, or `FY2024` beside `Q1 2024` cannot be placed.
+    """
+    keys = {p.category: _period_key(p.category) for p in points}
+    known = {category: key for category, key in keys.items() if key is not None}
+    granularities = {key[0] for key in known.values()}
+    if len(known) < len(keys) or len(set(known.values())) < len(known) or len(granularities) > 1:
+        return points
+    return tuple(sorted(points, key=lambda p: known[p.category]))
+
+
+def _require_reporting_unit(
+    facts: dict[str, Fact], row: TableRow, columns: list[str], column: str, route: MarkdownRoute
+) -> None:
+    """Refuse a number its own `Reporting unit` cell places in another unit than the chart's;
+    a table without that column makes no claim. Nothing is converted or relabelled."""
+    if "Reporting unit" not in columns:
+        return
+    own = (facts[row.fact_ids[columns.index("Reporting unit")]].text or "").strip()
+    if own != route.chart_unit:
+        raise ValueError(
+            f"markdown_chart: {row.label} {column} is reported in {own or 'no unit'}, "
+            f"not {route.chart_unit}; write `Not supplied: reported in <unit>`"
+        )
+
+
 def _numeric_observations(
     module: ModuleView, table: ReportTable, route: MarkdownRoute
 ) -> tuple[ModuleView, tuple[str, ...], tuple[_ChartPoint, ...]]:
@@ -485,16 +536,10 @@ def _numeric_observations(
                     raise ValueError("markdown_chart: typed source unit/currency differs")
             else:
                 token = source.text or ""
-                missing = (
-                    missing
-                    or token in {"—", "Insufficient Information", "Not reconstructed"}
-                    or token.startswith(("Not supplied", "Not calculable"))
-                )
+                missing = missing or is_gap(token)
                 if not missing:
-                    if len(token) > 64 or not re.fullmatch(
-                        r"(?:-?(?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?|\((?:[0-9]{1,3}(?:,[0-9]{3})+|[0-9]+)(?:\.[0-9]+)?\))",
-                        token,
-                    ):
+                    _require_reporting_unit(facts, row, columns, column, route)
+                    if len(token) > 64 or not SOURCE_NUMBER.fullmatch(token):
                         raise ValueError(
                             "markdown_chart: selected value must be an exact finite number "
                             "or explicit gap"
@@ -546,8 +591,10 @@ def _numeric_observations(
             points.append(_ChartPoint(series=series, category=category, fact_id=fid))
     if not points:
         raise ValueError("markdown_chart: no selected observations")
+    all_series = tuple(dict.fromkeys(p.series for p in points))
+    chronological = _chronological(tuple(points))
     if module.module_id == "CP-MODEL":
-        return module, tuple(dict.fromkeys(p.series for p in points)), tuple(points)
+        return module, all_series, chronological
     typed = ReportTable(
         table_id=tid,
         title=route.label or table.title,
@@ -559,8 +606,8 @@ def _numeric_observations(
         module.model_copy(
             update={"facts": (*module.facts, *values), "tables": (*module.tables, typed)}
         ),
-        tuple(dict.fromkeys(p.series for p in points)),
-        tuple(points),
+        all_series,
+        chronological,
     )
 
 
@@ -642,6 +689,13 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         for route in layout.routes
     ):
         raise ValueError("markdown_layout: preserve complete table columns in a table block")
+    if any(
+        route.kind != "chart"
+        and route.block_id in STRIP_FIGURES
+        and route.block_id != "yield-against-maturity"
+        for route in layout.routes
+    ):
+        raise ValueError("markdown_layout: a chart strip block takes only chart routes")
     module_views = []
     sources = []
     metadata = {}
@@ -650,7 +704,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         raw = (base / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
-        require_issuer(request.run, layout.issuer_aliases, module_id, raw.decode().splitlines())
+        require_issuer(request.run, layout.issuer_aliases, module_id, physical_lines(raw.decode()))
         module, source, meta = literal_module(module_id, raw)
         module_views.append(module)
         sources.append(source)

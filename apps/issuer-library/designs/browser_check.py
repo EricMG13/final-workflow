@@ -222,13 +222,29 @@ def real_workspace(browser: Any, name: str, port: int, full: bool) -> None:
     page.close()
 
 
+def expand_groups(page: Any, name: str) -> None:
+    """Open every collapsed issuer group through its toggle, asserting the toggle reports it."""
+    toggles = page.locator("#library-results .run-toggle")
+    for index in range(toggles.count()):
+        toggle = toggles.nth(index)
+        if toggle.get_attribute("aria-expanded") == "false":
+            toggle.click()
+        note(
+            toggle.get_attribute("aria-expanded") == "true",
+            f"{name}: issuer group {index + 1} opens with its run toggle",
+        )
+
+
 def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
-    page.wait_for_selector("#library-results .run-list a", timeout=30000)
+    page.wait_for_selector("#library-results .issuer-row", timeout=30000)
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
+    # libraryResults renders exactly one a.run-link per run (single or grouped, hidden or not).
     note(
-        page.locator(".run-list a").count() == want, f"{name}: library lists all {want} run folders"
+        page.locator("#library-results a.run-link").count() == want,
+        f"{name}: library lists all {want} run folders, one link each",
     )
+    expand_groups(page, name)
     note(
         "cpos-launch-live-002".upper() in page.inner_text("#library-results")
         or "TransDigm Group Incorporated" in page.inner_text("#library-results"),
@@ -278,7 +294,7 @@ def library_and_report(page: Any, name: str, port: int) -> None:
 
 EVERY_SECTION_JS = """async()=>{
   const bad=[];
-  const extra=['W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','CP-MODEL'];
+  const extra=['W-Overview','W-Calendar','W-Reports','W-Evidence','CP-OS','W-Forecast'];
   const content=()=>document.getElementById('content').textContent;
   for(const [key,run] of Object.entries(contexts))
   for(const module of [...Object.keys(run.modules),...extra]) {
@@ -361,7 +377,7 @@ def fitted_screens(page: Any, name: str, port: int) -> None:
     page.set_viewport_size({"width": 390, "height": 800})
     page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
     page.reload()
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
     note(
         page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
         f"{name}: no horizontal overflow at 390 wide (library)",
@@ -601,7 +617,8 @@ def new_run(  # noqa: PLR0915, RUF100
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
     page.click(".rail a[data-place='Issuer library']")
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
+    expand_groups(page, name)
     note(
         ISSUER in page.inner_text("#library-results"),
         f"{name}: the library lists the new run under its issuer",
@@ -612,7 +629,8 @@ def new_run(  # noqa: PLR0915, RUF100
     (added / "CP-0.md").write_text("# CP-0\n\nAdded later.\n")
     expect(page.locator("#workspace-updated")).to_be_visible(timeout=70000)
     page.click("#reload-workspace")
-    page.wait_for_selector(".run-list a")
+    page.wait_for_selector("#library-results .issuer-row")
+    expand_groups(page, name)
     note(
         "ADDED-001" in page.inner_text("#library-results"),
         f"{name}: a run added on disk is offered, then listed after Reload",

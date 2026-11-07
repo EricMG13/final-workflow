@@ -1199,8 +1199,7 @@ def render_owner_slice(
             path = stage / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(body)
-        if _read_tree(stage) != first.tree:
-            raise _refusal("owner_render_delivery")
+        # `_verify_directory` compares the stage with `first` before its stale capture.
         _verify_directory(stage, store, receipt, publication, first)
         if os.path.lexists(target):
             raise _refusal("owner_render_destination_exists")

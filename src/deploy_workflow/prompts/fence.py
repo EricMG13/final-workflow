@@ -55,11 +55,12 @@ class UntrustedItem:
     text: str
 
 
-# Characters that read as ``<`` to a model (S02-A02): those NFKD folds to one, then the
-# confusables it leaves alone (U+02C2, U+2039, U+1438, U+276E, U+3008, U+2329, U+16B2). The
-# JSON escape in ``prompts.compose`` takes the same set, so a quoted lookalike in a JSON body
-# is escaped, not refused, and is refused in raw text.
-LESS_THAN_LOOKALIKES = "<≮﹤＜\u02c2\u2039\u1438\u276e\u3008\u2329\u16b2"
+# Characters that read as ``<`` to a model (S02-A02): those NFKD folds to one, the confusables
+# it leaves alone (U+02C2, U+2039, U+1438, U+276E, U+3008, U+16B2) and the two forms NFKD maps to
+# U+3008 (U+2329, U+FE3F). The JSON escape in ``prompts.compose`` takes the same set, so a quoted
+# lookalike in a JSON body is escaped, not refused, and is refused in raw text; the set must hold
+# every character ``_normalised`` reads as ``<``.
+LESS_THAN_LOOKALIKES = "<≮﹤＜\u02c2\u2039\u1438\u276e\u3008\u2329\ufe3f\u16b2"
 _FOLD_TO_LESS_THAN = str.maketrans(dict.fromkeys(LESS_THAN_LOOKALIKES, "<"))
 
 # Invisible but not Unicode Cf/Mn/Me: the Hangul fillers render as nothing (default-ignorable).

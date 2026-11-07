@@ -755,8 +755,10 @@ def test_the_escaped_lookalikes_are_every_character_nfkd_folds_to_a_less_than_si
     assert "".join(sorted(folds)).translate(compose_module._LT_ESCAPES) == (
         "\\u003c\\u226e\\ufe64\\uff1c"
     )
-    # S02-A02: the escape table is exactly the fence's set: the folds and seven confusables.
-    confusables = {"\u02c2", "\u2039", "\u1438", "\u276e", "\u3008", "\u2329", "\u16b2"}
+    # S02-A02: the escape table is exactly the fence's set: the folds, six confusables NFKD leaves
+    # alone and the two forms NFKD maps to U+3008 (U+2329, U+FE3F); review: every character the
+    # fence's normalised copy reads as `<` is escaped.
+    confusables = {"\u02c2", "\u2039", "\u1438", "\u276e", "\u3008", "\u16b2", "\u2329", "\ufe3f"}
     assert set(compose_module._LT_ESCAPES) == {ord(c) for c in folds | confusables}
 
 

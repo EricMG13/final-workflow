@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -168,16 +169,7 @@ func TestExplicitStartIsOneShotUnderConcurrentRequests(t *testing.T) {
 	if accepted != 1 {
 		t.Fatalf("%d starts accepted", accepted)
 	}
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		app.mu.RLock()
-		active := len(app.activeJobs)
-		app.mu.RUnlock()
-		if active == 0 {
-			break
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
+	waitIdle(t, app)
 	raw, err := os.ReadFile(filepath.Join(root, "intake", id, "synthetic-starts.txt"))
 	if err != nil {
 		t.Fatal(err)
@@ -653,6 +645,10 @@ func TestRunListFollowsRecencyAndAlwaysKeepsActiveJobs(t *testing.T) {
 	}
 }
 
+// waitIdle waits until no job is active and no goroutine is still ending one. finishJob removes
+// the job from activeJobs before its refresh, which reads discoverWorkspace and writes the index
+// into the state folder; returning at the removal would leave that refresh running into the
+// next hook swap or this test's cleanup.
 func waitIdle(t *testing.T, app *Application) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
@@ -660,12 +656,51 @@ func waitIdle(t *testing.T, app *Application) {
 		app.mu.RLock()
 		active := len(app.activeJobs)
 		app.mu.RUnlock()
-		if active == 0 {
+		if active == 0 && !finishingJob() {
 			return
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatal("worker did not finish")
+}
+
+// finishJobFrame starts a finishJob frame in a goroutine dump. It is named from the method itself,
+// so a rename cannot leave finishingJob silently matching nothing.
+var finishJobFrame = []byte(runtime.FuncForPC(reflect.ValueOf((*Application).finishJob).Pointer()).Name() + "(")
+
+// finishingJob reports whether any goroutine is inside finishJob. The app signals nothing when
+// that refresh ends, and app.refreshing cannot tell a refresh that has finished from one about
+// to begin (finishJob takes it only after releasing app.mu), so the goroutines are read instead.
+func finishingJob() bool {
+	stacks := make([]byte, 64<<10)
+	for {
+		n := runtime.Stack(stacks, true)
+		if n < len(stacks) {
+			return bytes.Contains(stacks[:n], finishJobFrame)
+		}
+		stacks = make([]byte, 2*len(stacks))
+	}
+}
+
+// waitIdle outlasts the refresh that ends a job. Holding app.refreshing keeps finishJob in the
+// gap after the job left activeJobs; the refresh then replaces the emptied catalogue with root's,
+// so a waitIdle that returned at the removal finds it still empty.
+func TestWaitIdleOutlastsTheRefreshThatEndsAJob(t *testing.T) {
+	app, root := testApp(t)
+	id := "web-" + strings.Repeat("b", 32)
+	app.mu.Lock()
+	app.activeJobs = map[string]bool{id: true}
+	app.catalogue = Catalogue{}
+	app.mu.Unlock()
+	app.refreshing.Lock()
+	go app.finishJob(filepath.Join(root, "intake", id), id)
+	go func() { time.Sleep(200 * time.Millisecond); app.refreshing.Unlock() }()
+	waitIdle(t, app)
+	app.mu.RLock()
+	defer app.mu.RUnlock()
+	if app.catalogue.Workspace != root {
+		t.Fatalf("waitIdle returned before the refresh: catalogue of %q, want %q", app.catalogue.Workspace, root)
+	}
 }
 
 // A spawn that never produced a process made no call, so the one-shot claim is released;

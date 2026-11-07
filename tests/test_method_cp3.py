@@ -584,7 +584,8 @@ def test_withheld_ranking_requires_explicit_insufficiency_and_limitation(
 # Hand-written from the ruling: the refusal names both repairs the model can make.
 INSUFFICIENT_ORDERING = (
     "preference.ordering: an Insufficient Information preference has an empty ordering; empty it, "
-    "or state the basis and a confidence other than Insufficient Information"
+    "or cite observed or indicative market evidence and state a confidence other than "
+    "Insufficient Information"
 )
 MISSING = "preference.ordering: term-loan is missing"
 

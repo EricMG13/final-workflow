@@ -967,3 +967,20 @@ def test_without_a_run_context_the_statements_must_state_the_default_usd(
     assert out.issues == (
         "reporting_currency: the statements state EUR, the run's default basis is USD",
     )
+
+
+def test_step_validator_refuses_a_unit_naming_another_currency_than_the_run_basis(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ruling (units): with no run context the book is USD (default basis), so a page unit
+    "EUR millions" is refused with an issue naming both currencies."""
+    pages = dict(cp2e._pages_of(_pack("positive")))
+    assert "USD; amounts in millions;" in pages["page:2"]
+    pages["page:2"] = pages["page:2"].replace("USD; amounts in millions;", "EUR millions;")
+    monkeypatch.setattr(cp2e, "_pages_of", lambda pack: pages)
+    out = _validate(_positive())
+    assert out.output is None
+    assert (
+        "earnings.ebitda: page:2 states its unit in EUR (EUR), but the reporting currency is USD: "
+        "restate the unit in USD"
+    ) in out.issues

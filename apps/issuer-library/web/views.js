@@ -52,6 +52,8 @@ const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom
 const tracedRun=report=>report.builtFrom.find(b=>b.run)?.run||null;
 const reportName=report=>report.build?`Build ${report.build} · ${report.label.trim()}`:report.label.trim();
 const byBuild=(a,b)=>(b.build||0)-(a.build||0)||a.label.trim().localeCompare(b.label.trim());
+// A run being prepared lives only in this page, so whatever reloads it asks first (boot.js keeps its own copy).
+const mayDiscardDraft=()=>document.body.dataset.draft!=='1'||window.confirm('Reload now? The run you are preparing will be cleared.');
 // A frame has no error event for a page that never arrives, so a missing load within the timeout is the failure.
 const frameTimeout=()=>Number.isFinite(window.DESIGN_FRAME_TIMEOUT_MS)?window.DESIGN_FRAME_TIMEOUT_MS:6000;
 function watchFrame(frame,status,loadingText,failedText,link,missingText) {
@@ -72,7 +74,7 @@ function watchFrame(frame,status,loadingText,failedText,link,missingText) {
     clearTimeout(timer);frame.removeEventListener('load',loaded);
     const reload=document.createElement('button');
     reload.type='button';reload.className='text-button';reload.textContent='Reload';
-    reload.addEventListener('click',()=>location.reload());
+    reload.addEventListener('click',()=>{if(mayDiscardDraft())location.reload();});
     status.hidden=false;status.textContent=missingText+' ';status.append(reload);
   }
   frame.addEventListener('load',loaded);

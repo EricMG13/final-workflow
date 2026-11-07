@@ -1,9 +1,10 @@
 /* A run being prepared is never cleared by a reload without asking, whichever screen is showing.
-   Plain node (no jsdom): boot.js runs in a vm context with stub elements, and installSettings is lifted
-   from the real actions.js. Synthetic state only; no network or provider. */
+   Plain node (no jsdom): boot.js runs in a vm context with stub elements; installSettings, watchFrame and
+   the shared guard are lifted from the real actions.js and views.js. Synthetic state only; no network or provider. */
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const read=name=>fs.readFileSync(path.join(__dirname,name),'utf8');
 const settle=()=>new Promise(resolve=>setTimeout(resolve,20));
+const guard=read('views.js').match(/^const mayDiscardDraft=.*$/m)[0];
 
 async function boot({draft,newRunHidden,answer}){
   const elements={},calls={confirm:0,reload:0};
@@ -48,7 +49,7 @@ function settings({draft,answer}){
     window:{confirm:()=>{calls.confirm++;return answer;},DESIGN_APP:{policy_locked:false}},
     location:{reload:()=>{calls.reload++;}},
   });
-  vm.runInContext(`let settingsBusy=false;\n${grabbed[0]}\ninstallSettings();`,context);
+  vm.runInContext(`${guard}\nlet settingsBusy=false;\n${grabbed[0]}\ninstallSettings();`,context);
   return {click:async id=>{await onClick({target:{closest:selector=>selector===`#${id}`}});},calls};
 }
 
@@ -64,5 +65,29 @@ test('Settings save and refresh ask before clearing a prepared run, and send not
     const plain=settings({draft:false,answer:false});
     await plain.click(id);
     assert.deepEqual(plain.calls,{confirm:0,reload:1,requests:[url]},id);
+  }
+});
+
+test('the Reload offered for a deliverable that has gone asks before clearing a prepared run',async()=>{
+  // Expected by hand: the HEAD check fails, so the frame status offers Reload; with a draft it asks once
+  // and Cancel keeps the page; without one it reloads at once.
+  const source=read('views.js'),grabbed=source.match(/^function watchFrame\([^)]*\) \{[\s\S]*?\n\}/m);
+  assert.ok(grabbed,'watchFrame');
+  for(const [draft,answer,expected] of [[true,false,{confirm:1,reload:0}],[true,true,{confirm:1,reload:1}],[false,false,{confirm:0,reload:1}]]){
+    const calls={confirm:0,reload:0},buttons=[];
+    const node=()=>({listeners:{},addEventListener(type,fn){this.listeners[type]=fn;},removeEventListener(){},append(...items){buttons.push(...items.filter(item=>item.listeners));}});
+    const context=vm.createContext({
+      document:{body:{dataset:draft?{draft:'1'}:{}},createElement:()=>node()},
+      window:{confirm:()=>{calls.confirm++;return answer;}},
+      location:{reload:()=>{calls.reload++;}},
+      fetch:async()=>({ok:false}),setTimeout:()=>0,clearTimeout:()=>{},
+    });
+    vm.runInContext(`${guard}\nconst frameTimeout=()=>60000;\n${grabbed[0]}`,context);
+    const frame={...node(),isConnected:true,getAttribute:()=>'/files/r/report.html'},status={...node(),hidden:true,textContent:''};
+    context.watchFrame(frame,status,'Loading','Failed',null,'This deliverable could not be found.');
+    await settle();
+    assert.equal(buttons.length,1);
+    buttons[0].listeners.click();
+    assert.deepEqual(calls,expected,`draft=${draft} answer=${answer}`);
   }
 });

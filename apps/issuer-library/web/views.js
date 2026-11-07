@@ -297,11 +297,13 @@ function navigationSections(module,context,output=defaultOutput(module,context))
 function moduleLink(id,label){return `<a class="text-action" href="${routeHref(id,lastSection.get(current?.context+':'+id)||firstSection(id,current?.context))}">${esc(label||moduleNames[id])}${icon('arrow-right')}</a>`;}
 // Rows repeat the same two actions, so each is an icon; its accessible name and tooltip still say what it does.
 const iconAction=(action,target,href,name,download=false)=>`<a class="icon-action" href="${esc(href)}" ${download?'download':''} aria-label="${esc(`${action}: ${target}`)}" title="${action}">${icon(name)}</a>`;
+// A module with no name keeps its code alone.
+const nameThenCode=code=>moduleNames[code]&&moduleNames[code]!==code?`${moduleNames[code]} · ${code}`:code;
 function sourceInventory(context) {
   const identity=f=>`<details><summary>File identity</summary><p>${esc(f.file)}</p><p class="hash">SHA-256 ${f.sha256}</p></details>`;
   const rows=Object.entries(contexts[context].modules).flatMap(([module,entry])=>[
-    ...entry.outputs.map(id=>{const out=data[id];return `<section><div><h3>${module} · ${esc(moduleNames[module])}</h3><p>${esc(out.label)}</p>${out.scope==='Retained module output'?'':`<span class="badge badge-gray">${esc(out.scope)}</span>`}</div><div>${iconAction('Open output',`${module} ${moduleNames[module]}, ${out.label}`,routeHref(module,modules[id].first,null,context,out.source),'arrow-right')}${iconAction('Download original handoff',`${module} ${moduleNames[module]}, ${out.label}`,out.href,'download',true)}</div>${identity(out)}</section>`;}),
-    ...entry.inputs.map(id=>{const f=store.inputs[id];return `<section><div><h3>${module} · ${esc(moduleNames[module])}</h3><p>${esc(f.source)}</p><span class="badge badge-gray">Input</span></div><div>${iconAction('Download original file',`${module} ${moduleNames[module]}, ${f.source}`,f.href,'download',true)}</div>${identity(f)}</section>`;})
+    ...entry.outputs.map(id=>{const out=data[id];return `<section><div><h3>${esc(nameThenCode(module))}</h3><p>${esc(out.label)}</p>${out.scope==='Retained module output'?'':`<span class="badge badge-gray">${esc(out.scope)}</span>`}</div><div>${iconAction('Open output',`${module} ${moduleNames[module]}, ${out.label}`,routeHref(module,modules[id].first,null,context,out.source),'arrow-right')}${iconAction('Download original handoff',`${module} ${moduleNames[module]}, ${out.label}`,out.href,'download',true)}</div>${identity(out)}</section>`;}),
+    ...entry.inputs.map(id=>{const f=store.inputs[id];return `<section><div><h3>${esc(nameThenCode(module))}</h3><p>${esc(f.source)}</p><span class="badge badge-gray">Input</span></div><div>${iconAction('Download original file',`${module} ${moduleNames[module]}, ${f.source}`,f.href,'download',true)}</div>${identity(f)}</section>`;})
   ]);
   if(!rows.length)return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No retained files for this run</h2><p>No module outputs or inputs were found in this run’s folder.</p></div><a class="text-action switch-case" href="#W-Library/cases">Choose another case</a>`;
   return `<div class="source-inventory">${rows.join('')}</div>`;
@@ -363,6 +365,7 @@ const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="
 const reportCell=runs=>{const n=new Set(runs.flatMap(r=>r.reports)).size;return n?badge('navy',plural(n,'report')):runs.some(r=>r.outputs)?'<span class="muted">No report</span>':badge('attention','No saved outputs');};
 const shortPeriod=period=>period.split(' · ')[0];
 function libraryResults(records) {
+  if(window.DESIGN_APP?.problem)return `<div class="library-empty"><h2>The library could not read this workspace</h2><p>Nothing can be listed until it can be read. Check the workspace folder in Settings, or quit and reopen the library.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
   if(!Object.keys(contexts).length)return `<div class="library-empty"><h2>No runs in this workspace yet</h2><p>Start a new run, or choose another workspace folder in Settings.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
   if(!records.length)return '<div class="library-empty"><h2>No matching issuers or runs</h2><p>Try a shorter search or remove a filter.</p></div>';
   const runCells=r=>`<td data-label="Run"><a class="run-link" href="${routeHref('W-Overview','overview',null,r.key)}">${esc(r.run)}</a>${r.issuerKey!==null&&r.issuer!==r.heading?`<span class="recorded-as">Recorded as ${esc(r.issuer)}</span>`:''}</td><td data-label="Workflow">${workflowCell([r.workflow])}</td><td data-label="Period">${esc(shortPeriod(r.period))}</td><td data-label="Reports">${reportCell([r])}</td><td class="row-open">${icon('arrow-right')}</td>`;
@@ -497,7 +500,7 @@ function workspaceView(module,section) {
     return report?reportView(report,context):reportList(context);
   }
   if(module==='W-Forecast')return forecastView(context,section);
-  if(module==='CP-OS')return `<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div><ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${moduleLink('W-Evidence','Inspect retained outputs')}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${moduleLink('W-Reports','View reports')}</li></ol><p class="caution">Runs started here report their progress and spend on New run.</p>${moduleLink('W-NewRun','Open New run')}`;
+  if(module==='CP-OS')return `<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div><ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${moduleLink('W-Evidence','Inspect retained outputs')}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${moduleLink('W-Reports','View reports')}</li></ol><p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`;
   if(module==='W-Help')return HELP;
   return '';
 }

@@ -46,7 +46,7 @@ function installNewRun(){
     try{
       const jobs=await appRequest('/api/runs/list');
       const key=JSON.stringify(jobs);if(key===lastRows){controls();return;}
-      if(!jobs.length){$('recent-jobs').textContent='No recent runs to show.';lastRows=key;activeListed=false;controls();return;}
+      if(!jobs.length){const link=textNode('a','Issuer library');link.href='#W-Library/cases';$('recent-jobs').replaceChildren('No runs started from this app are recorded in this workspace yet. Earlier runs are in the ',link,'.');lastRows=key;activeListed=false;controls();return;}
       const active=job=>WORKFLOW_ACTIVE.includes(job.state);
       const ordered=[...jobs.filter(active),...jobs.filter(job=>!active(job))];
       const table=document.createElement('table'),head=document.createElement('tr'),body=document.createElement('tbody');

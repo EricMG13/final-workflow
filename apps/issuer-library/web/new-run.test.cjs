@@ -30,7 +30,9 @@ test('the steps follow the launcher, and untrusted messages are ignored',async t
   const p=await page(t);
   assert.deepEqual([...p.doc.querySelectorAll('.run-stages li')].map(li=>li.textContent),['Context','Issuer folder & budget','Review & start','Progress']);
   assert.equal(p.doc.getElementById('run-sources').hasAttribute('webkitdirectory'),true);
-  assert.match(p.doc.getElementById('recent-jobs').textContent,/No recent runs to show/);
+  const empty=p.doc.getElementById('recent-jobs');
+  assert.equal(empty.textContent,'No runs started from this app are recorded in this workspace yet. Earlier runs are in the Issuer library.');
+  assert.equal(empty.querySelector('a').textContent,'Issuer library');assert.equal(empty.querySelector('a').getAttribute('href'),'#W-Library/cases');
   p.win.dispatchEvent(new p.win.MessageEvent('message',{source:p.win,data:{type:'cpos:context',context,problems:[]}}));
   assert.equal(p.doc.getElementById('source-step').hidden,true);
   p.context();assert.equal(p.doc.getElementById('source-step').hidden,false);assert.equal(p.doc.activeElement,p.doc.querySelector('#source-step h2'));

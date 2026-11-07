@@ -521,7 +521,7 @@ const KEY_C=[
   ['tdg-fy2024-snapshot-4','Peer comparison · first delivery, gap rows dropped','tdg-peers-2024-001/CP-2-delivery-input.md','b88d1dfce706','084e27e00b1d',null],
   ['tdg-fy2024-snapshot-5','Peer comparison · gap boundary repaired','tdg-peers-2024-001/CP-2-delivery-input-attempt-2.md','54247baa99d3','5ba26c11e2ee',null],
   ['tdg-fy2024-snapshot-6','Peer comparison · exact fiscal dates added','tdg-peers-2024-001/CP-2-delivery-input-final.md','ba312d7faa8a','6bc718146295',null],
-  ['tdg-fy2024-snapshot-7','CP-8 repairs applied','tdg-run-comparison-001/CP-2-delivery.md','22edd045e3d6','c7c4156e7c2a','Latest build']
+  ['tdg-fy2024-snapshot-7','Repairs from the deliverable comparison','tdg-run-comparison-001/CP-2-delivery.md','22edd045e3d6','c7c4156e7c2a','Latest build']
 ];
 const REPORTS_BY_RUN={'tdg-002':[1,2,3,4,5,6,7],'tdg-003':[3],'tdg-004':[],'tdg-guidance':[],'tdg-peers-2024':[4,5,6],'ford-otosan-2024':[],'frontier-2020':[],'tdg-run-comparison':[7]};
 const KEY_D=[['CP-2',12,'Not classified'],['CP-2',35,'Analyst Interpretation'],['CP-2',132,'Analyst Interpretation'],['CP-2',39,'Documentary Fact'],['CP-2',45,'Insufficient Information · Documentary Fact'],['CP-2',84,'Analyst Interpretation'],['CP-2',85,'Analyst Interpretation'],['CP-1A',44,'Documentary Fact'],['CP-1A',46,'Analyst Interpretation'],['CP-1A',70,'Documentary Fact'],['CP-6',88,'Not classified'],['CP-6',143,'Not classified'],['CP-1',246,'Not classified']];
@@ -1233,3 +1233,36 @@ test('A run in the library opens on its Summary',()=>{
   dom.window.close();
 });
 
+
+test('An unreadable workspace says so in the library body and offers Settings',()=>{
+  const dom=appFixture('W-Library/cases',EMPTY,{reports:[],visuals:[]},{workspace:'/research',policy_locked:false,issues:[],problem:'permission denied'}),d=dom.window.document;
+  const c=d.getElementById('content');
+  assert.equal(c.querySelector('.library-empty h2').textContent,'The library could not read this workspace');
+  assert.equal(c.querySelector('.library-empty p').textContent,'Nothing can be listed until it can be read. Check the workspace folder in Settings, or quit and reopen the library.');
+  assert.equal(norm(c.querySelector('.library-empty a').textContent),'Open Settings');
+  assert.equal(c.querySelector('.library-empty a').getAttribute('href'),'#W-Settings/workspace');
+  assert.doesNotMatch(c.textContent,/Start a new run/);
+  dom.window.close();
+});
+test('Run activity for a run with no live record states what is recorded',()=>{
+  const d=fixture('CP-OS/activity?c=tdg-002').window.document;
+  assert.equal(norm(d.querySelector('#content .caution').textContent),'Live progress and spend are recorded only for runs started from New run in this workspace.');
+});
+test('Evidence rows and the inspector lead with the module name',()=>{
+  const dom=fixture('W-Evidence/sources?c=tdg-002'),d=dom.window.document;
+  const heads=[...d.querySelectorAll('#content .source-inventory h3')].map(h=>retainedText(h));
+  assert.ok(heads.includes('Financial foundation · CP-1'),heads.join('|'));
+  assert.ok(heads.every(h=>/^.+ · CP-[\w-]+$/.test(h)),heads.join('|'));
+  dom.window.close();
+  const dom2=fixture('CP-2/assessment'),d2=dom2.window.document;
+  d2.querySelectorAll('#content .source-footer .source-link')[0].click();dom2.window.eval('renderRoute()');
+  const ctx=retainedText(d2.querySelector('.evidence-context'));
+  assert.match(ctx,/^.+ \(CP-2\)( · .+)? · Line \d+$/,ctx);
+  dom2.window.close();
+});
+test('No report link carries a module code',()=>{
+  const d=fixture('W-Reports/list?c=tdg-002').window.document;
+  assert.ok(d.querySelectorAll('.report-list a').length);
+  assert.equal(d.querySelectorAll('.report-list a abbr.module-ref').length,0);
+  assert.ok([...d.querySelectorAll('.report-list a')].some(a=>a.textContent.includes('Repairs from the deliverable comparison')));
+});

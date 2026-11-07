@@ -95,7 +95,7 @@ CURATED_REPORTS = {
     "tdg-fy2024-snapshot-4": ("Peer comparison · first delivery, gap rows dropped", None),
     "tdg-fy2024-snapshot-5": ("Peer comparison · gap boundary repaired", None),
     "tdg-fy2024-snapshot-6": ("Peer comparison · exact fiscal dates added", None),
-    "tdg-fy2024-snapshot-7": ("CP-8 repairs applied", "Latest build"),
+    "tdg-fy2024-snapshot-7": ("Repairs from the deliverable comparison", "Latest build"),
 }
 SAFE_FOLDER = re.compile(r"[\w. -]+")
 MONTHS = (

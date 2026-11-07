@@ -837,10 +837,17 @@ class CopilotAdapter:
         self._release(call.digest)
         if wrong is None:
             return self._ok(call, outcome, raw, finished)
+        message = f"the reply was refused: {wrong}"
+        if outcome.usage == Usage() and outcome.billed_usd is None:
+            # no counts and no charge: which charge was paid is unknown, as in the other paths
+            return AdapterReply(
+                "sent_unknown", None, raw, 200, wrong, None, call.started, finished,
+                message=message,
+            )  # fmt: skip
         return AdapterReply(
             "sent_usage", None, raw, 200, wrong, None, call.started, finished,
             outcome.usage, outcome.billed_usd,
-            message=f"the reply was refused: {wrong}",
+            message=message,
         )  # fmt: skip
 
     @staticmethod

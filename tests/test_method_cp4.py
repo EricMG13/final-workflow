@@ -969,3 +969,53 @@ def test_a_ratio_and_a_wrapped_multiple_compose() -> None:
         row = {"threshold_text": text, "threshold_value": "4.00", "comparison": "<="}
         result = _threshold_case(sentence, row)
         assert result.issues == () and result.report is not None
+
+
+# S09-A05. Hand-derived: a cap reads `<=`/`<`, a floor `>=`/`>`; wording that is inclusive
+# ("no greater than", "or less", "to exceed") is not strict, so `<`/`>` on it is refused; a quote
+# that also words the limit strictly ("less than 0.75x") leaves `<` alone.
+def _direction(sentence: str, comparison: str) -> list[str]:
+    from types import SimpleNamespace
+
+    quote = SimpleNamespace(source_id="d", quote=sentence)
+    row: Any = SimpleNamespace(
+        comparison=comparison, citations=(quote,), document_id="d", threshold_text="0.75x"
+    )
+    return cp4_legal._direction_issues("covenants[0]", row)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "comparison"),
+    [
+        ("keep the ratio no greater than 0.75x", ">="),
+        ("keep the ratio no more than 0.75x", ">"),
+        ("keep the ratio at 0.75x or less", ">="),
+        ("keep the ratio at less than or equal to 0.75x", ">="),
+        ("shall not permit the ratio to exceed 0.75x", ">="),
+        ("keep the ratio no less than 0.75x", "<="),
+        ("keep the ratio at 0.75x or more", "<"),
+        ("shall not permit the ratio to be less than 0.75x", "<="),
+        ("keep the ratio no greater than 0.75x", "<"),
+        ("keep the ratio at least 0.75x", ">"),
+        ("keep the ratio at 0.75x or more", ">"),
+    ],
+)
+def test_s09_a05_wrong_direction_or_strictness_is_refused(sentence: str, comparison: str) -> None:
+    assert len(_direction(sentence, comparison)) == 1, (sentence, comparison)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "comparison"),
+    [
+        ("keep the ratio no greater than 0.75x", "<="),
+        ("keep the ratio at 0.75x or less", "<="),
+        ("keep the ratio no less than 0.75x", ">="),
+        ("shall not permit the ratio to exceed 0.75x", "<="),
+        ("keep the ratio less than 0.75x", "<"),  # strict wording, no inclusive phrase
+        ("keep the ratio greater than 0.75x", ">"),
+        ("keep the ratio below 0.75x, no greater than 1.00x", "<"),  # strict word remains
+        ("keep the ratio within 0.75x", "<"),  # names neither: the model's judgement
+    ],
+)
+def test_s09_a05_matching_wording_is_accepted(sentence: str, comparison: str) -> None:
+    assert _direction(sentence, comparison) == [], (sentence, comparison)

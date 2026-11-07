@@ -22,6 +22,7 @@ from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
 from prompt_support import CONTRACT_STEPS, EXISTING, request_for, steps_with_text
 from s06_strip import undo_s06
+from s09_a05_strip import undo_s09_a05
 from s09_strip import undo_s09
 from s13_strip import undo_s13
 from s15_strip import undo_s15
@@ -53,7 +54,7 @@ def undo_budgets(step: str, text: str) -> str:
     before the CP-1 hybrid wording and the invoke budget; first the S09 CP-4 rule d sentence
     (``undo_s09``), the S13 run-text sentences (``undo_s13``), the S06 CP-2 clause
     (``undo_s06``) and the S15 readiness kind list (``undo_s15``)."""
-    text = undo_s15(step, undo_s06(step, undo_s13(step, undo_s09(step, text))))
+    text = undo_s09_a05(step, undo_s15(step, undo_s06(step, undo_s13(step, undo_s09(step, text)))))
     return undo_invoke(step, undo_finish(step, undo_turns(step, text)))
 
 
@@ -477,7 +478,9 @@ def test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message(
 ) -> None:
     messages = compose(request_for(step, pack))
     system, user = messages[0], messages[1]
-    text = undo_s15(step, undo_s06(step, undo_s13(step, undo_s09(step, system.text))))
+    text = undo_s09_a05(
+        step, undo_s15(step, undo_s06(step, undo_s13(step, undo_s09(step, system.text))))
+    )
     text = undo_unit_maps(step, undo_absence(step, undo_coverage(step, text)))
     text = undo_finish(step, undo_turns(step, text))
     body = json.dumps([[system.role, text], [user.role, user.text]])

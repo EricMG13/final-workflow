@@ -20,6 +20,7 @@ from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
 from prompt_support import OLD_EVIDENCE_RULE, request_for
 from s06_strip import undo_s06
+from s09_a05_strip import undo_s09_a05
 from s09_strip import undo_s09
 from s13_strip import undo_s13
 from s15_strip import undo_s15
@@ -153,6 +154,7 @@ def test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message(
     system = undo_s13(step_id, system)  # S13: the run-text figure sentences
     system = undo_s06(step_id, system)  # S06-A06: CP-2 rule b's Critical-severity clause
     system = undo_s15(step_id, system)  # S15-A02: readiness rule c's kind list
+    system = undo_s09_a05(step_id, system)  # S09-A05: CP-4 rule d's strictness sentence
     system = undo_coverage(step_id, system)  # CP1H-R22: the financials coverage line
     system = undo_absence(step_id, system)  # CP1H-R23: the source_context absence line
     system = undo_unit_maps(step_id, system)  # CP1H-R23.16: the financials unit maps

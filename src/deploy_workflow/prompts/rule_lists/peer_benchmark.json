@@ -15,7 +15,7 @@
     "oracle:cp1c:r03",
     "oracle:cp1c:r10",
     "fn:deploy_workflow.owners.cp1c:_assessment_set_issues",
-    "fn:deploy_workflow.owners.cp1c:calculation_issues"
+    "fn:deploy_workflow.owners.cp1c:_calculation"
    ]
   },
   {

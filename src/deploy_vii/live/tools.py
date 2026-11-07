@@ -122,6 +122,10 @@ MAX_PAGES_PER_EXTRACT = 8
 MAX_LINES_PER_EXTRACT = 200
 MAX_HITS = 15
 DEFAULT_HITS = 10
+# A search runs every distinct term over every span, so its cost grows with terms x pack text and
+# its header echoes the query. Beyond these bounds the call is refused, never truncated.
+MAX_QUERY_CHARS = 512
+MAX_QUERY_TERMS = 32
 SNIPPET_CHARS = 300
 TOOL_CHOICE = "required"
 SEARCH, READ, EXTRACT = "search_pack", "read_pages", "extract_statements"
@@ -393,9 +397,13 @@ class PackTools:
     def search_pack(self, raw: Mapping[str, Any]) -> str:
         _arguments(raw, ("query",), ("source_id", "max_hits"))
         query = raw["query"]
+        if isinstance(query, str) and len(query) > MAX_QUERY_CHARS:
+            raise ToolError(f"bad arguments: query is over {MAX_QUERY_CHARS} characters")
         terms = list(dict.fromkeys(query.split())) if isinstance(query, str) else []
         if not terms:
             raise ToolError("bad arguments: query must be non-empty text")
+        if len(terms) > MAX_QUERY_TERMS:
+            raise ToolError(f"bad arguments: query is over {MAX_QUERY_TERMS} distinct terms")
         scope = raw.get("source_id")
         sources = self.ready if scope is None else {self._source(scope): None}
         limit = _integer(raw, "max_hits") if "max_hits" in raw else DEFAULT_HITS

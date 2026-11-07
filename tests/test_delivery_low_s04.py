@@ -11,7 +11,12 @@ import pytest
 from deploy_vii.charts import _categories
 from deploy_vii.contracts import Run, View
 from deploy_vii.report_view import ReportView
-from deploy_workflow.handoff_delivery import DeliveryRequest, HandoffInput, physical_lines
+from deploy_workflow.handoff_delivery import (
+    DeliveryRequest,
+    HandoffInput,
+    hide_comments,
+    physical_lines,
+)
 from deploy_workflow.markdown_delivery import literal_module, markdown_files
 from deploy_workflow.model_handoff_delivery import _AnnualReader
 from deploy_workflow.owners.cpos_launch import _layout
@@ -182,6 +187,46 @@ def test_comment_markers_inside_a_fence_stay_text():
 def test_unterminated_html_comment_is_refused():
     with pytest.raises(ValueError, match="never closed"):
         literal_module("CP-1", _doc("Before.\n<!--\nhidden forever\n").encode())
+
+
+TABLE = "| a | b |\n|---|---|\n| 1 | 2 |\n"
+
+
+def _hidden(text: str) -> list[str]:
+    return hide_comments(physical_lines(text), "m")
+
+
+def test_a_comment_opened_mid_line_or_indented_hides_its_table_and_keeps_the_text_before_it():
+    # Hand-derived: line 2 keeps "note " (text before the opener), lines 3-6 are inside the
+    # comment through "-->", line 7 is outside again. Indented opener: only spaces before it, so
+    # the opening line is blank. Back-to-back "<!-- x --> <!--" opens at the second marker.
+    body = f"{TABLE}-->\ntext\n"
+    assert _hidden(f"## A\nnote <!--\n{body}") == ["## A", "note ", "", "", "", "", "text"]
+    assert _hidden(f"## A\n  <!--\n{body}") == ["## A", "", "", "", "", "", "text"]
+    assert _hidden(f"## A\n<!-- x --> <!--\n{body}")[1:] == ["<!-- x --> ", "", "", "", "", "text"]
+
+
+def test_comment_edge_cases_keep_their_old_meaning():
+    # Nested openers end at the first "-->"; a closer with no opener is text; a comment closed on
+    # its own line is single-line; markers in inline code and fences are text; a closer line that
+    # opens another comment keeps hiding until the next closer.
+    assert _hidden("a <!-- b <!-- c\nx\n--> y\nz\n") == ["a ", "", "", "z"]
+    assert _hidden("only --> closer\n| 1 |\n") == ["only --> closer", "| 1 |"]
+    assert _hidden("t <!-- c --> u\n| 1 |\n") == ["t <!-- c --> u", "| 1 |"]
+    assert _hidden("`<!--` code\n| 1 |\n") == ["`<!--` code", "| 1 |"]
+    assert _hidden("```\nq <!--\n| 1 |\n```\n") == ["```", "q <!--", "| 1 |", "```"]
+    assert _hidden("<!-- a\nb --> <!-- c\nd\n-->\ne\n") == ["", "", "", "", "e"]
+
+
+def test_a_mid_line_comment_never_closed_is_refused_naming_the_handoff():
+    with pytest.raises(ValueError, match="m: the HTML comment opened on line 2 is never closed"):
+        _hidden("## A\nnote <!--\n| hidden |\n")
+
+
+def test_mid_line_comment_table_is_not_published_by_the_markdown_reader():
+    shown = prose_texts(_doc("Before <!--\nDRAFT 999\n-->\nAfter.\n"))
+    assert "Before" in " ".join(shown) and "After." in shown
+    assert not [t for t in shown if "DRAFT" in t]
 
 
 def test_reporting_unit_other_than_the_chart_unit_is_refused(tmp_path):

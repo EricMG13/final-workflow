@@ -192,24 +192,39 @@ def heading_of(line: str) -> tuple[int, str] | None:
 FENCE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
 
 
+def comment_opener(line: str) -> int | None:
+    """Index of the `<!--` that is still open at the end of `line`, else None: the first `<!--`
+    after the last `-->`, anywhere in the line (a later nested one is inside the comment). Inline
+    code spans are blanked first, as Markdown reads `<!--` inside them literally."""
+    plain_text = re.sub(r"(`+).+?\1", lambda m: "x" * len(m[0]), line)
+    closed = plain_text.rfind("-->")
+    opener = plain_text.find("<!--", 0 if closed < 0 else closed + 3)
+    return None if opener < 0 else opener
+
+
 def hide_comments(lines: list[str], name: str) -> list[str]:
     """The lines with each multi-line HTML comment blanked through its `-->`, as Markdown viewers
-    hide it, so no table or prose inside it is published; fenced text is left as written. Line
-    numbers are unchanged. A comment that is never closed would hide the rest of the handoff:
-    refused."""
+    hide it, so no table or prose inside it is published; fenced text is left as written. A
+    comment may open anywhere in a line; the opening line keeps the text before its `<!--` (blank
+    when that is only spaces). Line numbers are unchanged. A comment that is never closed would
+    hide the rest of the handoff: refused."""
     shown, fenced, opened = [], False, 0
     for number, line in enumerate(lines, 1):
-        hide = opened > 0
-        if hide:
-            opened = 0 if "-->" in line else opened
+        if opened:  # Inside a comment: hidden through its `-->`, and another may open after it.
+            _, closed, rest = line.partition("-->")
+            opened = (number if comment_opener(rest) is not None else 0) if closed else opened
+            shown.append("")
+            continue
+        found = heading_of(line)
+        fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
+        if FENCE.match(line):
+            fenced = not fenced
+        start = None if fenced else comment_opener(line)
+        if start is None or FENCE.match(line):
+            shown.append(line)
         else:
-            found = heading_of(line)
-            fenced = fenced and not (found and found[0] == 2)  # A fence ends at a section.
-            if FENCE.match(line):
-                fenced = not fenced
-            elif not fenced and line.startswith("<!--") and "-->" not in line:
-                opened, hide = number, True
-        shown.append("" if hide else line)
+            opened = number
+            shown.append(line[:start] if line[:start].strip() else "")
     if opened:
         raise ValueError(f"{name}: the HTML comment opened on line {opened} is never closed by -->")
     return shown

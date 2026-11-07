@@ -17,8 +17,9 @@ PHRASE = "executed, filed or, on a draft-documents run, draft"
 OLD_CP4_SHA = "99ec34c7a8257e15325456eb5466388eeb656fa01cf30db91e8474334bb39ff0"
 # S13 C01 restated the kpi evidence line (period_basis_id); S09 C06 passes the caller's
 # python_checks to integrity_projection (integrity_scope); S14-C06 passes an already-built
-# pack to the source scopes (`session_scope`); the pin follows those edits.
-OLD_CONTEXT_SHA = "40328fb41b5953f7d7bc4a91430c8fe8a1474e4eb8b2df71da1c31ed140a5ff6"
+# pack to the source scopes (`session_scope`). The pin is the CURRENT file less the phrase, so it
+# follows every later edit of context.py; it no longer pins the imported text.
+CONTEXT_WITHOUT_PHRASE_SHA = "40328fb41b5953f7d7bc4a91430c8fe8a1474e4eb8b2df71da1c31ed140a5ff6"
 
 
 def flat(text: str) -> str:
@@ -62,8 +63,10 @@ def test_cp4_md_differs_from_the_imported_text_only_by_the_two_phrases() -> None
     assert sha(old.replace(new_two, old_two)) == OLD_CP4_SHA
 
 
-def test_context_py_differs_from_the_imported_text_only_by_the_phrase() -> None:
+def test_context_py_without_the_phrase_matches_the_pin_of_the_current_file() -> None:
+    """The current context.py, phrase restored to the imported wording, hashes to the pin; the
+    pin was moved by S13-C01, S09-C06 and S14-C06, so this is not the imported text."""
     text = (SRC / "live" / "context.py").read_text(encoding="utf-8")
     new = "classes executed, filed or,\non a draft-documents run, draft, CP-3"
     assert text.count(new) == 1
-    assert sha(text.replace(new, "classes executed or filed, CP-3")) == OLD_CONTEXT_SHA
+    assert sha(text.replace(new, "classes executed or filed, CP-3")) == CONTEXT_WITHOUT_PHRASE_SHA

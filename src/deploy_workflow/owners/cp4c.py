@@ -3437,30 +3437,6 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
 ENTRY_VALIDATOR = _validate_step
 
 
-class Cp4cUpstreamFault(Exception):
-    """CP-1's own T4.18/T4.14 data leaves CP-4C no single secured facility. The model cannot fix
-    that, so the walk refuses CP-4C before `begin` (no attempt, no request, no spend). Not a
-    `ValueError`: the `_begin` hook is outside its refusal handling and the fault stops the run."""
-
-
-def check_begin(store: Execution, snapshot: ExecutionSnapshot) -> None:
-    """The `_PRE_BEGIN` hook (the mechanism CP-DR's `check_begin` uses): before `begin("CP-4C")`,
-    a settled CP-1 head whose facility issue (`cp1_of`) is set stops the run with that issue
-    text. The issue comes only from CP-1's rows, so a repair attempt could never clear it. A head
-    that is absent or unsettled, a CP-1 `cp1_of` cannot read at all (its own raise, as before) and
-    a head with a single secured facility pass: `begin` and the validator behave as they did."""
-    head = next((h for h in snapshot.heads if h.module_id == CP1), None)
-    status = None if head is None else _SETTLED.get(head.status)
-    if head is None or status is None:
-        return
-    try:
-        cp1 = cp1_of(store.head_module(head), status)
-    except ValueError:
-        return
-    if cp1.facility_issue:
-        raise Cp4cUpstreamFault(cp1.facility_issue)
-
-
 def _candidate(output: str, attempt: Attempt) -> Module:
     report = RestructuringReport.model_validate_json(output)
     return cp4c_module(report, inputs=attempt.inputs, attempt=attempt.number)

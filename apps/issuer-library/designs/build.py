@@ -48,7 +48,8 @@ def prepare_reports(sources, keys):
         )
         (destination / "preview.html").write_text(html, encoding="utf-8")
         delivery = json.loads((folder / "delivery.json").read_text())
-        identity = json.loads((folder / "view.json").read_text(encoding="utf-8"))["run"]
+        view = json.loads((folder / "view.json").read_text(encoding="utf-8"))
+        identity = view["run"]
         rows = built_from(folder, sources)
         for row in rows:
             if row["run"] is None:
@@ -63,6 +64,10 @@ def prepare_reports(sources, keys):
                 "build": number,
                 "label": label,
                 "status": status,
+                "mode": view.get("mode") if isinstance(view.get("mode"), str) else None,
+                "qualification": view.get("analytical_qualification")
+                if isinstance(view.get("analytical_qualification"), str)
+                else None,
                 "issuer": "TransDigm Group",
                 "issuerKey": report_issuer_key(keys, identity.get("issuer_id")),
                 "sha256": sha256(original),

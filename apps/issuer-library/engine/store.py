@@ -94,7 +94,7 @@ CURATED_REPORTS = {
     "tdg-fy2024-snapshot-4": ("Peer comparison · first delivery, gap rows dropped", None),
     "tdg-fy2024-snapshot-5": ("Peer comparison · gap boundary repaired", None),
     "tdg-fy2024-snapshot-6": ("Peer comparison · exact fiscal dates added", None),
-    "tdg-fy2024-snapshot-7": ("CP-8 repairs applied", "Latest"),
+    "tdg-fy2024-snapshot-7": ("CP-8 repairs applied", "Latest build"),
 }
 SAFE_FOLDER = re.compile(r"[\w. -]+")
 WEB_RUN = re.compile(r"web-[a-f0-9]{32}")
@@ -515,14 +515,14 @@ def catalogue_reports(root, catalogue, sources, keys):
             # Documented fail-open: reported in Settings; the other deliverables stay readable.
             try:
                 delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
-                identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))[
-                    "run"
-                ]
+                view = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))
+                identity = view["run"]
                 issuer_name, as_of = identity["issuer_name"], identity["as_of"]
                 issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
             except (OSError, ValueError, KeyError) as error:
                 issues.append(f"{folder}: could not be read ({error!r})")
                 continue
+            mode, qualification = view.get("mode"), view.get("analytical_qualification")
             curated = name in CURATED_REPORTS
             issuer = "TransDigm Group" if curated else issuer_name
             default = (
@@ -537,6 +537,8 @@ def catalogue_reports(root, catalogue, sources, keys):
                     "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,
                     "label": label,
                     "status": status,
+                    "mode": mode if isinstance(mode, str) else None,
+                    "qualification": qualification if isinstance(qualification, str) else None,
                     "issuer": issuer,
                     "issuerKey": issuer_key,
                     "sha256": delivery["files"]["report.html"],

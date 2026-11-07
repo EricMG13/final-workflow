@@ -111,3 +111,62 @@ test('Reports for a run list the same issuer by identity, not by display name',a
   assert.deepEqual(sorted(ids('report-other')),sorted(expected.sameIssuer));
   assert.deepEqual(sorted(ids('report-rest')),sorted(expected.otherIssuers));
 });
+
+test('Every report row shows the report’s declared acceptance state and qualification',async t=>{
+  const w=screens(workspace,'W-Reports/list?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  await settle();
+  const rows=new Map([...d.querySelectorAll('.report-list li')].map(li=>[li.querySelector('.code').textContent,li]));
+  for(const [id,expected] of Object.entries(key.reports.byId)){
+    const row=rows.get(id);
+    assert.ok(row,`${id} has no row`);
+    assert.ok(text(row).includes(expected.state),`${id}: ${expected.state} missing from "${text(row)}"`);
+    assert.ok(text(row).includes(expected.qualification),`${id}: ${expected.qualification} missing from "${text(row)}"`);
+  }
+});
+
+test('The reading toolbar shows the curated status with the acceptance state',async t=>{
+  const toolbar=async id=>{
+    const w=screens(workspace,`W-Reports/${id}?c=tdg-002`).window;t.after(()=>w.close());
+    await settle();
+    return text(w.document.querySelector('.report-tools'));
+  };
+  const latest=await toolbar('tdg-fy2024-snapshot-7');
+  for(const part of [key.reports.status['tdg-fy2024-snapshot-7'],key.reports.byId['tdg-fy2024-snapshot-7'].state,key.reports.byId['tdg-fy2024-snapshot-7'].qualification])assert.ok(latest.includes(part),`${part} missing from "${latest}"`);
+  assert.ok((await toolbar('tdg-fy2024-snapshot')).includes(key.reports.status['tdg-fy2024-snapshot']));
+});
+
+test('Each deliverable listed on the run overview shows its report’s state',async t=>{
+  const w=screens(workspace,'W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  await settle();
+  const entries=[...d.querySelectorAll('.summary-deliverables .deliverable')];
+  assert.equal(entries.length,key.reports['tdg-002'].built.length);
+  for(const entry of entries){
+    const id=entry.querySelector('a').getAttribute('href').split('?')[0].split('/').at(-1);
+    const expected=key.reports.byId[id];
+    assert.ok(expected,`${id} not in the answer key`);
+    assert.ok(text(entry).includes(expected.state),`${id}: ${expected.state} missing from "${text(entry)}"`);
+    assert.ok(text(entry).includes(expected.qualification),`${id}: qualification missing`);
+  }
+});
+
+test('A synthetic delivery shows accepted, unrecorded and unknown states in exact words',async t=>{
+  const forged=structuredClone(workspace);
+  const [first,second,third]=forged.store.reports.filter(r=>r.issuerKey===forged.store.reports.find(x=>x.id==='tdg-fy2024-snapshot-7').issuerKey);
+  Object.assign(first,{mode:'accepted',qualification:'qualified'});
+  Object.assign(second,{mode:null,qualification:'mystery'});
+  Object.assign(third,{mode:'draft',qualification:null});
+  const w=screens(forged,'W-Reports/list?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  await settle();
+  const row=r=>text([...d.querySelectorAll('.report-list li')].find(li=>li.querySelector('.code').textContent===r.id));
+  assert.match(row(first),/Accepted.*Analytical qualification: qualified/);
+  assert.doesNotMatch(row(first),/not accepted|not recorded/);
+  assert.match(row(second),/Acceptance not recorded.*Analytical qualification not recorded/);
+  assert.match(row(third),/Acceptance not recorded.*Analytical qualification not recorded/);
+  const stateBadge=r=>[...d.querySelectorAll('.report-list li')].find(li=>li.querySelector('.code').textContent===r.id).querySelectorAll('.badge');
+  const kinds=r=>[...stateBadge(r)].map(b=>`${text(b)}|${b.className}`);
+  assert.ok(kinds(first).includes('Accepted|badge badge-gray'),kinds(first).join());
+  assert.ok(kinds(second).includes('Acceptance not recorded|badge badge-gray'),kinds(second).join());
+  assert.ok(kinds(third).includes('Acceptance not recorded|badge badge-gray'),kinds(third).join());
+  const candidate=[...d.querySelectorAll('.report-list li .badge')].find(b=>text(b)==='Candidate · not accepted');
+  assert.ok(candidate&&candidate.classList.contains('badge-attention'),'candidate state is an attention badge');
+});

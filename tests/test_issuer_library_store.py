@@ -187,6 +187,41 @@ def test_reports_trace_handoffs_by_hash_and_name_what_has_no_match(tmp_path):
     assert beta["builtFrom"][0]["run"] == "launched"
 
 
+def _report_with_view(tmp_path, **declared):
+    catalogue = workspace(tmp_path)
+    view_path = tmp_path / "deliverables/alpha-report/view.json"
+    view = json.loads(view_path.read_text(encoding="utf-8"))
+    view.update(declared)
+    view_path.write_text(json.dumps(view), encoding="utf-8")
+    reports = {r["id"]: r for r in store.workspace_store(tmp_path, catalogue)["reports"]}
+    return reports["alpha-report"]
+
+
+@pytest.mark.parametrize(
+    ("declared", "mode", "qualification"),
+    [
+        ({"mode": "accepted", "analytical_qualification": "qualified"}, "accepted", "qualified"),
+        ({"mode": "candidate", "analytical_qualification": "partial"}, "candidate", "partial"),
+        ({"analytical_qualification": "unrun"}, None, "unrun"),
+        ({"mode": "candidate", "analytical_qualification": "mystery"}, "candidate", "mystery"),
+        ({"mode": "candidate"}, "candidate", None),
+        ({}, None, None),
+    ],
+)
+def test_a_report_carries_the_mode_and_qualification_it_declares(
+    tmp_path, declared, mode, qualification
+):
+    report = _report_with_view(tmp_path, **declared)
+    assert report["mode"] == mode
+    assert report["qualification"] == qualification
+
+
+def test_the_latest_curated_build_is_labelled_latest_build():
+    assert store.CURATED_REPORTS["tdg-fy2024-snapshot-7"][1] == "Latest build"
+    assert store.CURATED_REPORTS["tdg-fy2024-snapshot"][1] == "Superseded"
+    assert "Latest" not in {status for _, status in store.CURATED_REPORTS.values()}
+
+
 def test_a_curated_pin_that_no_longer_matches_is_dropped_not_fatal(tmp_path):
     catalogue = {
         "issues": [],

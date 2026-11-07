@@ -507,7 +507,7 @@ const KEY_C=[
   ['tdg-fy2024-snapshot-4','Peer comparison · first delivery, gap rows dropped','tdg-peers-2024-001/CP-2-delivery-input.md','b88d1dfce706','084e27e00b1d',null],
   ['tdg-fy2024-snapshot-5','Peer comparison · gap boundary repaired','tdg-peers-2024-001/CP-2-delivery-input-attempt-2.md','54247baa99d3','5ba26c11e2ee',null],
   ['tdg-fy2024-snapshot-6','Peer comparison · exact fiscal dates added','tdg-peers-2024-001/CP-2-delivery-input-final.md','ba312d7faa8a','6bc718146295',null],
-  ['tdg-fy2024-snapshot-7','CP-8 repairs applied','tdg-run-comparison-001/CP-2-delivery.md','22edd045e3d6','c7c4156e7c2a','Latest']
+  ['tdg-fy2024-snapshot-7','CP-8 repairs applied','tdg-run-comparison-001/CP-2-delivery.md','22edd045e3d6','c7c4156e7c2a','Latest build']
 ];
 const REPORTS_BY_RUN={'tdg-002':[1,2,3,4,5,6,7],'tdg-003':[3],'tdg-004':[],'tdg-guidance':[],'tdg-peers-2024':[4,5,6],'ford-otosan-2024':[],'frontier-2020':[],'tdg-run-comparison':[7]};
 const KEY_D=[['CP-2',12,'Not classified'],['CP-2',35,'Analyst Interpretation'],['CP-2',132,'Analyst Interpretation'],['CP-2',39,'Documentary Fact'],['CP-2',45,'Insufficient Information · Documentary Fact'],['CP-2',84,'Analyst Interpretation'],['CP-2',85,'Analyst Interpretation'],['CP-1A',44,'Documentary Fact'],['CP-1A',46,'Analyst Interpretation'],['CP-1A',70,'Documentary Fact'],['CP-6',88,'Not classified'],['CP-6',143,'Not classified'],['CP-1',246,'Not classified']];

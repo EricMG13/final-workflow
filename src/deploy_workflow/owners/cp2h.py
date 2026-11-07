@@ -77,6 +77,7 @@ from deploy_vii.live.submission import Submitted
 from deploy_vii.live.tools import Seen, unread_citation_issues
 from deploy_vii.model._cells import CONTEXT
 from deploy_vii.preparation import PreparedPack
+from deploy_vii.quotes import normalise as quote_text
 from deploy_vii.readiness import citation_issues, shape_issues
 from deploy_vii.report_view import fact_spelling, figure_unit
 from deploy_workflow.context import (
@@ -1846,10 +1847,12 @@ def _view_basis(
 
 def _own_evidence_issues(path: str, view: AgencyView, basis: _ViewBasis) -> list[str]:
     """S07-A04: a view cites at least one line of its own agency: a quote that names the agency
-    (its page register or terms line) or one of its context register lines."""
-    name, lines = view.agency.casefold(), basis.own_lines.get(view.agency, frozenset())
+    (its page register or terms line) or one of its context register lines. Both are read as the
+    citation rule reads a quote (`quotes.normalise`: a curly apostrophe may be written ASCII)."""
+    name = quote_text(view.agency).casefold()
+    lines = basis.own_lines.get(view.agency, frozenset())
     if any(
-        name in " ".join(c.quote.split()).casefold() or (c.source_id, c.locator) in lines
+        name in quote_text(c.quote).casefold() or (c.source_id, c.locator) in lines
         for c in view.evidence
     ):
         return []

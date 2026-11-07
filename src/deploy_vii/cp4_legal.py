@@ -522,13 +522,17 @@ def _row_issues(path: str, row: BaseModel, upstream: Upstream) -> list[str]:
 # not permit ... to exceed" are caps; "no less than", "or more" and "shall not permit ... to be
 # less than" are floors. Every phrase here is also inclusive (non-strict): a strict comparison on
 # a quote that words the limit only so is rejected, because the verdict flips at the threshold.
+# "or less" / "or more" count only as a figure's own tail ("0.75x or less", "2.0 to 1.0 or more"):
+# "one or more occasions", "four or more quarters" and "more or less" name no limit.
+_FIGURE_OR = r"\d(?:\s*(?:x|%|times))?\s+or "
 _CAP_WORDS = (
     r"not exceed|not to exceed|not more than|no more than|not greater than|no greater than|"
-    r"shall not be greater|maximum|less than or equal to|or less|"
+    rf"shall not be greater|maximum|less than or equal to|{_FIGURE_OR}less|"
     r"permit\b[^.;]{0,80}?\bto (?:exceed|be (?:greater|more) than)"
 )
 _FLOOR_WORDS = (
-    r"not less than|no less than|at least|minimum|greater than or equal to|or more|or greater|"
+    r"not less than|no less than|at least|minimum|greater than or equal to|"
+    rf"{_FIGURE_OR}(?:more|greater)|"
     r"permit\b[^.;]{0,80}?\bto (?:be less than|fall below)"
 )
 _FLOOR = re.compile(rf"(?<![A-Za-z])(?:{_FLOOR_WORDS})(?![A-Za-z])", re.IGNORECASE)

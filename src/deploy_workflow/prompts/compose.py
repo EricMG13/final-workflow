@@ -513,17 +513,23 @@ def _evidence_block(request: PromptRequest) -> str | None:
     return None if body is None else data_block("CONTEXT", EVIDENCE_ID, json.dumps(body, indent=1))
 
 
+# `<` and each character NFKD folds to one (the fence's lookalike copy reads each as `<`), as its
+# JSON escape. None of them is JSON outside a string, so in JSON text only strings change.
+_LT_ESCAPES = str.maketrans({c: f"\\u{ord(c):04x}" for c in "<≮﹤＜"})
+
+
 def _json_text_safe(text: str) -> str:
-    """JSON text with every ``<`` written ``\\u003c``: the same value, so a model echo of a fence
-    marker inside a string cannot make the fence refuse the block. Text that is not JSON is
-    returned unchanged (the fence still decides)."""
-    if "<" not in text:
+    """JSON text with each ``<`` or NFKD lookalike of one written as its escape (``\\u003c``):
+    the same value, so a model echo of a fence marker inside a string cannot make the fence
+    refuse the block. Text that is not JSON is returned unchanged (the fence still decides)."""
+    safe = text.translate(_LT_ESCAPES)
+    if safe == text:
         return text
     try:
         json.loads(text)
     except ValueError:
         return text
-    return text.replace("<", "\\u003c")  # outside a string `<` is not JSON, so only strings change
+    return safe
 
 
 def compose(request: PromptRequest) -> tuple[Message, ...]:

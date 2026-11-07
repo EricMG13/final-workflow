@@ -1833,3 +1833,59 @@ def test_s07_a04_a_view_must_cite_a_line_of_its_own_agency() -> None:
     assert cp2h.validate(inputs("positive", payload)) == (
         "views[1].evidence: cite at least one register or terms line of Brook Credit",
     )
+
+
+def test_review_s07_a04_own_agency_evidence_reads_quotes_as_the_citation_rule_does() -> None:
+    """Review of S07-A04. A citation may write a curly apostrophe as ASCII (rule
+    rating_triggers.5, `quotes.normalise`), so a page register agency "Moody’s" is named by a
+    quote that writes "Moody's" (hand-derived: no issue); a quote naming only another agency is
+    still refused."""
+    basis: Any = SimpleNamespace(own_lines={})
+    view: Any = SimpleNamespace(
+        agency="Moody’s",
+        evidence=(SimpleNamespace(source_id="ratings", locator="page:1", quote="Moody's  Ba1"),),
+    )
+    assert cp2h._own_evidence_issues("views[0]", view, basis) == []
+    view.evidence = (SimpleNamespace(source_id="ratings", locator="page:1", quote="Fitch  BB+"),)
+    assert cp2h._own_evidence_issues("views[0]", view, basis) == [
+        "views[0].evidence: cite at least one register or terms line of Moody’s"
+    ]
+
+
+def test_review_s07_a03_instrument_wording_is_compared_after_case_and_space_folding() -> None:
+    """Review of S07-A03 (hand-derived): "Issuer  Rating" and "issuer rating" name one rated
+    object, so the pair is compared; "Issuer rating" against "Senior secured notes" is not."""
+
+    def row(agency: str, instrument: str) -> cp2h.RegisterRow:
+        return cp2h.RegisterRow(agency, instrument, "BB", "Stable", "2025-11-01", 12, "l", "s")
+
+    assert cp2h._scope_mismatch(row("A", "Issuer  Rating"), row("B", "issuer rating")) is None
+    assert cp2h._scope_mismatch(row("A", "Issuer rating"), row("B", "Senior secured notes"))
+
+
+def test_review_s07_a04_upgrade_with_a_published_trigger_and_nothing_reached_stands() -> None:
+    """Review of S07-A04 (hand-derived): an agency that publishes an upgrade trigger and has no
+    trigger reached in any year may be viewed Upgrade potential; an upgrade trigger reached only
+    in the downside case still counts as reached."""
+
+    def test(row: str, direction: str) -> Any:
+        return SimpleNamespace(row=row, term=SimpleNamespace(agency="B", direction=direction))
+
+    def outcome(row: str, base: bool | None, down: bool | None) -> Any:
+        return SimpleNamespace(
+            row=row,
+            fy25_reached=None,
+            base=SimpleNamespace(hits=(base, None, None)),
+            down=SimpleNamespace(hits=(down, None, None)),
+        )
+
+    view: Any = SimpleNamespace(agency="B", view="Upgrade potential")
+    tests = (test("t1", "Upgrade"), test("t2", "Downgrade"))
+    none = SimpleNamespace(
+        tests=tests, outcomes=(outcome("t1", False, None), outcome("t2", None, False))
+    )
+    assert cp2h._direction_issues("views[0]", view, none) == []  # type: ignore[arg-type]
+    down_up = SimpleNamespace(
+        tests=tests, outcomes=(outcome("t1", None, True), outcome("t2", True, None))
+    )
+    assert cp2h._direction_issues("views[0]", view, down_up) == []  # type: ignore[arg-type]

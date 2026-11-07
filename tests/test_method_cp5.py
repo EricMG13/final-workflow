@@ -1371,3 +1371,23 @@ def test_s09_a07_a_supported_verdict_needs_a_ref_of_its_own_claim() -> None:
     review["upstream_refs"] = [next(iter(sorted(own)))]
     ok = validate_integrity(scope, IntegritySubmission.model_validate_json(json.dumps(base)))
     assert not any("names no upstream_ref of" in issue for issue in ok), ok
+
+
+@pytest.mark.parametrize("support", ["supported", "partly_supported"])
+def test_review_s09_a07_another_claims_citation_ref_does_not_carry_a_verdict(support: str) -> None:
+    """Review of S09-A07 (hand-derived): a verdict above unsupported that rests only on another
+    claim's citation ref of the same head (credit_translation.r03#c1 for r05) names no ref of its
+    own claim, for partly_supported as for supported; the oracle review itself is accepted."""
+    case = CASES[0]
+    base = json.loads(make_inputs(case).submission.model_dump_json())
+    index = next(
+        i for i, r in enumerate(base["claim_reviews"]) if r["claim_ref"] == "credit_translation.r05"
+    )
+    review = base["claim_reviews"][index]
+    review["support"] = support
+    review["upstream_refs"] = ["credit_translation.r03#c1"]
+    scope = make_inputs(case).scope
+    got = validate_integrity(scope, IntegritySubmission.model_validate_json(json.dumps(base)))
+    claim = "credit_translation.r05"
+    want = f"claim_reviews[{index}]: a {support} verdict names no upstream_ref of {claim}"
+    assert any(issue.startswith(want) for issue in got), got

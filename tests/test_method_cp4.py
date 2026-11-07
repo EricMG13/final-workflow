@@ -1019,3 +1019,43 @@ def test_s09_a05_wrong_direction_or_strictness_is_refused(sentence: str, compari
 )
 def test_s09_a05_matching_wording_is_accepted(sentence: str, comparison: str) -> None:
     assert _direction(sentence, comparison) == [], (sentence, comparison)
+
+
+# Review of S09-A05. "or more"/"or less" name a cap or floor only as a figure's own tail
+# ("0.75x or less"); in "one or more occasions", "four or more consecutive quarters" or "more or
+# less" they name nothing. Hand-derived from the wording, not from the regexes.
+_TDG_L1095 = (  # runs/tdg-004 legal source L1095 (TDG indenture, retained; outdated-source scope)
+    "the Company shall be entitled at its option on one or more occasions to redeem Notes "
+    "(which includes Additional Notes, if any) in an aggregate principal amount not to exceed 40% "
+    "of the aggregate principal amount of the Notes"
+)
+
+
+@pytest.mark.parametrize(
+    ("sentence", "comparison", "refused"),
+    [
+        (_TDG_L1095, ">=", True),  # a cap ("not to exceed"); "one or more" is no floor
+        (_TDG_L1095, "<=", False),
+        ("keep the ratio less than 0.75x for four or more consecutive quarters", "<", False),
+        ("keep the ratio greater than 0.75x for any period of ninety days or less", ">", False),
+        ("keep the ratio at more or less 0.75x", ">=", False),  # names neither
+        ("keep the ratio no more or less than 0.75x", "<=", False),  # names neither
+        ("keep the ratio not less than 0.25x and not more than 0.75x", "<=", False),
+        ("keep the ratio not less than 0.25x and not more than 0.75x", "<", True),  # inclusive
+        ("keep the ratio not less than 0.75x and not more than 1.25x", ">", True),  # inclusive
+        ("Maximum ratio: the ratio shall be less than 0.75x", "<", False),  # strict word stays
+        ("keep the ratio at 0.75 to 1.00 or less", "<", True),  # inclusive tail of a figure
+        ("keep the ratio at 0.75 to 1.00 or more", "<=", True),  # a floor
+    ],
+)
+def test_review_s09_a05_or_more_or_less_is_a_figure_tail(
+    sentence: str, comparison: str, refused: bool
+) -> None:
+    threshold = "40%" if sentence is _TDG_L1095 else "0.75"
+    from types import SimpleNamespace
+
+    quote = SimpleNamespace(source_id="d", quote=sentence)
+    row: Any = SimpleNamespace(
+        comparison=comparison, citations=(quote,), document_id="d", threshold_text=threshold
+    )
+    assert bool(cp4_legal._direction_issues("covenants[0]", row)) is refused

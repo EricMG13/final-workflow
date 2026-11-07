@@ -54,3 +54,11 @@ tests/test_model_testing_run.py::test_score_out_lets_a_defect_in_the_scorer_prop
 tests/test_model_testing_run.py::test_scores_that_no_longer_match_the_runs_are_a_named_refusal
 tests/test_model_testing_run.py::test_report_ignores_a_sibling_folders_settlement
 tests/test_model_testing_run.py::test_report_refuses_a_settlement_naming_an_out_run_but_no_record
+
+# tests/test_method_cpdr.py: fail at base (shallow history and pinned hashes; confirmed on the base tree 2026-11-07)
+tests/test_method_cpdr.py::test_shipped_maps_carry_cpdr_with_unchanged_slots
+tests/test_method_cpdr.py::test_d12_record_carries_the_file_sha256[src/deploy_vii/methods/cpdr.md-path0]
+tests/test_method_cpdr.py::test_d12_record_carries_the_file_sha256[src/deploy_vii/bindings/cpdr.py-path1]
+tests/test_method_cpdr.py::test_d12_record_for_execution_py
+tests/test_method_cpdr.py::test_methodology_chain_runs_7d164d11_to_the_current_file
+tests/test_method_cpdr.py::test_d12_records_for_the_vii_files_are_chained_after_d1b_and_cite_the_end_batch

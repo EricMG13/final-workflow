@@ -961,7 +961,7 @@ def test_s09_c02_baskets_in_another_order_select_the_consent_row() -> None:
     swapped = [_renumbered(f, {"r01": "r02", "r02": "r01"}) for f in ctx.cp4.facts]
     inputs = _with_cp4(swapped)
     assert cp4c.content_issues(inputs) == ()
-    terms = inputs.context.cp4.terms(cp4c.FACILITY_ID)
+    terms = inputs.context.cp4.terms(FACILITY)
     assert (terms.permits.fact_id, terms.conditions.fact_id) == (
         "T4.10.r01.permits",
         "T4.10.r01.conditions",

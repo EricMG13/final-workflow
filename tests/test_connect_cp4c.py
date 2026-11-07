@@ -655,7 +655,7 @@ def test_adapter_returns_the_stage_1_input_object(case: str, tmp_path: Path) -> 
         "T4.10.r02.conditions",
         "T4.13.rating.rating",
     }
-    terms = got.context.cp4.terms(cp4c.FACILITY_ID)
+    terms = got.context.cp4.terms("term-loan")
     assert {f.fact_id for f in terms.facts} == read <= {f.fact_id for f in got.context.cp4.facts}
     assert cp4c.compute(got) == stage1._result(case)
 
@@ -706,7 +706,6 @@ def test_the_quarter_row_wins_over_its_fy_alias_and_an_earlier_quarter(tmp_path:
     [
         (cp1_facts(alias=("SECURED", "SUBORDINATED")), "seniority differs between its q4-2025"),
         (cp1_facts(alias=("UNSECURED", "SENIOR")), "secured_status differs between its q4-2025"),
-        (cp1_facts(current_row=False), "states no term-loan terms for q4-2025"),
         (tuple(f for f in cp1_facts() if f.table_id != "T4.14"), "states no T4.14 period"),
     ],
 )

@@ -20,8 +20,9 @@ from map_strip import undo_unit_maps
 from merge_strip import undo_merged_contract
 from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
-from r_narr_strip import undo_r_narr
 from prompt_support import CONTRACT_STEPS, EXISTING, request_for, steps_with_text
+from r_cp4_strip import undo_r_cp4
+from r_narr_strip import undo_r_narr
 from s06_strip import undo_s06
 from s09_a05_strip import undo_s09_a05
 from s09_a07_strip import undo_s09_a07
@@ -61,7 +62,8 @@ def undo_budgets(step: str, text: str) -> str:
     text = undo_s15(step, undo_s06(step, undo_s13(step, undo_s09(step, text))))
     text = undo_s09_a07(step, undo_s09_a05(step, text))
     text = undo_invoke(step, undo_finish(step, undo_turns(step, text)))
-    return undo_r_narr(step, undo_s14_c04(step, text))
+    # last: S13-A07 narrative rule c sentence and S09-cp4-cp5-A08 CP-4 rule e clause
+    return undo_r_cp4(step, undo_r_narr(step, undo_s14_c04(step, text)))
 
 
 def system_of(pack: PreparedPack, step: str = NEW) -> str:
@@ -488,6 +490,7 @@ def test_the_finish_and_turns_wording_is_the_only_change_to_the_frozen_message(
     text = undo_s09_a07(step, undo_s09_a05(step, text))
     text = undo_unit_maps(step, undo_absence(step, undo_coverage(step, text)))
     text = undo_r_narr(step, undo_s14_c04(step, undo_finish(step, undo_turns(step, text))))
+    text = undo_r_cp4(step, text)  # S09-cp4-cp5-A08: CP-4 rule e's missing-document clause
     body = json.dumps([[system.role, text], [user.role, user.text]])
     assert hashlib.sha256(body.encode()).hexdigest() == PRE_FINISH_FROZEN[step]
 

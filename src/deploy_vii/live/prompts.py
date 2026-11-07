@@ -599,7 +599,8 @@ CP3_TALK_RULE = (
     "indicative, guidance, initial price thoughts), nor part of a sentence that carries it, and "
     "neither an indicative_talk row's own text "
     "nor a text whose basis is talk alone uses a level verb (trades at, quoted at, priced at, "
-    "yields). With talk only, the preference's `confidence` is below High."
+    "yields). With talk only, the preference's `confidence` is below High, and so it is when the "
+    "market evidence its basis cites is talk only."
 )
 CP3_BASIS_RULE = (
     "Name instruments only by a `facility_id` listed under `cp1_facilities`, each once. Every "

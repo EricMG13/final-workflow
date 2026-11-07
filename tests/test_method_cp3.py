@@ -752,3 +752,48 @@ def test_an_observed_quote_with_the_marker_keeps_the_quote_issue_once() -> None:
     assert result.issues == (
         'market_evidence[0]: an observed row quotes indicative talk: "indicative"',
     )
+
+
+# --- S08-cp3-C03: a preference whose basis is talk only is capped and limited -----------------
+def _accepted_cp2(inputs: CP3Inputs) -> CP3Inputs:
+    bound = tuple(
+        i.model_copy(update={"status": "accepted"}) if i.input_id == "CP-2" else i
+        for i in inputs.bound
+    )
+    return dataclasses.replace(inputs, bound=bound, current=bound)
+
+
+def _preference_on(locator: str, confidence: str) -> CP3Inputs:
+    """CP-2 accepted (no upstream cap); the preference cites only the `locator` quote, while
+    market_evidence still lists the page:1 observed and the page:2 indicative_talk rows."""
+    inputs = _accepted_cp2(make_inputs("positive"))
+    pref = inputs.submission.preference
+    quotes = tuple(q for q in pref.basis.quotes if q.locator == locator)
+    basis = pref.basis.model_copy(update={"quotes": quotes})
+    pref = pref.model_copy(update={"basis": basis, "confidence": confidence})
+    submission = inputs.submission.model_copy(update={"preference": pref})
+    return dataclasses.replace(inputs, submission=submission)
+
+
+def test_a_talk_only_preference_basis_is_capped_below_high() -> None:
+    """Before the fix the cap read all market evidence ({observed, indicative_talk}), so this
+    validated at High with no talk-only limitation."""
+    assert compute(_preference_on("page:2", "High")).issues == (
+        (
+            "preference.confidence: capped below High because the preference's market basis is "
+            "indicative talk only"
+        ),
+    )
+    assert compute(_preference_on("page:1", "High")).issues == ()
+
+
+def test_a_talk_only_preference_basis_states_its_limitation() -> None:
+    result = compute(_preference_on("page:2", "Medium"))
+    assert result.report is not None
+    assert (
+        "The preference's market basis is indicative talk only, not an observed market level"
+        in result.report.limitations
+    )
+    observed = compute(_preference_on("page:1", "Medium")).report
+    assert observed is not None
+    assert all("indicative talk only" not in text for text in observed.limitations)

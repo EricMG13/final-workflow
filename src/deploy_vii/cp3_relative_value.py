@@ -1263,12 +1263,18 @@ def _instrument_issues(
     return issues
 
 
-def _cap_reasons(upstream: Upstream, evidence: _Evidence) -> list[str]:
-    """Why the preference is capped below High: the upstream caps, talk-only evidence and a stale
-    context quote, in that order."""
+TALK_BASIS_CAP = "the preference's market basis is indicative talk only"
+
+
+def _cap_reasons(upstream: Upstream, evidence: _Evidence, basis: Basis) -> list[str]:
+    """Why the preference is capped below High: the upstream caps, talk-only evidence (all of
+    it, or the market evidence the preference's basis cites: S08-cp3-C03) and a stale context
+    quote, in that order."""
     reasons = list(upstream.caps)
     if evidence.strength() == {"indicative_talk"}:
         reasons.append("the market evidence is indicative talk only")
+    elif _talk_only(basis, evidence):
+        reasons.append(TALK_BASIS_CAP)
     if evidence.context_stale:
         reasons.append(CONTEXT_CAP)
     if evidence.stale:
@@ -1306,7 +1312,7 @@ def _preference_issues(
         )
     if not insufficient and not _cites_market(row.basis):
         issues.append("preference: a relative value preference cites a market_evidence quote")
-    reasons = _cap_reasons(upstream, evidence)
+    reasons = _cap_reasons(upstream, evidence, row.basis)
     if reasons and row.confidence == "High":
         issues.append(f"preference.confidence: capped below High because {'; '.join(reasons)}")
     if _talk_only(row.basis, evidence):
@@ -1747,14 +1753,20 @@ def _risks_and_gaps(submission: RelativeValueSubmission, out: _Composer) -> None
     )
 
 
-def _evidence_limitations(evidence: _Evidence) -> list[str]:
-    """Own limitations of the market evidence (decision 0007): none at all, or talk only."""
+TALK_BASIS_LIMITATION = (
+    "The preference's market basis is indicative talk only, not an observed market level"
+)
+
+
+def _evidence_limitations(evidence: _Evidence, basis: Basis) -> list[str]:
+    """Own limitations of the market evidence (decision 0007): none at all, or talk only (all of
+    it, or what the preference's basis cites: S08-cp3-C03)."""
     strength = evidence.strength()
     if not strength:
         return ["No observed or indicative market evidence: relative value is not assessed"]
     if strength == {"indicative_talk"}:
         return ["Market evidence is indicative talk only, not an observed market level"]
-    return []
+    return [TALK_BASIS_LIMITATION] if _talk_only(basis, evidence) else []
 
 
 def _context_limitations(evidence: _Evidence) -> list[str]:
@@ -1781,7 +1793,7 @@ def relative_value(
     # empty required register and an Insufficient Information preference.
     # Inherited ones (a restricted CP-2's included) are settlement's (`execution.settle`).
     out.limitations.extend(f"Gap ({g.severity}): {out.text(g.gap)}" for g in submission.gaps)
-    out.limitations.extend(_evidence_limitations(evidence))
+    out.limitations.extend(_evidence_limitations(evidence, submission.preference.basis))
     out.limitations.extend(_context_limitations(evidence))
     out.limitations.extend(evidence.stale)
     out.limitations.extend(upstream.limits)

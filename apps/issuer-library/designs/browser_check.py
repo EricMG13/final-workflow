@@ -63,8 +63,10 @@ def serve(
     engine: Path,
     key: str | None = None,
     extra: dict[str, str] | None = None,
+    keep_keys: bool = False,
 ) -> subprocess.Popen[bytes]:
-    env = {k: v for k, v in os.environ.items() if k not in KEYS}
+    # Provider keys are stripped unless the paid walk (live_check) asks to keep them.
+    env = {k: v for k, v in os.environ.items() if keep_keys or k not in KEYS}
     env |= {
         "ISSUER_LIBRARY_PYTHON": PY,
         "ISSUER_LIBRARY_ENGINE_ROOT": str(engine),

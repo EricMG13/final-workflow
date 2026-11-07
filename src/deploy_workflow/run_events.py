@@ -6,6 +6,7 @@ replays and verify scripts pass nothing and so never gain this file.
 
 import json
 import os
+import warnings
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -17,14 +18,21 @@ EVENTS = "events.jsonl"
 
 
 def append_event(directory: Path, event: str, **fields: str | int) -> None:
-    """Append one ASCII JSON line, then flush and fsync it. Amounts are ``str(Decimal)``."""
+    """Append one ASCII JSON line, then flush and fsync it. Amounts are ``str(Decimal)``.
+
+    Documented fail-open: the log is advisory, so an OSError (disk full, permissions) is
+    surfaced as a RuntimeWarning and the write is skipped; it never stops or fails a run.
+    """
     record = {"at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, **fields}
     line = (json.dumps(record) + "\n").encode("ascii")
-    directory.mkdir(parents=True, exist_ok=True)
-    with (directory / EVENTS).open("ab") as handle:
-        handle.write(line)
-        handle.flush()
-        os.fsync(handle.fileno())
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with (directory / EVENTS).open("ab") as handle:
+            handle.write(line)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except OSError as error:
+        warnings.warn(f"run event not recorded: {event}: {error}", RuntimeWarning, stacklevel=2)
 
 
 def read_events(path: Path, limit: int = 4 * 1024 * 1024) -> list[dict[str, Any]]:

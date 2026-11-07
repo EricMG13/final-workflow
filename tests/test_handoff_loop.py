@@ -368,3 +368,28 @@ def test_no_events_folder_writes_no_events(tmp_path: Path) -> None:
     loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
     assert loop(task()) == GOOD
     assert not list(tmp_path.rglob("events.jsonl"))
+
+
+def test_a_turn_event_that_cannot_be_written_neither_holds_budget_nor_stops_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from deploy_workflow import run_events
+    from deploy_workflow.model.budget import Budget
+
+    def full_disk(_fd: int) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(run_events, "os", SimpleNamespace(fsync=full_disk))
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(
+        tmp_path / "live", adapter=adapter, cap_usd=Decimal(10), check=check, events=tmp_path
+    )
+    with pytest.warns(RuntimeWarning, match="run event not recorded: turn"):
+        assert loop(task()) == GOOD
+    assert len(adapter.requests) == 1
+    assert not loop.budget.unsettled
+    Budget(Decimal(10), tmp_path / "live").reserve(
+        "call-next", Decimal("0.01"), config_id="sol-medium"
+    )

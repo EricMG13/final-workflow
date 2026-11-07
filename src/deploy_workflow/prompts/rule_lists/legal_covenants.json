@@ -35,9 +35,10 @@
   },
   {
    "id": "legal_covenants.e",
-   "statement": "e. `metric_ref` is a ref listed under `cp1_facts` whose unit matches the threshold's, or null; with no `metric_ref`, `metric_basis` is Not determinable.",
+   "statement": "e. `metric_ref` is a ref listed under `cp1_facts` whose unit matches the threshold's, or null; with no `metric_ref`, `metric_basis` is Not determinable. `metric_basis` is also Not determinable, never Same definition, when a quote of the covenant says the term is defined in a named agreement, indenture or other instrument that is not a SOURCE block of this run: Python refuses Same definition there.",
    "checks": [
-    "fn:deploy_vii.cp4_legal:_covenant_issues"
+    "fn:deploy_vii.cp4_legal:_covenant_issues",
+    "fn:deploy_workflow.owners.cp4:semantic_issues"
    ]
   },
   {

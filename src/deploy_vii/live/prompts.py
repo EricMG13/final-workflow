@@ -579,7 +579,10 @@ CP4_THRESHOLD_RULE = (
 )
 CP4_METRIC_RULE = (
     "`metric_ref` is a ref listed under `cp1_facts` whose unit matches the threshold's, or null; "
-    "with no `metric_ref`, `metric_basis` is Not determinable."
+    "with no `metric_ref`, `metric_basis` is Not determinable. `metric_basis` is also Not "
+    "determinable, never Same definition, when a quote of the covenant says the term is defined "
+    "in a named agreement, indenture or other instrument that is not a SOURCE block of this run: "
+    "Python refuses Same definition there."
 )
 CP4_HEADROOM_RULE = (
     "Python computes every headroom and every within-threshold result from the quoted threshold "

@@ -18,6 +18,7 @@ from map_strip import undo_unit_maps
 from merge_strip import MERGE_REV, MERGE_SPANS, PRE_MERGE_REV, SPAN_TOKENS, undo_merged_contract
 from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
+from r_cp4_strip import undo_r_cp4
 from prompt_support import OLD_EVIDENCE_RULE, request_for
 from s06_strip import undo_s06
 from s09_a05_strip import undo_s09_a05
@@ -173,6 +174,7 @@ def test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message(
     # and e and the Basis schema text.
     system = undo_b29(step_id, undo_b30(step_id, undo_b34(step_id, system)))
     system = undo_s14_c04(step_id, system)  # S14-C04: rule 2's REPAIR sentence
+    system = undo_r_cp4(step_id, system)  # S09-cp4-cp5-A08: CP-4 rule e's missing-document clause
     body = json.dumps(
         [
             [messages[0].role, system],

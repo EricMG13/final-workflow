@@ -50,6 +50,7 @@ from deploy_workflow.owners.cp3d import (
 from deploy_workflow.prompts.absence_rule import ABSENCE_RULE_ID, ABSENCE_STATEMENT
 from deploy_workflow.prompts.coverage_rule import COVERAGE_RULE_ID, COVERAGE_STATEMENT
 from deploy_workflow.prompts.fence import (
+    LESS_THAN_LOOKALIKES,
     UntrustedItem,
     cp0_run_context_block,
     data_block,
@@ -513,13 +514,12 @@ def _evidence_block(request: PromptRequest) -> str | None:
     return None if body is None else data_block("CONTEXT", EVIDENCE_ID, json.dumps(body, indent=1))
 
 
-# `<` and each character NFKD folds to one (the fence's lookalike copy reads each as `<`), as its
-# JSON escape. None of them is JSON outside a string, so in JSON text only strings change.
-_LT_ESCAPES = str.maketrans({c: f"\\u{ord(c):04x}" for c in "<≮﹤＜"})
+# `<` and each lookalike the fence reads as `<` (`LESS_THAN_LOOKALIKES`), as its JSON escape. None of them is JSON outside a string, so in JSON text only strings change.
+_LT_ESCAPES = str.maketrans({c: f"\\u{ord(c):04x}" for c in LESS_THAN_LOOKALIKES})
 
 
 def _json_text_safe(text: str) -> str:
-    """JSON text with each ``<`` or NFKD lookalike of one written as its escape (``\\u003c``):
+    """JSON text with each ``<`` or lookalike of one written as its escape (``\\u003c``):
     the same value, so a model echo of a fence marker inside a string cannot make the fence
     refuse the block. Text that is not JSON is returned unchanged (the fence still decides)."""
     safe = text.translate(_LT_ESCAPES)

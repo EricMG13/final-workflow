@@ -10,6 +10,7 @@ import json
 import os
 import re
 import stat
+import unicodedata
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import date
@@ -188,8 +189,13 @@ def _date_refusal(row: ManifestRow, as_of: date, cutoff: date, today: date) -> R
 
 
 def _resolve(base_dir: Path, relative: str) -> Path:
+    if any(unicodedata.category(ch) == "Cc" for ch in relative):
+        raise IntakeError("manifest path contains a control character (NUL, line feed, ...)")
     base = base_dir.resolve()
-    target = (base / relative).resolve()
+    try:
+        target = (base / relative).resolve()
+    except ValueError:
+        raise IntakeError("manifest path is not a usable file path") from None
     if not target.is_relative_to(base):
         raise IntakeError(f"manifest path {relative!r} is outside the manifest directory")
     return target

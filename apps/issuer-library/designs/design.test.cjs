@@ -1254,10 +1254,12 @@ test('Evidence rows and the inspector lead with the module name',()=>{
   assert.ok(heads.includes('Financial foundation · CP-1'),heads.join('|'));
   assert.ok(heads.every(h=>/^.+ · CP-[\w-]+$/.test(h)),heads.join('|'));
   dom.window.close();
-  const dom2=fixture('CP-2/assessment'),d2=dom2.window.document;
-  d2.querySelectorAll('#content .source-footer .source-link')[0].click();dom2.window.eval('renderRoute()');
-  const ctx=retainedText(d2.querySelector('.evidence-context'));
-  assert.match(ctx,/^.+ \(CP-2\)( · .+)? · Line \d+$/,ctx);
+  const dom2=fixture('CP-1/performance'),w2=dom2.window,key='tdg-002/CP-1-attempt-2.md:246';
+  const context=()=>norm(w2.document.querySelector('.evidence-context').textContent);
+  w2.eval(`showInspector(${JSON.stringify(key)})`);
+  assert.equal(context(),'Financial foundation (CP-1) · Attempt 2 of 2 · Line 246');
+  w2.eval(`delete moduleNames['CP-1']`);w2.eval(`showInspector(${JSON.stringify(key)})`);
+  assert.equal(context(),'CP-1 · Attempt 2 of 2 · Line 246');
   dom2.window.close();
 });
 test('No report link carries a module code',()=>{

@@ -294,7 +294,7 @@ function renderNavigator(module) {
 }
 function parseRoute() {
   const [path,query='']=location.hash.slice(1).split('?');
-  const [requestedModule,requestedSection]=path.split('/');
+  const [requestedModule,requestedSection]=path.split('/').map(part=>{try{return decodeURIComponent(part);}catch{return part;}});
   const resolved=!Object.hasOwn(moduleNames,requestedModule)&&Object.hasOwn(aliases,requestedModule)?aliases[requestedModule]:requestedModule;
   let module=Object.hasOwn(moduleNames,resolved)?resolved:'W-Library';
   const params=new URLSearchParams(query);

@@ -40,3 +40,37 @@ test('no web script writes an evidence key into an attribute without escaping it
     assert.equal(raw.length,0,`${name} has ${raw.length} unescaped data-evidence`);
   }
 });
+
+// routeHref's signature has a call in a default argument, so it is lifted with a wider pattern.
+const routeHref=views.match(/^function routeHref\(.*\) \{[\s\S]*?\n\}/m)[0];
+const parseSegments=screen.match(/^ {2}const \[requestedModule,requestedSection\]=.*$/m)[0];
+const route=(section,hash)=>{
+  const context=sandbox(`var current={context:'acme-001'},lastFile=new Map(),contexts={'acme-001':{folder:'acme-001',modules:{}}},defaultOutput=()=>null;`,routeHref,
+    `function parse(path){${parseSegments}return [requestedModule,requestedSection];}`);
+  context.URLSearchParams=URLSearchParams;
+  const href=vm.runInContext(`routeHref('W-Reports',${JSON.stringify(section)},null,'acme-001')`,context);
+  return {href,parsed:[...vm.runInContext(`parse(${JSON.stringify(hash(href))})`,context)]};
+};
+// A browser's location.hash percent-encodes space, ", <, > and backtick in the fragment (URL standard).
+const browserHash=href=>new URL(`http://x/${href}`).hash.slice(1).split('?')[0];
+
+test('a report id from a folder name stays inside its href and routes back to the same report',()=>{
+  // Expected by hand: encodeURIComponent of each id; every one decodes back to the folder name.
+  const cases={
+    'r"><img src=q onerror=1>':'#W-Reports/r%22%3E%3Cimg%20src%3Dq%20onerror%3D1%3E?c=acme-001',
+    'TDG report 2024':'#W-Reports/TDG%20report%202024?c=acme-001',
+    "a?b#c&d'":"#W-Reports/a%3Fb%23c%26d'?c=acme-001",
+    '100% build':'#W-Reports/100%25%20build?c=acme-001',
+  };
+  for(const [id,expected] of Object.entries(cases)){
+    const {href,parsed}=route(id,browserHash);
+    assert.equal(href,expected);
+    assert.ok(!/["<>&]/.test(href),href);
+    assert.deepEqual(parsed,['W-Reports',id]);
+  }
+});
+
+test('a hand-typed malformed escape in the address is read as typed, not thrown',()=>{
+  const {parsed}=route('list',()=>'W-Reports/%E0%A4%A');
+  assert.deepEqual(parsed,['W-Reports','%E0%A4%A']);
+});

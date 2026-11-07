@@ -329,11 +329,79 @@ def _fact_issues(run: Run, fact: "Fact") -> tuple[str, ...]:
     return ()
 
 
+# A fiscal or calendar year label (FY2025, FY25, FY2025/26, CY2026, fiscal 2025, fiscal year
+# 2025): the labels a period check reads. A bare year, a date or a quarter is not read: beside a
+# figure it is as often a maturity or a reporting date as the figure's own period.
+_FISCAL = re.compile(
+    rf"{_B}(?:(?:FY|CY) ?|(?i:fiscal(?: year)?) )({_YEAR}|[0-9]{{2}})"
+    rf"(?:/({_YEAR}|[0-9]{{2}}))?{_E}"
+)
+_PERIOD_YEAR = re.compile(rf"(?<![0-9])({_YEAR})(?![0-9])|{_B}(?:FY|CY) ?([0-9]{{2}}){_E}")
+# A clause ends at sentence punctuation, a colon or a semicolon; a comma does not end it, so an
+# opening "In FY2025," still labels the figure after it.
+_CLAUSE_END = re.compile(r"[.!?;:](?=\s|$)")
+
+
+def _years(groups: Iterable[Iterable[str | None]]) -> frozenset[int]:
+    """The years regex groups name: four-digit years, and two-digit fiscal labels as 20xx."""
+    return frozenset(int(y) if len(y) == 4 else 2000 + int(y) for g in groups for y in g if y)
+
+
+def _fact_years(period: str | None) -> frozenset[int] | None:
+    """Every year a fact's period spans (first to last year it names); None when it names none,
+    so the period cannot be compared."""
+    named = _years(_PERIOD_YEAR.findall(period or ""))
+    return frozenset(range(min(named), max(named) + 1)) if named else None
+
+
+def _clauses(runs: Iterable[Run]) -> list[list[Run]]:
+    """Runs grouped by clause: a text run is cut after each clause-ending mark."""
+    clauses: list[list[Run]] = [[]]
+    for run in runs:
+        if run.kind != "text":
+            clauses[-1].append(run)
+            continue
+        last = 0
+        for mark in _CLAUSE_END.finditer(run.text):
+            clauses[-1].append(Run(kind="text", text=run.text[last : mark.end()]))
+            clauses.append([])
+            last = mark.end()
+        clauses[-1].append(Run(kind="text", text=run.text[last:]))
+    return clauses
+
+
+def _period_issues(runs: Iterable[Run], bound: Mapping[str, "Fact"]) -> list[str]:
+    """A fiscal year label in a clause with a figure reference must be a year of the period of
+    a fact the clause references (S13 A05): "FY2025 revenue reached {rev-fy2023}" is refused. A
+    chip (a gap written as ``[ref]``) counts with its fact's period, as a figure does. A figure
+    whose period names no year cannot be compared, so its clause is not checked."""
+    found: list[str] = []
+    for clause in _clauses(runs):
+        named = [(r.figure, bound[r.text]) for r in clause if r.kind != "text" and r.text in bound]
+        spans = [(figure, _fact_years(fact.period)) for figure, fact in named]
+        if not any(figure for figure, _ in spans) or (True, None) in spans:
+            continue
+        periods = "; ".join(
+            f"{fact.fact_id} is {fact.period}"
+            for (_, fact), (_, span) in zip(named, spans, strict=True)
+            if span
+        )
+        for run in clause:
+            for match in _FISCAL.finditer(run.text if run.kind == "text" else ""):
+                if not any(_years([match.groups()]) & span for _, span in spans if span):
+                    found.append(
+                        f"Period label {match.group()} is not the period of a figure in its "
+                        f"clause ({periods})"
+                    )
+    return found
+
+
 def issues(
     text: str, bound: Mapping[str, "Fact"], *, names: Collection[str] = ()
 ) -> tuple[str, ...]:
     """All issues of run text against one module's bound facts (``bind``), in reading order:
-    syntax, labels, ids and the kind of fact each reference names."""
+    syntax, labels, ids and the kind of fact each reference names; then fiscal year labels
+    against the periods of the figures in their clause (``_period_issues``)."""
     gaps = {ref for ref, fact in bound.items() if fact.status != "known"}
     refs = bound.keys() - gaps
     try:
@@ -345,6 +413,7 @@ def issues(
         found += _run_issues(run, refs=refs, gaps=gaps, names=names)
         if run.kind != "text" and run.text in refs:
             found += _fact_issues(run, bound[run.text])
+    found += _period_issues(runs, bound)
     return tuple(dict.fromkeys(found))
 
 

@@ -1,11 +1,14 @@
-"""The run-text figure guard (decision 0005 MC-2): S13 A04/C07.
+"""The run-text figure guard (decision 0005 MC-2): S13 A04/C07 and A05.
 
 Expected values are written out by hand from the rule text, not computed with `prose`.
 """
 
+from decimal import Decimal
+
 import pytest
 
 from deploy_vii import prose
+from deploy_vii.contracts import Fact
 
 # --- A04/C07: "N of M", years before a quantity word, numbers in words ----------------------
 
@@ -54,3 +57,115 @@ def test_check_reports_each_bypass_as_a_bare_figure() -> None:
         gaps=(),
     )
     assert found == ("Bare figure: 3", "Bare figure: 4", "Bare figure: 2024")
+
+
+# --- A05: a fiscal year label beside a figure reference -------------------------------------
+
+
+def _fact(fact_id: str, period: str | None, amount: str = "812") -> Fact:
+    return Fact(
+        fact_id=fact_id,
+        label="Revenue",
+        amount=Decimal(amount),
+        unit="MILLIONS",
+        currency="USD",
+        scale=Decimal(1000000),
+        period=period,
+        calculation_id=f"calc-{fact_id}",
+    )
+
+
+BOUND = prose.bind(
+    [
+        _fact("rev-fy2023", "FY2023: 2023-01-01 to 2023-12-31"),
+        _fact("rev-fy2024", "FY2024: 2023-10-01 to 2024-09-30", "900"),
+        _fact("rev-fy25", "FY25"),
+        _fact("nd-2024", "2024-12-31"),
+        _fact("plan", "FY2025-FY2028"),
+        _fact("undated", "LTM"),
+        Fact(
+            fact_id="lev-fy28",
+            label="Leverage",
+            status="missing",
+            period="FY2028",
+            limitation="Not forecast",
+        ),
+        Fact(fact_id="note", label="Business", text="A distributor", citations=()),
+    ]
+)
+
+
+def _wrong(label: str) -> str:
+    return (
+        f"Period label {label} is not the period of a figure in its clause "
+        "(rev-fy2023 is FY2023: 2023-01-01 to 2023-12-31)"
+    )
+
+
+def test_a_fiscal_label_beside_another_periods_figure_is_refused() -> None:
+    # rev-fy2023 spans 2023 only; FY2025 and FY2024 name neither, and a comma does not end the
+    # clause, so both labels are refused (the finding's text, S13 A05).
+    text = "FY2025 revenue reached {rev-fy2023}, up from FY2024."
+    assert prose.issues(text, BOUND) == (_wrong("FY2025"), _wrong("FY2024"))
+
+
+@pytest.mark.parametrize(
+    ("text", "label"),
+    [
+        ("In FY2025, revenue reached {rev-fy2023}.", "FY2025"),
+        ("Revenue reached {rev-fy2023} in fiscal 2025.", "fiscal 2025"),
+        ("Fiscal year 2025 revenue was {rev-fy2023}.", "Fiscal year 2025"),
+        ("CY2022 revenue was {rev-fy2023}.", "CY2022"),
+        ("FY22 revenue was {rev-fy2023}.", "FY22"),
+        # A chip whose fact has no period does not switch the check off.
+        ("FY2025 revenue reached {rev-fy2023} [note].", "FY2025"),
+        # Stricter than a phrase-level reading: another year in the clause is refused too.
+        ("Revenue was {rev-fy2023} in FY2023, against FY2025 guidance.", "FY2025"),
+    ],
+)
+def test_each_wrong_fiscal_label_in_the_clause_is_refused(text: str, label: str) -> None:
+    assert prose.issues(text, BOUND) == (_wrong(label),)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "FY2023 revenue reached {rev-fy2023}.",
+        # The label after the figure, and the calculation id as the reference.
+        "Revenue reached {calc-rev-fy2023} in FY2023.",
+        # A fiscal year ending September 2024 spans 2023 and 2024: either year passes.
+        "FY2024 revenue was {rev-fy2024}.",
+        "FY2023 revenue was {rev-fy2024}.",
+        # Two-digit labels on either side.
+        "FY25 revenue was {rev-fy25} and FY2025 closed.",
+        "In FY2025 revenue was {rev-fy25}.",
+        # Two figures, two labels, each label the period of one of them.
+        "Revenue rose from {rev-fy2023} in FY2023 to {rev-fy2024} in FY2024.",
+        # A range period spans every year in it.
+        "The plan reaches {plan} by FY2027.",
+        # A balance date: the year of the date.
+        "FY2024 net debt was {nd-2024}.",
+        # A figure whose period names no year: the clause cannot be compared.
+        "FY2030 revenue was {undated} against {rev-fy2023}.",
+        # A bare year or a date is not a fiscal label (a maturity sits beside amounts).
+        "Net debt of {nd-2024} includes notes due 2031.",
+        # A clause with no figure is not compared.
+        "FY2030 is outside the plan; revenue was {rev-fy2023}.",
+        # A gap chip counts with its own period (the CP-2G downside template).
+        "Revenue is {rev-fy2023} in FY2023 and [lev-fy28] in FY2028, and FY2023 closed.",
+    ],
+)
+def test_a_fiscal_label_matching_a_figure_passes(text: str) -> None:
+    assert prose.issues(text, BOUND) == ()
+
+
+def test_each_label_needs_a_figure_of_its_own_period() -> None:
+    # FY2023 matches rev-fy2023, FY2026 matches neither figure in the clause.
+    text = "Revenue rose from {rev-fy2023} in FY2023 to {rev-fy2024} in FY2026."
+    assert prose.issues(text, BOUND) == (
+        (
+            "Period label FY2026 is not the period of a figure in its clause "
+            "(rev-fy2023 is FY2023: 2023-01-01 to 2023-12-31; "
+            "rev-fy2024 is FY2024: 2023-10-01 to 2024-09-30)"
+        ),
+    )

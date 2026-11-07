@@ -84,7 +84,7 @@
   },
   {
    "id": "restructuring_fulcrum.9",
-   "statement": "A class `name` and valuation `label` are one line with no bare figure and no braces or brackets. Every `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp2g_facts`, closed and non-empty. No text states a peer ranking, an instrument recommendation, outcome certainty (`recovery is guaranteed`, `recovery is assured`, `recovery is certain`, `guaranteed recovery`, `assured recovery`, `plan will be confirmed`, `confirmation is assured`, `confirmation is certain`) or probability weighting (`probability-weighted`, `probability of`, `expected value` and similar).",
+   "statement": "A class `name` and valuation `label` are one line with no bare figure and no braces or brackets. Every `rationale` is nonblank run text with no bare figure (digits only inside a period or filing label); a figure appears only as `{ref|unit}` with a `ref` and `unit` listed in `cp1_facts` or `cp2g_facts`, closed and non-empty. No text states a peer ranking, an instrument recommendation, outcome certainty (`recovery is guaranteed`, `recovery is assured`, `recovery is certain`, `guaranteed recovery`, `assured recovery`, `plan will be confirmed`, `confirmation is assured`, `confirmation is certain`) or probability weighting (`probability-weighted`, `probability of`, `expected value` and similar). A fiscal-year label (`FY2025`, `fiscal 2025`) written up to the next `.`, `;` or `:` beside a `{ref|unit}` must be a year of the period of a figure referenced there.",
    "checks": [
     "oracle:cp4c:v15",
     "oracle:cp4c:v16",

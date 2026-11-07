@@ -1620,3 +1620,13 @@ def test_a_quarter_starting_on_29_february_has_no_prior_year_quarter(tmp_path):
     assert cashflow["columns"][0]["label"] == "2024-02-29–2024-05-31"
     cell = row(cashflow, "Revenue YoY growth")["cells"][0]
     assert (cell["display"], cell["reason"]) == (NA, "prior-year period not in the handoffs")
+
+
+def test_a_total_row_in_the_debt_register_is_a_subtotal_and_is_never_summed(tmp_path):
+    annual = ANNUAL_MD.replace(
+        "| 5% senior",
+        "| Total senior secured notes | Subtotal; carrying 500 | x |\n| 5% senior",
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["exact"]) == ("3.00x", "3")

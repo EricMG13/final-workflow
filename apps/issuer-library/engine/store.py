@@ -978,7 +978,8 @@ def secured_debt(tables):
     total, named = decimal.Decimal(0), set()
     for label, row in debt["rows"].items():
         named_secured = label in ("Trade receivable securitization", "Term loans aggregate")
-        if not (named_secured or ("secured notes" in label and "subordinated" not in label)):
+        notes = "secured notes" in label and "subordinated" not in label
+        if label.startswith("Total") or not (named_secured or notes):
             continue
         carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
         if carrying is None:
@@ -1115,11 +1116,6 @@ def add_cells(cells):
     return derive("money", cells, lambda a, b: a + b)
 
 
-def from_key(record, key, kind, missing, negate=False):
-    """A record key; a key the record does not hold is `missing` (a dash for history, n.m. for forecast)."""
-    return held_cell(record[key], kind, negate) if key in record else missing()
-
-
 def op_table(ctx, column, index, grid, kind, name, label):
     return table_cell(ctx["tables"][name], label, column["period"])
 
@@ -1132,7 +1128,8 @@ def op_table_sum(ctx, column, index, grid, kind, name, first, second):
 def op_key(ctx, column, index, grid, kind, key, negate=False):
     forecast = column["kind"] == "fc"
     missing = not_modelled_cell if forecast else absent_cell
-    return from_key(column["record"], key, kind, missing, negate)
+    record = column["record"]
+    return held_cell(record[key], kind, negate) if key in record else missing()
 
 
 def op_sum(ctx, column, index, grid, kind, *rows):

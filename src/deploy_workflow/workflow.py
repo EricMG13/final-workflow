@@ -641,6 +641,26 @@ class SourceWorkflow:
             return receipt
 
 
+_BAD_LINE_ANSWER = '{"status": "refused", "error_code": "bad_arguments"}\n'
+
+
+def read_line(reader: TextIO, writer: TextIO, limit: int) -> str:
+    """The next line of a bounded JSON-lines transport (at most `limit` + 1 characters, the rest of
+    a longer line read on to its end), or "" at the end of the stream. The text reader decodes in
+    chunks, so its position after a bad byte is unknown: a line any part of which is not UTF-8 is
+    answered `bad_arguments` once and "" is returned, so the stream ends there. Shared by the
+    source, financial and owner servers."""
+    try:
+        line = rest = reader.readline(limit + 1)
+        while len(line) > limit and rest and not rest.endswith("\n"):
+            rest = reader.readline(limit + 1)
+    except UnicodeDecodeError:
+        writer.write(_BAD_LINE_ANSWER)
+        writer.flush()
+        return ""
+    return line
+
+
 def serve_json_lines(
     workflow: SourceWorkflow, reader: TextIO, writer: TextIO, *, destination: Path, participant: str
 ) -> None:
@@ -649,13 +669,11 @@ def serve_json_lines(
     workflow._participant = participant
     workflow._transport = "bounded-json-lines/1"
     for _ in range(MAX_MESSAGES):
-        line = reader.readline(MAX_LINE + 1)
+        line = read_line(reader, writer, MAX_LINE)
         if not line:
             return
         try:
             if len(line) > MAX_LINE:
-                while line and not line.endswith("\n"):
-                    line = reader.readline(MAX_LINE + 1)
                 raise WorkflowError("bad_arguments")
             request = json.loads(line)
             if type(request) is not dict:

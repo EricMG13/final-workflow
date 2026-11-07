@@ -330,13 +330,9 @@ def _context_state(module: ModuleView, pack: PreparedPack) -> tuple[ContextPair,
 def _default_pairs(rows: Mapping[str, Mapping[str, Fact]]) -> tuple[tuple[str, str], ...]:
     """Without a context, the flat q3 -> q4 pair and the missing-prior fy pair of each fiscal year
     the register states; `supported` keeps the ones the validator accepts (ruling B19, Phase 8)."""
-    years = sorted(
-        {
-            int(r["fiscal_year"].text or "")
-            for r in rows.values()
-            if (r["fiscal_year"].text or "").isdigit()
-        }
-    )
+    texts = {r["fiscal_year"].text or "" for r in rows.values()}
+    # ASCII digits only: `isdigit` also takes "2025²", which `int` refuses.
+    years = sorted({int(text) for text in texts if text.isdigit() and text.isascii()})
     return tuple(
         pair for y in years for pair in ((f"q3-{y}", f"q4-{y}"), (f"fy-{y - 1}", f"fy-{y}"))
     )

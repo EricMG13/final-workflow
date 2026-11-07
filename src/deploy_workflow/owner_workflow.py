@@ -142,7 +142,7 @@ from deploy_workflow.owners import (
     cpl10,
 )
 from deploy_workflow.tools.source import SourceError
-from deploy_workflow.workflow import SourceEvidence, WorkflowError
+from deploy_workflow.workflow import SourceEvidence, WorkflowError, read_line
 
 AUDIT = "owner-run-audit"
 SUPPORTED_ANALYTICAL = frozenset(
@@ -3730,19 +3730,6 @@ def _utf8_text(value: object) -> bool:
     return True
 
 
-_BAD_LINE_ANSWER = '{"status": "refused", "error_code": "bad_arguments"}\n'
-
-
-def _drain(reader: TextIO, line: str) -> None:
-    """Read on to the end of an over-length line. If the rest of it is not UTF-8 the participant's
-    bytes end the drain there: the caller answers `bad_arguments` for the line, as before G7."""
-    try:
-        while line and not line.endswith("\n"):
-            line = reader.readline(MAX_LINE + 1)
-    except UnicodeDecodeError:
-        return
-
-
 def serve_json_lines(
     workflow: OwnerWorkflow,
     reader: TextIO,
@@ -3763,19 +3750,11 @@ def serve_json_lines(
     workflow._participant, workflow._transport = participant, "bounded-json-lines/1"
     _retain(workflow._store, "transport", TransportMarker(participant=participant))
     for _ in range(MAX_MESSAGES):
-        try:
-            line = reader.readline(MAX_LINE + 1)
-        except UnicodeDecodeError:
-            # The text reader decodes in chunks, so its position after a bad byte is unknown:
-            # answer the line that could not be read and end the stream.
-            writer.write(_BAD_LINE_ANSWER)
-            writer.flush()
-            return
+        line = read_line(reader, writer, MAX_LINE)  # "" also once a non-UTF-8 line is answered
         if not line:
             return
         try:
             if len(line) > MAX_LINE or not line.endswith("\n"):
-                _drain(reader, line)
                 raise WorkflowError("bad_arguments")
             request = _checked(_request_of(line), sessionless=workflow._session is None)
             operation = request.get("operation")

@@ -15,9 +15,10 @@ from deploy_vii.live.prompts import CP4_METHOD
 SRC = Path(__file__).resolve().parents[1] / "src" / "deploy_vii"
 PHRASE = "executed, filed or, on a draft-documents run, draft"
 OLD_CP4_SHA = "99ec34c7a8257e15325456eb5466388eeb656fa01cf30db91e8474334bb39ff0"
-# S13 C01 restated the kpi evidence line (period_basis_id); S14-C06 passes an already-built
+# S13 C01 restated the kpi evidence line (period_basis_id); S09 C06 passes the caller's
+# python_checks to integrity_projection (integrity_scope); S14-C06 passes an already-built
 # pack to the source scopes (`session_scope`); the pin follows those edits.
-OLD_CONTEXT_SHA = "723cf09d1abca82280327987cf23c9f9089fc61f8636399358a6ca0084e0646d"
+OLD_CONTEXT_SHA = "c8051ed014d15c43d9d4101533c8e177d6a77f8a5f9fb24edd5f1e940e1a7da2"
 
 
 def flat(text: str) -> str:

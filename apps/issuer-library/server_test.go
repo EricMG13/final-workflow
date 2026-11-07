@@ -569,3 +569,47 @@ func TestReviewEmbeddedGlyphReportOverHTTP(t *testing.T) {
 		t.Fatal("download must be the exact original with frame-ancestors 'none'")
 	}
 }
+
+// A09: Windows PowerShell 5.1 writes "UTF8" files with a byte order mark. One leading BOM is
+// accepted in the managed and the per-user settings; anything else invalid still fails closed.
+func TestSettingsAcceptOneLeadingByteOrderMark(t *testing.T) {
+	bom := "\xef\xbb\xbf"
+	workspace := t.TempDir()
+	valid := `{"workspace": ` + jsonQuote(workspace) + `}`
+	for _, c := range []struct {
+		name, content string
+		ok            bool
+	}{
+		{"bom", bom + valid, true},
+		{"plain", valid, true},
+		{"bom-only", bom, false},
+		{"double-bom", bom + bom + valid, false},
+		{"bom-then-garbage", bom + "{", false},
+		{"bom-relative", bom + `{"workspace": "relative"}`, false},
+		{"utf16-bom", "\xff\xfe" + valid, false},
+	} {
+		for _, managed := range []bool{true, false} {
+			loc := Locations{State: t.TempDir(), Policy: filepath.Join(t.TempDir(), "settings.json"), Documents: t.TempDir()}
+			file := filepath.Join(loc.State, "settings.json")
+			if managed {
+				file = loc.Policy
+			}
+			if err := os.WriteFile(file, []byte(c.content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			config, locked, err := loadConfig(loc)
+			if (err == nil) != c.ok {
+				t.Errorf("%s (managed=%v): err=%v, want ok=%v", c.name, managed, err, c.ok)
+				continue
+			}
+			if c.ok && (config.Workspace != workspace || locked != managed) {
+				t.Errorf("%s (managed=%v): config=%+v locked=%v", c.name, managed, config, locked)
+			}
+		}
+	}
+}
+
+func jsonQuote(value string) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
+}

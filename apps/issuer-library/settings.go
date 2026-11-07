@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -33,7 +34,8 @@ func loadConfig(loc Locations) (Config, bool, error) {
 			return Config{}, false, err
 		}
 		var config Config
-		if err = json.Unmarshal(raw, &config); err != nil {
+		// Windows PowerShell 5.1 writes "UTF8" with a byte order mark; only that one is skipped.
+		if err = json.Unmarshal(bytes.TrimPrefix(raw, []byte("\xef\xbb\xbf")), &config); err != nil {
 			return config, false, fmt.Errorf("invalid configuration %s: %w", candidate.name, err)
 		}
 		if !filepath.IsAbs(config.Workspace) {

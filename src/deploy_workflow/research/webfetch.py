@@ -25,6 +25,7 @@ from urllib.parse import SplitResult, urljoin, urlsplit
 from deploy_workflow.research.contracts import ResearchError
 
 MAX_REDIRECTS = 3
+DEFAULT_PORT = 443
 CONNECT_TIMEOUT_S = 10
 TOTAL_TIMEOUT_S = 30
 HEADERS: Mapping[str, str] = {
@@ -347,6 +348,7 @@ class _Trace:
     resolved_ip: str | None = None
     status: int | None = None
     hops: int = 0
+    origin: tuple[str, int] | None = None  # (host, port) the manifest named for this fetch
 
 
 @dataclass(frozen=True)
@@ -367,7 +369,7 @@ class _Limits:
 
 def _host_header(split: SplitUrl) -> str:
     host = f"[{split.host}]" if ":" in split.host else split.host
-    return host if split.port == 443 else f"{host}:{split.port}"
+    return host if split.port == DEFAULT_PORT else f"{host}:{split.port}"
 
 
 def _redirect_target(base: str, location: str) -> SplitUrl:
@@ -396,6 +398,10 @@ def _next_hop(
     nxt = _redirect_target(f"https://{_host_header(current)}{current.path_query}", location)
     if nxt.host.lower() not in limits.manifest_hosts:
         raise FetchRefusal(f"redirect to host {nxt.host} refused: not a host named in the manifest")
+    if nxt.port != DEFAULT_PORT and (nxt.host.lower(), nxt.port) != trace.origin:
+        raise FetchRefusal(
+            f"redirect to {nxt.host}:{nxt.port} refused: not the default port or a named origin"
+        )
     if trace.hops >= MAX_REDIRECTS:
         raise FetchRefusal(f"{url} redirected more than {MAX_REDIRECTS} times")
     trace.hops += 1
@@ -474,7 +480,9 @@ def _exchange(
 
 
 def _follow(url: str, trace: _Trace, limits: _Limits) -> tuple[bytes, str | None, dict[str, str]]:
-    split: SplitUrl | None = check_url(url)
+    first = check_url(url)
+    trace.origin = (first.host.lower(), first.port)
+    split: SplitUrl | None = first
     while split is not None:
         split, body, media, headers = _exchange(url, split, trace, limits)
     return body, media, headers

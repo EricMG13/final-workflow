@@ -129,3 +129,13 @@ test('the spend line states the cap and the held amount while the run reports th
   assert.equal(p.win.spendText({state:'running',progress:{spent_usd:'0.42',held_usd:'1.86',cap_usd:'10.00'}}),'Recorded spend: USD 0.42 of a USD 10.00 cap; the next call holds USD 1.86');
   assert.equal(p.win.spendText({state:'running',progress:{spent_usd:'0.42'}}),'Recorded spend: USD 0.42');
 });
+test('a notification click with a run draft open asks before leaving it',async t=>{
+  for(const [answer,reloads,hash] of [[true,1,`#W-Reports/list?c=${ID}`],[false,0,'#W-Library/cases']]){
+    const p=await page(t,{list:[job()]});
+    await p.watch();p.state.list=[job({state:'complete'})];await p.watch();
+    p.doc.body.dataset.draft='1';
+    let reloaded=0,asked=0;p.win.reloadApp=()=>{reloaded++;};p.win.confirm=()=>{asked++;return answer;};
+    p.built[0].onclick();
+    assert.equal(asked,1,String(answer));assert.equal(reloaded,reloads,String(answer));assert.equal(p.win.location.hash,hash,String(answer));
+  }
+});

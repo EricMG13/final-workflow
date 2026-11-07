@@ -67,6 +67,8 @@ function screens(read,hash){
   const {catalogue,store}=structuredClone(read);
   const dom=new JSDOM(html,{url:`http://127.0.0.1:1/index.html#${hash}`,runScripts:'outside-only'}),w=dom.window;
   w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
+  w.hydrate(store);
   w.DESIGN_DATA={runs:store.runs,outputs:store.outputs,inputs:store.inputs,pins:store.pins};
   w.DESIGN_WORKSPACE={reports:store.reports,models:store.models,visuals:store.visuals};
   w.DESIGN_APP={workspace:catalogue.workspace||'',policy_locked:!!catalogue.policy_locked,issues:store.issues,problem:''};
@@ -443,4 +445,21 @@ test('The Forecast tab opens the default model: not superseded, preferring one t
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
   assert.equal(d.getElementById('model-select').value,'tdg-model-2');
   assert.deepEqual([...d.querySelectorAll('#model-select option')].map(o=>o.value),['tdg-model-2','tdg-model-3','tdg-model-1']);
+});
+
+// Hand-written store in the shape /api/workspace sends: outputs carry a digest, the sections are sent once per digest.
+function loadHydrate(){const context=vm.createContext({});vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),context);return vm.runInContext('hydrate',context);}
+test('hydrate gives every output the sections of its own hash',()=>{
+  const hydrate=loadHydrate();
+  const a=[{heading:'A',level:1,line:1,blocks:[]}],b=[{heading:'B',level:1,line:1,blocks:[]}];
+  const data={runs:{},inputs:{},pins:{},handoffs:{aa:a,bb:b},outputs:{
+    'r1/CP-1.md':{id:'r1/CP-1.md',sha256:'aa'},'r2/CP-1.md':{id:'r2/CP-1.md',sha256:'aa'},'r2/CP-2.md':{id:'r2/CP-2.md',sha256:'bb'}}};
+  assert.equal(hydrate(data),data);
+  assert.equal(data.outputs['r1/CP-1.md'].sections[0].heading,'A');
+  assert.equal(data.outputs['r2/CP-1.md'].sections[0].heading,'A');
+  assert.equal(data.outputs['r2/CP-2.md'].sections[0].heading,'B');
+});
+test('hydrate refuses an output whose handoff was not sent',()=>{
+  const hydrate=loadHydrate();
+  assert.throws(()=>hydrate({outputs:{'r1/CP-1.md':{id:'r1/CP-1.md',sha256:'zz'}},handoffs:{}}),/r1\/CP-1\.md/);
 });

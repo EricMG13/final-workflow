@@ -12,7 +12,9 @@ function fixture(hash='CP-1/performance') {
   const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`file://${web}/index.html#${hash}`,runScripts:'outside-only'});
   dom.window.scrollTo=()=>{};dom.window.fetch=()=>new Promise(()=>{});
   dom.window.HTMLElement.prototype.scrollIntoView=function(){this.dataset.scrolledIntoView='true';};
+  vm.runInContext(fs.readFileSync(path.join(web,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   for(const name of ['data.js','workspace-data.js']) vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
+  dom.window.hydrate(dom.window.DESIGN_DATA);
   for(const name of ['views.js','actions.js','screen.js']) vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }

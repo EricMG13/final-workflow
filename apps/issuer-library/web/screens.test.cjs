@@ -10,7 +10,9 @@ function fixture(hash,timeout,before){
   w.HTMLElement.prototype.scrollIntoView=function(){};
   if(timeout!==undefined)w.DESIGN_FRAME_TIMEOUT_MS=timeout;
   if(before)before(w);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   for(const name of ['data.js','workspace-data.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
+  w.hydrate(w.DESIGN_DATA);
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
@@ -215,6 +217,7 @@ async function bootPage(t,hash,reply){
   let booted;const ready=new Promise(resolve=>{booted=resolve;});w.watchRuns=()=>booted();
   const real=w.document.createElement.bind(w.document);
   w.document.createElement=name=>{const el=real(name);if(name==='script')setTimeout(()=>el.onload&&el.onload(),0);return el;};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());
   // boot.js ends by starting the run watcher, so that call (not a fixed wait) marks the scripts as loaded; 5 s ceiling.
   let ceiling;

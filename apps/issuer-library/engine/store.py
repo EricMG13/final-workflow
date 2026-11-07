@@ -540,12 +540,26 @@ def handoff_files(run_dir: Path) -> dict[Path, Handoff]:
     return found
 
 
+class Handoffs:
+    """Each distinct handoff parsed once, by digest, however many runs hold the same bytes."""
+
+    def __init__(self, strict: bool) -> None:
+        self.strict = strict
+        self.parsed: dict[str, tuple[list[dict[str, Any]], str | None]] = {}
+
+    def read(self, digest: str, raw: bytes) -> tuple[list[dict[str, Any]], str | None]:
+        """The sections and parse problem of these bytes; the problem is each output's to report."""
+        if digest not in self.parsed:
+            self.parsed[digest] = structured(raw, self.strict)
+        return self.parsed[digest]
+
+
 def collect_runs(
     root: Path,
     shown: dict[str, tuple[str, ...]],
     catalog: dict[str, Any],
     link: Callable[[str, str, str], str],
-    strict: bool = True,
+    handoffs: Handoffs,
 ) -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -554,7 +568,13 @@ def collect_runs(
     dict[str, str],
     list[str],
 ]:
-    """Parse every saved output of every shown run; each file keeps its own identity."""
+    """Parse every saved output of every shown run; each file keeps its own identity.
+
+    The parsed sections are not in the records: they stay in `handoffs` by digest, so a handoff
+    saved in many runs is parsed once and held once. A caller that sends the records sends
+    `handoffs.parsed` beside them. Pass one `Handoffs` across calls to share it.
+    """
+    strict = handoffs.strict
     runs: dict[str, Any] = {}
     outputs: dict[str, Any] = {}
     inputs: dict[str, Any] = {}
@@ -588,7 +608,7 @@ def collect_runs(
                 name = relative(path)
                 output_id = f"{folder}/{name}"
                 digest = read[path].sha256
-                sections, problem = structured(read[path].raw, strict)
+                sections, problem = handoffs.read(digest, read[path].raw)
                 record: dict[str, Any] = {
                     "id": output_id,
                     "run": key,
@@ -602,7 +622,6 @@ def collect_runs(
                     "period": period,
                     "scope": "Retained module output",
                     "firstHeading": config.get("firstHeading"),
-                    "sections": sections,
                 }
                 record.update(reader_fields(sections))  # type: ignore[no-untyped-call]  # legacy untyped parser
                 if record["issue"]:
@@ -2230,6 +2249,41 @@ def delivery_identities(root: Path, catalogue: dict[str, Any]) -> list[dict[str,
     return sorted(found, key=lambda item: item["folder"])
 
 
+def squeezed(text: str) -> str:
+    """A name compared as a reader reads it: case and runs of spaces do not count."""
+    return " ".join(text.split()).casefold()
+
+
+def named_run_id(
+    name: str, issuer_id: str | None, delivered: list[dict[str, Any]]
+) -> tuple[str | None, str | None]:
+    """A named run's ID and the issue to report, from what its deliverables say.
+
+    Deliverables agree when their case-folded IDs agree, whatever they call the issuer. If they
+    disagree, the ID the run has stays and the disagreement is reported. If they agree on an ID
+    but call the issuer something other than the run's name, the ID is taken and the names are
+    reported.
+    """
+    if len({(item["issuer_id"] or "").casefold() for item in delivered}) > 1:
+        return issuer_id, "deliverables name different issuers; no issuer ID taken"
+    if not delivered:
+        return issuer_id, None
+    others = sorted(
+        {
+            item["issuer_name"]
+            for item in delivered
+            if squeezed(item["issuer_name"]) != squeezed(name)
+        }
+    )
+    issue = (
+        f"deliverables name the issuer {', '.join(repr(o) for o in others)}, not {name!r}; "
+        "issuer ID kept"
+        if others
+        else None
+    )
+    return issuer_id or delivered[0]["issuer_id"], issue
+
+
 def recorded_identity(
     run_dir: Path, run: dict[str, Any], curated_name: str | None, delivered: list[dict[str, Any]]
 ) -> tuple[str | None, str | None, str | None]:
@@ -2251,11 +2305,7 @@ def recorded_identity(
     for item in delivered:
         said.setdefault(((item["issuer_id"] or "").casefold(), item["issuer_name"]), item)
     if name:
-        # A named run still takes the ID its deliverables agree on; if they disagree, the ID it has.
-        if len(said) == 1:
-            (agreed,) = said.values()
-            issuer_id = issuer_id or agreed["issuer_id"]
-        return name, issuer_id, None
+        return name, *named_run_id(name, issuer_id, delivered)
     if len(said) > 1:
         return None, issuer_id, "deliverables name different issuers; issuer left unrecorded"
     if said:
@@ -2406,11 +2456,12 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
     inputs: dict[str, Any] = {}
     sources: dict[str, list[dict[str, Any]]] = {}
     pins: dict[str, Any] = {}
+    handoffs = Handoffs(strict=False)
     found: list[str] = []
     for key, row in shown.items():
         # Documented fail-open: one run that cannot be read is hidden and reported in Settings.
         try:
-            part = collect_runs(root, {key: row}, catalog, link, strict=False)
+            part = collect_runs(root, {key: row}, catalog, link, handoffs)
         except Exception as error:  # noqa: BLE001
             found.append(f"{row[0]}: could not be read ({describe(error)})")
             continue
@@ -2447,6 +2498,8 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
     return {
         "runs": runs,
         "outputs": outputs,
+        # Only what an output shown refers to: a run that failed part-way leaves nothing behind.
+        "handoffs": {o["sha256"]: handoffs.parsed[o["sha256"]][0] for o in outputs.values()},
         "inputs": inputs,
         "pins": pins,
         "reports": reports,

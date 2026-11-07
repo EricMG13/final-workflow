@@ -16,6 +16,7 @@ sys.path.insert(0, str(HERE.parent / "engine"))
 from store import (
     CURATED_REPORTS,
     CURATED_RUNS,
+    Handoffs,
     built_from,
     catalogue_models,
     collect_runs,
@@ -111,11 +112,13 @@ def build() -> None:
     shutil.rmtree(OUT, ignore_errors=True)
     (OUT / "sources").mkdir(parents=True)
     catalog = json.loads((HERE.parent / "engine/catalog.json").read_text())
+    handoffs = Handoffs(strict=True)
     runs, outputs, inputs, sources, pins, _ = collect_runs(
         ROOT,
         CURATED_RUNS,
         catalog,
         lambda folder, relative, _: f"sources/{folder}--{relative.replace('/', '--')}",
+        handoffs,
     )
     missing = [module for module, config in catalog.items() if module not in pins]
     if missing:
@@ -136,7 +139,15 @@ def build() -> None:
     fields, keys = issuer_groups(recorded)
     for key, identity in fields.items():
         runs[key].update(identity)
-    store = {"runs": runs, "outputs": outputs, "inputs": inputs, "pins": pins}
+    # The shape /api/workspace sends: sections once per handoff, which the page's hydrate() spreads.
+    sent = {r["sha256"]: handoffs.parsed[r["sha256"]][0] for r in outputs.values()}
+    store = {
+        "runs": runs,
+        "outputs": outputs,
+        "handoffs": sent,
+        "inputs": inputs,
+        "pins": pins,
+    }
     (OUT / "data.js").write_text(
         "window.DESIGN_DATA = "
         + json.dumps(store, ensure_ascii=False).replace("<", "\\u003c")

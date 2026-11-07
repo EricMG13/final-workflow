@@ -62,3 +62,8 @@ tests/test_method_cpdr.py::test_d12_record_carries_the_file_sha256[src/deploy_vi
 tests/test_method_cpdr.py::test_d12_record_for_execution_py
 tests/test_method_cpdr.py::test_methodology_chain_runs_7d164d11_to_the_current_file
 tests/test_method_cpdr.py::test_d12_records_for_the_vii_files_are_chained_after_d1b_and_cite_the_end_batch
+
+# tests/model: the live-pause ruling files are not in docs/rulings at base (confirmed on the base tree 2026-11-07)
+tests/model/test_o5_done_when.py::test_the_live_pause_refuses_and_touches_no_environment  # docs/rulings/2026-10-31-context-plan.md missing
+tests/model/test_gate.py::test_only_the_model_testing_ruling_lifts_the_pause  # same
+tests/model/test_gate.py::test_good_ruling_construction_touches_nothing_and_complete_reads_the_three_key_variables_once  # same

@@ -569,3 +569,64 @@ def test_fy_alias_without_facility_rows_uses_the_selected_quarter_snapshot():
     )
     with pytest.raises(ValueError, match="Conflicting same-date facility snapshot aliases"):
         cp1_chart_series(conflicting)
+
+
+def _relabel(module, labels=None, starts=None):
+    """Set the four quarters' (fiscal_year, fiscal_quarter) labels and start dates in date order."""
+    order = ("q1-2025", "q2-2025", "q3-2025", "q4-2025")
+    for i, pid in enumerate(order):
+        if labels:
+            year, quarter = labels[i]
+            module = change(module, row=f"T4.14.{pid}", field="fiscal_year", text=year)
+            module = change(module, row=f"T4.14.{pid}", field="fiscal_quarter", text=quarter)
+        if starts:
+            module = change(module, row=f"T4.14.{pid}", field="start_date", text=starts[i])
+    return module
+
+
+SCOPE = (
+    "Charts require four contiguous reported QUARTER periods numbered Q1 to Q4 of one fiscal "
+    "year; no periods were fabricated."
+)
+
+
+@pytest.mark.parametrize(
+    "labels,starts",
+    [
+        # A March year end: Jan-Mar 2025 is Q4 FY2025, Apr-Dec 2025 are Q1-Q3 FY2026.
+        ((("2025", "4"), ("2026", "1"), ("2026", "2"), ("2026", "3")), None),
+        # Q2 2024 to Q1 2025 of a calendar year (relabelled; the dates stay contiguous).
+        ((("2024", "2"), ("2024", "3"), ("2024", "4"), ("2025", "1")), None),
+        # Q1-Q4 of one year but Q3 starts a day late: a one-day gap, not an overlap.
+        (None, ("2025-01-01", "2025-04-01", "2025-07-02", "2025-10-01")),
+    ],
+)
+def test_four_quarters_not_q1_to_q4_of_one_year_get_the_unsupported_reason(labels, starts):
+    # S11-C04. By hand: S.1-S.3 and S.5 carry the reason with no points; S.4 (the facility
+    # snapshot at the latest date, q4-2025, principal 50) does not depend on the quarter strip.
+    module = _relabel(fixture(), labels, starts)
+    figures = cp1_chart_series(module)
+    assert [(f.fig_id, f.reason, f.points) for f in figures if f.fig_id != "S.4"] == [
+        (fig_id, SCOPE, ()) for fig_id in ("S.1", "S.2", "S.3", "S.5")
+    ]
+    assert figures[3].reason is None and amounts(module, figures[3]) == [Decimal(50)]
+
+
+@pytest.mark.parametrize(
+    "labels,starts",
+    [
+        # Q2 starts on Q1's end date (2025-03-31): the quarters overlap.
+        (None, ("2025-01-01", "2025-03-31", "2025-07-01", "2025-10-01")),
+        # Q3 starts after its own end (2025-09-30).
+        (None, ("2025-01-01", "2025-04-01", "2025-10-01", "2025-10-01")),
+        # A repeated (fiscal year, quarter).
+        ((("2025", "1"), ("2025", "1"), ("2025", "3"), ("2025", "4")), None),
+        # Labels that run backwards against the dates.
+        ((("2025", "1"), ("2025", "3"), ("2025", "2"), ("2025", "4")), None),
+        # A quarter number outside 1 to 4.
+        ((("2025", "1"), ("2025", "2"), ("2025", "3"), ("2025", "5")), None),
+    ],
+)
+def test_contradictory_quarter_identities_still_fail_closed(labels, starts):
+    with pytest.raises(ValueError, match="QUARTER"):
+        cp1_chart_series(_relabel(fixture(), labels, starts))

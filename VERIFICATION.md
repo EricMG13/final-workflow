@@ -35,7 +35,9 @@ Scope: nightly run 42351518717 on main 3bff5e8, its runner faults and its 94 fai
   `tests/test_periods_currency_misc.py` passed; the three regression nodes 9 passed;
   `tests/test_method_cp2d.py` and `tests/test_connect_cp2d.py` 434 passed, 2 failed (known list);
   `cases/pins.py --check` 219 paths; quality gate 0 findings. Not run: the workflow YAML lint (the
-  linter download was refused); the full suite (next nightly).
+  linter download was refused); the full suite (next scheduled run).
+- Schedule (user ruling, 2026-11-07): weekly, Sunday 01:00 UTC, since a full run takes about 17
+  runner-hours of this private repository's Actions minutes.
 
 ## 2026-11-07 — Fixes for the whole-app review findings (branch `claude/review-fixes`)
 

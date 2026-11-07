@@ -56,13 +56,13 @@ Exit 1 while findings remain, 2 when the gate itself could not run (unknown base
 tool missing). A `# noqa` or `# type: ignore[...]` with a reason is the escape hatch, and
 the reviewer sees it in the diff.
 
-## Fast tests while working, the full suite nightly
+## Fast tests while working, the full suite weekly
 
 While working, run fast targeted tests only: the test files or `-k` selections that cover the
 changed code, each run finishing within a few minutes (wrap it in `timeout 300`). Never run the
 whole suite, the `test_owner_*` suites or anything whose fixture promotes CP-0/CP-1 during work.
 
-The full suite, slow tests included, runs every night at 01:00 UTC in GitHub Actions
+The full suite, slow tests included, runs every Sunday at 01:00 UTC in GitHub Actions
 (`.github/workflows/nightly-tests.yml`, also startable by hand with "Run workflow"):
 
 - eight pytest shards (`tools/nightly_tests.py run`), balanced by test-file size, with the `live`
@@ -84,4 +84,5 @@ job runs, and it prints short tracebacks to the job log.
 To accept a pre-existing failure, add its node id to the known list with a reason. Remove a line
 once its test passes again. GitHub runs scheduled workflows from the default branch only, and on
 this private repository the run uses the account's Actions minutes: the first full run
-(2026-11-07) took about 17 runner-hours with three shards cut short.
+(2026-11-07) took about 17 runner-hours with three shards cut short, so the schedule is
+weekly (user ruling, 2026-11-07). The names `nightly-tests` and `nightly-known-failures.txt` stay.

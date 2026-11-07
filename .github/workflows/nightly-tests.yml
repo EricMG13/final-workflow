@@ -1,12 +1,13 @@
 name: nightly-tests
 
-# The full suite, slow tests included, every night at 01:00 UTC. Work in progress runs fast
-# targeted tests only (AGENTS.md); this run covers what those skip. GitHub runs scheduled
+# The full suite, slow tests included, every Sunday at 01:00 UTC (weekly by user ruling,
+# 2026-11-07: a full run takes about 17 runner-hours of the account's minutes). Work in progress
+# runs fast targeted tests only (AGENTS.md); this run covers what those skip. GitHub runs scheduled
 # workflows from the default branch only; workflow_dispatch runs it on demand, and with `tests`
 # set it reruns only those test ids, with short tracebacks in the job log, to triage a failure.
 on:
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 1 * * 0"
   workflow_dispatch:
     inputs:
       tests:

@@ -711,11 +711,12 @@ def _once(token: str, quote: str, page: str) -> bool:
 _RUN_TEXT: TypeAdapter[str] = TypeAdapter(RunText)
 # S06-A07: the reporting currency's quote states the code as the currency of the amounts: right
 # after the word "currency" ("Currency: USD"), or joined to a unit statement ("USD millions",
-# "USD; amounts in millions", "millions of USD"), never as a word elsewhere in a line.
+# "USD in millions", "USD; amounts in millions", "millions of USD"), never as a word elsewhere in
+# a line.
 _SCALE = r"(?i:thousands|millions|billions)"
 _CURRENCY_STATED = (
     r"(?i:\bcurrency)\s*(?::|\bis\b)?\s*{code}(?![A-Za-z])"
-    rf"|(?<![A-Za-z]){{code}}\s*(?:[;,]\s*(?i:(?:amounts\s+)?in)\s+)?{_SCALE}\b"
+    rf"|(?<![A-Za-z]){{code}}\s*(?:[;,]?\s*(?i:(?:amounts\s+)?in)\s+)?{_SCALE}\b"
     rf"|\b{_SCALE}\s+of\s+{{code}}(?![A-Za-z])"
 )
 

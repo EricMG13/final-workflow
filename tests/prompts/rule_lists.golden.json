@@ -1037,7 +1037,7 @@
   "liquidity_bridge": [
    {
     "id": "liquidity_bridge.1",
-    "statement": "`horizon_months` is a whole number from 1 to 60. Give exactly one of `minimum_cash` and `minimum_cash_absence`; a `minimum_cash.amount` is not negative and is less than 1e18.",
+    "statement": "`horizon_months` is a whole number from 1 to 60. Give exactly one of `minimum_cash` and `minimum_cash_absence`; a `minimum_cash.amount` is not negative and is a CP-1 amount (less than 1e18, at most 28 digits and 10 decimal places).",
     "checks": [
      "oracle:cp2d:horizon_zero",
      "oracle:cp2d:horizon_over_limit",

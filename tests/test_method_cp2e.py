@@ -1653,3 +1653,44 @@ def test_a_reporting_code_must_be_stated_as_the_currency() -> None:
     header = "IFRS; consolidated group; USD; amounts in millions; unaudited"
     assert _reporting(header, "USD", "page:2") == ()
     assert _reporting("USD millions; consolidated group", "USD", "page:5") == ()
+
+
+@pytest.mark.parametrize(
+    ("line", "code", "issues"),
+    [
+        ("Reported in USD in millions; unaudited", "USD", ()),
+        ("(USD in thousands, except per share data)", "USD", ()),
+        ("Reporting currency is EUR", "EUR", ()),
+        ("Our currency exposure is mostly in USD", "USD", ("states_not",)),
+        ("The term loan is drawn in USD and repaid", "USD", ("states_not",)),
+        ("Currency: ABC; amounts in millions", "ABC", ("not_iso",)),
+        ("Currency: USDX", "USD", ("absent",)),
+    ],
+)
+def test_a_reporting_quote_must_state_its_code_as_the_currency_of_the_amounts(
+    line: str, code: str, issues: tuple[str, ...]
+) -> None:
+    """Confidence review of S06-A07: the form of a statement line decides, not the word USD on
+    the page. A unit statement ("USD in millions") or "currency is EUR" states the currency; a
+    code in a sentence about drawing or exposure does not; a three-letter word that is no ISO
+    4217 code is refused first; USDX holds no whole-word USD. Expected issues are hand-written
+    from the rule (the code's own quote, ISO list, then the stated-as-currency form)."""
+    words = {
+        "states_not": f"reporting_currency: the quote does not state {code} as the currency "
+        f"(Currency: {code})",
+        "not_iso": f"reporting_currency: code_text {code} is not an ISO 4217 currency code",
+        "absent": f"reporting_currency: code_text {code} does not occur in the quote",
+    }
+    sub = copy.deepcopy(SUBMISSIONS["positive"])
+    pages = _pages("positive")
+    pages["page:1"] += "\n" + line
+    sub["reporting_currency"] = {
+        "source_id": "financial",
+        "locator": "page:1",
+        "quote": line,
+        "code_text": code,
+    }
+    got = cp2e.validate_macro_fx(submission=sub, pages=pages)
+    # only the reporting_currency lines are asserted: the EUR case leaves other rows unchanged
+    own = tuple(i for i in got if i.startswith("reporting_currency"))
+    assert own == tuple(words[k] for k in issues)

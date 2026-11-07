@@ -18,6 +18,7 @@ import re
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace as NS
 from typing import Any
 
 import pytest
@@ -33,7 +34,7 @@ from deploy_vii.contracts import (
     TableColumn,
     TableRow,
 )
-from deploy_vii.cp3_relative_value import RelativeValueSubmission
+from deploy_vii.cp3_relative_value import RelativeValueSubmission, _sentences_of
 from deploy_vii.cp6_committee import cp3_catalogue
 from deploy_vii.preparation import PreparedPack
 from deploy_workflow.owners.cp3 import CP3Inputs, CP3Result, candidate, compute, context
@@ -797,3 +798,57 @@ def test_a_talk_only_preference_basis_states_its_limitation() -> None:
     observed = compute(_preference_on("page:1", "Medium")).report
     assert observed is not None
     assert all("indicative talk only" not in text for text in observed.limitations)
+
+
+# --- confidence review of S08-cp3-A08 and C03 ----------------------------------------------------
+def _sentences(page: str, quote: str) -> str:
+    pack = NS(sources=[NS(source_id="market", spans=[NS(locator="page:1", text=page)])])
+    return _sentences_of(NS(source_id="market", locator="page:1", quote=quote), pack).strip()  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("page", "quote", "expected"),
+    [
+        # a decimal point is not a boundary: the sentence runs to the "." before a space
+        (
+            "Bid 99.50 observed. Dealers see indicative value around 99.75 for the loan. Done.",
+            "around 99.75 for",
+            "Dealers see indicative value around 99.75 for the loan.",
+        ),
+        # the neighbouring sentences are not read
+        (
+            "Indicative IPT is 100. Bid 99.50 observed. Guidance is wide.",
+            "Bid 99.50 observed",
+            "Bid 99.50 observed.",
+        ),
+        # every occurrence of the quote is read with its own sentence
+        (
+            "Bid 99.50 is firm. Bid 99.50 is talk.",
+            "Bid 99.50",
+            "Bid 99.50 is firm.  Bid 99.50 is talk.",
+        ),
+        # a quote the page does not hold falls back to the quote
+        ("Something else entirely.", "Bid 99.50", "Bid 99.50"),
+    ],
+)
+def test_confidence_review_s08_a08_the_sentence_of_a_quote(
+    page: str, quote: str, expected: str
+) -> None:
+    assert _sentences(page, quote) == expected
+
+
+def test_confidence_review_s08_c03_a_basis_of_talk_and_observed_is_not_capped() -> None:
+    """The preference cites both the observed page:1 quote and the talk page:2 quote: not talk
+    only, so High is allowed (before and after the fix) and no talk-only limitation appears."""
+    inputs = _accepted_cp2(make_inputs("positive"))
+    pref = inputs.submission.preference
+    locators = {q.locator for q in pref.basis.quotes}
+    assert locators == {"page:1", "page:2"}  # the literal's own basis holds both
+    pref = pref.model_copy(update={"confidence": "High"})
+    inputs = dataclasses.replace(
+        inputs, submission=inputs.submission.model_copy(update={"preference": pref})
+    )
+    result = compute(inputs)
+    assert result.issues == ()
+    assert result.report is not None
+    assert all("indicative talk only" not in text for text in result.report.limitations)

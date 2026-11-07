@@ -26,7 +26,7 @@ from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from types import MappingProxyType
 from typing import Any, Literal
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from deploy_vii.business_context import spelled
 from deploy_vii.contracts import (
@@ -57,6 +57,7 @@ from deploy_vii.execution import (
     inherited_limitations,
     text_sha256,
 )
+from deploy_vii.financial_contracts import Number
 from deploy_vii.live.schema import exact_json, json_object, normalise
 from deploy_vii.live.submission import Submitted
 from deploy_vii.model._cells import CONTEXT as CP1_CONTEXT
@@ -1821,11 +1822,15 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
 
 HORIZON_ISSUE = "horizon_months must be between 1 and 60"
 NEGATIVE_MINIMUM_ISSUE = "minimum_cash.amount must not be negative"
-# S06-A05: the bound of every CP-1 amount (`financial_contracts.Number`, |x| < 1e18). A larger
-# finite amount (1e300) passed every check and then could not be spelled exactly, so submit
-# raised and every resume raised again; it is refused here instead.
-MINIMUM_LIMIT = Decimal("1e18")
-LARGE_MINIMUM_ISSUE = "minimum_cash.amount must be less than 1e18, the bound of a CP-1 amount"
+# S06-A05: a minimum cash is held to the bound of every CP-1 amount (`financial_contracts.Number`:
+# below 1e18, 28 digits, 10 places). A finite amount outside it (1e300, 1E-999999999 or 130 digits)
+# passed every check and then could not be spelled exactly, so submit raised and every resume
+# raised again; it is refused here instead.
+_AMOUNT: TypeAdapter[Decimal] = TypeAdapter(Number)
+MINIMUM_RANGE_ISSUE = (
+    "minimum_cash.amount must be a CP-1 amount: less than 1e18, at most 28 digits and 10 decimal "
+    "places"
+)
 BOTH_ISSUE = "give minimum_cash or minimum_cash_absence, not both"
 NEITHER_ISSUE = "give minimum_cash or minimum_cash_absence"
 SECTION_ISSUE = "assessments must hold exactly one row per section"
@@ -1884,6 +1889,14 @@ def analyst_text_fields(submission: LiquidityBridgeSubmission) -> list[tuple[str
     return fields
 
 
+def _is_amount(amount: Decimal) -> bool:
+    try:
+        _AMOUNT.validate_python(amount)
+    except ValidationError:
+        return False
+    return True
+
+
 def submission_issues(
     *,
     submission: LiquidityBridgeSubmission,
@@ -1898,8 +1911,8 @@ def submission_issues(
         issues.append(HORIZON_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash.amount < 0:
         issues.append(NEGATIVE_MINIMUM_ISSUE)
-    if s.minimum_cash is not None and s.minimum_cash.amount >= MINIMUM_LIMIT:
-        issues.append(LARGE_MINIMUM_ISSUE)
+    if s.minimum_cash is not None and not _is_amount(s.minimum_cash.amount):
+        issues.append(MINIMUM_RANGE_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash_absence is not None:
         issues.append(BOTH_ISSUE)
     if s.minimum_cash is None and s.minimum_cash_absence is None:

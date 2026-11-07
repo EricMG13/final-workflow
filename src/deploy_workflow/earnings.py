@@ -303,6 +303,11 @@ def _point(
             if prior_amount == 0:
                 growth_status = "missing"
                 reasons.append("ZERO_DENOMINATOR")
+            elif prior_amount < 0:
+                # (current - prior) / prior flips sign on a negative base (-10 to -5 would read
+                # -50%): growth is not meaningful, never a reversed or absolute-base figure.
+                growth_status = "missing"
+                reasons.append("NEGATIVE_DENOMINATOR")
             else:
                 growth = delta / prior_amount
                 growth_status = "known"

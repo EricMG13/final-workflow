@@ -362,15 +362,14 @@ def _span(source: Source, locator: str) -> str | None:
 
 
 def _basis(lines: Sequence[str], currency: str) -> tuple[str, str, Decimal]:
-    """Currency, unit and scale from the supported clause of a page:1 Basis line (C3): the run's
-    `currency` and the millions clause."""
-    for line in lines:
-        if not line.startswith(BASIS_PREFIX):
-            continue
-        parts = [part.strip().rstrip(".") for part in line[len(BASIS_PREFIX) :].split(";")]
-        for pair in pairwise(parts):
-            if pair == (currency, BASIS_UNIT_CLAUSE):
-                return currency, "MILLIONS", Decimal(1_000_000)
+    """Currency, unit and scale from the supported clause of the one page:1 Basis line (C3): the
+    run's `currency` and the millions clause. A second Basis line could state another currency or
+    scale, so more than one is refused (S05-A06)."""
+    found = [line for line in lines if line.startswith(BASIS_PREFIX)]
+    if len(found) == 1:
+        parts = [part.strip().rstrip(".") for part in found[0][len(BASIS_PREFIX) :].split(";")]
+        if (currency, BASIS_UNIT_CLAUSE) in pairwise(parts):
+            return currency, "MILLIONS", Decimal(1_000_000)
     raise PeerTableError(TABLE_NOT_FOUND)
 
 

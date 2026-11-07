@@ -914,6 +914,26 @@ def test_c3_basis_line_without_the_usd_millions_clause_is_peer_table_not_found(b
     assert cp1c.calculation_issues(case) == ("Peer table not found",)
 
 
+@pytest.mark.parametrize(
+    ("first", "second", "accepted"),
+    [
+        (BASIS, None, True),  # one Basis line that agrees
+        ("Basis: EUR; amounts in thousands.", BASIS, False),  # contradicts, then agrees
+        (BASIS, "Basis: EUR; amounts in thousands.", False),  # agrees, then contradicts
+        (BASIS, BASIS, False),  # repeated
+    ],
+)
+def test_a06_more_than_one_basis_line_is_peer_table_not_found(
+    first: str, second: str | None, accepted: bool
+) -> None:
+    # Hand-derived: only a page:1 with exactly one Basis line is read; two lines could state two
+    # currencies or scales, so any second Basis line (agreeing or not) refuses the table.
+    both = first if second is None else f"{first}\n{second}"
+    case = _with_sources("positive", _edited("positive", 1, BASIS, both))
+    expected = () if accepted else ("Peer table not found",)
+    assert cp1c.calculation_issues(case) == expected
+
+
 # Round 3 ruling 1C-x: an amount with more than one decimal place breaches the table rule.
 
 

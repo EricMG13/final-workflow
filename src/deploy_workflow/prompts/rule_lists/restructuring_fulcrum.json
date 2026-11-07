@@ -22,7 +22,7 @@
   },
   {
    "id": "restructuring_fulcrum.2",
-   "statement": "Every claim has a different `class_id`. A class is secured_debt exactly when its `amount_source` is cp1_total_debt, and CP-1 must show the facility as both secured and senior for any class to be secured_debt. Exactly one class is secured_debt and its `rank` is lower than every other class's (it ranks first).",
+   "statement": "Every claim has a different `class_id`. A class is secured_debt exactly when its `amount_source` is cp1_total_debt, and CP-1 must show the facility as both secured and senior for any class to be secured_debt. The secured facility is the one facility CP-1 T4.18 shows as secured at its current quarter; when CP-1 shows none or more than one, Python refuses the step and names the count. Exactly one class is secured_debt and its `rank` is lower than every other class's (it ranks first).",
    "checks": [
     "oracle:cp4c:v01",
     "oracle:cp4c:v02",

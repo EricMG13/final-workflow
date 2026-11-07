@@ -1801,7 +1801,7 @@
    },
    {
     "id": "restructuring_fulcrum.2",
-    "statement": "Every claim has a different `class_id`. A class is secured_debt exactly when its `amount_source` is cp1_total_debt, and CP-1 must show the facility as both secured and senior for any class to be secured_debt. Exactly one class is secured_debt and its `rank` is lower than every other class's (it ranks first).",
+    "statement": "Every claim has a different `class_id`. A class is secured_debt exactly when its `amount_source` is cp1_total_debt, and CP-1 must show the facility as both secured and senior for any class to be secured_debt. The secured facility is the one facility CP-1 T4.18 shows as secured at its current quarter; when CP-1 shows none or more than one, Python refuses the step and names the count. Exactly one class is secured_debt and its `rank` is lower than every other class's (it ranks first).",
     "checks": [
      "oracle:cp4c:v01",
      "oracle:cp4c:v02",
@@ -2021,7 +2021,7 @@
    "src/deploy_vii/cp1_workflow.py": "f12af0e59172ffbf2106c1ec61ead6a1035e5e82e36e11f181f2e85b74e623ac",
    "src/deploy_vii/cp2_synthesis.py": "109d54c68e5ce89193ae332166ccacd2ce6a8ffe77f8892649175e67499efb5d",
    "src/deploy_vii/cp3_relative_value.py": "1a933093fa757289f5188d0938c3b7f743edbfe45d8861d77bab8f716d574c0b",
-   "src/deploy_vii/cp4_legal.py": "b8a34854b3cc560b84001a74ac73756af334fa123b590a2b6309c8bb0e0b847d",
+   "src/deploy_vii/cp4_legal.py": "0135734d92dd4d7e7eee624a6eb45241630859d1cee95d2bc31e2ff6bef6bc5d",
    "src/deploy_vii/cp5_integrity.py": "9378db8a1fe990bf52b695120e7e15344ee9c5a01f184cfa72881ba6fdebaf30",
    "src/deploy_vii/cp6_committee.py": "77052d6929dbf9221b9a2a16a7e81f4e00ab18b4d922af3f4d636d405ea62c1a",
    "src/deploy_vii/downstream_readiness.py": "68bfbd501862314872a97da1d0719099a68e0552640eb969c3b17d950155a210",
@@ -2049,8 +2049,8 @@
    "src/deploy_workflow/owners/cp3.py": "3fefe8ca7440c7054b154cfe0d38f367dc9f061c180c4cd0d699dffc53aae40d",
    "src/deploy_workflow/owners/cp3c.py": "4137add37af9946f9ad5852bfd9bf8f59f95da52532e6a46df45ca7f7c8c6123",
    "src/deploy_workflow/owners/cp3d.py": "935cd0033ea1cd361986ba30abd8df0d407dc488f04bd4fb17060d301702956f",
-   "src/deploy_workflow/owners/cp4.py": "9ec6d9f6f882d43153b728ccd3fa9f7edbde5f19e6e73871f26beb00cd0b25b1",
-   "src/deploy_workflow/owners/cp4c.py": "e41458e05e72f5b77987ca890913418fd642ecb1f0974053da35bb0b4142a5df",
+   "src/deploy_workflow/owners/cp4.py": "822ab78cbf5061b548811454549ca61fa0d1a873f2d2d0c330e0f978b772f5c2",
+   "src/deploy_workflow/owners/cp4c.py": "b9130aa3e143b58fded946a782b6633b16e90255a6458639a04273cc9645c27b",
    "src/deploy_workflow/owners/cp5.py": "a0fe291d2ebb38172ff3c7934776da8a12f6252dcbd90342f8f77fd679f92642",
    "src/deploy_workflow/owners/cp6.py": "3212ec05142d5c62e749aca5edf2d83c22b5902d33c7e55cb343c66535fd489d",
    "src/deploy_workflow/owners/cp8.py": "35d12e2dc59acfe118c4bb3f3b0e6ecd2c25f9957e49b5d8ecf597b60e293fbc",

@@ -461,6 +461,9 @@ class Cp1Head:
     facility_id: str  # the secured facility's T4.18 id (manifest fact_selection_rule.cp1_t418)
     secured_status: Fact  # T4.18 <facility>.secured_status at the quarter period
     seniority: Fact  # T4.18 <facility>.seniority at the quarter period
+    # Why CP-1 shows no single secured facility (S09-A04): the facility fields above are then
+    # placeholders, and the validator and the view refuse with this text first.
+    facility_issue: str | None = None
 
 
 @dataclass(frozen=True)
@@ -1154,7 +1157,10 @@ def content_issues(inputs: Cp4cInputs) -> tuple[str, ...]:
     # Literal of the default years), so it is returned alone, before any content check.
     if years := _year_issues(sub, ctx.basis):
         return years
-    # S09-A04/C02: a CP-4 head CP-4C cannot read is the one issue, never a raise further on.
+    # S09-A04/C02: a CP-1 with no single secured facility, or a CP-4 head CP-4C cannot read, is the
+    # one issue, never a raise further on.
+    if ctx.cp1.facility_issue:
+        return (ctx.cp1.facility_issue,)
     if unread := cp4_issue(ctx.cp4, ctx.cp1.facility_id):
         return (unread,)
     pages = _pages(ctx.pack)
@@ -2743,8 +2749,7 @@ _SETTLED: Mapping[str, InputStatus] = {
     "restricted": "restricted",
     "blocked": "blocked",
 }
-# manifest fact_selection_rule.cp1_t418: the secured facility, the two terms the core reads.
-FACILITY_ID = "term-loan"
+# manifest fact_selection_rule.cp1_t418: the two terms the core reads of the secured facility.
 _T418_TERMS = ("secured_status", "seniority")
 # manifest fact_selection_rule.cp2g: the T2H.7 row of the first free cash flow break.
 CP2G_BREAK_ROW = "b01"
@@ -2800,34 +2805,51 @@ def _quarter_period(module: Module) -> tuple[str, tuple[str, ...]]:
     return period, tuple(pid for pid in current if pid != period)
 
 
-def _facility_terms(module: Module) -> tuple[Fact, Fact]:
-    """The secured facility's T4.18 `secured_status` and `seniority` facts at the quarter period;
-    an alias row of the same period end must state the same terms. A missing row or term, two
-    rows of one period, or an alias that differs fails closed."""
+def _secured_facility_rows(module: Module, period: str) -> list[dict[str, Fact]]:
+    """The CP-1 T4.18 rows at `period` whose `secured_status` is known SECURED, in head order."""
+    rows = (
+        row for row in _rows(module, "T4.18").values() if _known_text(row, "period_id") == period
+    )
+    return [row for row in rows if _known_text(row, "secured_status") == SECURED]
+
+
+def _facility_terms(module: Module) -> tuple[str, Fact, Fact] | str:
+    """The secured facility's id and its T4.18 `secured_status` and `seniority` facts at the
+    quarter period, or the issue text when CP-1 does not show exactly one secured facility there
+    (S09-A04: selected by the T4.18 secured status, not by an id; the count is named, never a
+    raise or a guess). A secured row without a facility id or without both terms is an issue too;
+    an alias row of the same period end that states other terms still fails closed (ValueError)."""
     period, aliases = _quarter_period(module)
-    by_period: dict[str, dict[str, Fact]] = {}
-    for row in _rows(module, "T4.18").values():
-        if _known_text(row, "facility_id") != FACILITY_ID:
-            continue
-        pid = _known_text(row, "period_id")
-        if pid is None:
-            raise ValueError(f"CP-4C: a CP-1 T4.18 {FACILITY_ID} row states no period_id")
-        if pid in by_period:
-            raise ValueError(f"CP-4C: CP-1 T4.18 has two {FACILITY_ID} rows for {pid}")
-        by_period[pid] = row
-    chosen = by_period.get(period)
-    if chosen is None or any(term not in chosen for term in _T418_TERMS):
-        raise ValueError(f"CP-4C: CP-1 T4.18 states no {FACILITY_ID} terms for {period}")
+    secured = _secured_facility_rows(module, period)
+    if len(secured) != 1:
+        ids = ", ".join(_known_text(row, "facility_id") or "(no id)" for row in secured)
+        return (
+            f"CP-4C: CP-1 T4.18 shows {len(secured)} secured facilities at {period}"
+            f"{f' ({ids})' if secured else ''}, not exactly one, so no secured facility can be "
+            "selected"
+        )
+    (chosen,) = secured
+    facility = _known_text(chosen, "facility_id")
+    if facility is None or any(term not in chosen for term in _T418_TERMS):
+        return (
+            f"CP-4C: the one secured CP-1 T4.18 row at {period} states no facility id or no terms"
+        )
     for alias in aliases:
-        other = by_period.get(alias) or {}
-        for term in _T418_TERMS if other else ():
-            mine, theirs = chosen[term], other.get(term)
-            if theirs is None or (mine.status, mine.text) != (theirs.status, theirs.text):
-                raise ValueError(
-                    f"CP-4C: {FACILITY_ID} {term} differs between its {period} row and its "
-                    f"{alias} alias"
-                )
-    return chosen["secured_status"], chosen["seniority"]
+        others = [
+            row
+            for row in _rows(module, "T4.18").values()
+            if _known_text(row, "facility_id") == facility
+            and _known_text(row, "period_id") == alias
+        ]
+        for other in others:
+            for term in _T418_TERMS:
+                mine, theirs = chosen[term], other.get(term)
+                if theirs is None or (mine.status, mine.text) != (theirs.status, theirs.text):
+                    raise ValueError(
+                        f"CP-4C: {facility} {term} differs between its {period} row and its "
+                        f"{alias} alias"
+                    )
+    return facility, chosen["secured_status"], chosen["seniority"]
 
 
 def _ltm_facts(facts: Iterable[Fact]) -> tuple[Fact, ...]:
@@ -2843,14 +2865,14 @@ def cp1_of(module: Module, status: InputStatus) -> Cp1Head:
     (`_ltm_facts`; `select_cp1` picks the run's column) and the secured facility's T4.18 terms."""
     if module.module_id != CP1:
         raise ValueError(f"CP-4C: not a CP-1 head: {module.module_id}")
-    secured, seniority = _facility_terms(module)
-    return Cp1Head(
-        status=status,
-        t410=_ltm_facts(module.facts),
-        facility_id=FACILITY_ID,
-        secured_status=secured,
-        seniority=seniority,
-    )
+    terms = _facility_terms(module)
+    if isinstance(terms, str):  # no single secured facility: the validator and the view say so
+        none = Fact(
+            fact_id="cp4c-no-secured-facility", label=terms, status="missing", limitation=terms
+        )
+        return Cp1Head(status, _ltm_facts(module.facts), "", none, none, facility_issue=terms)
+    facility, secured, seniority = terms
+    return Cp1Head(status, _ltm_facts(module.facts), facility, secured, seniority)
 
 
 def cp2a_of(module: Module, status: InputStatus) -> Cp2aHead:
@@ -3256,6 +3278,8 @@ def _view_basis(pack: PreparedPack, upstream: Upstream) -> tuple[PeriodBasis | N
     a refused period or currency offers nothing; a failed selection under the run's basis is
     `select_cp1`'s own text (ruling P8T6-R2, as CP-1C P8T2-I11) and offers nothing. A CP-4 head
     whose terms CP-4C cannot select (`cp4_issue`, S09-A04) is refused first and offers nothing."""
+    if upstream.cp1.facility_issue:  # S09-A04: no single secured facility offers nothing
+        return None, upstream.cp1.facility_issue
     unread = cp4_issue(upstream.cp4, upstream.cp1.facility_id)
     if unread is not None:  # S09-A04: a CP-4 head CP-4C cannot read offers nothing
         return None, unread

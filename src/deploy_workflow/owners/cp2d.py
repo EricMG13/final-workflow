@@ -962,9 +962,7 @@ def _facility_limitations(
     return out
 
 
-def _limitations(
-    *, operands: Operands, bridge: Bridge, pinned: bool = False
-) -> tuple[tuple[str, str, str], ...]:
+def _limitations(*, operands: Operands, bridge: Bridge) -> tuple[tuple[str, str, str], ...]:
     """(T2E.7 label, kind, text) for each own limitation, in a fixed order."""
     out = [
         (
@@ -1021,9 +1019,13 @@ def _limitations(
         else:
             text = FUNDING_GAP_ON_CASH_ALONE
         out.append(("Funding gap on cash alone", "Limitation", text))
-    if pinned:
-        out.append(("Pinned assumptions", "Limitation", pinned_line(MODULE_ID)))
     return tuple(out)
+
+
+def _pin_row(pinned: bool) -> tuple[tuple[str, str, str], ...]:
+    """The pinned-assumptions label: last of the module's limitations, after the analyst's stated
+    ones too (T4 L2/L3)."""
+    return (("Pinned assumptions", "Limitation", pinned_line(MODULE_ID)),) if pinned else ()
 
 
 def revolver_state(undrawn: Num) -> tuple[str, str] | None:
@@ -1040,9 +1042,8 @@ def revolver_state(undrawn: Num) -> tuple[str, str] | None:
 
 
 def own_limitations(*, operands: Operands, bridge: Bridge, pinned: bool = False) -> tuple[str, ...]:
-    return tuple(
-        text for _, _, text in _limitations(operands=operands, bridge=bridge, pinned=pinned)
-    )
+    rows = (*_limitations(operands=operands, bridge=bridge), *_pin_row(pinned))
+    return tuple(text for _, _, text in rows)
 
 
 # --- result types -----------------------------------------------------------------------------
@@ -1796,8 +1797,9 @@ def _computed(inputs: Cp2dInputs) -> Cp2dResult:
     o = inputs.operands
     bridge = bridge_of(inputs)
     limitations = (
-        *_limitations(operands=o, bridge=bridge, pinned=inputs.pinned),
+        *_limitations(operands=o, bridge=bridge),
         *_analyst_limitations(inputs.submission),
+        *_pin_row(inputs.pinned),
     )
     tables = (
         _sources_and_uses(o, bridge),

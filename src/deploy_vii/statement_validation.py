@@ -1,5 +1,7 @@
 """Full source-statement keys, completeness and independent equation structure."""
 
+import re
+import unicodedata
 from datetime import date
 from decimal import Decimal
 from typing import NamedTuple
@@ -264,6 +266,75 @@ def _signed_outflow_issues(book: FinancialBook) -> list[str]:
     ]
 
 
+# User ruling (S12-A02, fail closed): the words by which a label states an inflow, and the "net of"
+# clause they may sit in without stating one ("Cash taxes paid, net of refunds received"). The
+# clause runs from "net of" (or "net-of") to the bracket that encloses it, a semicolon or the end
+# of the label; a bracketed part inside it stays in it.
+INFLOW_WORDS = (
+    "refund",
+    "refunds",
+    "refunded",
+    "received",
+    "receipt",
+    "receipts",
+    "proceeds",
+    "inflow",
+    "inflows",
+    "reimbursement",
+    "reimbursements",
+)
+_INFLOW = re.compile(rf"\b(?:{'|'.join(INFLOW_WORDS)})\b")
+_NET_OF = re.compile(r"\bnet[\s\-\u2010]+of\b(?:[^()\[\];]|\([^()]*\)|\[[^\[\]]*\])*")
+
+
+def _inflow_word(label: str) -> str | None:
+    """The first inflow word a label states outside a "net of" clause, compared case-blind after
+    NFKC (full-width brackets and no-break spaces read as their plain forms), or None."""
+    text = _NET_OF.sub(" ", unicodedata.normalize("NFKC", label).casefold())
+    found = _INFLOW.search(text)
+    return None if found is None else found.group()
+
+
+def _inflow_label_issues(book: FinancialBook) -> list[str]:
+    """User ruling (S12-A02, fail closed): `outflow_magnitude` reads -abs(amount), so on a line of
+    an `OUTFLOW_METRICS` account whose label states an inflow (a refund, say) it would turn the
+    inflow into an outflow unseen. It is refused for the model to repair instead."""
+    return [
+        f"Outflow magnitude on a label that states an inflow: {line.line_id} {line.period_id} "
+        f'({line.statement} {line.item_id}, account {metric}, label word "{word}") is never read '
+        "as an outflow; a source that prints the figure negative needs `sign_convention: signed` "
+        "with the negative amount, and a source that prints a net inflow (a refund) needs the "
+        "value recorded as status `missing` with a null `amount` and a `reason` saying so"
+        for line in book.statement_lines
+        if line.sign_convention == "outflow_magnitude"
+        and (metric := ACCOUNT_LINKS.get((line.statement, line.item_id))) in OUTFLOW_METRICS
+        and (word := _inflow_word(line.label)) is not None
+    ]
+
+
+def _withheld_account_issues(book: FinancialBook) -> list[str]:
+    """User ruling (S12-A02, fail closed): a `book.accounts` row of an `OUTFLOW_METRICS` account
+    is read -abs(amount) and takes precedence over the statement, so an amount beside that
+    account's statement line withheld as `missing` (a net inflow such as a refund) would give the
+    period the outflow the statement withholds. It is a conflict for the model to repair."""
+    withheld = {
+        (line.period_id, metric): line
+        for line in book.statement_lines
+        if line.value.status == "missing"
+        and (metric := ACCOUNT_LINKS.get((line.statement, line.item_id))) in OUTFLOW_METRICS
+    }
+    return [
+        f"Account contradicts a withheld statement line: account {account.metric_id} "
+        f"{account.period_id} carries an amount while {line.line_id} ({line.statement} "
+        f"{line.item_id}) is withheld as `missing` for that period (a net inflow such as a "
+        "refund); leave that account row out or give it a null `amount` (status `missing` with a "
+        "`reason`), never a figure the statement withholds"
+        for account in book.accounts
+        if account.value.amount is not None
+        and (line := withheld.get((account.period_id, account.metric_id))) is not None
+    ]
+
+
 def statement_issues(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 27, 26 branches, 70 statements at base, unchanged)
     book: FinancialBook,
 ) -> tuple[str, ...]:
@@ -394,7 +465,12 @@ def statement_issues(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 27, 2
             for amount in linked.get((period_id, "opex_including_da"), ())
         ):
             issues.append(f"OPEX must include SG&A and intangible amortization: {period_id}")
-    return (*issues, *_signed_outflow_issues(book))
+    return (
+        *issues,
+        *_signed_outflow_issues(book),
+        *_inflow_label_issues(book),
+        *_withheld_account_issues(book),
+    )
 
 
 class _AccountIndex(NamedTuple):

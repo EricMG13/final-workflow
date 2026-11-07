@@ -304,3 +304,17 @@ def test_text_only_and_rejected_draft_limits(tmp_path: Path) -> None:
         with pytest.raises(RuntimeError, match="not accepted"):
             loop(task())
         assert len(adapter.requests) == 3
+
+
+def test_search_source_snippet_keeps_its_place_after_a_length_changing_lowercase(
+    tmp_path: Path,
+) -> None:
+    # U+0130 lowercases to two code points, so a match position found in the lowercased page is
+    # not a position in the page; Turkish filings carry that letter. By hand: the match starts at
+    # index 201 (200 letters and a space before it), so 80 characters before it are 79 letters and
+    # the space, and the 14 after it and the rest of the page fit inside the 80 after.
+    page = "İ" * 200 + " total revenue 1,234 million"
+    source_task = replace(task(), sources={"S.txt": page.encode()})
+    tools = ModuleTools(source_task, tmp_path, check)
+    hit = tools.search_source("S.txt", "Total Revenue")
+    assert hit == "page 1: …" + "İ" * 79 + " total revenue 1,234 million…"

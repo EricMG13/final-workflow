@@ -417,5 +417,419 @@
    "otherHeading": null,
    "others": []
   }
+ },
+ "cashflow": {
+  "_derivedBy": "Controller oracle reading deliverables/tdg-model-3/forecast_exact.json and forecast.md directly (own Decimal ROUND_HALF_UP code). Applies to every run whose selected model is tdg-model-3. titles keys are 'row|column|group'.",
+  "model": "tdg-model-3",
+  "caption": "USD millions · conditional illustrations from the calculation record",
+  "groups": [
+   "Base",
+   "Reference",
+   "Downside",
+   "Upside"
+  ],
+  "columns": [
+   "FY2024",
+   "FY2025E",
+   "FY2026E",
+   "FY2027E",
+   "FY2025E",
+   "FY2026E",
+   "FY2027E",
+   "FY2025E",
+   "FY2026E",
+   "FY2027E"
+  ],
+  "columnGroups": [
+   "Base",
+   "Reference",
+   "Reference",
+   "Reference",
+   "Downside",
+   "Downside",
+   "Downside",
+   "Upside",
+   "Upside",
+   "Upside"
+  ],
+  "bands": [
+   "Operating",
+   "Earnings to cash proxy",
+   "Cash and liquidity",
+   "Debt",
+   "Credit metrics"
+  ],
+  "rows": [
+   {
+    "band": "Operating",
+    "label": "Revenue",
+    "display": [
+     "7,940",
+     "8,850",
+     "9,292",
+     "9,757",
+     "8,850",
+     "9,292",
+     "9,757",
+     "8,850",
+     "9,292",
+     "9,757"
+    ]
+   },
+   {
+    "band": "Operating",
+    "label": "Model earnings (operating-based EBITDA)",
+    "display": [
+     "4,173",
+     "4,685",
+     "4,919",
+     "5,165",
+     "3,748",
+     "3,936",
+     "4,132",
+     "4,862",
+     "5,105",
+     "5,361"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Cash interest",
+    "display": [
+     "1,158",
+     "1,493",
+     "1,433",
+     "1,373",
+     "1,642",
+     "1,576",
+     "1,510",
+     "1,493",
+     "1,433",
+     "1,373"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Cash taxes",
+    "display": [
+     "539",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Working capital",
+    "display": [
+     "n.a.",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—",
+     "—"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Cash taxes and working capital, combined",
+    "display": [
+     "—",
+     "885",
+     "929",
+     "976",
+     "885",
+     "929",
+     "976",
+     "885",
+     "929",
+     "976"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Model cash from operations",
+    "display": [
+     "—",
+     "2,307",
+     "2,557",
+     "2,817",
+     "1,221",
+     "1,430",
+     "1,647",
+     "2,484",
+     "2,743",
+     "3,012"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Capital expenditure",
+    "display": [
+     "165",
+     "177",
+     "186",
+     "195",
+     "177",
+     "186",
+     "195",
+     "177",
+     "186",
+     "195"
+    ]
+   },
+   {
+    "band": "Earnings to cash proxy",
+    "label": "Cash proxy (not issuer free cash flow)",
+    "display": [
+     "n.a.",
+     "2,130",
+     "2,372",
+     "2,622",
+     "1,044",
+     "1,244",
+     "1,451",
+     "2,307",
+     "2,557",
+     "2,817"
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Distributions",
+    "display": [
+     "—",
+     "4,348",
+     "0",
+     "0",
+     "4,348",
+     "0",
+     "0",
+     "4,348",
+     "0",
+     "0"
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Debt repayment",
+    "display": [
+     "—",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000",
+     "1,000"
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Opening cash",
+    "display": [
+     "—",
+     "6,261",
+     "3,043",
+     "4,415",
+     "6,261",
+     "1,957",
+     "2,201",
+     "6,261",
+     "3,220",
+     "4,778"
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Closing cash",
+    "display": [
+     "6,261",
+     "3,043",
+     "4,415",
+     "6,037",
+     "1,957",
+     "2,201",
+     "2,653",
+     "3,220",
+     "4,778",
+     "6,595"
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Undrawn facility",
+    "display": [
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a."
+    ]
+   },
+   {
+    "band": "Cash and liquidity",
+    "label": "Accessible liquidity",
+    "display": [
+     "—",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a.",
+     "n.a."
+    ]
+   },
+   {
+    "band": "Debt",
+    "label": "Opening debt",
+    "display": [
+     "—",
+     "24,880",
+     "23,880",
+     "22,880",
+     "24,880",
+     "23,880",
+     "22,880",
+     "24,880",
+     "23,880",
+     "22,880"
+    ]
+   },
+   {
+    "band": "Debt",
+    "label": "Closing debt (carrying value)",
+    "display": [
+     "24,880",
+     "23,880",
+     "22,880",
+     "21,880",
+     "23,880",
+     "22,880",
+     "21,880",
+     "23,880",
+     "22,880",
+     "21,880"
+    ]
+   },
+   {
+    "band": "Debt",
+    "label": "Net debt (all modelled cash deducted)",
+    "display": [
+     "—",
+     "20,837",
+     "18,465",
+     "15,843",
+     "21,923",
+     "20,679",
+     "19,227",
+     "20,660",
+     "18,102",
+     "15,285"
+    ]
+   },
+   {
+    "band": "Credit metrics",
+    "label": "Debt / model earnings",
+    "display": [
+     "—",
+     "5.10x",
+     "4.65x",
+     "4.24x",
+     "6.37x",
+     "5.81x",
+     "5.29x",
+     "4.91x",
+     "4.48x",
+     "4.08x"
+    ]
+   },
+   {
+    "band": "Credit metrics",
+    "label": "Net debt / model earnings",
+    "display": [
+     "—",
+     "4.45x",
+     "3.75x",
+     "3.07x",
+     "5.85x",
+     "5.25x",
+     "4.65x",
+     "4.25x",
+     "3.55x",
+     "2.85x"
+    ]
+   },
+   {
+    "band": "Credit metrics",
+    "label": "Model earnings / cash interest",
+    "display": [
+     "—",
+     "3.14x",
+     "3.43x",
+     "3.76x",
+     "2.28x",
+     "2.50x",
+     "2.74x",
+     "3.26x",
+     "3.56x",
+     "3.90x"
+    ]
+   },
+   {
+    "band": "Credit metrics",
+    "label": "Cash proxy / closing debt",
+    "display": [
+     "—",
+     "8.92%",
+     "10.37%",
+     "11.98%",
+     "4.37%",
+     "5.44%",
+     "6.63%",
+     "9.66%",
+     "11.18%",
+     "12.87%"
+    ]
+   }
+  ],
+  "titles": {
+   "Revenue|FY2025E|Reference": "8849.924",
+   "Closing cash|FY2027E|Downside": "2652.7814596432",
+   "Cash proxy / closing debt|FY2026E|Upside": "0.11177295602622377622377622377622377622"
+  },
+  "notAvailable": [
+   "Not available: Working capital — No reconciled working-capital-only operand supplied",
+   "Not available: Cash proxy (not issuer free cash flow) — Source OCF less capex is a proxy, not issuer FCF",
+   "Not available: Undrawn facility — Borrowing availability does not establish forecast unconditional access",
+   "Not available: Accessible liquidity — Borrowing availability does not establish forecast unconditional access"
+  ],
+  "limits": [
+   "Conditional illustrations; no evidence-supported complete issuer forecast",
+   "No new borrowing/refinancing, acquisition, repurchase or extra distribution; explicit scenario stipulations, not absent-source facts",
+   "Approximate 4348 October event not all FY2025 distributions; 131/132 filing discrepancy remains",
+   "No complete maturity/lease/cash-access schedule, quarterly troughs, quality earnings, separate tax/working-capital drivers or calibrated upside/downside",
+   "Segment-level CP-MODEL mapping/drivers unavailable; no full driver-table publication claim"
+  ]
  }
 }

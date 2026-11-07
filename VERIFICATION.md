@@ -5812,8 +5812,8 @@ Scope: offline gates and a fake-engine rehearsal; no provider was called. Method
   - main's own walk was red (the grouped issuer library hid `.run-list a`; CP-MODEL is now aliased to W-Forecast), so the walk was updated;
   - browser: 123 passed, 0 failed (chromium and firefox); flow check PASS on both engines;
   - quick: PASS (node 260, python 503).
-- Flow-check calibration: `runs/cpos-launch-live-002` gives 1 finding (CP-1 "SOFR + 250 bps" against the source's "2.50%", a conversion not quoted from the source; owner); `runs/cpos-sol-medium-20261105` gives 0.
-- Live walk rehearsal: `--rehearse --cap 12` passed 3 checks with 0 faults; SIGTERM after Start leaves no process.
+- Flow-check calibration: `runs/cpos-launch-live-002` gives 1 finding (CP-1 "SOFR + 250 bps" against the source's "2.50%", a conversion not quoted from the source; owner); `runs/cpos-sol-medium-20261105` gives 1 (CP-2's delivered handoff equals a draft whose review still lists 3 issues; its README records that a faulty campaign checker rejected CP-2 and the response was recovered by hand; owner). The flow check now also ties each accepted handoff to an accepted draft, gates `calculate` results on their operands, faults an empty run, checks upstream order and uses only sources the requests name.
+- Live walk rehearsal: `--rehearse --cap 12` passed 3 checks with 0 faults; SIGTERM, SIGHUP, SIGQUIT, a Ctrl-C to the whole group and SIGKILL after Start leave no server or worker (SIGKILL through a watchdog; it writes no `faults.json`); a call of unknown cost is a fault; the answer key is decided from the request, runs without `PYTHONOPTIMIZE`, and a review screen that lists other modules faults before Start.
 - Not run: the paid live walk (awaits owner approval). The answer key on retained live-002 fails `delivery_changed: view.json`: current delivery code no longer byte-reproduces that retained delivery.
 
 Owner items (predate this change):

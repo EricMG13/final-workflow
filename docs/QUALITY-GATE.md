@@ -129,15 +129,20 @@ a jsdom install, `FW_PLAYWRIGHT_PYTHON` a Python with Playwright (test-only tool
 
 **flow_check.py on a retained run**
 - `python designs/flow_check.py runs/<run> [--sources data/public-corpus/v1/TDG]`; it exits 1 on any fault.
-- Four checks: each upstream handoff a module received equals the accepted one; each source copy
-  hashes to its recorded digest; every number in a handoff appears in what the module read or
-  received; every accepted handoff has a delivered copy, byte-identical.
+- Checks: each upstream handoff a module received equals the accepted one, and arrived in order;
+  each source copy hashes to its recorded digest; every accepted handoff equals an accepted draft;
+  `calculate` results are gated on their operands; every number in a handoff appears in what the
+  module read or received (only the sources its requests name); every accepted handoff has a
+  delivered copy, byte-identical; an empty run is a fault.
 - Numbers are compared as normalised strings: thousands commas, trailing zeros, a unit suffix
   (x, bn, mm, m, k), dates and page lists are stripped, and long calculation results match their
   roundings.
 - A flagged number is a finding to classify, not an automatic defect. Example:
   `runs/cpos-launch-live-002` CP-1 "SOFR + 250 bps" against the source's "2.50%" is a conversion
-  the source does not quote.
+  the source does not quote. Calibration (2026-11-07): live-002 gives 1 finding (that one);
+  `runs/cpos-sol-medium-20261105` gives 1 (CP-2's delivered handoff equals a draft whose review
+  still lists 3 issues; its README records that a faulty campaign checker rejected CP-2 and the
+  response was recovered by hand).
 
 **Paid walk: `designs/live_check.py`**
 - Always rehearse first: `--rehearse --cap 12` is free, uses the fake engine, and labels in its
@@ -155,8 +160,17 @@ a jsdom install, `FW_PLAYWRIGHT_PYTHON` a Python with Playwright (test-only tool
   `--sources data/public-corpus/v1/TDG`; `live_evidence` (calls, models, spend within the cap);
   filed values in the report; and, for sol-medium with CP-0/CP-1/CP-1A, the answer key
   `assert_live_evidence` in `tests/test_cpos_launch.py`.
-- The server and worker are stopped on every exit. Spend is reported from `status.json` and the
-  ledger. Output in `--out`: `faults.json` and `summary.json`.
+- The server and worker are stopped on every exit, including SIGHUP and SIGQUIT, and on SIGKILL
+  or a crash of `live_check` through a watchdog in its own session (it cannot see a hung
+  `live_check`). After a SIGKILL no `faults.json` is written: read `status.json` and
+  `live/calls.jsonl` by hand. Spend is reported from `status.json` and the ledger; a call of
+  unknown cost is counted and recorded as a fault, never as zero. Output in `--out`:
+  `faults.json` and `summary.json`.
+- The answer key runs whenever the request is `sol-medium` with `--modules "CP-1 CP-1A"`, and the
+  review screen must then list exactly CP-0, CP-1 and CP-1A. A mismatch is the key's fault.
+- Owner notes: do not run it backgrounded with `&` (Ctrl-C is ignored there); `FW_PYTHON` needs
+  pytest for the answer key; do not set `PYTHONOPTIMIZE`; other environment secrets reach the
+  server and worker.
 
 **Repair loop**
 1. Read `faults.json` and its artifacts.

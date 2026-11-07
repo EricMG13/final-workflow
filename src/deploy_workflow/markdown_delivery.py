@@ -717,12 +717,12 @@ def coverage_record(
     metadata: dict[str, dict[str, tuple[str, str]]],
     owner_lines: dict[str, dict[str, int]],
     entries: dict[str, list[Binding]],
-    routed: dict[tuple[str, str], str],
+    source_of: dict[tuple[str, str], str],
 ) -> dict[str, Any]:
     """Where each handoff table and prose section went: every block its rows were bound to, in
     binding order (`evidence` for rows no route took). A chart route binds a typed copy of its
-    table, so its routed block leads the list. CP-MODEL is derived from CP-1/CP-2 and has no
-    handoff lines, so it is not in the record."""
+    table; `source_of` maps the copy's id back to the source table. CP-MODEL is derived from
+    CP-1/CP-2 and has no handoff lines, so it is not in the record."""
     modules: dict[str, list[dict[str, Any]]] = {}
     for module in (m for m in module_views if m.module_id in owner_lines):
         lines = owner_lines[module.module_id]
@@ -734,14 +734,11 @@ def coverage_record(
                 "line": lines[t.table_id],
                 "blocks": list(
                     dict.fromkeys(
-                        [
-                            *([r] if (r := routed.get((module.module_id, t.table_id))) else []),
-                            *(
-                                b.block_id
-                                for b in entries[module.module_id]
-                                if b.fact_coord.table_id == t.table_id
-                            ),
-                        ]
+                        b.block_id
+                        for b in entries[module.module_id]
+                        if source_of.get((module.module_id, b.fact_coord.table_id or ""))
+                        == t.table_id
+                        or b.fact_coord.table_id == t.table_id
                     )
                 ),
             }
@@ -751,22 +748,21 @@ def coverage_record(
     return {"schema": "delivery-coverage/1", "modules": modules}
 
 
-TABLE_SEPARATOR = re.compile(r"\|[ \t]*:?-{3,}:?[ \t]*(?:\|[ \t]*:?-{3,}:?[ \t]*)*\|?[ \t]*")
-
-
 def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bool]]:
     """Each heading line of level two or deeper (outside fences and comments) with content before
     the next heading of any level, as (line, text, has non-table content, has table lines). A
-    line inside a fence is content; a pipe-line run with a separator second line is a table."""
+    line inside a fence is content; a pipe line followed by a separator line, as the reader reads
+    them, is a table."""
     found: dict[int, tuple[str, bool, bool]] = {}
     current: tuple[int, str] | None = None
     fenced = False
     run: list[str] = []
+    from deploy_workflow.model_handoff_delivery import TABLE_SEPARATOR
 
     def flush() -> None:
         nonlocal run
         if current is not None and run:
-            is_table = len(run) >= 3 and TABLE_SEPARATOR.fullmatch(run[1].strip()) is not None
+            is_table = any(TABLE_SEPARATOR.fullmatch(nxt) for nxt in run[1:])
             text, prose, tabular = found.get(current[0], (current[1], False, False))
             found[current[0]] = (text, prose or not is_table, tabular or is_table)
         run = []
@@ -890,7 +886,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
         metadata["CP-MODEL"] = {t.table_id: (t.title, "table") for t in publication.module.tables}
     entries: dict[str, list[Binding]] = {m.module_id: [] for m in module_views}
     used: set[tuple[str, str]] = set()
-    routed: dict[tuple[str, str], str] = {}
+    source_of: dict[tuple[str, str], str] = {}  # typed chart copy -> its source table
     yield_charts: dict[str, tuple[str, tuple[str, ...], tuple[_ChartPoint, ...]]] = {}
     strip_charts: dict[
         str, dict[str, tuple[str, str, str, tuple[str, ...], tuple[_ChartPoint, ...]]]
@@ -911,7 +907,6 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
                 f"{route.module_id}/{route.heading}/{route.table_header}"
             )
         table = tables[0]
-        routed.setdefault((module.module_id, table.table_id), route.block_id)
         facts = {f.fact_id: f for f in module.facts}
         selected = [
             r
@@ -931,6 +926,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
             if module.module_id != "CP-MODEL":
                 module_views[module_views.index(module)] = updated
                 typed = updated.tables[-1]
+                source_of[(module.module_id, typed.table_id)] = table.table_id
                 metadata[module.module_id][typed.table_id] = (route.heading, "chart")
                 entries[module.module_id].append(
                     Binding(
@@ -955,6 +951,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
             updated, series, points = _yield_observations(module, table, request.run.as_of)
             module_views[module_views.index(module)] = updated
             typed = updated.tables[-1]
+            source_of[(module.module_id, typed.table_id)] = table.table_id
             metadata[module.module_id][typed.table_id] = (route.heading, "chart")
             entries[module.module_id].append(
                 Binding(
@@ -1185,7 +1182,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
     anchor = '<div id="call-root"></div>'
     if rendered.count(anchor) != 1:
         raise ValueError("Existing renderer scope-banner location changed")
-    record_of = coverage_record(module_views, metadata, owner_lines, entries, routed)
+    record_of = coverage_record(module_views, metadata, owner_lines, entries, source_of)
     check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
     files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(

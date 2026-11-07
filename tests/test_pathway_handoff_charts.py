@@ -343,3 +343,22 @@ def test_current_live_pair_yields_use_exact_rounded_fractions_without_repricing(
             orientation="period-rows",
             chart_unit="%",
         )
+
+
+@pytest.mark.parametrize("before", [True, False])
+def test_coverage_lists_the_chart_block_whichever_route_comes_first(tmp_path, before):
+    manifest = job(tmp_path)
+    data = json.loads(manifest.read_text())
+    routes = data["layout"]["routes"]
+    index = next(i for i, r in enumerate(routes) if r["module_id"] == "CP-4")
+    extra = {
+        "module_id": "CP-4",
+        "heading": "Maturity",
+        "kind": "table",
+        "block_id": "company-profile",
+    }
+    routes.insert(index if before else index + 1, extra)
+    manifest.write_text(json.dumps(data))
+    entries = json.loads(delivery_files(manifest)["coverage.json"])["modules"]["CP-4"]
+    table = next(e for e in entries if e["kind"] == "table")
+    assert sorted(table["blocks"]) == ["company-profile", "model-chart-strip"]

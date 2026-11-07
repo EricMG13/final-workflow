@@ -648,3 +648,24 @@ def test_content_under_a_level_four_heading_is_checked():
     raw = "## A\n#### Deep\nText.\n"
     with pytest.raises(ValueError, match="M line 2 Deep is not presented"):
         check_coverage({"M": raw}, {"modules": {"M": []}})
+
+
+@pytest.mark.parametrize(
+    "findings",
+    [
+        "### F\n| Metric | FY2023 |\n|---|---\n| Revenue | 1 |\n",
+        "### F\n| Metric | FY2023 |\n|\t---\t|\t---\t|\n| Revenue | 1 |\n",
+        "### F\n| Metric | FY2023 |\n|---|---| \n| Revenue | 1 |\n",
+    ],
+)
+def test_pipe_lines_the_reader_does_not_take_as_a_table_are_prose_not_a_missing_table(
+    tmp_path, findings
+):
+    # Expected from the reader's rule (separator `|[ :|-]+|`, unstripped): no table in any case.
+    deliver(tmp_path, handoff("Scope.", findings), [{"heading": "Request", "kind": "prose"}])
+
+
+def test_a_stray_pipe_line_before_a_real_table_still_finds_the_table():
+    raw = "## A\n| stray\n| x | y |\n|---|---|\n| 1 | 2 |\n"
+    with pytest.raises(ValueError, match=r"M line 1 A is not presented \(table\)"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})

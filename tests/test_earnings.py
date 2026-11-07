@@ -807,3 +807,15 @@ def test_trailing_ratio_period_on_a_quarter_is_the_ratios_own():
 )
 def test_trailing_period_elsewhere_still_refuses(fact_id, period):
     refusal(change(fixture(), fact_id, period=period), "incompatible_dimensions")
+
+
+def test_negative_prior_does_not_change_the_other_growth_rules():
+    # S11-C06 adversarial. A margin never has growth (stays not_applicable, no reason); revenue
+    # shares the rule with ebitda; a zero prior keeps its own reason.
+    module = change(fixture(), "value.ebitda_margin.q3-2025", amount=Decimal("-0.10"))
+    module = change(module, "value.revenue.q3-2025", amount=Decimal(-20))
+    report = build(module)
+    p = point(report, "ebitda_margin")
+    assert p.growth is None and p.growth_status == "not_applicable" and p.reason is None
+    p = point(report, "revenue")
+    assert p.growth is None and p.growth_status == "missing" and p.reason == "NEGATIVE_DENOMINATOR"

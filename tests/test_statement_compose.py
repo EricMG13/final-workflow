@@ -825,3 +825,14 @@ def test_an_ocr_unit_whose_checked_totals_are_all_nil_in_a_column_composes_nothi
     result = _ocr(nil, sha, "BS", columns, row_map, ocr=True)
     assert result.lines == ()
     assert {i.reason for i in result.left_to_model if i.line_no in row_map} >= {sc.OCR_UNCHECKED}
+
+
+def test_a_zero_outflow_magnitude_row_adds_nothing_to_a_failing_check() -> None:
+    # S11-C05 adversarial. By hand: 400 + (-0) - 100 = 300 != 50 and 300 + 0 - 50 = 250 != 50.
+    lines = (MAGNITUDES[0], "Net cash used in investing activities 0 0", *MAGNITUDES[2:])
+    result = _magnitude_cfs(lines, ("signed", "outflow_magnitude", "outflow_magnitude", "signed"))
+    assert [(i.period_id, i.lhs, i.rhs) for i in result.issues] == [
+        ("fy2024", Decimal(300), Decimal(50)),
+        ("fy2023", Decimal(250), Decimal(50)),
+    ]
+    assert result.lines == ()

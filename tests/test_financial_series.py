@@ -630,3 +630,45 @@ def test_four_quarters_not_q1_to_q4_of_one_year_get_the_unsupported_reason(label
 def test_contradictory_quarter_identities_still_fail_closed(labels, starts):
     with pytest.raises(ValueError, match="QUARTER"):
         cp1_chart_series(_relabel(fixture(), labels, starts))
+
+
+def test_an_alias_facility_missing_from_the_selected_quarter_is_no_complete_snapshot():
+    # S11-C03 adversarial. By hand: the FY 2025 alias (ending 2025-12-31 like q4-2025) carries a
+    # facility "revolver" that the selected quarter lacks, so the population {term-loan,
+    # revolver} is not what q4-2025 supplies: S.4 is unsupported, never a one-facility wall.
+    module = _fy_alias(fixture(), facility=False)
+    extra = []
+    for f in fixture().facts:
+        if f.row_id != "T4.18.q4-2025":
+            continue
+        updates = {
+            "fact_id": f.fact_id.replace("q4-2025", "fy-2025-revolver"),
+            "row_id": "T4.18.fy-2025-revolver",
+            "period": "fy-2025",
+        }
+        if f.field == "period_id":
+            updates["text"] = "fy-2025"
+        if f.field == "facility_id":
+            updates["text"] = "revolver"
+        extra.append(f.model_copy(update=updates))
+    module = module.model_copy(update={"facts": (*module.facts, *extra)})
+    figures = cp1_chart_series(module)
+    assert figures[3].reason == "No complete current facility snapshot is supplied."
+    assert figures[3].points == ()
+    assert [f.reason for f in figures if f.fig_id != "S.4"] == [None] * 4
+
+
+def test_fiscal_year_labels_of_another_format_across_a_year_end_get_the_reason():
+    # S11-C04 adversarial: "FY2025" Q4 then "FY2026" Q1-Q3, contiguous dates: trailing four.
+    module = _relabel(
+        fixture(), (("FY2025", "Q4"), ("FY2026", "Q1"), ("FY2026", "Q2"), ("FY2026", "Q3"))
+    )
+    figures = cp1_chart_series(module)
+    assert [f.reason for f in figures if f.fig_id != "S.4"] == [SCOPE] * 4
+    # The same labels in the normal Q-prefixed form of one year still chart (nothing weakened).
+    ok = cp1_chart_series(
+        _relabel(
+            fixture(), (("FY2025", "Q1"),) + (("FY2025", "Q2"), ("FY2025", "Q3"), ("FY2025", "Q4"))
+        )
+    )
+    assert [f.reason for f in ok] == [None] * 5

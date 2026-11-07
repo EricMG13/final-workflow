@@ -67,3 +67,39 @@ def test_staging_appends_context_dates_for_a_spec_valid_document(tmp_path: Path)
 def test_malformed_context_date_is_a_typed_refusal(tmp_path: Path) -> None:
     with pytest.raises(SourceUnreadable, match="inline XBRL"):
         _stage(tmp_path, _doc(start="2024-13-01").encode())
+
+
+def test_several_facts_without_ids_are_all_kept() -> None:
+    # Two id-less facts must not collide on the empty id; a duplicate refusal needs a real id.
+    document = parse(_doc(fact=_fact("") + _fact("") + _fact('id="f1"')).encode())
+    assert [f.fact_id for f in document.facts] == ["", "", "f1"]
+    assert [f.amount() for f in document.facts] == [1234000000] * 3
+
+
+def test_a_bom_with_a_declared_charset_reads_as_utf8_like_convert_html() -> None:
+    raw = b"\xef\xbb\xbf" + _doc(charset="windows-1252", fact="company’s").encode("utf-8")
+    assert "company’s" in convert_html(raw).text
+    assert period_lines(parse(raw)) == (_LINE,)
+
+
+def test_a_declared_charset_that_cannot_decode_is_a_value_error() -> None:
+    # 0x81 is unassigned in windows-1252: convert_html and parse refuse it the same way.
+    raw = _doc(charset="windows-1252", fact="x\x81").encode("latin-1")
+    for read in (convert_html, parse):
+        with pytest.raises(ValueError, match="windows-1252"):
+            read(raw)
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda d: d.replace('scale="6"', 'scale="six"'),
+        lambda d: d.replace("<xbrli:entity>", '<xbrli:context id="inner"><xbrli:entity>', 1),
+        lambda d: d.replace(
+            '<xbrli:unit id="usd">', '<xbrli:unit id="usd"></xbrli:unit><xbrli:unit id="usd">'
+        ),
+    ],
+)
+def test_other_malformed_inline_xbrl_is_a_typed_refusal(tmp_path: Path, mutate) -> None:
+    with pytest.raises(SourceUnreadable, match="inline XBRL"):
+        _stage(tmp_path, mutate(_doc(fact=_fact('id="f1"'))).encode())

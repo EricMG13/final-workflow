@@ -177,14 +177,10 @@ def _quarter_scope(quarters: tuple[_Period, ...]) -> str | None:
         a >= b for a, b in pairwise(labels)
     ):
         raise ValueError("Ambiguous QUARTER identities")
-    previous_end = None
-    contiguous = True
-    for period in quarters:
-        start = date.fromisoformat(_text(period.row["start_date"]))
-        if start > period.end or (previous_end is not None and start <= previous_end):
-            raise ValueError("Overlapping or inverted QUARTER periods")
-        contiguous &= previous_end is None or start == previous_end + timedelta(days=1)
-        previous_end = period.end
+    spans = [(date.fromisoformat(_text(p.row["start_date"])), p.end) for p in quarters]
+    if any(start > end for start, end in spans) or any(b[0] <= a[1] for a, b in pairwise(spans)):
+        raise ValueError("Overlapping or inverted QUARTER periods")
+    contiguous = all(b[0] == a[1] + timedelta(days=1) for a, b in pairwise(spans))
     year = labels[0][0]
     if contiguous and labels == [(year, n) for n in ("1", "2", "3", "4")]:
         return None

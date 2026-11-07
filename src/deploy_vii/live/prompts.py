@@ -528,7 +528,7 @@ CP2_BASIS_RULE = (
 CP2_SIGNALS_RULE = (
     "While the CONTEXT block lists any `cp1a_signals`, or CP-1A is blocked, the assessment's "
     "`confidence` is below High. Each signal whose `restate` is true is restated: its ref is in "
-    "the `cp1a_refs` of a `gaps` row."
+    "the `cp1a_refs` of a `gaps` row, of severity Critical when the signal's status is Critical."
 )
 CP2_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: digits only in period, filing and section labels and "

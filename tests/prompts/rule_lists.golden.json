@@ -355,7 +355,7 @@
    },
    {
     "id": "credit_synthesis.b",
-    "statement": "b. While the CONTEXT block lists any `cp1a_signals`, or CP-1A is blocked, the assessment's `confidence` is below High. Each signal whose `restate` is true is restated: its ref is in the `cp1a_refs` of a `gaps` row.",
+    "statement": "b. While the CONTEXT block lists any `cp1a_signals`, or CP-1A is blocked, the assessment's `confidence` is below High. Each signal whose `restate` is true is restated: its ref is in the `cp1a_refs` of a `gaps` row, of severity Critical when the signal's status is Critical.",
     "checks": [
      "fn:deploy_vii.cp2_synthesis:_propagation_issues"
     ]

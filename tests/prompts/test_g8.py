@@ -19,6 +19,7 @@ from merge_strip import MERGE_REV, MERGE_SPANS, PRE_MERGE_REV, SPAN_TOKENS, undo
 from p5_strip import undo_p5
 from p5t6_strip import undo_p5t6_context, undo_p5t6_wording
 from prompt_support import OLD_EVIDENCE_RULE, request_for
+from s06_strip import undo_s06
 from s09_strip import undo_s09
 from turns_strip import undo_turns
 
@@ -147,6 +148,7 @@ def test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message(
     system = undo_invoke(step_id, system)  # the pack-tools budget (32 back to 16)
     system = undo_p5t6_wording(step_id, system)  # Phase 5 Task 6 (P5T6-R1): CP-4 wording
     system = undo_s09(step_id, system)  # S09-A02/A03: CP-4 rule d's threshold sentence
+    system = undo_s06(step_id, system)  # S06-A06: CP-2 rule b's Critical-severity clause
     system = undo_coverage(step_id, system)  # CP1H-R22: the financials coverage line
     system = undo_absence(step_id, system)  # CP1H-R23: the source_context absence line
     system = undo_unit_maps(step_id, system)  # CP1H-R23.16: the financials unit maps

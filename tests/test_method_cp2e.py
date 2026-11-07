@@ -811,7 +811,9 @@ _GBP_ON_USD = _EUR_ON_USD.replace("EUR", "GBP")
         ("GBPm;", (_GBP_ON_USD,)),
         ("NAVm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
         ("XUSDm;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
-        ("A$m;", ("earnings.ebitda: page:2 does not state the unit of its amounts",)),
+        # Second review (units): "A$" names the Australian dollar, so on this USD book the page
+        # is refused for its currency (it was refused before as stating no unit).
+        ("A$m;", (_EUR_ON_USD.replace("EUR (EUR)", "A$ (AUD)"),)),
         ("(USDm);", ()),
         (
             "thousands of customers;",
@@ -917,6 +919,58 @@ def test_unit_statement_euro_symbol_m_is_not_accepted_on_a_euro_book() -> None:
     assert cp2e.validate_macro_fx(submission=sub, pages=pages, currency="EUR") == (
         "earnings.ebitda: page:2 does not state the unit of its amounts",
     )
+
+
+# Second review (units), hand-derived: the currency is read in every shape the scale check reads
+# ("<currency> in millions", "<code> (in millions)", "millions of <currency>" in any letter case),
+# a prefixed dollar names its own currency and an unknown one names none recognised. Each
+# statement replaces page 2's "<book>; amounts in millions;"; None means the page is accepted.
+_REVIEW_CASES = [
+    ("€ in millions;", "USD", "€ (EUR)"),
+    ("(£ in millions);", "USD", "£ (GBP)"),
+    ("Euros in millions;", "USD", "Euros (EUR)"),
+    ("EUR (in millions);", "USD", "EUR (EUR)"),
+    ("¥ in millions;", "USD", "¥ (JPY/CNY)"),
+    ("in millions of Japanese yen;", "USD", "Japanese yen (JPY)"),
+    ("in millions of Canadian dollars;", "USD", "Canadian dollars (CAD)"),
+    ("C$ millions;", "USD", "C$ (CAD)"),
+    ("HK$ millions;", "USD", "HK$ (HKD)"),
+    ("J$ millions;", "USD", "J$ (unrecognised)"),
+    ("in millions of U.S. Dollars;", "EUR", "U.S. Dollars (USD)"),
+    ("U.S. dollars in millions;", "EUR", "U.S. dollars (USD)"),
+    ("US$ in millions;", "EUR", "US$ (USD)"),
+    ("$ in millions;", "EUR", "$ (USD/CAD/AUD/NZD/SGD/HKD)"),
+    ("U.S.$ millions;", "CAD", "U.S.$ (USD)"),
+    ("U.S. $ millions;", "CAD", "U.S. $ (USD)"),
+    ("(EUR) in millions;", "USD", "EUR (EUR)"),
+    ("millions of YEN;", "USD", "YEN (JPY)"),
+    # the same statements on their own book are accepted
+    ("€ in millions;", "EUR", None),
+    ("EUR (in millions);", "EUR", None),
+    ("in millions of Canadian dollars;", "CAD", None),
+    ("C$ millions;", "CAD", None),
+    ("$ millions;", "CAD", None),  # the bare "$" is the dollar family (ruling)
+    ("U.S.$ millions;", "USD", None),
+    ("in millions of U.S. Dollars;", "USD", None),
+    ("millions of YEN;", "JPY", None),
+    # The whole page is read: a prose "GBP millions" refuses a USD page (fail closed), while an
+    # amount between the code and a singular "million" is no unit statement.
+    ("USD; amounts in millions; GBP millions of revenue;", "USD", "GBP (GBP)"),
+    ("USD; amounts in millions; a EUR 300 million term loan;", "USD", None),
+]
+
+
+@pytest.mark.parametrize(("statement", "book", "named"), _REVIEW_CASES)
+def test_unit_statement_currency_review_cases(statement: str, book: str, named: str | None) -> None:
+    sub, pages = _book(book)
+    assert f"{book}; amounts in millions;" in pages["page:2"]
+    pages["page:2"] = pages["page:2"].replace(f"{book}; amounts in millions;", statement)
+    issue = (
+        f"earnings.ebitda: page:2 states its unit in {named}, but the reporting currency is "
+        f"{book}: restate the unit in {book}"
+    )
+    want = () if named is None else (issue,)
+    assert cp2e.validate_macro_fx(submission=sub, pages=pages, currency=book) == want
 
 
 @pytest.mark.parametrize(

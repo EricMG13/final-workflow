@@ -1870,6 +1870,11 @@ def test_partly_supported_recipe_text_states_the_comma_space_grammar() -> None:
         (" EUR;", False),
         (" eur;", False),
         (" xyz;", True),  # three letters, not an ISO code
+        (" NET;", True),
+        # Second review: a clause that is an English word and an ISO code is a code (ALL is the
+        # lek, TOP the pa'anga), so the line is refused (fail closed, as ruled).
+        (" all;", False),
+        (" top;", False),
         (" amounts in thousands;", False),  # a second scale clause still refuses
     ],
 )

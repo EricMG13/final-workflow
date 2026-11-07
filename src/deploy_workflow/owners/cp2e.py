@@ -636,7 +636,10 @@ _CELLS = re.compile(r"  +")  # statement cells are separated by two or more spac
 # Ruling (units): a unit statement that names a currency other than the book's reporting currency
 # is refused (`_unit_currencies`), in word, code and symbol forms; one that names none keeps the
 # scale-only reading. "$" is the dollar family (a CAD or AUD book may print "$ millions"), "US$"
-# and "U.S. dollars" are USD, "¥" is JPY or CNY.
+# and "U.S. dollars" are USD, "¥" is JPY or CNY. Review: the currency is read in every shape the
+# scale is ("€ in millions", "EUR (in millions)", "millions of U.S. Dollars"), a prefixed dollar
+# ("C$", "A$", "HK$") names its own currency, and an unknown one ("J$") names none recognised, so
+# it is refused on every book (fail closed).
 _UNIT_WORDS = re.compile(
     r"(?<!shares )(?<!share )(?<!not )\bin\s+(thousands|millions|billions)\b"
     r"|(?:(?-i:\b[A-Z]{3}\s+)|[$€£]\s*)(thousands|millions|billions)\b"
@@ -646,42 +649,70 @@ _UNIT_WORDS = re.compile(
 )
 _MILLIONS_SYMBOL = re.compile(r"(?<![A-Za-z0-9$])(?:US\$|\$|USD)m(?![A-Za-z0-9])")
 _DOLLARS = ("USD", "CAD", "AUD", "NZD", "SGD", "HKD")
-_SYMBOL_CODES = {
-    "US$": ("USD",),
+# What a unit statement's currency names, by its spelling case-folded without dots or spaces
+# ("U.S. Dollars" -> "usdollars"); a three-capital-letter ISO 4217 code names itself.
+_NAMED_CURRENCY: dict[str, tuple[str, ...]] = {
     "$": _DOLLARS,
+    "dollars": _DOLLARS,
+    "us$": ("USD",),
+    "usdollars": ("USD",),
+    "unitedstatesdollars": ("USD",),
+    "c$": ("CAD",),
+    "ca$": ("CAD",),
+    "canadiandollars": ("CAD",),
+    "a$": ("AUD",),
+    "au$": ("AUD",),
+    "aus$": ("AUD",),
+    "australiandollars": ("AUD",),
+    "nz$": ("NZD",),
+    "newzealanddollars": ("NZD",),
+    "s$": ("SGD",),
+    "singaporedollars": ("SGD",),
+    "hk$": ("HKD",),
+    "hongkongdollars": ("HKD",),
+    "r$": ("BRL",),
+    "mx$": ("MXN",),
+    "nt$": ("TWD",),
     "€": ("EUR",),
+    "euro": ("EUR",),
+    "euros": ("EUR",),
     "£": ("GBP",),
+    "pounds": ("GBP",),
+    "britishpounds": ("GBP",),
+    "sterling": ("GBP",),
+    "poundssterling": ("GBP",),
     "¥": ("JPY", "CNY"),
+    "yen": ("JPY",),
+    "japaneseyen": ("JPY",),
 }
-_WORD_CURRENCY = {"euro": ("EUR",), "euros": ("EUR",), "pounds": ("GBP",), "yen": ("JPY",)}
 _UNIT_SCALE = r"(?i:thousands|millions|billions)"
-_UNIT_CURRENCY = re.compile(
-    rf"(?<![A-Za-z0-9$])(?P<sym>US\$|[$€£¥])\s*(?:{_UNIT_SCALE}\b|m(?![A-Za-z0-9]))"
-    rf"|(?<![A-Za-z])(?P<code>[A-Z]{{3}})(?:\s+{_UNIT_SCALE}\b|m(?![A-Za-z0-9])"
-    rf"|\s*[;,]?\s*(?i:(?:amounts\s+)?in)\s+{_UNIT_SCALE}\b)"
-    rf"|\b{_UNIT_SCALE}\s+of\s+(?:(?P<us>(?:U\.S\.|US)\s+dollars)"
-    rf"|(?P<word>(?i:euros?|pounds|yen|dollars))\b|(?P<code2>[A-Z]{{3}})\b)"
+_UNIT_CUR = (  # a currency word, a (prefixed) symbol or a three-capital-letter code
+    r"(?i:(?:(?:U\.?S\.?|United\s+States|Canadian|Australian|New\s+Zealand|Singapore|Hong\s+Kong"
+    r"|British|Japanese)\s+)?(?:dollars|euros?|(?:pounds\s+)?sterling|pounds|yen))"
+    r"|(?:U\.?S\.?\s?|[A-Z]{1,3})?\$|[€£¥]|[A-Z]{3}"
+)
+_UNIT_CURRENCY = re.compile(  # the currency before the scale (or "m"), or after "<scale> of"
+    rf"(?<![A-Za-z0-9$.])(?P<cur>{_UNIT_CUR})"
+    rf"(?:\s*[;,()]?\s*(?:(?i:(?:amounts\s+)?in)\s+)?{_UNIT_SCALE}\b|\s*m(?![A-Za-z0-9]))"
+    rf"|\b{_UNIT_SCALE}\s+of\s+(?P<of>{_UNIT_CUR})(?![A-Za-z])"
 )
 _AMBIGUOUS_CODES = frozenset({"ALL", "AMD", "TOP", "CUP", "BOB", "SOS", "BAM"})  # words and tickers
 
 
 def _unit_currencies(page: str) -> list[tuple[str, tuple[str, ...]]]:
-    """The currencies the page's unit statements name: (text, candidate ISO codes) each."""
+    """The currencies the page's unit statements name: (text, candidate ISO codes) each; an
+    unknown prefixed dollar ("J$") or currency phrase names none recognised: ()."""
     found: list[tuple[str, tuple[str, ...]]] = []
     for m in _UNIT_CURRENCY.finditer(page):
-        code = m["code"] or m["code2"]
-        if m["sym"]:
-            found.append((m["sym"], _SYMBOL_CODES[m["sym"]]))
-        elif m["us"]:
-            found.append((m["us"], ("USD",)))
-        elif m["word"]:
-            word = m["word"].lower()
-            found.append((m["word"], _WORD_CURRENCY.get(word, _DOLLARS)))
-        elif code in ISO_4217 and not (
-            code in _AMBIGUOUS_CODES and re.search(r"\bin\b", m.group(), re.IGNORECASE)
+        text = m["cur"] or m["of"]
+        named = _NAMED_CURRENCY.get(re.sub(r"[\s.]", "", text.casefold()))
+        if named is not None or not re.fullmatch(r"[A-Z]{3}", text):
+            found.append((text, named or ()))
+        elif text in ISO_4217 and not (
+            text in _AMBIGUOUS_CODES and re.search(r"\bin\b", m.group(), re.IGNORECASE)
         ):
             # a word that is also a code ("ALL amounts in millions") names one only before a scale
-            found.append((code, (code,)))
+            found.append((text, (text,)))
     return found
 
 
@@ -876,8 +907,9 @@ class _Check:
         for text, codes in _unit_currencies(page):
             if self.currency not in codes:
                 return (
-                    f"{locator} states its unit in {text} ({'/'.join(codes)}), but the reporting "
-                    f"currency is {self.currency}: restate the unit in {self.currency}"
+                    f"{locator} states its unit in {text} ({'/'.join(codes) or 'unrecognised'}), "
+                    f"but the reporting currency is {self.currency}: restate the unit in "
+                    f"{self.currency}"
                 )
         if not found:
             return f"{locator} does not state the unit of its amounts"

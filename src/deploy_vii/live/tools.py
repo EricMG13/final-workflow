@@ -573,7 +573,8 @@ def _range_of(item: str) -> tuple[int, int]:
 def _line_table(spans: Mapping[int, Span], item: str, source_id: str) -> ExtractedTable:
     """The table of the range `item` (`line:N-M`) of a line source (B22): spans N..M joined by
     newlines and extracted as one text, each row then rebased to its own line (`line_no` N + rel
-    - 1, locator `line:K`). A missing line or a span holding a newline is a refused call."""
+    - 1, locator `line:K`), and so are its label candidates, the omitted lines and the source
+    lines. A missing line or a span holding a newline is a refused call."""
     first, last = _range_of(item)
     texts = []
     for number in range(first, last + 1):
@@ -585,13 +586,21 @@ def _line_table(spans: Mapping[int, Span], item: str, source_id: str) -> Extract
         texts.append(span.text)
     table = extract_statement_lines("\n".join(texts), item, source_id=source_id)
     rows = tuple(
-        replace(line, line_no=first + line.line_no - 1, locator=f"line:{first + line.line_no - 1}")
+        replace(
+            line,
+            line_no=first + line.line_no - 1,
+            locator=f"line:{first + line.line_no - 1}",
+            label_candidates=tuple(
+                replace(part, line_no=first + part.line_no - 1) for part in line.label_candidates
+            ),
+        )
         for line in table.lines
     )
+    omitted = tuple(replace(line, line_no=first + line.line_no - 1) for line in table.omitted)
     source_lines = tuple(
         replace(line, line_no=first + line.line_no - 1) for line in table.source_lines
     )
-    return replace(table, lines=rows, source_lines=source_lines)
+    return replace(table, lines=rows, omitted=omitted, source_lines=source_lines)
 
 
 def extracted_body(table: ExtractedTable) -> str:

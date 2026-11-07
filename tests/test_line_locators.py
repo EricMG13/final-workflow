@@ -564,3 +564,31 @@ def test_the_read_tool_description_states_32768_bytes() -> None:
     specs = live_tools.tool_specs("source_readiness", "pack")
     read = next(spec for spec in specs if spec["function"]["name"] == live_tools.READ)
     assert "at most 200 lines totalling 32768 bytes" in read["function"]["description"]
+
+
+def test_a_line_range_rebases_label_candidates_and_omitted_lines() -> None:
+    # S14-C02: every line number of a `line:100-106` table is a source line. Expected by hand:
+    # the range's relative line k is source line 99 + k, so "Revenue from contracts" (relative 4)
+    # is line 103 and "with customers" (5) line 104; the percent row (7) is omitted at line 106.
+    texts = {
+        100: "Consolidated Statement of Operations",
+        101: "(in thousands)                     2024        2023",
+        102: "",
+        103: "Revenue from contracts",
+        104: "  with customers                  1,234       1,100",
+        105: "Cost of revenue                    (500)       (450)",
+        106: "Gross margin                       12.5%       11.0%",
+    }
+    spans = {n: Span(locator=f"line:{n}", text=text) for n, text in texts.items()}
+    table = live_tools._line_table(spans, "line:100-106", "S1")
+    rows = [
+        (r.line_no, r.locator, [(p.line_no, p.text) for p in r.label_candidates])
+        for r in table.lines
+    ]
+    assert rows == [
+        (104, "line:104", [(103, "Revenue from contracts"), (104, "with customers")]),
+        (105, "line:105", [(105, "Cost of revenue")]),
+    ]
+    assert [(o.line_no, o.text) for o in table.omitted] == [(106, texts[106])]
+    body = live_tools.extracted_body(table)
+    assert '[{"line_no":103,"text":"Revenue from contracts"},{"line_no":104,' in body

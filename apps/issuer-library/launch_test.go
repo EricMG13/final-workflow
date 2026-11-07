@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"errors"
-	"flag"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -235,7 +233,7 @@ func TestSecretComparisonsAreConstantTime(t *testing.T) {
 }
 
 // C03 adversarial: cookies of another port or instance, a wrong or truncated value, the ticket in a
-// Referer, cookie or header, a cross-site request carrying the valid cookie, path tricks on /files
+// Referer, cookie or header, a cross-site or same-site request carrying the valid cookie, path tricks on /files
 // and on the two exempt paths, and a shadowing cookie. Expected by hand: 403 for each, except the
 // last (the valid cookie is among those sent), and the ticket is still unspent at the end.
 func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
@@ -275,6 +273,7 @@ func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
 	valid := cookie(name, app.session)
 	for label, change := range map[string]func(*http.Request){
 		"cross-site fetch":      func(r *http.Request) { valid(r); r.Header.Set("Sec-Fetch-Site", "cross-site") },
+		"same-site fetch":       func(r *http.Request) { valid(r); r.Header.Set("Sec-Fetch-Site", "same-site") },
 		"foreign Origin":        func(r *http.Request) { valid(r); r.Header.Set("Origin", "http://attacker.invalid") },
 		"another port's Origin": func(r *http.Request) { valid(r); r.Header.Set("Origin", "http://127.0.0.1:54322") },
 		"sandboxed Origin":      func(r *http.Request) { valid(r); r.Header.Set("Origin", "null") },
@@ -309,12 +308,14 @@ func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
 	if w := send("/api/catalogue", shadowed); w.Code != 200 {
 		t.Errorf("a planted cookie of the same name shadowed the valid one: %d", w.Code)
 	}
-	crossLaunch := httptest.NewRequest("GET", "http://"+app.host+"/launch?ticket="+ticket, nil)
-	crossLaunch.Header.Set("Sec-Fetch-Site", "cross-site")
-	w := httptest.NewRecorder()
-	app.ServeHTTP(w, crossLaunch)
-	if w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
-		t.Errorf("cross-site launch: %d %q", w.Code, w.Header().Get("Set-Cookie"))
+	for _, site := range []string{"cross-site", "same-site"} {
+		foreignLaunch := httptest.NewRequest("GET", "http://"+app.host+"/launch?ticket="+ticket, nil)
+		foreignLaunch.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, foreignLaunch)
+		if w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%s launch: %d %q", site, w.Code, w.Header().Get("Set-Cookie"))
+		}
 	}
 	if w := launchRequest(app, "GET", "?ticket="+ticket); w.Code != http.StatusSeeOther {
 		t.Fatalf("the ticket was spent by a refused request: %d", w.Code)
@@ -433,15 +434,10 @@ func freePort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// runLauncher runs run() as a launch of the executable with arguments; flags and os.Args are
-// restored afterwards.
+// runLauncher runs run() as a launch of the executable with arguments.
 func runLauncher(t *testing.T, arguments ...string) error {
 	t.Helper()
-	savedArgs, savedFlags := os.Args, flag.CommandLine
-	defer func() { os.Args, flag.CommandLine = savedArgs, savedFlags }()
-	flag.CommandLine = flag.NewFlagSet("issuer-library", flag.ContinueOnError)
-	os.Args = append([]string{"issuer-library"}, arguments...)
-	return run()
+	return run(arguments)
 }
 
 // captureStdout sends os.Stdout to a pipe until the returned function is called, which restores it
@@ -460,109 +456,6 @@ func captureStdout(t *testing.T) func() string {
 		os.Stdout = saved
 		writer.Close()
 		return <-read
-	}
-}
-
-// C03 relaunch, through run() as the executable runs it. Expected by hand: the first launch opens
-// the browser once, at http://127.0.0.1:<port>/launch?ticket=<64 hex>, and prints only the address;
-// a second launch (with and without --no-browser) finds its port taken, asks /health, sees its own
-// instance and returns errAlreadyRunning without opening anything; with --workspace it returns the
-// workspace message. The first instance keeps working, and library.log never holds a secret.
-func TestRelaunchReportsTheRunningLibraryAndOpensNoWindow(t *testing.T) {
-	saved, savedLog := launchBrowser, log.Writer()
-	t.Cleanup(func() { launchBrowser = saved; log.SetOutput(savedLog) })
-	opened := make(chan string, 4)
-	launchBrowser = func(url string) error { opened <- url; return nil }
-	state, workspace, port := t.TempDir(), t.TempDir(), freePort(t)
-	arguments := []string{"-state-dir", state, "-port", strconv.Itoa(port)}
-	stdout := captureStdout(t)
-	restored := false
-	defer func() {
-		if !restored {
-			stdout()
-		}
-	}()
-	first := make(chan error, 1)
-	go func() { first <- runLauncher(t, append(arguments, "-workspace", workspace)...) }()
-	var launch string
-	select {
-	case launch = <-opened:
-	case err := <-first:
-		t.Fatalf("first launch ended: %v", err)
-	case <-time.After(20 * time.Second):
-		t.Fatal("the first launch opened no browser")
-	}
-	base := "http://127.0.0.1:" + strconv.Itoa(port)
-	if !regexp.MustCompile(`^` + regexp.QuoteMeta(base) + `/launch\?ticket=[0-9a-f]{64}$`).MatchString(launch) {
-		t.Fatalf("launch URL %q", launch)
-	}
-	ticket := strings.TrimPrefix(launch, base+"/launch?ticket=")
-	client := &http.Client{Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := client.Get(launch)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != 303 || len(response.Cookies()) != 1 {
-		t.Fatalf("exchange: %d %v", response.StatusCode, response.Cookies())
-	}
-	session := response.Cookies()[0]
-	get := func() int {
-		r, _ := http.NewRequest("GET", base+"/api/catalogue", nil)
-		r.AddCookie(session)
-		response, err := client.Do(r)
-		if err != nil {
-			t.Fatal(err)
-		}
-		response.Body.Close()
-		return response.StatusCode
-	}
-	if get() != 200 {
-		t.Fatal("the first instance refused its own session")
-	}
-	for _, extra := range [][]string{nil, {"-no-browser"}} {
-		if err := runLauncher(t, append(arguments, extra...)...); !errors.Is(err, errAlreadyRunning) {
-			t.Errorf("second launch %v: %v", extra, err)
-		}
-	}
-	if err := runLauncher(t, append(arguments, "-workspace", t.TempDir())...); err == nil || !strings.Contains(err.Error(), "already running; change its workspace in Settings or quit it first") {
-		t.Errorf("second launch with a workspace: %v", err)
-	}
-	select {
-	case url := <-opened:
-		t.Errorf("a second launch opened %q", url)
-	default:
-	}
-	if get() != 200 {
-		t.Error("a second launch disturbed the first instance's session")
-	}
-	quit, _ := http.NewRequest("POST", base+"/api/quit", strings.NewReader("{}"))
-	quit.AddCookie(session)
-	quit.Header.Set("X-Issuer-Library", "1")
-	quit.Header.Set("Content-Type", "application/json")
-	quit.Header.Set("Origin", base)
-	if response, err := client.Do(quit); err != nil || response.StatusCode != 200 {
-		t.Fatalf("quit: %v %v", response, err)
-	}
-	select {
-	case err := <-first:
-		if err != nil {
-			t.Fatalf("first launch: %v", err)
-		}
-	case <-time.After(10 * time.Second):
-		t.Fatal("the first instance did not stop")
-	}
-	printed := stdout()
-	restored = true
-	if printed != "Issuer Library: "+base+"\n" {
-		t.Errorf("stdout %q", printed)
-	}
-	logged, _ := os.ReadFile(filepath.Join(state, "library.log"))
-	if strings.Contains(string(logged), ticket) || strings.Contains(string(logged), session.Value) {
-		t.Errorf("library.log carries a secret: %q", logged)
-	}
-	if strings.Count(string(logged), errAlreadyRunning.Error()) != 2 {
-		t.Errorf("library.log does not record both refused launches: %q", logged)
 	}
 }
 
@@ -635,5 +528,91 @@ func TestNoBrowserLaunchPrintsTheLinkOnStandardOutputOnly(t *testing.T) {
 	logged, _ := os.ReadFile(filepath.Join(state, "library.log"))
 	if strings.Contains(string(logged), strings.TrimPrefix(launch, base+"/launch?ticket=")) {
 		t.Errorf("library.log carries the ticket: %q", logged)
+	}
+}
+
+// S18 ruling 2: Sec-Fetch-Site is accepted only as same-origin (the app's own page), none (an
+// address the user or the launcher opened) or absent. same-site is refused: a page on another
+// 127.0.0.1 port is the same site, and the Strict cookie goes with its requests. Expected by hand,
+// with the valid cookie on each: absent, same-origin and none get the endpoint's own answer (200;
+// the launch 303); same-site, cross-site, an empty value, another letter case, an unknown value,
+// and same-origin followed by same-site get 403 "Local app requests only", and the launch ticket
+// stays unspent until the accepted "none" launch spends it.
+func TestOnlySameOriginOrUserInitiatedRequestsAreServed(t *testing.T) {
+	app, _ := testApp(t)
+	ticket := app.ticket
+	send := func(method, path string, sites []string) *httptest.ResponseRecorder {
+		r := withSession(app, httptest.NewRequest(method, "http://"+app.host+path, strings.NewReader("{}")))
+		if method == "POST" {
+			r.Header.Set("X-Issuer-Library", "1")
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Origin", "http://"+app.host)
+		}
+		for _, site := range sites {
+			r.Header.Add("Sec-Fetch-Site", site)
+		}
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, r)
+		return w
+	}
+	endpoints := []struct{ method, path string }{
+		{"GET", "/"}, {"GET", "/api/catalogue"}, {"GET", "/files/deliverables/report/report.html?embedded=1"},
+		{"GET", "/files/runs/case-a/CP-0.md?download=1"}, {"GET", "/context-form.html"}, {"POST", "/api/refresh"},
+	}
+	for _, sites := range [][]string{nil, {"same-origin"}, {"none"}} {
+		for _, e := range endpoints {
+			if w := send(e.method, e.path, sites); w.Code != 200 {
+				t.Errorf("%v %s %s: %d", sites, e.method, e.path, w.Code)
+			}
+		}
+	}
+	for _, sites := range [][]string{{"same-site"}, {"cross-site"}, {""}, {"Same-Origin"}, {"same-origin-ish"}, {"same-origin", "same-site"}} {
+		for _, e := range append(endpoints, struct{ method, path string }{"GET", "/launch?ticket=" + ticket}) {
+			if w := send(e.method, e.path, sites); w.Code != 403 || w.Body.String() != "Local app requests only\n" || w.Header().Get("Set-Cookie") != "" {
+				t.Errorf("%q %s %s: %d %q", sites, e.method, e.path, w.Code, w.Body.String())
+			}
+		}
+	}
+	if w := send("GET", "/launch?ticket="+ticket, []string{"none"}); w.Code != http.StatusSeeOther {
+		t.Fatalf("the launcher's navigation (none) after the refused ones: %d", w.Code)
+	}
+}
+
+// S18 ruling 3: the ticket expires 120 seconds after start, counted from when the library is
+// ready (after its first discovery, which here moves the test clock 30 s). Expected by hand: ready
+// at T = start+30 s, so the ticket works until T+120 s: at T+120 s-1 ns it is exchanged (303 with
+// the cookie). On fresh apps, at exactly T+120 s and at T+120 s+1 ns it gets the 403 launcher page
+// with no cookie, and moving the clock back to T+1 s afterwards does not revive it.
+func TestTheLaunchTicketExpires120SecondsAfterStart(t *testing.T) {
+	start := time.Date(2026, 11, 7, 9, 0, 0, 0, time.UTC)
+	current := start
+	savedClock, savedDiscover := clock, discoverWorkspace
+	t.Cleanup(func() { clock, discoverWorkspace = savedClock, savedDiscover })
+	clock = func() time.Time { return current }
+	discoverWorkspace = func(workspace string, seed Catalogue) Catalogue {
+		current = current.Add(30 * time.Second)
+		return savedDiscover(workspace, seed)
+	}
+	ready := start.Add(30 * time.Second)
+	app, _ := testApp(t)
+	if want := ready.Add(120 * time.Second); !app.expires.Equal(want) {
+		t.Fatalf("ticket expires at %v, want %v", app.expires, want)
+	}
+	current = ready.Add(120*time.Second - time.Nanosecond)
+	if w := launchRequest(app, "GET", "?ticket="+app.ticket); w.Code != http.StatusSeeOther || len(w.Result().Cookies()) != 1 {
+		t.Fatalf("1 ns before expiry: %d %v", w.Code, w.Result().Cookies())
+	}
+	for _, after := range []time.Duration{0, time.Nanosecond} {
+		current = start
+		late, _ := testApp(t)
+		ticket := late.ticket
+		current = ready.Add(120*time.Second + after)
+		if w := launchRequest(late, "GET", "?ticket="+ticket); w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" || w.Body.String() != launcherOnly+"\n" {
+			t.Errorf("%v after expiry: %d %q %q", after, w.Code, w.Header().Get("Set-Cookie"), w.Body.String())
+		}
+		current = ready.Add(time.Second)
+		if w := launchRequest(late, "GET", "?ticket="+ticket); w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%v after expiry, clock moved back: %d (the expired ticket was revived)", after, w.Code)
+		}
 	}
 }

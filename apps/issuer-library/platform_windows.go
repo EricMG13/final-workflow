@@ -3,8 +3,11 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -102,3 +105,44 @@ func workerAlive(name string) (bool, error) {
 	}
 	return false, err
 }
+
+// privateFolder returns an error unless only this user, SYSTEM and Administrators may write to the
+// folder name, according to its access-control list. The per-user local application data folder
+// is private this way by default. Permission bits do not describe access on Windows.
+func privateFolder(name string) error {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return err
+	}
+	var acl unsafe.Pointer
+	var descriptor syscall.Handle
+	// GetNamedSecurityInfoW(name, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, ...)
+	result, _, _ := syscall.NewLazyDLL("advapi32.dll").NewProc("GetNamedSecurityInfoW").Call(uintptr(unsafe.Pointer(path)), 1, 4, 0, 0, uintptr(unsafe.Pointer(&acl)), 0, uintptr(unsafe.Pointer(&descriptor)))
+	if result != 0 {
+		return fmt.Errorf("the state folder's permissions cannot be read: %w", syscall.Errno(result))
+	}
+	defer syscall.LocalFree(descriptor)
+	if acl == nil { // A null DACL gives everyone full access.
+		return fmt.Errorf("everyone can write to the state folder %s", name)
+	}
+	size := binary.LittleEndian.Uint16(unsafe.Slice((*byte)(acl), 4)[2:])
+	list := bytes.Clone(unsafe.Slice((*byte)(acl), size))
+	token, err := syscall.OpenCurrentProcessToken()
+	if err != nil {
+		return err
+	}
+	defer token.Close()
+	user, err := token.GetTokenUser()
+	if err != nil {
+		return err
+	}
+	sid := bytes.Clone(unsafe.Slice((*byte)(unsafe.Pointer(user.User.Sid)), syscall.GetLengthSid(user.User.Sid)))
+	if othersMayWrite(list, [][]byte{sid, sidSystem, sidAdministrators, sidCreatorOwner, sidOwnerRights}) {
+		return fmt.Errorf("other users can write to the state folder %s", name)
+	}
+	return nil
+}
+
+// ownerOnly reports whether info describes a plain file (not a link or other reparse point). Its
+// access comes from the state folder, which privateFolder has checked.
+func ownerOnly(info fs.FileInfo) bool { return info.Mode().IsRegular() }

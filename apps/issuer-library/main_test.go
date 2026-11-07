@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -13,11 +12,9 @@ import (
 // no longer points at the file run() closed (main logs the error again after run returns).
 func TestRunRecordsItsErrorInTheLogBeforeClosingIt(t *testing.T) {
 	state := t.TempDir()
-	savedArgs, savedFlags, savedOutput := os.Args, flag.CommandLine, log.Writer()
-	defer func() { os.Args, flag.CommandLine = savedArgs, savedFlags; log.SetOutput(savedOutput) }()
-	flag.CommandLine = flag.NewFlagSet("issuer-library", flag.ContinueOnError)
-	os.Args = []string{"issuer-library", "-state-dir", state, "-no-browser", "-port", "80"}
-	err := run()
+	savedOutput := log.Writer()
+	defer log.SetOutput(savedOutput)
+	err := run([]string{"-state-dir", state, "-no-browser", "-port", "80"})
 	if err == nil || !strings.Contains(err.Error(), "port must be between") {
 		t.Fatalf("run: %v", err)
 	}

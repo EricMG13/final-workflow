@@ -87,15 +87,20 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
     process = subprocess.Popen(
         arguments + ["--workspace", str(workspace)], env=environment, stdout=subprocess.PIPE
     )
+    launched = [process]
     try:
         ready(process)
-        # A repeat launch cannot learn the running instance's secret: it says so, opens nothing.
-        repeat = subprocess.run(
-            arguments, env=environment, timeout=5, capture_output=True, check=False
+        # A repeat launch cannot learn the running instance's secret. It asks the idle instance to
+        # quit through the state folder, then starts with a fresh one-time link.
+        earlier = opener.addheaders[-1]
+        process = subprocess.Popen(
+            arguments + ["--workspace", str(workspace)], env=environment, stdout=subprocess.PIPE
         )
-        assert repeat.returncode == 1, "Repeat launch did not refuse"
-        assert b"already running" in repeat.stderr, "Repeat launch did not say it is running"
-        assert b"/launch" not in repeat.stdout + repeat.stderr, "Repeat launch printed a link"
+        launched.append(process)
+        assert launched[0].wait(timeout=15) == 0, "Idle library did not quit for the relaunch"
+        ready(process)
+        assert opener.addheaders[-1] != earlier, "Repeat launch kept the previous session secret"
+        assert not list(state.glob("quit.*")), "Repeat launch left a quit file"
         catalogue = request('/api/catalogue')
         # The HTML Model deliveries hold no report, which the library does not present yet.
         assert sorted(issue.split(':')[0] for issue in catalogue['issues']) == [
@@ -143,6 +148,7 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
         assert process.wait(timeout=5) == 0
         earlier = opener.addheaders[-1]
         process = subprocess.Popen(arguments, env=environment, stdout=subprocess.PIPE)
+        launched.append(process)
         ready(process)
         assert opener.addheaders[-1] != earlier, "Restart kept the previous session secret"
         assert request('/api/catalogue')['workspace'] == str(other)
@@ -152,6 +158,7 @@ with tempfile.TemporaryDirectory(prefix='issuer-library-smoke-') as temporary:
               'CP-OS context/source/budget review and unavailable-provider Start gate, automatic discovery, '
               'settings persistence, shutdown and restart; no browser acceptance implied.')
     finally:
-        if process.poll() is None:
-            process.terminate()
-            process.wait(timeout=5)
+        for started in launched:
+            if started.poll() is None:
+                started.terminate()
+                started.wait(timeout=5)

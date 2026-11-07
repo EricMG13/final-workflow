@@ -18,12 +18,17 @@ import (
 // launchBrowser opens a URL in the user's browser; a variable so tests can see what is opened.
 var launchBrowser = openBrowser
 
-func run() (err error) {
-	workspace := flag.String("workspace", "", "Workspace folder (disabled by IT policy)")
-	state := flag.String("state-dir", "", "Override per-user state directory for testing")
-	noBrowser := flag.Bool("no-browser", false, "Start without opening a browser")
-	port := flag.Int("port", 0, "Loopback port; zero selects a stable per-user port")
-	flag.Parse()
+// run starts the library with the command-line arguments (without the program name). Its flags
+// are its own, so a test can run two launches at once.
+func run(arguments []string) (err error) {
+	flags := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	workspace := flags.String("workspace", "", "Workspace folder (disabled by IT policy)")
+	state := flags.String("state-dir", "", "Override per-user state directory for testing")
+	noBrowser := flags.Bool("no-browser", false, "Start without opening a browser")
+	port := flags.Int("port", 0, "Loopback port; zero selects a stable per-user port")
+	if err = flags.Parse(arguments); err != nil {
+		return err
+	}
 	loc, err := platformLocations()
 	if err != nil {
 		return err
@@ -64,28 +69,17 @@ func run() (err error) {
 	address := "http://" + host
 	listener, err := net.Listen("tcp4", host)
 	if err != nil {
-		client := http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-		// A simultaneous launch may have bound the port but not started serving yet.
-		for attempt := 0; attempt < 5; attempt++ {
-			response, requestErr := client.Get(address + "/health")
-			if requestErr == nil {
-				var health map[string]string
-				decodeErr := json.NewDecoder(http.MaxBytesReader(nil, response.Body, 4096)).Decode(&health)
-				response.Body.Close()
-				// This user's instance answers. Its session secret is in its memory only, so this
-				// launch cannot sign a browser in to it: it says so and opens no window.
-				if decodeErr == nil && health["application"] == "finalworkflow-issuer-library/1" && health["instance"] == digest([]byte(loc.State)) {
-					if *workspace != "" {
-						return fmt.Errorf("library is already running; change its workspace in Settings or quit it first")
-					}
-					return errAlreadyRunning
-				}
-			}
-			time.Sleep(200 * time.Millisecond)
+		if !instanceAnswers(address, loc.State) {
+			return fmt.Errorf("local port is occupied by another application: %w", err)
 		}
-		return fmt.Errorf("local port is occupied by another application: %w", err)
+		// This user's instance answers. Its session secret is in its memory only, so this launch
+		// cannot sign a browser in to it; it asks the instance to quit instead (quit.go).
+		if listener, err = askToQuit(loc.State, host); err != nil {
+			return err
+		}
 	}
 	defer listener.Close()
+	clearQuitFiles(loc.State)
 	app, err := newApplication(loc, *workspace)
 	if err != nil {
 		return err
@@ -95,11 +89,13 @@ func run() (err error) {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 	app.stop = cancel
+	stopped := make(chan struct{})
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, done := context.WithTimeout(context.Background(), 3*time.Second)
 		defer done()
 		_ = server.Shutdown(shutdownCtx)
+		close(stopped)
 	}()
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
@@ -113,6 +109,7 @@ func run() (err error) {
 			}
 		}
 	}()
+	go app.watchQuitRequests(ctx, quitPoll)
 	// The one-time launch link goes to the browser, or with --no-browser to standard output for
 	// whoever started the library; never to library.log.
 	launch := app.launchURL()
@@ -123,22 +120,42 @@ func run() (err error) {
 		go func() {
 			if err := launchBrowser(launch); err != nil {
 				log.Printf("Open browser: %v", err)
-				showError("Open this link in your browser; it works once:\n" + launch + "\n" + err.Error())
+				showError("Open this link in your browser within 2 minutes; it works once:\n" + launch + "\n" + err.Error())
 			}
 		}()
 	}
 	log.Printf("Listening at %s", address)
 	err = server.Serve(listener)
 	if err == http.ErrServerClosed {
+		<-stopped // Requests in flight finish first, for 3 seconds at most.
 		return nil
 	}
 	return err
 }
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(os.Args[1:]); err != nil {
 		log.Print(err)
 		showError(err.Error())
 		os.Exit(1)
 	}
+}
+
+// instanceAnswers reports whether this user's instance answers /health at address. A simultaneous
+// launch may have bound the port but not started serving yet, so it asks up to five times.
+func instanceAnswers(address, state string) bool {
+	client := http.Client{Timeout: 2 * time.Second, Transport: &http.Transport{Proxy: nil}, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	for attempt := 0; attempt < 5; attempt++ {
+		response, requestErr := client.Get(address + "/health")
+		if requestErr == nil {
+			var health map[string]string
+			decodeErr := json.NewDecoder(http.MaxBytesReader(nil, response.Body, 4096)).Decode(&health)
+			response.Body.Close()
+			if decodeErr == nil && health["application"] == "finalworkflow-issuer-library/1" && health["instance"] == digest([]byte(state)) {
+				return true
+			}
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	return false
 }

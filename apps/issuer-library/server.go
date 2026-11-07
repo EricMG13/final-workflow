@@ -23,7 +23,8 @@ var resources embed.FS
 type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
-	reviews    int // reviews in flight, each writing into the workspace it read; guarded by mu
+	reviews    int  // reviews in flight, each writing into the workspace it read; guarded by mu
+	quitting   bool // set when the library agrees to quit for a relaunch; guarded by mu
 	mu         sync.RWMutex
 	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations
@@ -34,7 +35,8 @@ type Application struct {
 	host       string
 	stop       func()
 	launch     sync.Mutex // guards ticket
-	ticket     string     // one-time launch ticket, in memory only; empty once exchanged
+	ticket     string     // one-time launch ticket, in memory only; empty once exchanged or expired
+	expires    time.Time  // when the ticket stops working; fixed at start
 	session    string     // this launch's session cookie value, in memory only; fixed at start
 }
 
@@ -82,7 +84,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	origin := "http://" + app.host
-	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || foreignSite(r) {
 		http.Error(w, "Local app requests only", http.StatusForbidden)
 		return
 	}
@@ -126,6 +128,19 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		app.serveAsset(w, r)
 	}
+}
+
+// foreignSite reports whether the browser says r comes from another origin. Sec-Fetch-Site is
+// accepted only as same-origin (the app's own page and frames), none (an address the user or the
+// launcher opened) or absent. same-site is refused too: a page on another 127.0.0.1 port is the
+// same site, and the SameSite=Strict cookie goes with its requests.
+func foreignSite(r *http.Request) bool {
+	for _, site := range r.Header.Values("Sec-Fetch-Site") {
+		if site != "same-origin" && site != "none" {
+			return true
+		}
+	}
+	return false
 }
 
 // writeCatalogue sends the current catalogue. It is encoded under the read lock and written
@@ -413,5 +428,7 @@ func newApplication(loc Locations, override string) (*Application, error) {
 	}
 	app.catalogue = app.buildCatalogue(config.Workspace)
 	app.adoptJobsLocked(config.Workspace)
+	// Counted from here, once the library is ready, so a slow first discovery does not use it up.
+	app.expires = clock().Add(ticketLifetime)
 	return app, nil
 }

@@ -44,6 +44,7 @@ from collections import Counter
 from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
+from functools import cached_property
 from typing import Any, Literal
 
 from pydantic import (
@@ -356,11 +357,13 @@ class Upstream:
     def cp2_status(self) -> str | None:
         return self.status(CP2)
 
-    @property
+    # Built once per Upstream, as CP-6's `cp2_rows` (S08-cp3-C10: a property rebuilt the
+    # catalogue for every reference it checked, 25 times in one compute).
+    @cached_property
     def catalogue(self) -> dict[str, CatalogueRow]:
         return {} if self.cp2_status == "blocked" else cp2_catalogue(self.cp2)
 
-    @property
+    @cached_property
     def facilities(self) -> dict[str, Facility]:
         return facilities(self.cp1)
 
@@ -1500,6 +1503,11 @@ class _Composer:
     def limit(self, limitation: str | None) -> Cell:
         return Cell(self.text(limitation) if limitation else NONE_STATED)
 
+    def stored(self, limitation: str | None) -> str | None:
+        """A claim's limitation as stored: spelled like its table cell (`text`), never with raw
+        `{ref|unit}` braces (S06-cp2-ade-C03, S10-cp6-cp8-cpl10-C04); None stays None."""
+        return None if limitation is None else self.text(limitation)
+
     def basis(self, row: Instrument | Preference | Risk) -> Cell:
         """Python's basis cell: each cited CP-2 row with its label in catalogue (register)
         order, each quoted market evidence by source and locator in the model's order, then
@@ -1784,6 +1792,14 @@ def relative_value(
     issues = validate_relative_value(pack, submission, upstream)
     if issues:
         raise ValueError("; ".join(issues))
+    return _composed(pack, submission, upstream)
+
+
+def _composed(
+    pack: PreparedPack, submission: RelativeValueSubmission, upstream: Upstream
+) -> RelativeValueReport:
+    """`relative_value` of a submission `validate_relative_value` already accepted (one
+    validation per step, S08-cp3-C10)."""
     pack = PreparedPack.model_validate_json(pack.model_dump_json())
     submission = RelativeValueSubmission.model_validate_json(submission.model_dump_json())
     evidence = _bind_evidence(pack, submission, upstream)
@@ -1802,6 +1818,10 @@ def relative_value(
     preference = _preference(submission, offered, out)
     _risks_and_gaps(submission, out)
     out.front([("preference", "Preference", preference), *lines])
+    # A limitation is plain stored text: spelled before the references are carried (each
+    # table cell already referenced its figures).
+    preference_limitation = out.stored(submission.preference.limitation)
+    instrument_limitations = [out.stored(row.limitation) for row in submission.instruments]
     referenced = [
         fact.model_copy(
             update={"table_id": CP1_REFERENCES, "row_id": f"ref{index:02d}", "field": "value"}
@@ -1834,16 +1854,18 @@ def relative_value(
             claim_id="T3.4.preference",
             text=preference_row.rationale,
             citations=out.cited(preference_row.basis),
-            limitation=preference_row.limitation,
+            limitation=preference_limitation,
         ),
         *(
             Claim(
                 claim_id=f"T3.1.i{index:02d}",
                 text=row.market_observation,
                 citations=out.cited(row.basis),
-                limitation=row.limitation,
+                limitation=limitation,
             )
-            for index, row in enumerate(submission.instruments, 1)
+            for index, (row, limitation) in enumerate(
+                zip(submission.instruments, instrument_limitations, strict=True), 1
+            )
             if not _none(row.market_observation)
         ),
     )
@@ -1892,7 +1914,7 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     issues = validate_relative_value(pack, submission, upstream)
     if issues:
         return StepValidation(issues=issues)
-    return StepValidation(output=relative_value(pack, submission, upstream).model_dump_json())
+    return StepValidation(output=_composed(pack, submission, upstream).model_dump_json())
 
 
 def submit_cp3_step(store: Execution, ticket_id: str, step_id: str, payload: str) -> Attempt:

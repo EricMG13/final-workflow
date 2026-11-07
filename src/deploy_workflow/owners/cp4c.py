@@ -39,7 +39,6 @@ from deploy_vii.business_context import (
     Category,
     Confidence,
     Quote,
-    Severity,
     prohibited_issues,
     referencable,
     spelled,
@@ -85,6 +84,7 @@ from deploy_workflow.owners import cp2g
 from deploy_workflow.owners.blank import is_blank, one_per_page
 from deploy_workflow.owners.cp1a import probe_one_step
 from deploy_workflow.owners.cp1c import EV_READER_FACTS, Cp1cHead, cp1c_reader
+from deploy_workflow.owners.cp2g import stale_issues  # one staleness frame (S07-cp2-gh-C03)
 from deploy_workflow.owners.cp3d import PIN_LABEL_FORGED, _normalised, pin_label_forged
 from deploy_workflow.owners.period_basis import (
     DEFAULT_BASIS,
@@ -181,14 +181,11 @@ class Assessment(Contract):
     limitation: str | None
 
 
-class SynthesisGap(Contract):
+class SynthesisGap(cp2g.SynthesisGap):
     """CP-4C's own gap row: the CP-2G `SynthesisGap` shape (lease)."""
 
-    gap: str
-    why_it_matters: str
-    affected_analysis: str
-    severity: Severity
-    action: str
+    # The fields are CP-2G's (S07-cp2-gh-C03); the docstring stays this module's own, since it is
+    # the gap row's description in the step's response schema.
 
 
 class RestructuringSubmission(Contract):
@@ -1303,24 +1300,6 @@ def payload_issues(payload: str, context: Cp4cContext) -> tuple[str, ...]:
     if submission is None:
         return shape
     return content_issues(Cp4cInputs(context=context, submission=submission))
-
-
-def stale_issues(*, bound: Sequence[Input], current: Sequence[Input] | str) -> tuple[str, ...]:
-    """Every bound upstream that changed (CP-2G precedent), in the `cp2_synthesis._stale_issues`
-    form; returned alone, like shape issues (rulings round 5, G-decisions)."""
-    if isinstance(current, str):
-        return (clipped(("Stale inputs: ", current)),)
-    was = {item.input_id: item for item in bound}
-    now = {item.input_id: item for item in current}
-
-    def state(item: Input | None) -> str:
-        return "absent" if item is None else f"{item.status} {item.sha256[:12]}"
-
-    return tuple(
-        f"Stale input {key}: bound {state(was.get(key))}, current {state(now.get(key))}"
-        for key in dict.fromkeys((*was, *now))
-        if was.get(key) != now.get(key)
-    )
 
 
 # --- cells, tables, references, claims -------------------------------------------------------

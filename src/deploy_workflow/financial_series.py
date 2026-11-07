@@ -381,6 +381,44 @@ def _maturity_figure(
     )
 
 
+_SCOPE_FIELDS = ("currency", "unit", "accounting_basis", "entity_perimeter")
+_SUPPORTED_SCOPE = ("USD", "MILLIONS", "IFRS", "consolidated group")
+_SCOPE_REASON = (
+    "Charts support USD millions on an IFRS consolidated group basis; this register states "
+    "another currency, unit, accounting basis or perimeter; nothing was converted."
+)
+
+
+def _states_other_scope(module: ModuleView) -> bool:
+    """Whether a T4.14 period states a known currency, unit, basis and perimeter that are not the
+    supported scope. An incomplete or unresolved identity is left to `_periods`, which raises."""
+    for row in _rows(module, "T4.14"):
+        facts = [row.get(key) for key in _SCOPE_FIELDS]
+        if all(f is not None and f.status == "known" and f.text is not None for f in facts):
+            if tuple(f.text for f in facts if f is not None) != _SUPPORTED_SCOPE:
+                return True
+    return False
+
+
+def _unsupported_scope_figures() -> tuple[FinancialFigureSeries, ...]:
+    """S.1 to S.5 with no points, each carrying the unsupported-scope reason."""
+    kinds: dict[str, Literal["line", "grouped"]] = {"S.4": "grouped", "S.5": "grouped"}
+    titles = {fig_id: title for fig_id, title, _ in _SERIES} | {"S.4": "Maturity wall"}
+    return tuple(
+        FinancialFigureSeries(
+            fig_id,
+            titles[fig_id],
+            kinds.get(fig_id, "line"),
+            "multiple" if fig_id in {"S.1", "S.2"} else "amount",
+            "x" if fig_id in {"S.1", "S.2"} else "US$m",
+            (),
+            (),
+            _SCOPE_REASON,
+        )
+        for fig_id in ("S.1", "S.2", "S.3", "S.4", "S.5")
+    )
+
+
 def cp1_chart_series(module: ModuleView) -> tuple[FinancialFigureSeries, ...]:
     """Project settled CP1 facts; inactive/foreign modules have no numeric series.
 
@@ -397,6 +435,8 @@ def cp1_chart_series(module: ModuleView) -> tuple[FinancialFigureSeries, ...]:
         raise ValueError("Settled CP1 chart facts require an artifact identity")
     if len({f.fact_id for f in module.facts}) != len(module.facts):
         raise ValueError("Duplicate chart fact identity")
+    if _states_other_scope(module):
+        return _unsupported_scope_figures()
     periods, unplotted = _periods(module)
     *strip, period_figure = _quarter_figures(module, periods)
     return (*strip, _maturity_figure(module, periods, unplotted), period_figure)

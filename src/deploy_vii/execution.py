@@ -662,6 +662,11 @@ class Execution:
         _atomic_write(self.directory / "current", (digest + "\n").encode("ascii"))
 
     def begin(self, module_id: str) -> Attempt:
+        """Open a ticket for the module's current inputs.
+
+        An input set that already settled is refused, except when the module's head is stale
+        (its inputs returned to a set it settled on): that earlier settled result becomes the
+        head again, no new attempt is opened, and the earlier finished attempt is returned."""
         module_id = canonical(module_id)
         with self._locked():
             snapshot = self.read()
@@ -674,7 +679,10 @@ class Execution:
                 if item.module_id == module_id and item.inputs == inputs
             ]
             if previous and (len(previous) >= 2 or not previous[-1].issues):
-                raise ValueError("Input set is settled or its one repair has been consumed")
+                restored = self._restore_stale_head(snapshot, previous[-1])
+                if restored is None:
+                    raise ValueError("Input set is settled or its one repair has been consumed")
+                return restored
             attempt = Attempt(
                 ticket_id=str(uuid4()),
                 module_id=module_id,
@@ -692,6 +700,20 @@ class Execution:
                 )
             )
             return attempt
+
+    def _restore_stale_head(self, snapshot: ExecutionSnapshot, settled: Attempt) -> Attempt | None:
+        """Caller holds the execution lock. Make the settled result of exactly the current inputs
+        the module's head again when that head is stale; None when there is nothing to restore."""
+        head = next((h for h in snapshot.heads if h.module_id == settled.module_id), None)
+        if head is None or head.status != "stale" or settled.result_sha256 is None:
+            return None
+        result = self.result(settled.result_sha256)
+        # A step module's result also binds its retained step submissions beyond the begin inputs.
+        if result.status == "rejected" or any(i not in result.inputs for i in settled.inputs):
+            return None
+        same = head.result_sha256 == settled.result_sha256  # keep the qualification it earned
+        self._save_finished(snapshot, settled, result, head.qualification if same else None)
+        return settled
 
     def finish(
         self,

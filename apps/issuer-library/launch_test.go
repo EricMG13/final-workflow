@@ -233,7 +233,7 @@ func TestSecretComparisonsAreConstantTime(t *testing.T) {
 }
 
 // C03 adversarial: cookies of another port or instance, a wrong or truncated value, the ticket in a
-// Referer, cookie or header, a cross-site request carrying the valid cookie, path tricks on /files
+// Referer, cookie or header, a cross-site or same-site request carrying the valid cookie, path tricks on /files
 // and on the two exempt paths, and a shadowing cookie. Expected by hand: 403 for each, except the
 // last (the valid cookie is among those sent), and the ticket is still unspent at the end.
 func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
@@ -273,6 +273,7 @@ func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
 	valid := cookie(name, app.session)
 	for label, change := range map[string]func(*http.Request){
 		"cross-site fetch":      func(r *http.Request) { valid(r); r.Header.Set("Sec-Fetch-Site", "cross-site") },
+		"same-site fetch":       func(r *http.Request) { valid(r); r.Header.Set("Sec-Fetch-Site", "same-site") },
 		"foreign Origin":        func(r *http.Request) { valid(r); r.Header.Set("Origin", "http://attacker.invalid") },
 		"another port's Origin": func(r *http.Request) { valid(r); r.Header.Set("Origin", "http://127.0.0.1:54322") },
 		"sandboxed Origin":      func(r *http.Request) { valid(r); r.Header.Set("Origin", "null") },
@@ -307,12 +308,14 @@ func TestRequestsWithoutThisLaunchsSessionAreRefused(t *testing.T) {
 	if w := send("/api/catalogue", shadowed); w.Code != 200 {
 		t.Errorf("a planted cookie of the same name shadowed the valid one: %d", w.Code)
 	}
-	crossLaunch := httptest.NewRequest("GET", "http://"+app.host+"/launch?ticket="+ticket, nil)
-	crossLaunch.Header.Set("Sec-Fetch-Site", "cross-site")
-	w := httptest.NewRecorder()
-	app.ServeHTTP(w, crossLaunch)
-	if w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
-		t.Errorf("cross-site launch: %d %q", w.Code, w.Header().Get("Set-Cookie"))
+	for _, site := range []string{"cross-site", "same-site"} {
+		foreignLaunch := httptest.NewRequest("GET", "http://"+app.host+"/launch?ticket="+ticket, nil)
+		foreignLaunch.Header.Set("Sec-Fetch-Site", site)
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, foreignLaunch)
+		if w.Code != http.StatusForbidden || w.Header().Get("Set-Cookie") != "" {
+			t.Errorf("%s launch: %d %q", site, w.Code, w.Header().Get("Set-Cookie"))
+		}
 	}
 	if w := launchRequest(app, "GET", "?ticket="+ticket); w.Code != http.StatusSeeOther {
 		t.Fatalf("the ticket was spent by a refused request: %d", w.Code)
@@ -525,5 +528,52 @@ func TestNoBrowserLaunchPrintsTheLinkOnStandardOutputOnly(t *testing.T) {
 	logged, _ := os.ReadFile(filepath.Join(state, "library.log"))
 	if strings.Contains(string(logged), strings.TrimPrefix(launch, base+"/launch?ticket=")) {
 		t.Errorf("library.log carries the ticket: %q", logged)
+	}
+}
+
+// S18 ruling 2: Sec-Fetch-Site is accepted only as same-origin (the app's own page), none (an
+// address the user or the launcher opened) or absent. same-site is refused: a page on another
+// 127.0.0.1 port is the same site, and the Strict cookie goes with its requests. Expected by hand,
+// with the valid cookie on each: absent, same-origin and none get the endpoint's own answer (200;
+// the launch 303); same-site, cross-site, an empty value, another letter case, an unknown value,
+// and same-origin followed by same-site get 403 "Local app requests only", and the launch ticket
+// stays unspent until the accepted "none" launch spends it.
+func TestOnlySameOriginOrUserInitiatedRequestsAreServed(t *testing.T) {
+	app, _ := testApp(t)
+	ticket := app.ticket
+	send := func(method, path string, sites []string) *httptest.ResponseRecorder {
+		r := withSession(app, httptest.NewRequest(method, "http://"+app.host+path, strings.NewReader("{}")))
+		if method == "POST" {
+			r.Header.Set("X-Issuer-Library", "1")
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Origin", "http://"+app.host)
+		}
+		for _, site := range sites {
+			r.Header.Add("Sec-Fetch-Site", site)
+		}
+		w := httptest.NewRecorder()
+		app.ServeHTTP(w, r)
+		return w
+	}
+	endpoints := []struct{ method, path string }{
+		{"GET", "/"}, {"GET", "/api/catalogue"}, {"GET", "/files/deliverables/report/report.html?embedded=1"},
+		{"GET", "/files/runs/case-a/CP-0.md?download=1"}, {"GET", "/context-form.html"}, {"POST", "/api/refresh"},
+	}
+	for _, sites := range [][]string{nil, {"same-origin"}, {"none"}} {
+		for _, e := range endpoints {
+			if w := send(e.method, e.path, sites); w.Code != 200 {
+				t.Errorf("%v %s %s: %d", sites, e.method, e.path, w.Code)
+			}
+		}
+	}
+	for _, sites := range [][]string{{"same-site"}, {"cross-site"}, {""}, {"Same-Origin"}, {"same-origin-ish"}, {"same-origin", "same-site"}} {
+		for _, e := range append(endpoints, struct{ method, path string }{"GET", "/launch?ticket=" + ticket}) {
+			if w := send(e.method, e.path, sites); w.Code != 403 || w.Body.String() != "Local app requests only\n" || w.Header().Get("Set-Cookie") != "" {
+				t.Errorf("%q %s %s: %d %q", sites, e.method, e.path, w.Code, w.Body.String())
+			}
+		}
+	}
+	if w := send("GET", "/launch?ticket="+ticket, []string{"none"}); w.Code != http.StatusSeeOther {
+		t.Fatalf("the launcher's navigation (none) after the refused ones: %d", w.Code)
 	}
 }

@@ -122,7 +122,10 @@ Per-user state must not be redirected to a shared index used by multiple users.
 
 **Local session.** Loopback is shared by every user and process on the machine, so the
 headers the app checks (Host, Origin, Sec-Fetch-Site, `X-Issuer-Library`) are not enough on
-their own. Each launch makes a random one-time ticket and a random session secret (32 bytes
+their own. Sec-Fetch-Site is accepted only as `same-origin` (the app's page, its report and
+context frames and its downloads) or `none` (the address the launcher opens), or absent;
+`same-site` is refused with 403 like `cross-site`, because a page on another `127.0.0.1` port is
+the same site and the SameSite=Strict cookie goes with its requests. Each launch makes a random one-time ticket and a random session secret (32 bytes
 each, `crypto/rand`), held in memory only: never in `library.log`, settings, the index or a
 response body. The launcher opens `/launch?ticket=…`; the first GET exchanges the ticket for an
 `HttpOnly; SameSite=Strict; Path=/` cookie and redirects to `/`, so the ticket leaves the

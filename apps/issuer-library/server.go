@@ -83,7 +83,7 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
 	origin := "http://" + app.host
-	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+	if r.Host != app.host || (r.Header.Get("Origin") != "" && r.Header.Get("Origin") != origin) || foreignSite(r) {
 		http.Error(w, "Local app requests only", http.StatusForbidden)
 		return
 	}
@@ -127,6 +127,19 @@ func (app *Application) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		app.serveAsset(w, r)
 	}
+}
+
+// foreignSite reports whether the browser says r comes from another origin. Sec-Fetch-Site is
+// accepted only as same-origin (the app's own page and frames), none (an address the user or the
+// launcher opened) or absent. same-site is refused too: a page on another 127.0.0.1 port is the
+// same site, and the SameSite=Strict cookie goes with its requests.
+func foreignSite(r *http.Request) bool {
+	for _, site := range r.Header.Values("Sec-Fetch-Site") {
+		if site != "same-origin" && site != "none" {
+			return true
+		}
+	}
+	return false
 }
 
 // writeCatalogue sends the current catalogue. It is encoded under the read lock and written

@@ -97,7 +97,9 @@ ECHO = 80  # characters of a cell value a message quotes
 DAMAGED = (zlib.error, EOFError, RuntimeError)
 # Native XLSX coordinates: bound the lexeme before integer/column arithmetic.
 ADDRESS = re.compile(r"([A-Z]{1,3})([1-9][0-9]{0,6})")
-NUMBER = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+# At most a three-digit exponent: `Decimal` raises on one of about twenty digits, and a bid/ask
+# comparison would then crash instead of reporting the cell (`portfolio.NUMBER` bounds it too).
+NUMBER = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]{1,3})?$")
 ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 SERIAL = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
 IDENTIFIER = re.compile(r"^[A-Za-z0-9_-]+$")

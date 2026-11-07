@@ -207,37 +207,32 @@ def test_cp1b_refused_register_has_the_same_text_in_view_and_validator() -> None
     assert misc._owner_step(producer, pack).issues == (body["context_issue"],)
 
 
-def test_r5b_cp1b_through_the_context_with_the_oracle_pair() -> None:
+def test_r5b_context_delta_core_settles_and_the_cp1b_validator_refuses() -> None:
+    """R5b through the run context (owner ruling 2026-11-07): the context resolves the oracle's
+    q2-2026 -> q3-2026 pair and the delta core settles it with CP-1B@USD's points; the CP-1B step
+    validator refuses the pair by its own rule (`cp1b.supported`, ruling B19), with no context
+    issue and no offered pair."""
     want = KEY["runs"]["R5b"]["modules"]["CP-1B"]
-    base = misc.shifted("USD")
-    q2 = {
-        "period_id": "q2-2026",
-        "fiscal_quarter": "Q2",
-        "start_date": "2026-04-01",
-        "end_date": "2026-06-30",
-    }
-    extra = tuple(
-        f.model_copy(
-            update={
-                "fact_id": f.fact_id.replace("q3-2026", "q2-2026"),
-                "row_id": "period.q2-2026",
-                "period": "q2-2026",
-                "text": q2.get(f.field, f.text),
-            }
-        )
-        for f in base.facts
-        if f.row_id == "period.q3-2026"
-    )
-    producer = base.model_copy(update={"facts": (*base.facts, *extra)})
+    core = want["delta_core"]
+    assert core["outcome"] == "settled" and want["outcome"] == "refused"
+    producer = misc._q2_q3_register("USD")
     pack = _pack("USD", current="q3-2026", prior="q2-2026")
+    view = cp1b.cp1_view(producer)
+    fixed = cp1b.context_pair(view, pack)
+    assert fixed.issues == () and fixed.pair == (
+        core["prior_period_id"],
+        core["current_period_id"],
+    )
+    report = earnings.build_earnings_delta_in(view, *fixed.pair, cp1b.run_currency(view, pack))
+    assert misc._points(report) == misc._oracle_points(core["oracle"])
     body = json.loads(cp1b.view(own._Store(producer, "", pack), own._attempt(producer))[1])
     step = StepSubmission(step_id="earnings_delta", inputs=(), payload_sha256="b" * 64)
-    payload = own._payload("q2-2026", "q3-2026", "flat_sequential")
+    payload = own._payload(core["prior_period_id"], core["current_period_id"], "flat_sequential")
     outcome = cp1b._validate_step(
         own._Store(producer, payload, pack), pack, own._attempt(producer, step)
     )
-    assert body["pairs"] == [] and outcome.output is None
-    assert len(outcome.issues) == 1 and want["issue_contains"] in outcome.issues[0]
+    assert body["pairs"] == [] and "context_issue" not in body
+    assert outcome.output is None and outcome.issues == (want["issue_contains"],)
 
 
 # --- the receipt path's context lookup -----------------------------------------------------------------

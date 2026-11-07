@@ -1597,14 +1597,27 @@ def build_expected_runs():
                     "offering": "unchanged: period-agnostic; a q3 base is not a refusal for a currency-only module (M3)"
                 },
             )
+            # owner ruling 2026-11-07: the delta core accepts calendar quarters of unequal day counts
+            # (its figures are CP-1B@USD's frozen points, E-QOQ-FLAT, only the period ids differ);
+            # the module's pair rule (cp1b.supported, ruling B19) stays, so CP-1B still refuses.
+            core = module_entry("CP-1B", "USD")  # asserts the oracle is USD-only
             mods["CP-1B"] = {
                 "outcome": "refused",
-                "layer": "build_earnings_delta",
-                "error": "incompatible_periods",
-                "issue_contains": "incompatible_periods",
+                "layer": "cp1b.supported",
+                "error": "unsupported_pair",
+                "issue_contains": "unsupported_pair",
                 "figures_produced": False,
                 "is_period_refused": False,
-                "ruling": "controller: freeze today's refusal; earnings.py:316-318 compares period lengths in raw days (prior q2-2026 = 91, current q3-2026 = 92); a pre-existing defect reported to the owner; if the owner fixes it this case is re-cut",
+                "delta_core": {
+                    "outcome": "settled",
+                    "oracle": core["oracle"],
+                    "prior_period_id": "q2-2026",
+                    "current_period_id": "q3-2026",
+                    "prior_days": 91,
+                    "current_days": 92,
+                    "figures_produced": True,
+                },
+                "ruling": "owner, 2026-11-07: the delta core accepts calendar quarters with unequal day counts (prior q2-2026 = 91 days, current q3-2026 = 92); the module's pair rule (ruling B19) stays, so CP-1B still refuses this pair as unsupported_pair; this entry was frozen as incompatible_periods (raw-day comparison) and is re-cut",
             }
             quarters = ["q4-2025", "q1-2026", "q2-2026", "q3-2026"]
             mods["CP-L10"] = {

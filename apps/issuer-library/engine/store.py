@@ -17,6 +17,8 @@ REPO = HERE if (HERE / "src").is_dir() else HERE.parents[2]
 OUTPUT_SKIP = re.compile(r"instructions|prompt|calculations|verification")
 INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery")
 HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
+# A saved output is <module>.md or <module>-<label>.md; output_label slices the name on that shape.
+HANDOFF_FILE = re.compile(r"CP-[A-Z0-9]+(?:-.+)?\.md")
 AEROSPACE = "Aerospace & defense"
 # Reading labels written by hand. Route key: (folder under runs/, issuer, title, run label, sector, period).
 CURATED_RUNS = {
@@ -375,8 +377,7 @@ def handoff_files(run_dir):
         # The server serves regular files only, so a link out of the run is not a handoff either.
         if (
             # Windows matches these patterns regardless of case; the names here do not.
-            HANDOFF_NAME.match(path.name)
-            and path.name.endswith(".md")
+            HANDOFF_FILE.fullmatch(path.name)
             and not OUTPUT_SKIP.search(path.name)
             and path.is_file()
             and not path.is_symlink()

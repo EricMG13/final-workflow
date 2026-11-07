@@ -353,21 +353,34 @@ def _q2_q3_register(currency: str) -> Module:
     return Module.model_validate_json(text).model_copy(update={"facts": tuple(facts)})
 
 
-def test_r5b_q3_base_cp1b_keeps_its_raw_day_refusal() -> None:
-    """R5b: a q3 base is not a currency refusal; CP-1B refuses `incompatible_periods` as today
-    (the 91-day prior q2-2026 against the 92-day current q3-2026, `earnings.py` raw-day check).
-    The pair is the oracle's, `runs/R5b` `prior_period` and `current_period`."""
+def test_r5b_delta_core_settles_the_unequal_day_pair_and_cp1b_refuses_it() -> None:
+    """R5b (owner ruling 2026-11-07): the delta core accepts the 91-day prior q2-2026 against the
+    92-day current q3-2026 and its points are CP-1B@USD's (the same rows under different period
+    ids); the module's pair rule (`cp1b.supported`, ruling B19) stays, so CP-1B still refuses the
+    pair. The pair and both outcomes are the oracle's, `runs/R5b`."""
     run = KEY["runs"]["R5b"]
     want = run["modules"]["CP-1B"]
-    assert want["outcome"] == "refused" and want["error"] == "incompatible_periods"
-    found = _compute(
-        _q2_q3_register(run["pack_currency"]),
+    core = want["delta_core"]
+    assert core["outcome"] == "settled" and core["figures_produced"] is True
+    assert (core["prior_days"], core["current_days"]) == (91, 92)
+    assert want["outcome"] == "refused" and want["figures_produced"] is False
+    module = _q2_q3_register(run["pack_currency"])
+    report = build_earnings_delta_in(
+        cp1b.cp1_view(module), run["prior_period"], run["current_period"], run["reporting_currency"]
+    )
+    assert (report.prior_period_id, report.current_period_id) == (
+        core["prior_period_id"],
+        core["current_period_id"],
+    )
+    assert _points(report) == _oracle_points(core["oracle"])
+    owner = _compute(
+        module,
         run["prior_period"],
         run["current_period"],
         "flat_sequential",
         run["reporting_currency"],
     )
-    assert found.issues == (want["issue_contains"],) and found.report is None
+    assert owner.report is None and owner.issues == (want["issue_contains"],)
 
 
 # --- CP-1B on the owner path under a run context ---------------------------------------------------

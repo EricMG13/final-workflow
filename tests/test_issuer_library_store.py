@@ -447,3 +447,10 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
     output = result["outputs"]["web-1/CP-1.md"]
     assert output["summary"] is None
     assert any(s["heading"] == "Chart data: leverage" for s in output["sections"])
+
+
+def test_a_file_that_only_starts_like_a_handoff_name_does_not_hide_the_run(tmp_path):
+    put(tmp_path, "runs/case/CP-0.md", BETA)
+    put(tmp_path, "runs/case/CP-1a.md", BETA + "Hand-named file.\n")
+    result = store.workspace_store(tmp_path, plain_run("case"))
+    assert list(result["outputs"]) == ["case/CP-0.md"] and result["issues"] == []

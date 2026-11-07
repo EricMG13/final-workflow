@@ -144,7 +144,7 @@ def prompt_messages(
     bound = {item.sha256 for item in binding.inputs}
     selected = {head.module_id for head in store.read().heads if head.result_sha256 in bound}
     upstream = {
-        name: path.read_text()
+        name: path.read_text(encoding="utf-8")
         for name, path in files.items()
         if name != binding.module_id and name in selected
     }
@@ -165,7 +165,7 @@ def deliver(store: Execution, destination: Path) -> None:
     definitions = {item.module_id: item for item in modules()}
     by_id = {}
     for name, path in files.items():
-        raw = path.read_text()
+        raw = path.read_text(encoding="utf-8")
         payload = raw.rsplit(MARKER, 1)[1].removesuffix("\n```\n")
         module = Module.model_validate_json(payload)
         head = next(head for head in store.read().heads if head.module_id == name)

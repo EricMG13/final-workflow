@@ -9,7 +9,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_EVEN, Context, Decimal, DecimalException, localcontext
 from typing import Literal
 
@@ -156,6 +156,22 @@ def _duration_period(row: dict[str, Fact]) -> _Period:
     except ValueError as exc:
         raise ValueError("invalid_fact") from exc
     return _Period(_text(row["period_id"]), kind, start, end, row)
+
+
+def _whole_months(period: _Period) -> bool:
+    """The period runs from the first day of a month to the last day of a month."""
+    return period.start.day == 1 and (period.end + timedelta(days=1)).day == 1
+
+
+def _comparable_length(prior: _Period, current: _Period) -> bool:
+    """Same day count, or both whole calendar months (calendar quarters span 89-92 days and
+    years 365-366, so month counts, not days, make those like-for-like)."""
+    if prior.end - prior.start == current.end - current.start:
+        return True
+    months = [
+        (p.end.year - p.start.year) * 12 + p.end.month - p.start.month for p in (prior, current)
+    ]
+    return _whole_months(prior) and _whole_months(current) and months[0] == months[1]
 
 
 def _check_period(period: _Period, currency: str = "USD") -> None:
@@ -347,7 +363,7 @@ def build_earnings_delta_in(
                 _check_period(prior, currency)
                 if (
                     prior.kind != current.kind
-                    or prior.end - prior.start != current.end - current.start
+                    or not _comparable_length(prior, current)
                     or current.start <= prior.end
                 ):
                     raise ValueError("incompatible_periods")

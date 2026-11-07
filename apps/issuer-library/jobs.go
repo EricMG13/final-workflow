@@ -6,18 +6,23 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+const engineReviewLimit = 10 * time.Minute
 
 var jobID = regexp.MustCompile(`^web-[a-f0-9]{32}$`)
 var moduleCode = regexp.MustCompile(`^CP-[A-Z0-9]+$`)
@@ -70,7 +75,7 @@ func (engine Engine) review(folder string) (json.RawMessage, error) {
 		return nil, fmt.Errorf("CP-OS runtime is unavailable; use the complete application package")
 	}
 	// The launcher reads every file in the folder, so a large one takes minutes.
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), engineReviewLimit)
 	defer cancel()
 	output, err := engine.command(ctx, "review", folder).Output()
 	if len(output) > 1<<20 || !json.Valid(output) {
@@ -145,14 +150,33 @@ func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
+			// Ids are random, so recency comes from the status file's update time.
 			entries, _ := os.ReadDir(filepath.Join(workspace, "intake"))
-			recent := []map[string]any{}
-			for i := len(entries) - 1; i >= 0 && len(recent) < 30; i-- {
-				id := entries[i].Name()
-				if !jobID.MatchString(id) {
+			type listed struct {
+				id      string
+				updated time.Time
+			}
+			var candidates []listed
+			for _, entry := range entries {
+				if !jobID.MatchString(entry.Name()) {
 					continue
 				}
-				status, ok := jobView(workspace, id)
+				if info, err := os.Stat(filepath.Join(workspace, "intake", entry.Name(), "status.json")); err == nil {
+					candidates = append(candidates, listed{entry.Name(), info.ModTime()})
+				}
+			}
+			sort.Slice(candidates, func(i, j int) bool {
+				if !candidates[i].updated.Equal(candidates[j].updated) {
+					return candidates[i].updated.After(candidates[j].updated)
+				}
+				return candidates[i].id > candidates[j].id
+			})
+			recent := []map[string]any{}
+			for _, candidate := range candidates {
+				if len(recent) == 30 {
+					break
+				}
+				status, ok := jobView(workspace, candidate.id)
 				if !ok || status["state"] == "reviewed" {
 					continue
 				}
@@ -322,6 +346,10 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	if err = saveJSON(filepath.Join(folder, "job.json"), job); err != nil {
 		http.Error(w, "Could not save run request", 500)
 		return
+	}
+	// The validator can run for minutes, past the server's write timeout.
+	if err = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(engineReviewLimit + time.Minute)); err != nil && !errors.Is(err, http.ErrNotSupported) {
+		log.Printf("Review response deadline: %v", err)
 	}
 	result, err := app.engine.review(folder)
 	if err != nil {

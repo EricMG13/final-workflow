@@ -671,3 +671,36 @@ def test_canonical_opening_period_end_is_indexed_but_not_a_duration_comparator(
         refusal(with_opening, error, prior, current)
     else:
         assert build(with_opening, prior, current) == build(module, prior, current)
+
+
+@pytest.mark.parametrize(
+    "prior_dates,current_dates",
+    [
+        # Sequential calendar quarters Q2 (90 days) and Q3 (91 days) of 2025.
+        (("2", "2025-04-01", "2025-06-30"), ("3", "2025-07-01", "2025-09-30")),
+        # Q1 2025 (89 days) and Q2 2025 (90 days).
+        (("1", "2025-01-01", "2025-03-31"), ("2", "2025-04-01", "2025-06-30")),
+    ],
+)
+def test_adjacent_calendar_quarters_of_unequal_day_count_are_comparable(
+    monkeypatch, prior_dates, current_dates
+):
+    """Calendar quarters differ by 1-3 days; that alone must not refuse a sequential pair."""
+    for pid, (quarter, start, end) in (("q3-2025", prior_dates), ("q4-2025", current_dates)):
+        monkeypatch.setitem(DATES, pid, ("QUARTER", quarter, start, end, f"Q{quarter} 25"))
+    report = build()
+    # Hand calculation from VALUES: cash_closing 20 - 18.75.
+    assert point(report, "cash_closing").delta == Decimal("1.25")
+
+
+def test_leap_year_quarters_are_comparable(monkeypatch):
+    """Q1 2023 (89 days) against Q1 2024 (90 days, leap) is an ordinary year-on-year pair."""
+    monkeypatch.setitem(DATES, "q3-2025", ("QUARTER", "1", "2023-01-01", "2023-03-31", "Q1 23"))
+    monkeypatch.setitem(DATES, "q4-2025", ("QUARTER", "1", "2024-01-01", "2024-03-31", "Q1 24"))
+    assert point(build(), "cash_closing").delta == Decimal("1.25")
+
+
+def test_unequal_day_count_without_whole_months_still_refuses(monkeypatch):
+    """A quarter of three months against one of two months is not like-for-like."""
+    monkeypatch.setitem(DATES, "q3-2025", ("QUARTER", "2", "2025-05-01", "2025-06-30", "Q2 25"))
+    refusal(fixture(), "incompatible_periods")

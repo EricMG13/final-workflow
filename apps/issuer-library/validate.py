@@ -17,7 +17,7 @@ from pathlib import Path
 
 APP = Path(__file__).resolve().parent
 ROOT = APP.parents[1]
-KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY")
+KEYS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY", "COPILOT_GITHUB_TOKEN")
 NODE_TESTS = (
     "designs/design.test.cjs",
     "web/new-run.test.cjs",
@@ -28,6 +28,7 @@ NODE_TESTS = (
 )
 PYTHON_TESTS = (
     "tests/test_issuer_library_store.py",
+    "tests/test_issuer_library_validate.py",
     "tests/test_cpos_app.py",
     "tests/test_cpos_launch.py",
     "tests/test_reader_summary.py",

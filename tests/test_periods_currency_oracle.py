@@ -34,7 +34,7 @@ Row -> existing nodes (file::node), status:
     cp4c::test_an_unsupported_period_is_one_issue_line_and_an_empty_view (R5 CP-4C)
     cp1c::test_unsupported_period_base_is_a_period_basis_issue (R5 CP-1C)
     misc::test_cp2a_offers_a_q3_base_whatever_the_currency (R5, R5b CP-2A)
-    misc::test_r5b_q3_base_cp1b_keeps_its_raw_day_refusal, fix1::test_r5b_cp1b_through_the_context_with_the_oracle_pair
+    misc::test_r5b_delta_core_settles_the_unequal_day_pair_and_cp1b_refuses_it, fix1::test_r5b_context_delta_core_settles_and_the_cp1b_validator_refuses
     NEW test_r5b_cpl10_refuses_at_the_offering
  5  no-context pack unchanged: fast per-module byte checks (below); the frozen          run (fast
     `cases/*-owner` suites `tests/test_owner_*.py tests/test_connect_*.py` are CI-only    nodes);
@@ -114,7 +114,7 @@ MAPPED = {
         "test_composed_row_labels_equal_the_oracle",
         "test_composed_prose_equals_the_oracle",
         "test_cp2a_offers_a_q3_base_whatever_the_currency",
-        "test_r5b_q3_base_cp1b_keeps_its_raw_day_refusal",
+        "test_r5b_delta_core_settles_the_unequal_day_pair_and_cp1b_refuses_it",
         "test_eur_evidence_states_the_currency_and_usd_keeps_its_bytes",
         "test_cpl10_usd_upstream_keeps_the_us_dollar_token",
     ],
@@ -142,7 +142,7 @@ MAPPED = {
     "e2e_cp2d": ["test_cp2d_r4_mismatch_is_an_entry_validator_issue"],
     "e2e_cp3c": ["test_cp3c_r4_mismatch_is_an_entry_validator_issue"],
     "end1": ["test_eur_report_amounts_equal_the_r3_run_oracle"],
-    "fix1": ["test_r5b_cp1b_through_the_context_with_the_oracle_pair"],
+    "fix1": ["test_r5b_context_delta_core_settles_and_the_cp1b_validator_refuses"],
     "cp2d_cp3c": [
         "test_default_basis_bindings_are_the_frozen_ones",
         "test_no_context_keeps_the_default_basis",

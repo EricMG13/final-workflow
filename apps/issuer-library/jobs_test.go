@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
@@ -316,5 +318,81 @@ func TestSaveJSONWaitsForAFileHeldOpen(t *testing.T) {
 	raw, err := os.ReadFile(name)
 	if err != nil || !strings.Contains(string(raw), "interrupted") {
 		t.Fatalf("%s %v", raw, err)
+	}
+}
+
+// Run ids are random, so name order says nothing about recency: the list must
+// show the most recently updated runs, newest first, not the last names.
+func TestRunListShowsTheMostRecentlyUpdatedRunsFirst(t *testing.T) {
+	app, root := testApp(t)
+	base := time.Now().Add(-time.Hour)
+	const total = 35
+	for i := 0; i < total; i++ {
+		// Higher i is newer, while its id sorts lower: i=34 has the smallest name.
+		id := fmt.Sprintf("web-%032x", total-1-i)
+		folder := filepath.Join(root, "intake", id)
+		if err := os.MkdirAll(folder, 0700); err != nil {
+			t.Fatal(err)
+		}
+		status := filepath.Join(folder, "status.json")
+		if err := os.WriteFile(status, []byte(`{"state":"stopped","message":"x"}`), 0600); err != nil {
+			t.Fatal(err)
+		}
+		when := base.Add(time.Duration(i) * time.Minute)
+		if err := os.Chtimes(status, when, when); err != nil {
+			t.Fatal(err)
+		}
+	}
+	list := call(app, "GET", "/api/runs/list", "")
+	var rows []map[string]any
+	if list.Code != 200 || json.Unmarshal(list.Body.Bytes(), &rows) != nil || len(rows) != 30 {
+		t.Fatalf("list: %d %s", list.Code, list.Body.String())
+	}
+	for position, row := range rows {
+		i := total - 1 - position // expected: newest first
+		want := fmt.Sprintf("web-%032x", total-1-i)
+		if row["id"] != want {
+			t.Fatalf("row %d is %v, want %s", position, row["id"], want)
+		}
+	}
+}
+
+// A review can take minutes (see Engine.review), longer than the server's write
+// timeout; the answer must still reach the browser.
+func TestReviewResponseSurvivesTheServerWriteTimeout(t *testing.T) {
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("Python needed for the synthetic process-boundary test")
+	}
+	script := filepath.Join(t.TempDir(), "worker.py")
+	raw := "import json,time\ntime.sleep(1.5)\nprint(json.dumps({'ok':False,'errors':['synthetic']}))\n"
+	if err = os.WriteFile(script, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app, _ := testApp(t)
+	app.engine = Engine{Python: python, Script: script}
+	server := httptest.NewUnstartedServer(app)
+	server.Config.WriteTimeout = 500 * time.Millisecond
+	server.Start()
+	defer server.Close()
+	app.host = strings.TrimPrefix(server.URL, "http://")
+	var body bytes.Buffer
+	form := multipart.NewWriter(&body)
+	for key, value := range map[string]string{"context": "{}", "source_paths": `["a.txt"]`, "modules": "CP-4"} {
+		_ = form.WriteField(key, value)
+	}
+	file, _ := form.CreateFormFile("sources", "a.txt")
+	_, _ = file.Write([]byte("x"))
+	form.Close()
+	request, _ := http.NewRequest("POST", server.URL+"/api/runs/review", &body)
+	request.Header.Set("Content-Type", form.FormDataContentType())
+	request.Header.Set("X-Issuer-Library", "1")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("response lost to the write timeout: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		t.Fatalf("status %d", response.StatusCode)
 	}
 }

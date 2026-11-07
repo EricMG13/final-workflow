@@ -386,6 +386,51 @@ def test_markdown_handoff_is_consumed_and_delivery_preserves_exact_values(tmp_pa
         deliver(store, run_dir / "tampered")
 
 
+def test_non_ascii_handoff_survives_a_windows_locale_default(tmp_path, monkeypatch):
+    """Windows opens text files as cp1252 unless told otherwise; handoffs are written as UTF-8."""
+    import pathlib
+
+    _, run_dir = o2_case.stage(tmp_path / "case")
+    pack = load_pack(run_dir / "pack")
+    label = "Zero amount \u20ac"
+    module = Module(
+        run_id=pack.run.run_id,
+        issuer_id=pack.run.issuer_id,
+        as_of=pack.run.as_of,
+        module_id="CP-1",
+        status="accepted",
+        facts=(
+            Fact(
+                fact_id="transport-check.zero",
+                label=label,
+                table_id="T4.4",
+                row_id="zero",
+                field="amount",
+                amount=Decimal("0.00"),
+                unit="currency",
+                currency="EUR",
+                period="FY2024",
+            ),
+        ),
+    )
+    store = RetainedStore(run_dir, module)
+    binding = SimpleNamespace(
+        module_id="CP-2",
+        step_id="credit_synthesis",
+        inputs=(SimpleNamespace(sha256=module.content_hash()),),
+    )
+    real = pathlib.Path.read_text
+
+    def windows_read_text(self, encoding=None, errors=None, newline=None):
+        return real(self, encoding or "cp1252", errors, newline)
+
+    monkeypatch.setattr(pathlib.Path, "read_text", windows_read_text)
+    with transport():
+        messages = prompt_messages(store, SimpleNamespace(**vars(binding)), ())
+    assert label in json.loads(messages[-1].text.split("\n", 1)[1])["CP-1"]
+    deliver(store, run_dir / "delivery")
+
+
 def test_read_at_keeps_append_position(tmp_path):
     import os
 

@@ -225,6 +225,7 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
     )
     facts: list[Fact] = []
     tables: list[ReportTable] = []
+    key_risks: list[str] = []
 
     def add(
         table_id: str,
@@ -359,6 +360,9 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
             if not rows:
                 raise ValueError(f"CP-2: missing ranked {name}")
             add(f"cp2.{name.lower()}", name, ["Item", "Text"], rows)
+        # The shipped CP-2 bindings hold strengths and weaknesses only; the rated key-risk line
+        # is kept literally among the module's limitations rather than dropped.
+        key_risks = [plain(line) for _, line in ranked if line.startswith("**Key risks")]
         gap_id = "T2.12"
     headers, gaps = table(section(lines, "Gaps"))
     add(gap_id, "Gaps and restrictions from the handoff", headers, gaps)
@@ -374,6 +378,7 @@ def mapped_module(module_id: str, raw: bytes) -> tuple[ModuleView, Source]:
         limitations=(
             source.limitation or "",
             *tuple(plain("; ".join(values)) for _, _, values in gaps),
+            *key_risks,
         ),
     ), source
 

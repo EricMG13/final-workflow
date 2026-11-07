@@ -8,6 +8,50 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Confidence review of the whole app
+
+Scope: 14 slices of the app at a313b50, each reviewed by a Sonnet agent and checked in the main
+session. A patch was kept only when its new test failed on the a313b50 source and passed after.
+Fixed:
+- **Issuer Library:** the run list is ordered by last status update, not random id
+  (`jobs.go`). A review response outlives the server write timeout. A stray `CP-1a.md` no longer
+  hides a run (`store.py`). `COPILOT_GITHUB_TOKEN` is stripped from gate environments
+  (`validate.py`). A stale status reply no longer overwrites another run's screen (`actions.js`).
+- **Runtime:** the budget's directory fsync goes through `platform_io` (`budget.py`); Windows
+  refuses `os.open` on a directory, so a paid run would have stopped creating its budget
+  (simulated). `search_source` matches on the page itself (U+0130). Journal writes retry
+  through `platform_io.replace` (`execution.py`). Handoff reads are explicit UTF-8
+  (`cpos_handoffs.py`; the app already runs `-X utf8`).
+- **Delivery and analysis:** the CP-2 `**Key risks:**` line is kept among limitations
+  (snapshot route). `rv_quotes` bounds the exponent. `_scale_of` keys on the resolved scale
+  label (owner ruling), clearing the T4.9 `mixes amount units` refusal recorded as open below;
+  `test_financial_workflow.py` then passed 21 (was 3 failed, 2 errors; agent-run).
+- **Owner ruling, delta core only:** `earnings.py` accepts whole-calendar-month pairs of equal
+  month count. CP-1B's pair rule (B19) is unchanged, so the module still refuses q2 -> q3. R5b
+  in `cases/periods-currency-owner` is re-cut to record both layers; `cases/PINS.json` was
+  regenerated (two hashes).
+
+Rejected: joining split negatives `(1,234 )`, which occurs in 0 of 43,461 converted corpus lines
+and breaks the spacing invariant quote checks rely on. Chart text at the handoff's precision is
+display-only and stops the retained `web-04cd…` delivery verifying.
+Checks: affected tests per patch; Go vet and tests, Windows cross-build and the six web test
+files pass. GitNexus: this repo is not indexed. Baseline failures, the same on a clean base:
+`test_gate` 2, `test_o5_done_when` 2, `test_model_testing_mapping` 6 (missing
+`work/model-testing` output), `test_model_testing_run` 14, SHC uncovered rows 6
+(`test_statement_compose`, `test_unit_maps`), `test_html_text` 1, `test_method_cp*` 8 (pins,
+cpdr hashes, an absent commit) and `test_czr_cash_scope` 1. `test_cp1_coverage_gate` 6 was
+reported by an agent and not checked against base.
+Open for the owner:
+- a leftover `run.json.tmp` blocks a resume, pinned by a test;
+- `os.rename` at `run_inputs.py:581`;
+- `_stated` drops a cell's note;
+- CP-1D reads `25bps` as 25;
+- `.copilot-home` depends on the launcher's working directory;
+- an undecodable source leaves its module folder, so a rerun says `cpos_live_already_started`;
+- 25 of 27 retained deliveries no longer verify under current code, as at a313b50.
+Not verified: real Windows; any provider; the whole suite, running at commit time; 20 slow
+`test_earnings_workflow.py` tests, which timed out at 240 s.
+
 ## 2026-11-06 — GitHub Copilot SDK adapter
 
 Dependency decision: the standard library cannot speak the runtime's JSON-RPC in a few lines and

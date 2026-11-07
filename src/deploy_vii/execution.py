@@ -52,6 +52,7 @@ from deploy_vii.registry import (
     within_attempt_repair,
 )
 from deploy_workflow.platform_io import locks as fcntl
+from deploy_workflow.platform_io import replace as replace_file
 
 Validator = Callable[[Module], tuple[str, ...]]
 SCHEMA = "execution/5"
@@ -524,7 +525,7 @@ def _atomic_write(path: Path, raw: bytes) -> None:
             stream.write(raw)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
+        replace_file(temporary, path)  # waits out Windows refusing a file a reader has open
     finally:
         Path(temporary).unlink(missing_ok=True)
 

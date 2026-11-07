@@ -14,7 +14,7 @@ import re
 import stat
 import sys
 from collections import Counter
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path, PurePosixPath
 from typing import Any, NamedTuple, NotRequired, TypedDict
 from urllib.parse import quote
@@ -1028,6 +1028,10 @@ def cashflow_units(handoff: str) -> str | None:
     return re.sub(r"\s+", " ", phrase.group(0)) if phrase else None
 
 
+class CashflowBudget(Exception):
+    """A grid larger than the cells left in the workspace's budget; raised before any cell."""
+
+
 class CashflowLimit(Exception):
     """A cash flow input larger than the reader accepts; names the file and what was too large."""
 
@@ -1858,12 +1862,16 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
 def cashflow_of(
     forecast: tuple[Forecast, list[str]],
     fiscal: Fiscal,
-    annual: list[Table],
-    quarter: list[Table],
+    statements: tuple[list[Table], list[Table]],
     handoff: str | None,
+    budget: int,
 ) -> dict[str, Any]:
-    """History from the parsed annual and quarter tables and the forecast record, as a grid."""
+    """History from the parsed annual and quarter tables and the forecast record, as a grid.
+
+    Raises CashflowBudget, before computing any cell, when rows x columns passes `budget`.
+    """
     cases, limits = forecast
+    annual, quarter = statements
     names = CASHFLOW_LABELS
     tables: dict[str, Table | None] = {
         "income": table_holding(quarter, names["cogs"]),
@@ -1880,6 +1888,11 @@ def cashflow_of(
     capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
     layout = [RowSpec._make(spec) for spec in cashflow_rows(tables)]  # a plain 7-tuple row works
     columns = cashflow_columns(periods, fiscal, cases, ends)
+    if len(layout) * len(columns) > budget:
+        raise CashflowBudget(
+            "the cash flow model is not shown; the workspace's cash flow models exceed "
+            f"{CASHFLOW_CELL_BUDGET:,} cells"
+        )
     grid: dict[RowKey, list[Cell]] = {}
     rows = []
     for spec in layout:
@@ -1926,12 +1939,14 @@ CASHFLOW_ERRORS = (
 
 
 def read_cashflow(
-    files: dict[str, bytes], handoff: str | None
+    files: dict[str, bytes], handoff: str | None, budget: int | None = None
 ) -> tuple[dict[str, Any] | None, tuple[str, str] | None]:
     """(grid, None), or (None, (kind, text)).
 
-    Kind "file" (text: the input that cannot be read), "limit" (text: the limit message) or
-    "layout" (text: describe(error) of the failure while laying out).
+    Kind "file" (text: the input that cannot be read), "limit" (text: the limit message, or the
+    budget message when the grid passes `budget`, which no cell was computed for) or "layout"
+    (text: describe(error) of the failure while laying out). `budget` is the cells left to this
+    grid; None means the whole CASHFLOW_CELL_BUDGET, read when called.
 
     Documented fail-open: an input the reader cannot read or lay out leaves the model listed with
     no grid and a Workspace issue naming the file or the cause. A model too large to parse
@@ -1952,18 +1967,27 @@ def read_cashflow(
     except CASHFLOW_ERRORS:
         return None, ("file", stage)
     try:
-        return cashflow_of(forecast, fiscal, annual, quarter, handoff), None
-    except CashflowLimit as error:
+        left = CASHFLOW_CELL_BUDGET if budget is None else budget
+        return cashflow_of(forecast, fiscal, (annual, quarter), handoff, left), None
+    except (CashflowLimit, CashflowBudget) as error:
         return None, ("limit", str(error))
     except CASHFLOW_ERRORS as error:
         return None, ("layout", describe(error))
+
+
+class GridAsk(NamedTuple):
+    """What a model's grid is built from besides its files: its handoff text and its cell budget
+    (None: the whole CASHFLOW_CELL_BUDGET)."""
+
+    handoff: str | None
+    budget: int | None
 
 
 def cashflow_or_issues(
     folder: str,
     files: dict[str, Any],
     inputs: dict[str, bytes | None],
-    handoff: str | None,
+    ask: GridAsk,
     issues: list[str],
 ) -> dict[str, Any] | None:
     """The model's cash flow grid, or None with one issue for each of the four unusable files."""
@@ -1977,7 +2001,7 @@ def cashflow_or_issues(
         issues.append(f"{folder}: {name} {what}")
     if len(present) != len(CASHFLOW_FILES):
         return None
-    cashflow, problem = read_cashflow(present, handoff)
+    cashflow, problem = read_cashflow(present, ask.handoff, ask.budget)
     if problem is not None:
         kind, text = problem
         issues.append(
@@ -1990,14 +2014,60 @@ def cashflow_or_issues(
     return cashflow
 
 
-def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[str]]:
+MANIFEST_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RecursionError,
+    MemoryError,
+)
+
+Manifests = dict[str, "tuple[dict[str, Any], dict[str, Any]] | str"]
+
+
+def model_manifests(root: Path, folders: Iterable[str]) -> Manifests:
+    """Each folder's (delivery.json, listed view.json), read once, or describe(error) when it
+    cannot be read. Documented fail-open: a folder that cannot be read is reported by its readers
+    (a Workspace issue or no identity), never ends the store."""
+    found: Manifests = {}
+    for folder in folders:
+        if folder in found:
+            continue
+        try:
+            delivery = delivery_json(root / folder)
+            found[folder] = (delivery, listed_view(root / folder, delivery))
+        except MANIFEST_ERRORS as error:
+            found[folder] = describe(error)
+    return found
+
+
+def available_folders(catalogue: dict[str, Any]) -> list[str]:
+    """Every available artifact folder of the catalogue, once, in catalogue order."""
+    return list(
+        dict.fromkeys(
+            artifact["folder"]
+            for run in catalogue["real"]
+            for artifact in run.get("artifacts") or []
+            if artifact.get("available")
+        )
+    )
+
+
+def shown_models(
+    root: Path, catalogue: dict[str, Any], manifests: Manifests | None = None
+) -> tuple[set[str], list[str]]:
     """The one available model folder shown per name (the route id), and the issues for the others.
 
     A folder is listed once however many runs list it. When folders share a name, the run's own
     delivery (runs/<run_id>/deliveries/<name>, its view.json recording that run) is kept, else the
     first by path; each dropped folder is named in an issue that says which one is shown. Only the
-    kept folder is read in full.
+    kept folder is read in full. `manifests` are the folders' model_manifests, read when omitted.
     """
+    manifests = (
+        model_manifests(root, available_folders(catalogue)) if manifests is None else manifests
+    )
     by_name: dict[str, list[str]] = {}
     for run in catalogue["real"]:
         for artifact in run.get("artifacts") or []:
@@ -2013,17 +2083,12 @@ def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[
             return False
         # Documented fail-open: an unreadable view.json means "not known to be the run's own"; the
         # model read in catalogue_models reports the same failure as a Workspace issue.
+        manifest = manifests.get(folder)
+        if not isinstance(manifest, tuple):
+            return False
         try:
-            recorded = listed_view(root / folder, delivery_json(root / folder))["run"]["run_id"]
-        except (
-            OSError,
-            ValueError,
-            KeyError,
-            TypeError,
-            AttributeError,
-            RecursionError,
-            MemoryError,
-        ):
+            recorded = manifest[1]["run"]["run_id"]
+        except MANIFEST_ERRORS:
             return False
         return bool(recorded == parts[1])
 
@@ -2040,24 +2105,44 @@ def shown_models(root: Path, catalogue: dict[str, Any]) -> tuple[set[str], list[
     return shown, issues
 
 
+SourcesOf = Callable[[str, dict[str, Any]], tuple[list[dict[str, Any]], list[str]]]
+
+
+class ModelReads(NamedTuple):
+    """What reading a model needs beyond its folder: the root, the issuer keys and the once-per-
+    load sources of a model (see catalogue_models)."""
+
+    root: Path
+    keys: dict[str, str]
+    sources_of: SourcesOf
+
+
 def read_model(
-    root: Path,
+    reads: ModelReads,
     artifact: dict[str, Any],
-    outputs: dict[str, Any],
-    keys: dict[str, str],
+    manifest: tuple[dict[str, Any], dict[str, Any]] | str,
     issues: list[str],
+    budget: int | None = None,
 ) -> dict[str, Any] | None:
-    """One published model with its grid, or None with an issue when its record cannot be read."""
+    """One published model with its grid, or None with an issue when its record cannot be read.
+
+    `manifest` is the model_manifests entry; `reads.sources_of(folder, delivery)` gives the
+    model's (source rows, their issues); `budget` is the grid cells left (see read_cashflow).
+    """
+    root, keys, sources_of = reads
     folder = artifact["folder"]
+    if isinstance(manifest, str):
+        issues.append(f"{folder}: could not be read ({manifest})")
+        return None
+    delivery, view = manifest
     # Documented fail-open: reported in Settings; the other models stay readable. A model too
     # large to parse (MemoryError) is reported the same way, never ends the store.
     try:
-        delivery = delivery_json(root / folder)
-        view = listed_view(root / folder, delivery)
         identity = view["run"]
         run_id = identity["run_id"]
         issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
-        sources = model_sources(root, delivery, outputs, folder, issues)
+        sources, source_issues = sources_of(folder, delivery)
+        issues.extend(source_issues)
         register = handoff_text = None
         files = delivery["files"]
         if "forecast.md" in files:
@@ -2072,18 +2157,10 @@ def read_model(
             for name in CASHFLOW_FILES
         }
         previous = delivery.get("previous_directory")
-    except (
-        OSError,
-        ValueError,
-        KeyError,
-        TypeError,
-        AttributeError,
-        RecursionError,
-        MemoryError,
-    ) as error:
+    except MANIFEST_ERRORS as error:
         issues.append(f"{folder}: could not be read ({describe(error)})")
         return None
-    cashflow = cashflow_or_issues(folder, files, inputs, handoff_text, issues)
+    cashflow = cashflow_or_issues(folder, files, inputs, GridAsk(handoff_text, budget), issues)
     mode, qualification = view.get("mode"), view.get("analytical_qualification")
     return {
         "id": Path(folder).name,
@@ -2108,10 +2185,10 @@ def read_model(
 
 
 def run_shows(
-    root: Path,
     artifact: dict[str, Any],
+    manifest: tuple[dict[str, Any], dict[str, Any]] | str,
     keys: dict[str, str],
-    outputs: dict[str, Any],
+    sources_of: SourcesOf,
     runs: dict[str, dict[str, Any]],
 ) -> bool:
     """Whether a run's Forecast lists this model: the same issuer key and the run named by the
@@ -2119,36 +2196,60 @@ def run_shows(
     folder = artifact["folder"]
     # Documented fail-open: a record that cannot be read is not shown by a run; read_model reports
     # the same failure as a Workspace issue.
+    if isinstance(manifest, str):
+        return False
+    delivery, view = manifest
     try:
-        delivery = delivery_json(root / folder)
-        identity = listed_view(root / folder, delivery)["run"]
+        identity = view["run"]
         key = report_issuer_key(keys, identity.get("issuer_id"))
         if key is None:
             return False
         held = {route for route, run in runs.items() if run["issuerKey"] == key}
         if any(runs[route]["folder"] == identity["run_id"] for route in held):
             return True
-        sources = model_sources(root, delivery, outputs, folder, [])
-        return any(row["run"] in held for row in sources)
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, MemoryError):
+        return any(row["run"] in held for row in sources_of(folder, delivery)[0])
+    except MANIFEST_ERRORS:
         return False
+
+
+class WorkspaceReads(NamedTuple):
+    """What the store has read before the models: outputs, issuer keys, runs, model manifests."""
+
+    outputs: dict[str, Any]
+    keys: dict[str, str]
+    runs: dict[str, dict[str, Any]]
+    manifests: Manifests
 
 
 def catalogue_models(
     root: Path,
     catalogue: dict[str, Any],
-    outputs: dict[str, Any],
-    keys: dict[str, str],
-    runs: dict[str, dict[str, Any]] | None = None,
+    prior: WorkspaceReads,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Published models the server verified, each once, with why and from what they were built.
 
     The models share one budget of CASHFLOW_CELL_BUDGET grid cells. Models some run shows
     (runs: the store's runs) are laid out first, then the rest, each in delivery path
-    order; a model whose grid would pass the budget is listed without one, with an issue.
+    order; a model whose grid would pass the budget is listed without one, with an issue and
+    without computing any of its cells. Each folder's manifest (`prior.manifests`) and each
+    model's sources are read once.
     """
-    runs = runs or {}
-    shown, issues = shown_models(root, catalogue)
+    outputs, keys, runs, manifests = prior
+    shown, issues = shown_models(root, catalogue, manifests)
+    held: dict[str, tuple[list[dict[str, Any]], list[str]] | Exception] = {}
+
+    def sources_of(folder: str, delivery: dict[str, Any]) -> tuple[list[dict[str, Any]], list[str]]:
+        if folder not in held:
+            found: list[str] = []
+            try:
+                held[folder] = (model_sources(root, delivery, outputs, folder, found), found)
+            except MANIFEST_ERRORS as error:
+                held[folder] = error
+        result = held[folder]
+        if isinstance(result, Exception):
+            raise result
+        return result
+
     listed: list[dict[str, Any]] = []
     done: set[str] = set()
     for run in catalogue["real"]:
@@ -2160,24 +2261,22 @@ def catalogue_models(
                 listed.append(artifact)
     built: dict[int, dict[str, Any]] = {}
     cells = 0
+    reads = ModelReads(root, keys, sources_of)
     unshown = {
-        i for i, artifact in enumerate(listed) if not run_shows(root, artifact, keys, outputs, runs)
+        i
+        for i, artifact in enumerate(listed)
+        if not run_shows(artifact, manifests[artifact["folder"]], keys, sources_of, runs)
     }
     for position in sorted(range(len(listed)), key=lambda i: (i in unshown, listed[i]["folder"])):
-        model = read_model(root, listed[position], outputs, keys, issues)
+        artifact = listed[position]
+        model = read_model(
+            reads, artifact, manifests[artifact["folder"]], issues, CASHFLOW_CELL_BUDGET - cells
+        )
         if model is None:
             continue
         grid = model["cashflow"]
         if grid is not None:
-            size = len(grid["rows"]) * len(grid["columns"])
-            if cells + size > CASHFLOW_CELL_BUDGET:
-                model["cashflow"] = None
-                issues.append(
-                    f"{listed[position]['folder']}: the cash flow model is not shown; the "
-                    f"workspace's cash flow models exceed {CASHFLOW_CELL_BUDGET:,} cells"
-                )
-            else:
-                cells += size
+            cells += len(grid["rows"]) * len(grid["columns"])
         built[position] = model
     return [built[position] for position in sorted(built)], issues
 
@@ -2213,12 +2312,18 @@ def recorded_run(run_dir: Path, issues: list[str] | None = None) -> dict[str, st
         return {}
 
 
-def delivery_identities(root: Path, catalogue: dict[str, Any]) -> list[dict[str, Any]]:
+def delivery_identities(
+    root: Path, catalogue: dict[str, Any], manifests: Manifests | None = None
+) -> list[dict[str, Any]]:
     """What each available (hash-verified) deliverable says about its own run and issuer.
 
     A deliverable whose view.json cannot be read is skipped here; catalogue_reports names it in
     Workspace issues, so the failure is reported once and no run takes an identity from it.
+    `manifests` are the folders' model_manifests, read when omitted.
     """
+    manifests = (
+        model_manifests(root, available_folders(catalogue)) if manifests is None else manifests
+    )
     found: list[dict[str, Any]] = []
     seen: set[str] = set()
     for run in catalogue["real"]:
@@ -2227,19 +2332,14 @@ def delivery_identities(root: Path, catalogue: dict[str, Any]) -> list[dict[str,
             if not artifact.get("available") or folder in seen:
                 continue
             seen.add(folder)
+            manifest = manifests.get(folder)
+            if not isinstance(manifest, tuple):
+                continue
             try:
-                identity = listed_view(root / folder, delivery_json(root / folder))["run"]
+                identity = manifest[1]["run"]
                 run_id, name = identity["run_id"], identity["issuer_name"]
                 issuer_id = identity.get("issuer_id") or None
-            except (
-                OSError,
-                ValueError,
-                KeyError,
-                TypeError,
-                AttributeError,
-                RecursionError,
-                MemoryError,
-            ):
+            except MANIFEST_ERRORS:
                 continue
             if isinstance(run_id, str) and isinstance(name, str) and name:
                 valid_id = issuer_id if isinstance(issuer_id, str) else None
@@ -2406,7 +2506,7 @@ def run_row(root: Path, run: dict[str, Any], name: str | None = None) -> tuple[s
 
 
 def shown_runs(
-    root: Path, catalogue: dict[str, Any], issues: list[str]
+    root: Path, catalogue: dict[str, Any], issues: list[str], manifests: Manifests | None = None
 ) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str | None, str | None]]]:
     """The runs to show by route key, and each one's recorded (issuer name, issuer ID).
 
@@ -2416,7 +2516,7 @@ def shown_runs(
     shown: dict[str, tuple[str, ...]] = {}
     recorded: dict[str, tuple[str | None, str | None]] = {}
     delivered: dict[str, list[dict[str, Any]]] = {}
-    for item in delivery_identities(root, catalogue):
+    for item in delivery_identities(root, catalogue, manifests):
         delivered.setdefault(item["run_id"], []).append(item)
     route_keys = {curated[run["id"]][0] for run in catalogue["real"] if run["id"] in curated}
     for run in catalogue["real"]:
@@ -2446,7 +2546,8 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
     root = Path(root)
     catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
     issues = list(catalogue.get("issues") or [])
-    shown, recorded = shown_runs(root, catalogue, issues)
+    manifests = model_manifests(root, available_folders(catalogue))
+    shown, recorded = shown_runs(root, catalogue, issues, manifests)
 
     def link(folder: str, relative: str, digest: str) -> str:
         return f"/files/{quote(f'runs/{folder}/{relative}')}?sha256={digest}"
@@ -2477,7 +2578,9 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         runs[key].update(identity)
     reports, unread = catalogue_reports(root, catalogue, sources, keys)
     found += unread
-    models, unread = catalogue_models(root, catalogue, outputs, keys, runs)
+    models, unread = catalogue_models(
+        root, catalogue, WorkspaceReads(outputs, keys, runs, manifests)
+    )
     found += unread
     # A compared deliverable is a curated build, not a folder that merely has its name.
     for module, config in catalog.items():

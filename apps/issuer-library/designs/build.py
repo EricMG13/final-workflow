@@ -17,10 +17,13 @@ from store import (
     CURATED_REPORTS,
     CURATED_RUNS,
     Handoffs,
+    WorkspaceReads,
+    available_folders,
     built_from,
     catalogue_models,
     collect_runs,
     issuer_groups,
+    model_manifests,
     recorded_identity,
     report_issuer_key,
     sha256,
@@ -102,7 +105,9 @@ def prepare_models(outputs: dict[str, Any], keys: dict[str, str]) -> list[dict[s
                 "href": f"models/{folder.parent.name}/model.html?sha256={sha256(folder)}",
             }
         )
-    models, issues = catalogue_models(ROOT, {"real": [{"artifacts": artifacts}]}, outputs, keys)
+    catalogue = {"real": [{"artifacts": artifacts}]}
+    prior = WorkspaceReads(outputs, keys, {}, model_manifests(ROOT, available_folders(catalogue)))
+    models, issues = catalogue_models(ROOT, catalogue, prior)
     if issues:
         raise ValueError(f"models could not be read: {issues}")
     return models

@@ -2625,6 +2625,47 @@ def test_models_past_the_workspace_cell_budget_get_no_grid_in_delivery_path_orde
     assert not [i for i in result["issues"] if "deliverables/m-1" in i or "deliverables/m-2" in i]
 
 
+def test_each_model_manifest_is_read_once_per_load(tmp_path, monkeypatch):
+    artifacts = [
+        model_delivery(tmp_path, f"deliverables/{name}", forecast=REQUEST, exact=exact_record())
+        for name in ("m-1", "m-2")
+    ]
+    reads: list[str] = []
+    real = store.delivery_json
+
+    def counted(folder):
+        reads.append(folder.name)
+        return real(folder)
+
+    monkeypatch.setattr(store, "delivery_json", counted)
+    result = models_of(tmp_path, *artifacts)
+    assert [m["id"] for m in result["models"]] == ["m-1", "m-2"]
+    assert sorted(n for n in reads if n.startswith("m-")) == ["m-1", "m-2"]
+
+
+def test_a_grid_over_the_budget_is_not_computed(tmp_path, monkeypatch):
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast=REQUEST, exact=exact_record(), extra=cashflow_files()
+    )
+    computed: list[int] = []
+    real = store.spec_cell
+
+    def counted(*args, **kwargs):
+        computed.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(store, "spec_cell", counted)
+    monkeypatch.setattr(store, "CASHFLOW_CELL_BUDGET", 1)
+    result = models_of(tmp_path, artifact)
+    (model,) = result["models"]
+    assert model["cashflow"] is None
+    assert computed == []
+    assert (
+        "deliverables/m-1: the cash flow model is not shown; the workspace's cash flow "
+        "models exceed 1 cells"
+    ) in result["issues"]
+
+
 def test_a_spec_on_a_column_with_no_record_is_a_layout_error_not_a_dash(tmp_path, monkeypatch):
     early = store.RowSpec("early", "X", "Early", "money", ("key", "revenue"), None, None)
     monkeypatch.setattr(store, "TAIL_ROWS", (early, *store.TAIL_ROWS))

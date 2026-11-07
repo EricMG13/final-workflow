@@ -18,7 +18,7 @@ const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 
 test('tab and rail vocabulary follows the approved destinations',t=>{
   const w=fixture('W-Overview/overview?c=tdg-002').window,d=w.document;t.after(()=>w.close());
-  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Reports','Evidence']);
+  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Forecast','Reports','Evidence']);
   assert.ok(d.querySelector('.rail a[aria-label="Reports"]'));
   assert.equal(d.querySelector('.rail a[aria-label="Deliverables"]'),null);
   assert.ok(d.querySelector('.rail a[aria-label="Run activity"] img').getAttribute('src').endsWith('icons/activity.svg'));
@@ -75,7 +75,7 @@ test('the run context frame shows loading, failure with retry, and ready',async 
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-NewRun/run',runScripts:'outside-only',virtualConsole}),w=dom.window,d=w.document;
   w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};w.setInterval=()=>1;w.clearInterval=()=>{};
   w.fetch=async()=>({ok:true,json:async()=>[]});
-  w.eval('window.DESIGN_FRAME_TIMEOUT_MS=20;window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
+  w.eval('window.DESIGN_FRAME_TIMEOUT_MS=20;window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   t.after(()=>{w.close();assert.deepEqual(errors.map(e=>e.message),[]);});
   const status=()=>d.querySelector('#context-step .frame-status');
@@ -141,7 +141,7 @@ test('Help names Reports, not Deliverables',async t=>{
 test('Settings lists workspace issues as path and message and quits as a tertiary action',async t=>{
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-Settings/workspace',runScripts:'outside-only'});
   const w=dom.window;t.after(()=>w.close());w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
-  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:['deliverables/x: Delivery manifest requires report.html: and view.json','plain note'],problem:''};");
+  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:['deliverables/x: Delivery manifest requires report.html: and view.json','plain note'],problem:''};");
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   const d=w.document,quit=d.getElementById('quit-library');
@@ -158,7 +158,7 @@ function emptyPage(hash,t){
   const errors=[],virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',e=>errors.push(e));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only',virtualConsole}),w=dom.window;
   t.after(()=>w.close());w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};
-  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:[],problem:''};");
+  w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:[],problem:''};");
   return {dom,w,errors,load:()=>{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}};
 }
 async function settingsPage(t,fail){
@@ -208,7 +208,7 @@ async function bootPage(t,hash,reply){
   vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());await settle(30);
   return {w,d:w.document,errors,tick:async()=>{await tick();}};
 }
-const GOOD={real:[],runs:{},outputs:{},inputs:{},pins:{},reports:[],visuals:[],issues:[],workspace:'/r'};
+const GOOD={real:[],runs:{},outputs:{},inputs:{},pins:{},reports:[],models:[],visuals:[],issues:[],workspace:'/r'};
 test('H2 the service banner appears after two failed checks and clears on success',async t=>{
   let mode='ok';
   const reply=()=>{if(mode==='down')throw new Error('down');return{ok:true,json:async()=>GOOD};};

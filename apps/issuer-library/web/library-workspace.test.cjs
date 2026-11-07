@@ -5,6 +5,7 @@ const {JSDOM}=require(process.env.ISSUER_LIBRARY_JSDOM||'jsdom');
 const app=path.resolve(__dirname,'..'),repo=path.resolve(app,'../..');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const key=JSON.parse(fs.readFileSync(path.join(app,'designs/library-answer-key.json'),'utf8'));
+const forecast=JSON.parse(fs.readFileSync(path.join(app,'designs/forecast-answer-key.json'),'utf8'));
 const settle=(ms=10)=>new Promise(resolve=>setTimeout(resolve,ms));
 const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 const PROVIDER_KEYS=['OPENAI_API_KEY','ANTHROPIC_API_KEY','OPENROUTER_API_KEY'];
@@ -59,7 +60,7 @@ function screens(read,hash){
   const dom=new JSDOM(html,{url:`http://127.0.0.1:1/index.html#${hash}`,runScripts:'outside-only'}),w=dom.window;
   w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
   w.DESIGN_DATA={runs:store.runs,outputs:store.outputs,inputs:store.inputs,pins:store.pins};
-  w.DESIGN_WORKSPACE={reports:store.reports,visuals:store.visuals};
+  w.DESIGN_WORKSPACE={reports:store.reports,models:store.models,visuals:store.visuals};
   w.DESIGN_APP={workspace:catalogue.workspace||'',policy_locked:!!catalogue.policy_locked,issues:store.issues,problem:''};
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
@@ -169,4 +170,108 @@ test('A synthetic delivery shows accepted, unrecorded and unknown states in exac
   assert.ok(kinds(third).includes('Acceptance not recorded|badge badge-gray'),kinds(third).join());
   const candidate=[...d.querySelectorAll('.report-list li .badge')].find(b=>text(b)==='Candidate · not accepted');
   assert.ok(candidate&&candidate.classList.contains('badge-attention'),'candidate state is an attention badge');
+});
+
+// The Forecast tab, opened the way a reader opens it: from the run, through the tab.
+const go=async(w,hash)=>{w.location.hash=hash;w.dispatchEvent(new w.Event('hashchange'));await settle();};
+async function forecastTab(read,run,t){
+  const w=screens(read,`W-Overview/overview?c=${run}`).window;t.after(()=>w.close());
+  const tab=[...w.document.querySelectorAll('.workspace-tabs a')].find(a=>text(a)==='Forecast');
+  assert.ok(tab,'no Forecast tab');
+  await go(w,tab.getAttribute('href').slice(1));
+  return w;
+}
+const collapse=value=>value.replace(/\s+/g,' ').trim();
+
+for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.models.length)){
+  test(`Forecast for ${run} shows its models, their state, why they were built and what they were built from`,async t=>{
+    const w=await forecastTab(workspace,run,t),d=w.document;
+    assert.deepEqual([...d.querySelectorAll('#model-select option')].map(o=>o.textContent),expected.options);
+    assert.deepEqual([...d.querySelectorAll('#model-select option')].filter(o=>o.selected).map(o=>o.textContent),[expected.selected]);
+    const tools=d.querySelector('.forecast-tools');
+    assert.deepEqual([...tools.querySelectorAll('.badge')].map(text),[expected.state]);
+    assert.deepEqual([...tools.querySelectorAll('.muted')].map(text),[expected.qualification]);
+    assert.equal(text(tools.querySelector('a[download]')),'Download original HTML');
+    assert.equal(d.querySelector('.forecast-scope').textContent,expected.scope);
+    assert.equal(d.querySelector('.forecast-input').textContent,expected.inputContract);
+    assert.equal(d.querySelector('.forecast-revision').textContent,expected.revisionNote);
+    assert.deepEqual([...d.querySelectorAll('.forecast > section > h2')].map(text),['Why this model was built','Assumptions and their rationale','Built from']);
+    const assumptions=d.querySelector('.forecast-assumptions');
+    assert.equal(text(assumptions.querySelector('h3')),expected.registerHeading);
+    assert.equal(collapse(assumptions.querySelector('.register-intro').textContent),expected.registerIntro);
+    const rows=[...assumptions.querySelectorAll('tbody tr')].map(tr=>[...tr.children].map(c=>c.textContent));
+    assert.deepEqual(rows.map(r=>r[0]),expected.registerIds);
+    assert.deepEqual(rows,expected.registerRows);
+    const built=[...d.querySelectorAll('.forecast-built tbody tr')];
+    assert.deepEqual(built.map(tr=>tr.querySelector('th').textContent),expected.builtFrom.map(b=>b.role));
+    built.forEach((tr,i)=>{
+      const b=expected.builtFrom[i],cells=[...tr.querySelectorAll('td')],link=cells[0].querySelector('a');
+      assert.equal(cells[1].textContent,b.sha256Prefix,b.role);
+      assert.equal(text(cells[2]).includes('Changed since publication'),b.changed,b.role);
+      if(b.output===null){assert.equal(link,null,`${b.role} must not link`);assert.equal(cells[0].textContent,b.path);}
+      else{assert.ok(link,`${b.role} has no link`);assert.equal(link.textContent,b.output.split('/').at(-1));}
+    });
+    const frame=d.getElementById('model-preview');
+    assert.equal(frame.getAttribute('sandbox'),'allow-scripts allow-downloads');
+    assert.match(frame.getAttribute('src'),/^\/files\/deliverables\/tdg-model-3\/model\.html\?sha256=[0-9a-f]{64}&embedded=1$/);
+    assert.ok(frame.getAttribute('src').includes(`sha256=${expected.modelSha256}`));
+    // Each link opens the output it names, in the run that holds it.
+    const open=async(link,output)=>{await go(w,link.getAttribute('href').slice(1));assert.equal(w.eval('current.output'),output);await go(w,`W-Forecast/forecast?c=${run}`);};
+    await open(assumptions.querySelector('a.text-action'),expected.registerLinkOutput);
+    assert.equal(text(assumptions.querySelector('a.text-action')),'Open the full forward credit model output');
+    for(const [i,b] of expected.builtFrom.entries()){
+      if(!b.output)continue;
+      await open(d.querySelectorAll('.forecast-built tbody tr')[i].querySelector('td a'),b.output);
+    }
+  });
+}
+
+test('Choosing another model in the Forecast tab shows that model',async t=>{
+  const run='tdg-002',w=await forecastTab(workspace,run,t),d=w.document;
+  const select=d.getElementById('model-select');
+  select.value='tdg-model-1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
+  await settle();
+  assert.equal(d.getElementById('model-select').selectedOptions[0].textContent,forecast.runs[run].options[2]);
+  assert.match(d.getElementById('model-preview').getAttribute('src'),/tdg-model-1\/model\.html/);
+});
+
+for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>!e.models.length)){
+  test(`Forecast for ${run} says no model was published from its files and lists the issuer's other models`,async t=>{
+    const w=await forecastTab(workspace,run,t),d=w.document;
+    assert.equal(text(d.querySelector('#content .missing-state h2')),forecast.emptyHeading);
+    assert.equal(d.getElementById('model-select'),null);
+    assert.equal(d.getElementById('model-preview'),null);
+    const others=d.querySelector('.forecast-other');
+    if(expected.otherHeading===null){assert.equal(others,null);return;}
+    assert.equal(text(others.querySelector('h2')),expected.otherHeading);
+    assert.deepEqual([...others.querySelectorAll('li > a, li > span:first-child')].map(text),expected.others);
+  });
+}
+
+test('Model text from a workspace stays text, and a source that changed says so',async t=>{
+  const bad='<img src=x onerror=alert(1)>',forged=structuredClone(workspace);
+  const model=forged.store.models.find(m=>m.id==='tdg-model-3');
+  model.scope=bad;model.revisionNote=bad;model.register.rows[0][1]=bad;model.sources[0].changed=true;
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  assert.equal(d.querySelector('.forecast-scope').textContent,bad);
+  assert.equal(d.querySelector('.forecast-revision').textContent,`Revision note: ${bad}`);
+  assert.equal(d.querySelector('.forecast-assumptions tbody tr').children[1].textContent,bad);
+  assert.equal(d.querySelector('#content img[src="x"]'),null);
+  assert.equal(d.querySelector('#content [onerror]'),null);
+  const status=[...d.querySelectorAll('.forecast-built tbody tr')].map(tr=>text(tr.children[3]));
+  assert.equal(status[0],'Changed since publication');
+  assert.deepEqual(status.slice(1),['','','','']);
+});
+
+test('The model frame shows loading, then the failure with a download link when the page never arrives',async t=>{
+  const w=screens(workspace,'W-Overview/overview?c=tdg-002').window;t.after(()=>w.close());
+  w.DESIGN_FRAME_TIMEOUT_MS=20;
+  await go(w,'W-Forecast/forecast?c=tdg-002');
+  const status=w.document.querySelector('.forecast .frame-status');
+  assert.equal(text(status),'Loading model…');
+  await settle(60);
+  assert.match(text(status),/^The model did not load\. Download original HTML Retry$/);
+  assert.match(status.querySelector('a').getAttribute('href'),/model\.html\?sha256=[0-9a-f]{64}&download=1$/);
+  w.document.getElementById('model-preview').dispatchEvent(new w.Event('load'));
+  assert.equal(status.hidden,true);
 });

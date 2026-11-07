@@ -211,7 +211,7 @@ func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Query().Get("download") == "1" {
 		filename := path.Base(name)
-		if hash != "" && filename == "report.html" {
+		if hash != "" && (filename == "report.html" || filename == "model.html") {
 			filename = path.Base(path.Dir(name)) + ".html"
 		}
 		w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
@@ -221,7 +221,8 @@ func (app *Application) serveFile(w http.ResponseWriter, r *http.Request) {
 	ancestors := "'none'"
 	if (ext == ".html" || ext == ".htm") && hash != "" && r.URL.Query().Get("embedded") == "1" {
 		ancestors = "http://" + app.host
-		if r.URL.Query().Get("download") != "1" {
+		// Only a report receives the presentation adapter; a published model is served as it was verified.
+		if r.URL.Query().Get("download") != "1" && path.Base(name) == "report.html" {
 			raw = reportPresentation(raw)
 		}
 	}

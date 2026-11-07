@@ -21,7 +21,7 @@ function installDestinations() {
     'W-Calendar':['Event calendar',[['unavailable','Calendar availability',[]]]],
     'W-Reports':['Reports',[['list','Reports',[]]]],
     'W-Evidence':['Evidence library',[['sources','Retained outputs',[]]]],
-    'CP-MODEL':['Published model',[['publication','Publication state',[]],['inputs','Model inputs',[]]]],
+    'W-Forecast':['Forecast',[['forecast','Forecast',[]]]],
     'CP-OS':['Run activity',[['activity','Run record',[]],['delivery','Delivery scope',[]]]],
     'W-NewRun':['New run',[['run','New run',[]]]],
     'W-Settings':['Settings',[['workspace','Workspace',[]]]],
@@ -51,6 +51,17 @@ const sameIssuer=(a,b)=>a!=null&&a===b;
 const issuerReports=context=>window.DESIGN_WORKSPACE.reports.filter(r=>!context||sameIssuer(r.issuerKey,contexts[context].issuerKey));
 const reportsBuiltFrom=context=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.run===context));
 const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom.some(b=>b.source===output));
+// A run's published models: those recorded for its folder and those built from a file it holds.
+const publishedModels=()=>window.DESIGN_WORKSPACE.models;
+const byModelId=(a,b)=>b.id.localeCompare(a.id);
+const runModels=context=>publishedModels().filter(m=>m.runId===contexts[context].folder||m.sources.some(s=>s.run===context)).sort(byModelId);
+const modelRun=model=>Object.keys(contexts).find(key=>contexts[key].folder===model.runId)||model.sources.find(s=>s.run)?.run||null;
+// Not superseded by another listed model; one that records a predecessor comes first, then the later folder name.
+const modelOrder=models=>[...models].sort((a,b)=>(models.some(m=>m.previous===a.id)-models.some(m=>m.previous===b.id))||((b.previous!=null)-(a.previous!=null))||byModelId(a,b));
+function modelRelationship(model,models) {
+  const successor=models.find(m=>m.previous===model.id);
+  return model.previous?`supersedes ${model.previous}`:successor?`superseded by ${successor.id}`:'relationship not recorded';
+}
 const tracedRun=report=>report.builtFrom.find(b=>b.run)?.run||null;
 const reportName=report=>report.build?`Build ${report.build} · ${report.label.trim()}`:report.label.trim();
 const byBuild=(a,b)=>(b.build||0)-(a.build||0)||a.label.trim().localeCompare(b.label.trim());
@@ -249,6 +260,10 @@ const calendarRun=module=>data[pins[module]]?.run;
 function calendarSections(context) {
   return context===calendarRun('CP-1A')?[['tdg','Issuer events',[]]]:context===calendarRun('CP-2E')?[['hedges','Hedge schedule',[]]]:[['unavailable','Calendar availability',[]]];
 }
+function forecastSections(context) {
+  const models=modelOrder(runModels(context));
+  return models.length?models.map(m=>[m.id,m.id,[]]):[['none','Forecast availability',[]]];
+}
 function reportSections(context) {
   const reports=issuerReports(context);
   return reports.length?[['list','Reports',[]],...reports.map(r=>[r.id,reportName(r),[]])]:[['none','Report availability',[]]];
@@ -257,6 +272,7 @@ function navigationSections(module,context,output=defaultOutput(module,context))
   if(module==='W-Calendar')return calendarSections(context);
   if(module==='W-Evidence')return [['sources','Retained outputs',[]]];
   if(module==='W-Reports')return reportSections(context);
+  if(module==='W-Forecast')return forecastSections(context);
   if(Object.hasOwn(modules,module))return modules[module].sections;
   if(output)return modules[output].sections;
   return [['status',moduleEntry(module,context)?.outputs.length?'Choose a saved output':availability(module,context),[]]];
@@ -305,6 +321,25 @@ function reportAcceptance(report) {
   const state=report.mode==='accepted'?'Accepted':candidate?'Candidate · not accepted':'Acceptance not recorded';
   const qualification=QUALIFICATIONS.includes(report.qualification)?`Analytical qualification: ${report.qualification}`:'Analytical qualification not recorded';
   return {state,qualification,html:`${badge(candidate?'attention':'gray',state)} <span class="muted">${esc(qualification)}</span>`};
+}
+function forecastEmpty(context) {
+  const ctx=contexts[context],others=publishedModels().filter(m=>sameIssuer(m.issuerKey,ctx.issuerKey)).sort(byModelId);
+  const row=m=>{const run=modelRun(m);return `<li class="report-row">${run?`<a class="text-action" href="${routeHref('W-Forecast',m.id,null,run)}">${esc(m.id)}${icon('arrow-right')}</a>`:`<span>${esc(m.id)}</span>`} ${reportAcceptance(m).html}</li>`;};
+  return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No forecast model was published from this run’s files</h2></div>${others.length?`<section class="forecast-other"><h2>Other ${esc(ctx.issuerHeading)} models</h2><ol class="report-list">${others.map(row).join('')}</ol></section>`:''}`;
+}
+function forecastView(context,id) {
+  const models=runModels(context);
+  if(!models.length)return forecastEmpty(context);
+  const model=models.find(m=>m.id===id)||modelOrder(models)[0];
+  const acceptance=reportAcceptance(model);
+  const select=`<label for="model-select">Model</label><select id="model-select">${models.map(m=>`<option value="${esc(m.id)}" ${m.id===model.id?'selected':''}>${esc(`${m.id} · ${modelRelationship(m,models)}`)}</option>`).join('')}</select>`;
+  const why=`<section class="forecast-why"><h2>Why this model was built</h2>${model.scope==null?'':`<p class="forecast-scope">${esc(model.scope)}</p>`}${model.inputContract==null?'':`<p class="forecast-input">${esc(`Input contract: ${model.inputContract}`)}</p>`}${model.revisionNote==null?'':`<p class="forecast-revision">${esc(`Revision note: ${model.revisionNote}`)}</p>`}</section>`;
+  const forecast=model.sources.find(s=>s.role==='forecast'),register=model.register;
+  const full=forecast?.output?`<a class="text-action" href="${routeHref(data[forecast.output].module,modules[forecast.output].first,null,forecast.run,data[forecast.output].source)}">Open the full forward credit model output${icon('arrow-right')}</a>`:'';
+  const assumptions=`<section class="forecast-assumptions"><h2>Assumptions and their rationale</h2>${register?`<h3>${esc(register.heading)}</h3>${register.intro==null?'':`<p class="register-intro">${esc(register.intro)}</p>`}${register.headers.length?`<div class="table-scroll"><table><thead><tr>${register.headers.map(c=>`<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${register.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}${full}`:'<p>This model’s forecast handoff has no assumption register.</p>'}</section>`;
+  const source=s=>s.output?`<a href="${routeHref(data[s.output].module,modules[s.output].first,null,s.run,data[s.output].source)}">${esc(s.output.split('/').at(-1))}</a>`:esc(s.path);
+  const built=`<section class="forecast-built"><h2>Built from</h2><div class="table-scroll"><table><thead><tr><th scope="col">Role</th><th scope="col">Source</th><th scope="col">SHA-256 prefix</th><th scope="col">Status</th></tr></thead><tbody>${model.sources.map(s=>`<tr><th scope="row">${esc(s.role)}</th><td>${source(s)}</td><td>${esc(s.sha256.slice(0,12))}</td><td>${s.changed?badge('attention','Changed since publication'):''}</td></tr>`).join('')}</tbody></table></div></section>`;
+  return `<div class="forecast"><div class="report-tools forecast-tools">${select}${acceptance.html}<a href="${esc(model.download)}" download>Download original HTML</a></div>${why}${assumptions}${built}<div class="frame-host"><p class="frame-status" role="status">Loading model…</p><iframe id="model-preview" data-download="${esc(model.download)}" title="${esc(model.id)} · published model" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer" src="${esc(model.href)}"></iframe></div></div>`;
 }
 const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="muted">Not recorded</span>':`<span class="badge badge-blue"><i></i>${esc(workflowTitle(v))}</span>`).join(' ');
 // A report built from several runs counts once; a run with no outputs at all says so.
@@ -373,7 +408,7 @@ function settingsView() {
   const app=window.DESIGN_APP||{},issues=app.issues||[];
   return `<div class="settings"><section><h2>Workspace folder</h2><label class="run-field">Folder holding runs and deliverables<input id="workspace-path" value="${esc(app.workspace)}" ${app.policy_locked?'disabled':''} autocomplete="off"></label><p class="hint">${app.policy_locked?'This location is managed by your IT configuration.':'Use a local folder for offline access. Network shares and cloud placeholders need a connection.'}</p><div class="step-actions"><button id="save-workspace" class="primary-action" type="button" ${app.policy_locked?'disabled':''}>Save and reload</button><button id="refresh-library" class="secondary-action" type="button">Refresh library</button><button id="quit-library" class="tertiary-action" type="button">Quit library</button></div><p id="settings-status" role="status" aria-live="polite"></p></section><section><h2>Workspace issues · ${issues.length}</h2>${issues.length?`<ul class="issue-list">${issues.map(issue=>{const at=String(issue).indexOf(': ');return `<li>${at<0?`<span>${esc(issue)}</span>`:`<span class="code">${esc(String(issue).slice(0,at))}</span><span>${esc(String(issue).slice(at+2))}</span>`}</li>`;}).join('')}</ul>`:'<p>None found.</p>'}</section></div>`;
 }
-const HELP=`<div class="help-copy"><h2>Find and read a run</h2><p>Choose a run in the library. The Overview, Modules, Calendar, Reports and Evidence tabs keep that run selected. Browse by credit question or press / to search a name, section or module code, including absorbed aliases.</p><p>Select a finding’s View source action or a chart mark to open the evidence inspector. Escape returns to your reading position and source trigger.</p><h2>Move between the app and deliverables</h2><p>Reports lists every report in the workspace. A report opens inside the app, with this navigation beside it; its Built from list opens the module outputs it used, and a module output names the deliverables that used it.</p><h2>Start a new run</h2><p>Choose New run. Enter the issuer, workflow and dates, or load a saved context file. Choose the issuer folder, model and maximum USD spend. Validating is offline: the review shows the modules in order, the files no module can read and the report sections this run will not produce. Only Start run can call a model, after you approve the review, and only when the provider key is set in the environment that launched the app. If a module is rejected the run stops, keeps its work and makes no automatic paid retry.</p><p>A finished report has automated checks only: review the handoffs against the sources before relying on it.</p><h2>Runs stay separate</h2><p>Each run lists its own saved outputs. A module without one says so and offers other runs of the same issuer; another issuer is reached through the library. Reports list the runs they were built from, traced by SHA-256. Evidence is dated research, not current underwriting. Missing observations are not zero.</p><h2>Colour has a job</h2><div class="signal-key"><span><i class="series-0"></i>Blue · data and action</span><span><i class="series-1"></i>Navy · comparison</span><span><i class="signal-conditional"></i>Amber · conditional / attention</span><span>Grey · absent / unassessed</span></div><p>Dashed paths are conditional scenarios. Outflows use direction and signed values, not an adverse credit grade.</p><h2>Work offline, close or reopen</h2><p>The application, fonts and scripts are bundled; workspace files must also be available locally. Reports are sandboxed with external network requests blocked. Closing a tab leaves the library running; Quit library in Settings stops it.</p></div>`;
+const HELP=`<div class="help-copy"><h2>Find and read a run</h2><p>Choose a run in the library. The Overview, Modules, Calendar, Forecast, Reports and Evidence tabs keep that run selected. Forecast shows the model published from the run’s files, the assumptions behind it and the handoffs it was built from. Browse by credit question or press / to search a name, section or module code, including absorbed aliases.</p><p>Select a finding’s View source action or a chart mark to open the evidence inspector. Escape returns to your reading position and source trigger.</p><h2>Move between the app and deliverables</h2><p>Reports lists every report in the workspace. A report opens inside the app, with this navigation beside it; its Built from list opens the module outputs it used, and a module output names the deliverables that used it.</p><h2>Start a new run</h2><p>Choose New run. Enter the issuer, workflow and dates, or load a saved context file. Choose the issuer folder, model and maximum USD spend. Validating is offline: the review shows the modules in order, the files no module can read and the report sections this run will not produce. Only Start run can call a model, after you approve the review, and only when the provider key is set in the environment that launched the app. If a module is rejected the run stops, keeps its work and makes no automatic paid retry.</p><p>A finished report has automated checks only: review the handoffs against the sources before relying on it.</p><h2>Runs stay separate</h2><p>Each run lists its own saved outputs. A module without one says so and offers other runs of the same issuer; another issuer is reached through the library. Reports list the runs they were built from, traced by SHA-256. Evidence is dated research, not current underwriting. Missing observations are not zero.</p><h2>Colour has a job</h2><div class="signal-key"><span><i class="series-0"></i>Blue · data and action</span><span><i class="series-1"></i>Navy · comparison</span><span><i class="signal-conditional"></i>Amber · conditional / attention</span><span>Grey · absent / unassessed</span></div><p>Dashed paths are conditional scenarios. Outflows use direction and signed values, not an adverse credit grade.</p><h2>Work offline, close or reopen</h2><p>The application, fonts and scripts are bundled; workspace files must also be available locally. Reports are sandboxed with external network requests blocked. Closing a tab leaves the library running; Quit library in Settings stops it.</p></div>`;
 // Modules most likely to state the run's overall credit view come first.
 const CALL_ORDER=['CP-6','CP-2','CP-3','CP-2D','CP-1','CP-0'];
 function firstFinding(id) {
@@ -436,7 +471,7 @@ function workspaceView(module,section) {
     const report=window.DESIGN_WORKSPACE.reports.find(r=>r.id===section);
     return report?reportView(report,context):reportList(context);
   }
-  if(module==='CP-MODEL')return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No published model available for this selection</h2></div><div class="requirements">${available.filter(id=>['CP-1','CP-1D','CP-2G'].includes(id)).map(id=>`<div><h3>${esc(moduleNames[id])}</h3>${moduleLink(id)}<p>${esc(data[defaultOutput(id,context)]?.period)}</p></div>`).join('')}</div>`;
+  if(module==='W-Forecast')return forecastView(context,section);
   if(module==='CP-OS')return `<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div><ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${moduleLink('W-Evidence','Inspect retained outputs')}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${moduleLink('W-Reports','View reports')}</li></ol><p class="caution">Runs started here report their progress and spend on New run.</p>${moduleLink('W-NewRun','Open New run')}`;
   if(module==='W-Help')return HELP;
   return '';
@@ -447,7 +482,7 @@ function updateWorkspaceChrome(module) {
   const title=isHome?(module==='W-Library'?'Issuer library':moduleNames[module]):ctx.title;
   document.querySelector('.issuer').innerHTML=`<div class="issuer-title"><h1 title="${esc(title)}">${esc(title)}</h1>${isHome?'':`<div class="issuer-meta"><span class="code">${esc(ctx.run)}</span><a href="#W-Library/cases">Change case</a></div>`}</div>${module==='W-Library'?`<div class="page-actions"><a class="secondary-action" href="#W-Reports/list">${icon('files')}All reports</a><a class="primary-action" id="library-new-run" href="#W-NewRun/run">${icon('plus')}New run</a></div>`:''}${isHome?'':`<div class="scope">${icon('calendar-days')}<strong>${esc(period)}</strong></div>`}`;
   document.querySelector('.workspace-tabs').hidden=isHome;
-  if(!isHome)document.querySelector('.workspace-tabs').innerHTML=[['W-Overview','Overview','layout-grid'],[moduleId,'Modules','layers'],['W-Calendar','Calendar','calendar-days'],['W-Reports','Reports','files'],['W-Evidence','Evidence','folder-open']].map(([id,label,img])=>{
+  if(!isHome)document.querySelector('.workspace-tabs').innerHTML=[['W-Overview','Overview','layout-grid'],[moduleId,'Modules','layers'],['W-Calendar','Calendar','calendar-days'],['W-Forecast','Forecast','chart-no-axes-combined'],['W-Reports','Reports','files'],['W-Evidence','Evidence','folder-open']].map(([id,label,img])=>{
     const sections=navigationSections(id,current.context,resolveOutput(id,current.context,lastFile.get(`${current.context}:${id}`))),remembered=lastSection.get(current.context+':'+id),section=sections.some(s=>s[0]===remembered)?remembered:sections[0][0];
     return `<a href="${routeHref(id,section)}" ${(label==='Modules'?isAnalytical(module):id===module)?'aria-current="page"':''}>${icon(img)}${label}</a>`;
   }).join('');

@@ -673,3 +673,151 @@ def test_a_report_takes_the_key_of_the_group_holding_its_issuer_id(tmp_path):
     result, _ = identities(tmp_path, spec, [held, loose, anonymous])
     keys = {report["id"]: report["issuerKey"] for report in result["reports"]}
     assert keys == {"held": "id:alp", "loose": "id:new", "anon": None}
+
+
+# Published models: expected values are written here, not computed by the store.
+FORECAST = (
+    "# CP-2G\n\n## Findings\n\n### T2H.3 — Assumption Register\n\n"
+    "Every row applies to the group;\nrates are decimals.\n\n"
+    "| ID | Driver | Rationale |\n|---|---|---|\n| G | Growth 0.05 | Analyst judgment |\n"
+    "| M | Margin 0.5 | Held |\n"
+)
+
+
+def model_delivery(root, folder, scope="Scope.", forecast=FORECAST, sources=None, previous=None):
+    """A model deliverable (model.html, no report.html); returns its catalogue artifact."""
+    files = {
+        "model.html": put(root, f"{folder}/model.html", "<html>model</html>"),
+        "view.json": put(
+            root,
+            f"{folder}/view.json",
+            json.dumps(
+                {
+                    "run": {
+                        "run_id": "alpha-001",
+                        "issuer_id": "ALP",
+                        "issuer_name": "Alpha Holdings",
+                        "as_of": "2025-06-30",
+                    },
+                    "mode": "candidate",
+                    "analytical_qualification": "partial",
+                }
+            ),
+        ),
+    }
+    if forecast is not None:
+        files["forecast.md"] = put(root, f"{folder}/forecast.md", forecast)
+    record = {
+        "scope": scope,
+        "files": files,
+        "sources": sources or {},
+        "input_contract": "Six headings.",
+        "presentation_repair": None,
+        "previous_directory": previous,
+    }
+    put(root, f"{folder}/delivery.json", json.dumps(record))
+    return {
+        "folder": folder,
+        "kind": "model",
+        "label": folder,
+        "state": "candidate",
+        "available": True,
+        "href": f"/files/{folder}/model.html?sha256=m",
+    }
+
+
+def models_of(root, *artifacts, edit=None):
+    catalogue = workspace(root)
+    if edit:
+        edit()  # After the workspace is written, before the store reads it.
+    catalogue["real"].append(
+        {"id": "delivery:m", "name": "x", "sector": "", "period": "", "artifacts": list(artifacts)}
+    )
+    return store.workspace_store(root, catalogue)
+
+
+def test_a_model_is_listed_with_its_register_sources_and_not_as_a_report(tmp_path):
+    cp1 = hashlib.sha256(CP1.encode()).hexdigest()
+    artifact = model_delivery(
+        tmp_path,
+        "deliverables/m-2",
+        sources={
+            "annual": {"path": "runs/alpha-001/CP-1.md", "sha256": cp1},
+            "other": {"path": "runs/alpha-001/CP-4A.md", "sha256": "0" * 64},
+            "gone": {"path": "runs/alpha-001/missing.md", "sha256": "1" * 64},
+        },
+        previous="deliverables/m-1",
+    )
+    result = models_of(tmp_path, artifact)
+    assert [r["id"] for r in result["reports"]] == ["alpha-report", "abc"]
+    (model,) = result["models"]
+    assert model["id"] == "m-2" and model["previous"] == "m-1"
+    assert (model["mode"], model["qualification"]) == ("candidate", "partial")
+    assert model["runId"] == "alpha-001" and model["issuerKey"] == "id:alp"
+    assert model["scope"] == "Scope." and model["inputContract"] == "Six headings."
+    assert model["revisionNote"] is None
+    assert model["href"] == "/files/deliverables/m-2/model.html?sha256=m&embedded=1"
+    assert model["download"] == "/files/deliverables/m-2/model.html?sha256=m&download=1"
+    assert {f["name"] for f in model["files"]} == {"model.html", "view.json", "forecast.md"}
+    assert model["register"] == {
+        "heading": "T2H.3 — Assumption Register",
+        "intro": "Every row applies to the group;\nrates are decimals.",
+        "headers": ["ID", "Driver", "Rationale"],
+        "rows": [["G", "Growth 0.05", "Analyst judgment"], ["M", "Margin 0.5", "Held"]],
+    }
+    by_role = {row["role"]: row for row in model["sources"]}
+    assert [row["role"] for row in model["sources"]] == ["annual", "other", "gone"]
+    assert by_role["annual"] == {
+        "role": "annual",
+        "path": "runs/alpha-001/CP-1.md",
+        "sha256": cp1,
+        "changed": False,
+        "run": "alpha-001",
+        "output": "alpha-001/CP-1.md",
+    }
+    assert (by_role["other"]["changed"], by_role["other"]["run"]) == (True, None)
+    assert by_role["other"]["output"] is None
+    assert (by_role["gone"]["changed"], by_role["gone"]["output"]) == (True, None)
+
+
+def test_a_model_without_a_register_section_has_none(tmp_path):
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast="# CP-2G\n\n## Findings\n\nx\n"
+    )
+    assert models_of(tmp_path, artifact)["models"][0]["register"] is None
+    bare = model_delivery(tmp_path, "deliverables/m-0", forecast=None)
+    assert {m["id"]: m for m in models_of(tmp_path, artifact, bare)["models"]}["m-0"][
+        "register"
+    ] is None
+
+
+def test_a_changed_source_is_flagged_and_the_model_stays_listed(tmp_path):
+    cp1 = hashlib.sha256(CP1.encode()).hexdigest()
+    artifact = model_delivery(
+        tmp_path,
+        "deliverables/m-1",
+        sources={"annual": {"path": "runs/alpha-001/CP-1.md", "sha256": cp1}},
+    )
+    (model,) = models_of(
+        tmp_path,
+        artifact,
+        edit=lambda: (tmp_path / "runs/alpha-001/CP-1.md").write_text(CP1 + "x", encoding="utf-8"),
+    )["models"]
+    (source,) = model["sources"]
+    assert source["changed"] is True and source["run"] is None and source["output"] is None
+
+
+def test_hostile_text_in_a_model_stays_a_string(tmp_path):
+    hostile = "<img src=x onerror=alert(1)>"
+    artifact = model_delivery(tmp_path, "deliverables/m-1", scope=hostile)
+    (model,) = models_of(tmp_path, artifact)["models"]
+    assert model["scope"] == hostile
+
+
+def test_an_unreadable_model_is_reported_and_the_others_stay(tmp_path):
+    good = model_delivery(tmp_path, "deliverables/m-1")
+    bad = model_delivery(tmp_path, "deliverables/m-2")
+    (tmp_path / "deliverables/m-2/view.json").write_text("{", encoding="utf-8")
+    result = models_of(tmp_path, good, bad)
+    assert [m["id"] for m in result["models"]] == ["m-1"]
+    assert any(i.startswith("deliverables/m-2: could not be read") for i in result["issues"])

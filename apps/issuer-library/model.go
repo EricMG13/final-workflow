@@ -41,6 +41,7 @@ type Counts struct {
 }
 type Artifact struct {
 	Folder       string `json:"folder"`
+	Kind         string `json:"kind"`
 	Label        string `json:"label"`
 	State        string `json:"state"`
 	Relationship string `json:"relationship"`

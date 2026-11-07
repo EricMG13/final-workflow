@@ -413,7 +413,7 @@ test('Grey text: run pages drop state narration, hash notes, design specs and em
   assert.equal(c.querySelector('.chart-legend'),null);
   const seen=[...c.querySelectorAll('.horizontal-chart .chart-label')].map(l=>norm([...l.childNodes].filter(n=>!n.classList?.contains('sr-only')&&n.tagName!=='SMALL').map(n=>n.textContent).join('')));
   assert.deepEqual(seen.slice(0,4),['Base','','','Demand and margin pressure']);
-  c=at('CP-MODEL/publication?c=tdg-002');assert.equal(c.querySelector('.visual-plan'),null);assert.ok(!c.textContent.includes('delivery metadata'));
+  c=at('W-Forecast/forecast?c=tdg-002');assert.equal(c.querySelector('.visual-plan'),null);assert.ok(!c.textContent.includes('delivery metadata'));
   c=at('CP-2H?c=tdg-002');assert.equal(c.querySelector('.visual-plan'),null);
   c=at('CP-2?c=tdg-003');assert.equal(norm(c.querySelector('.missing-state p').textContent),'3 versions of this analysis. Choose one to read.');
   c=at('W-Help/help');assert.ok(!c.textContent.includes('Visualisation coverage'));
@@ -822,7 +822,7 @@ function appFixture(hash,store,workspace,app={workspace:'/research',policy_locke
   const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only'});
   dom.window.scrollTo=()=>{};dom.window.HTMLElement.prototype.scrollIntoView=function(){};
   dom.window.fetch=()=>new Promise(()=>{});
-  dom.window.eval(`window.DESIGN_DATA=${JSON.stringify(store)};window.DESIGN_WORKSPACE=${JSON.stringify(workspace)};window.DESIGN_APP=${JSON.stringify(app)};`);
+  dom.window.eval(`window.DESIGN_DATA=${JSON.stringify(store)};window.DESIGN_WORKSPACE=${JSON.stringify({models:[],...workspace})};window.DESIGN_APP=${JSON.stringify(app)};`);
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
@@ -842,7 +842,7 @@ test('The rail reaches every destination, marks where you are and keeps the sele
 });
 test('No destination still calls itself a gallery or a prototype',()=>{
   const dom=fixture('W-Library/cases'),d=dom.window.document;
-  for(const route of ['W-Library/cases','W-Overview/overview?c=tdg-002','W-Reports/list?c=tdg-002','W-Evidence/sources?c=tdg-002','CP-OS/activity?c=tdg-002','CP-MODEL/publication?c=tdg-002','W-NewRun/run','W-Settings/workspace','W-Help/help','CP-1/audit?c=tdg-002']){
+  for(const route of ['W-Library/cases','W-Overview/overview?c=tdg-002','W-Reports/list?c=tdg-002','W-Evidence/sources?c=tdg-002','CP-OS/activity?c=tdg-002','W-Forecast/forecast?c=tdg-002','W-NewRun/run','W-Settings/workspace','W-Help/help','CP-1/audit?c=tdg-002']){
     goTo(dom,route);
     assert.ok(!/screen.design|prototype|gallery|working app/i.test(d.body.textContent+d.title),route);
   }
@@ -920,9 +920,10 @@ test('A module with several unranked outputs does not break the published model 
   store.outputs['web-1/CP-1-v2.md']={...first,id:'web-1/CP-1-v2.md',module:'CP-1',source:'CP-1-v2.md',label:'V2',period:'As of 2025-03-31'};
   store.runs['web-1'].modules['CP-1']={outputs:['web-1/CP-1.md','web-1/CP-1-v2.md'],inputs:[],default:null};
   const dom=appFixture('W-Library/cases',store,NORTHBRIDGE_REPORTS),d=dom.window.document;
-  goTo(dom,'CP-MODEL/publication?c=web-1');
-  assert.equal(dom.window.eval('current.module'),'CP-MODEL');
-  assert.match(d.getElementById('content').textContent,/No published model available/);
+  goTo(dom,'W-Forecast/forecast?c=web-1');
+  assert.equal(dom.window.eval('current.module'),'W-Forecast');
+  assert.match(d.getElementById('content').textContent,/No forecast model was published from this run’s files/);
+  assert.doesNotMatch(d.getElementById('content').textContent,/No published model available/);
   dom.window.close();
 });
 test('Names from a workspace stay text on every destination',()=>{
@@ -1024,7 +1025,7 @@ test('The route names codes on reader pages and leaves the audit and inspector e
 });
 test('The app is organised by credit question and its chrome shows names, not codes',()=>{
   const dom=fixture('CP-2G?c=tdg-003'),d=dom.window.document,w=dom.window;
-  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Reports','Evidence']);
+  assert.deepEqual([...d.querySelectorAll('.workspace-tabs a')].map(a=>a.textContent),['Overview','Modules','Calendar','Forecast','Reports','Evidence']);
   const head=d.querySelector('.module-title h2');
   assert.equal(norm(head.textContent),'Forward credit model');assert.equal(head.title,'CP-2G');
   assert.doesNotMatch(d.title,/CP-/);

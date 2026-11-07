@@ -41,7 +41,7 @@ const unnamed=[...new Set(Object.values(data).map(output=>output.module))].filte
 if(unnamed.length)groups.push(['Other modules',unnamed.map(id=>[id,id])]);
 const moduleNames = Object.fromEntries(groups.flatMap(g=>g[1]));
 delete modules.undefined; // A pin this workspace does not hold.
-const isAnalytical = id => !id.startsWith('W-')&&!['CP-OS','CP-MODEL'].includes(id);
+const isAnalytical = id => !id.startsWith('W-')&&id!=='CP-OS';
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plain = value => String(value).replace(/\*\*|`/g,'');
@@ -57,7 +57,7 @@ const expandedIssuers = new Set(); // Issuers whose run list is open; kept for t
 let current = null, returnTrigger = null, returnScroll = 0, returnContentScroll = 0;
 installDestinations();
 const appDestinations=new Set(['W-Library','W-NewRun','W-Settings','W-Help']); // These need no selected run.
-const aliases = {'CP-2F':'CP-2E','CP-2C':'CP-1A','CP-1E':'CP-1D','CP-5A':'CP-5','CP-6A':'CP-6'};
+const aliases = {'CP-MODEL':'W-Forecast','CP-2F':'CP-2E','CP-2C':'CP-1A','CP-1E':'CP-1D','CP-5A':'CP-5','CP-6A':'CP-6'};
 for(const visual of window.DESIGN_WORKSPACE.visuals)for(const alias of String(visual.aliases||'').split(/[;,\s]+/).filter(Boolean))aliases[alias]??=visual.module;
 // Reader pages show names; the audit, inspector and evidence pages keep exact codes. Text only, so
 // downloads, links and the retained files are untouched, and each name carries its code as a title.
@@ -69,7 +69,7 @@ const moduleLabel=code=>{
   return (own!==code&&own)||moduleNames[aliases[code]]||own||(code==='CP-MEMO'?'Credit memo':null);
 };
 const namedText=text=>text.replace(new RegExp(MODULE_CODE,'g'),code=>moduleLabel(code)||code);
-const showsCodes=({module,section})=>section==='audit'||['W-Evidence','CP-OS','W-Help','W-Settings','W-NewRun'].includes(module);
+const showsCodes=({module,section})=>section==='audit'||['W-Evidence','W-Forecast','CP-OS','W-Help','W-Settings','W-NewRun'].includes(module);
 function readerMark(token) {
   if(!MODULE_CODE.test(token))return Object.assign(document.createElement('small'),{className:'ref',textContent:token});
   const label=moduleLabel(token);
@@ -275,7 +275,7 @@ function renderNavigator(module) {
   const query=$('module-search').value.trim().toLowerCase(),context=current.context;
   let count=0;
   const sectionsOf=id=>navigationSections(id,context).filter(s=>s[0]!=='status');
-  const catalogue=groups.concat([['Workspace tools',[['CP-MODEL','Published model'],['CP-OS','Run activity']]]]).map(([title,items])=>{
+  const catalogue=groups.concat([['Workspace tools',[['W-Forecast','Published model'],['CP-OS','Run activity']]]]).map(([title,items])=>{
     const matches=items.filter(([id,name])=>`${id} ${Object.keys(aliases).filter(k=>aliases[k]===id).join(' ')} ${name} ${sectionsOf(id).map(s=>s[1]).join(' ')} ${isAnalytical(id)?availability(id,context):''}`.toLowerCase().includes(query));
     count+=matches.length;
     if(!matches.length)return '';
@@ -374,7 +374,8 @@ function renderRoute() {
     // watchFrame returns the callback that stops its timer; the previous report's timer must not fire against a detached element.
     if(cancelReportFrame)cancelReportFrame();
     cancelReportFrame=null;
-    const frame=$('report-preview');
+    const modelFrame=$('model-preview'),frame=$('report-preview');
+    if(modelFrame)cancelReportFrame=watchFrame(modelFrame,$('content').querySelector('.frame-status'),'Loading model…','The model did not load.',()=>{const link=document.createElement('a');link.setAttribute('href',modelFrame.dataset.download);link.download='';link.textContent='Download original HTML';return link;},'This model\'s file could not be found. Reload the library to refresh the list.');
     if(frame)cancelReportFrame=watchFrame(frame,$('content').querySelector('.frame-status'),'Loading report…','The report did not load.',()=>{const link=document.createElement('a');link.setAttribute('href',window.DESIGN_WORKSPACE.reports.find(r=>r.id===next.section).download);link.download='';link.textContent='Download original HTML';return link;},'This report\'s file could not be found. Reload the library to refresh the list.');
     if(!showsCodes(next))nameCodes($('content'));
     $('content').scrollTop=readingPositions.get(`${next.context}:${next.output||next.module}:${next.section}`)||0;
@@ -390,7 +391,7 @@ function renderRoute() {
       const report=isReportRoute(next.module,next.section),library=appDestinations.has(next.module)||!contexts[next.context];
       const restored=!report&&!library&&focusId&&$(focusId);
       const link=window.innerWidth>720&&focused?.classList.contains('section-item')&&focusHref&&[...$('module-list').querySelectorAll('.section-item')].find(el=>el.getAttribute('href')===focusHref);
-      const destination=report?$('report-select'):library?$('analysis'):$('section-title');
+      const destination=report?$('report-select'):next.module==='W-Forecast'&&$('model-select')?$('model-select'):library?$('analysis'):$('section-title');
       if(!creating)(restored&&!restored.disabled?restored:link||destination).focus({preventScroll:true});
       if(previous.module!==next.module||previous.context!==next.context)$('navigator').scrollTop=0;
     }
@@ -411,6 +412,7 @@ function renderRoute() {
 }
 document.addEventListener('change',event=>{
   if(event.target.matches('[data-library-filter]'))updateLibraryResults();
+  if(event.target.id==='model-select')go('W-Forecast',event.target.value);
   if(event.target.id==='report-select')go('W-Reports',event.target.value);
   if(event.target.id==='output-select')go(current.module,current.section,null,event.target.value);
   if(event.target.id==='chart-metric') {

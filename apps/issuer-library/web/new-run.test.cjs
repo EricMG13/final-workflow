@@ -16,7 +16,7 @@ async function page(t,{ready=true,startFails=false,list=[],status={state:'runnin
   const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
   win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url];return{ok:true,json:async()=>body()};};
   const current=status;status=()=>win.__status||current;
-  win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
+  win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   t.after(()=>{win.close();assert.deepEqual(errors.map(error=>error.message),[]);});

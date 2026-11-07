@@ -265,7 +265,13 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 		artifact.Issue = err.Error()
 		return artifact, view, files
 	}
-	if record.Files["report.html"] == "" || record.Files["view.json"] == "" {
+	// A delivery presents either a report or, lacking one, a published model.
+	page := "report.html"
+	artifact.Kind = "report"
+	if record.Files[page] == "" && record.Files["model.html"] != "" {
+		page, artifact.Kind = "model.html", "model"
+	}
+	if record.Files[page] == "" || record.Files["view.json"] == "" {
 		artifact.Issue = "Delivery manifest requires report.html and view.json"
 		return artifact, view, files
 	}
@@ -296,7 +302,7 @@ func verifyDelivery(root *os.Root, folder string) (Artifact, deliveryView, map[s
 		return artifact, view, files
 	}
 	artifact.Available = true
-	artifact.Href = pinnedURL(folder+"/report.html", record.Files["report.html"])
+	artifact.Href = pinnedURL(folder+"/"+page, record.Files[page])
 	if view.Mode != "" {
 		artifact.State = view.Mode
 	}

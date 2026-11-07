@@ -16,6 +16,7 @@ from store import (
     CURATED_REPORTS,
     CURATED_RUNS,
     built_from,
+    catalogue_models,
     collect_runs,
     issuer_groups,
     recorded_identity,
@@ -82,6 +83,27 @@ def prepare_reports(sources, keys):
     return reports
 
 
+def prepare_models(outputs, keys):
+    """Published models, read by the app's own catalogue function; the page is copied beside the reports."""
+    artifacts = []
+    for folder in sorted((ROOT / "deliverables").glob("*/model.html")):
+        destination = OUT / "models" / folder.parent.name
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(folder, destination / "model.html")
+        artifacts.append(
+            {
+                "folder": f"deliverables/{folder.parent.name}",
+                "kind": "model",
+                "available": True,
+                "href": f"models/{folder.parent.name}/model.html?sha256={sha256(folder)}",
+            }
+        )
+    models, issues = catalogue_models(ROOT, {"real": [{"artifacts": artifacts}]}, outputs, keys)
+    if issues:
+        raise ValueError(f"models could not be read: {issues}")
+    return models
+
+
 def build():
     shutil.rmtree(OUT, ignore_errors=True)
     (OUT / "sources").mkdir(parents=True)
@@ -134,7 +156,11 @@ def build():
                     raise ValueError(
                         f"{module}: {handoff} does not cite the report hash of {report}"
                     )
-    workspace = {"reports": reports, "visuals": visual_catalogue()}
+    workspace = {
+        "reports": reports,
+        "models": prepare_models(outputs, keys),
+        "visuals": visual_catalogue(),
+    }
     (OUT / "workspace-data.js").write_text(
         "window.DESIGN_WORKSPACE = "
         + json.dumps(workspace, ensure_ascii=False).replace("<", "\\u003c")
@@ -142,7 +168,7 @@ def build():
         encoding="utf-8",
     )
     print(
-        f"Built {OUT}: {len(runs)} runs, {len(outputs)} saved outputs, {len(inputs)} inputs, {len(reports)} reports."
+        f"Built {OUT}: {len(runs)} runs, {len(outputs)} saved outputs, {len(inputs)} inputs, {len(reports)} reports, {len(workspace['models'])} models."
     )
 
 

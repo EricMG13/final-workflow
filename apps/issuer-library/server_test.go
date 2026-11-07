@@ -417,3 +417,26 @@ func TestRunListAndStatusCarryReviewAndProgress(t *testing.T) {
 	}
 	checkA(row)
 }
+
+func TestEmbeddedModelKeepsItsBytesAndSandbox(t *testing.T) {
+	app, root := testApp(t)
+	model := addModelDelivery(t, root, "m-1", false)
+	if response := call(app, "POST", "/api/refresh", "{}"); response.Code != 200 {
+		t.Fatal(response.Body.String())
+	}
+	artifact := findArtifact(app.catalogue, "deliverables/m-1")
+	if artifact == nil || !artifact.Available {
+		t.Fatalf("model not available: %+v", artifact)
+	}
+	response := call(app, "GET", artifact.Href+"&embedded=1", "")
+	if response.Code != 200 || !bytes.Equal(response.Body.Bytes(), model) {
+		t.Fatalf("model bytes changed: %d %q", response.Code, response.Body.String())
+	}
+	if bytes.Contains(response.Body.Bytes(), []byte("data-library-presentation")) {
+		t.Fatal("report adapter was added to a model")
+	}
+	csp := response.Header().Get("Content-Security-Policy")
+	if !strings.HasPrefix(csp, "sandbox allow-scripts allow-downloads;") || !strings.Contains(csp, "frame-ancestors http://"+app.host) {
+		t.Fatalf("csp: %s", csp)
+	}
+}

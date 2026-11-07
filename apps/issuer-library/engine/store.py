@@ -509,7 +509,11 @@ def catalogue_reports(root, catalogue, sources, keys):
         for artifact in run.get("artifacts") or []:
             folder = artifact["folder"]
             name = Path(folder).name
-            if not artifact.get("available") or name in seen:
+            if (
+                not artifact.get("available")
+                or artifact.get("kind", "report") != "report"
+                or name in seen
+            ):
                 continue
             seen.add(name)
             # Documented fail-open: reported in Settings; the other deliverables stay readable.
@@ -557,6 +561,102 @@ def catalogue_reports(root, catalogue, sources, keys):
                 }
             )
     return reports, issues
+
+
+def register_of(sections):
+    """The section whose heading names an assumption register: heading, intro text and table rows."""
+    for section in sections:
+        if "assumption register" not in section["heading"].casefold():
+            continue
+        text = next((b["text"] for b in section["blocks"] if b["type"] == "text"), None)
+        table = next((b for b in section["blocks"] if b["type"] == "table"), None)
+        return {
+            "heading": section["heading"],
+            "intro": text,
+            "headers": table["headers"] if table else [],
+            "rows": [row["cells"] for row in table["rows"]] if table else [],
+        }
+    return None
+
+
+def model_sources(root, delivery, outputs):
+    """Each source a model declares, whether its file still has the declared bytes, and the run output holding them."""
+    rows = []
+    for role, source in (delivery.get("sources") or {}).items():
+        path, declared = source["path"], source["sha256"]
+        try:
+            changed = sha256(root / path) != declared
+        except OSError:
+            changed = True
+        output_id = path.removeprefix("runs/") if path.startswith("runs/") else None
+        held = outputs.get(output_id)
+        match = held if held and held["sha256"] == declared else None
+        rows.append(
+            {
+                "role": role,
+                "path": path,
+                "sha256": declared,
+                "changed": changed,
+                "run": match["run"] if match else None,
+                "output": match["id"] if match else None,
+            }
+        )
+    return rows
+
+
+def catalogue_models(root, catalogue, outputs, keys):
+    """Published models the server verified, each once, with why it was built and what it was built from."""
+    models, seen, issues = [], set(), []
+    for run in catalogue["real"]:
+        for artifact in run.get("artifacts") or []:
+            folder = artifact["folder"]
+            name = Path(folder).name
+            if not artifact.get("available") or artifact.get("kind") != "model" or name in seen:
+                continue
+            seen.add(name)
+            # Documented fail-open: reported in Settings; the other models stay readable.
+            try:
+                delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
+                view = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))
+                identity = view["run"]
+                run_id = identity["run_id"]
+                issuer_key = report_issuer_key(keys, identity.get("issuer_id"))
+                sources = model_sources(root, delivery, outputs)
+                register = None
+                if "forecast.md" in delivery["files"]:
+                    handoff = (root / folder / "forecast.md").read_bytes()
+                    register = register_of(parse_source(handoff.decode("utf-8")))
+                previous = delivery.get("previous_directory")
+                files = delivery["files"]
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
+                issues.append(f"{folder}: could not be read ({error!r})")
+                continue
+            mode, qualification = view.get("mode"), view.get("analytical_qualification")
+            models.append(
+                {
+                    "id": name,
+                    "issuerKey": issuer_key,
+                    "mode": mode if isinstance(mode, str) else None,
+                    "qualification": qualification if isinstance(qualification, str) else None,
+                    "runId": run_id if isinstance(run_id, str) else None,
+                    "scope": delivery.get("scope"),
+                    "inputContract": delivery.get("input_contract"),
+                    "revisionNote": delivery.get("presentation_repair"),
+                    "previous": Path(previous).name if isinstance(previous, str) else None,
+                    "href": artifact["href"] + "&embedded=1",
+                    "download": artifact["href"] + "&download=1",
+                    "files": [
+                        {
+                            "name": n,
+                            "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1",
+                        }
+                        for n, h in sorted(files.items())
+                    ],
+                    "sources": sources,
+                    "register": register,
+                }
+            )
+    return models, issues
 
 
 def visual_catalogue():
@@ -744,6 +844,8 @@ def workspace_store(root, catalogue):
         runs[key].update(identity)
     reports, unread = catalogue_reports(root, catalogue, sources, keys)
     found += unread
+    models, unread = catalogue_models(root, catalogue, outputs, keys)
+    found += unread
     for module, config in catalog.items():
         compare = config.get("compare")
         if (
@@ -765,6 +867,7 @@ def workspace_store(root, catalogue):
         "inputs": inputs,
         "pins": pins,
         "reports": reports,
+        "models": models,
         "visuals": visual_catalogue(),
         "issues": issues + found,
     }

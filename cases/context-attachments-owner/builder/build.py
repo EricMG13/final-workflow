@@ -91,7 +91,11 @@ NOT_LEGAL_ISSUE = (
     "{path}: {source_id} is not an executed or filed source (CP-0 authority "
     "{authority}, or the source is not ready)"
 )
-SOURCE_ID_RE = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"  # plan Task 3 (L5)
+# S02-A01: a gap names a declared source by its quoted id ('bridge', as the issue text writes it)
+# or, as a whole token, by the attachment field or legal_documents; a bare word like "bridge" in
+# unrelated prose names nothing.
+SOURCE_ID_RE = r"""['"`]{}['"`]"""
+TOKEN_RE = r"(?<![A-Za-z0-9_]){}(?![A-Za-z0-9_])"
 
 # --- contexts (the form's layout; run_type research, no deal rows needed) -----------------------
 
@@ -507,14 +511,14 @@ EXEC_GAP = gap(
     "Supply the executed legal documents",
     ["CP-4"],
 )
-assert "legal_documents" in EXEC_GAP["description"]
+assert re.search(TOKEN_RE.format("legal_documents"), EXEC_GAP["description"])
 DRAFT_GAP = gap(
     "legal-documents-draft-missing",
     "The run context declares draft legal_documents but the pack holds no draft source",
     "Supply the draft legal documents",
     ["CP-4"],
 )
-assert "legal_documents" in DRAFT_GAP["description"]
+assert re.search(TOKEN_RE.format("legal_documents"), DRAFT_GAP["description"])
 WRONG_CTX_GAP = gap(
     "legal-documents-unconfirmed",
     "The run context does not declare draft legal_documents, so no executed source is confirmed for the legal source",
@@ -877,6 +881,7 @@ EXPECTED = {
         "draft_wrong_context": DRAFT_WRONG_CONTEXT,
         "not_legal_source (frozen, cp4_legal.py:476-478)": NOT_LEGAL_ISSUE,
         "gap_match_regex": SOURCE_ID_RE.format("<id>"),
+        "gap_token_regex": TOKEN_RE.format("<field or legal_documents>"),
     },
     "attachment_ids": {f: i for f, i in ATTACHMENT_IDS},
     "max_issues": 4,

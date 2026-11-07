@@ -569,7 +569,10 @@ CP4_THRESHOLD_RULE = (
     "`other` and `not stated`): Python reads the number out of the quote and rejects a value "
     "that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, "
     "`<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names "
-    "only a cap. The quote that holds it is one of the covenant's governing document "
+    "only a cap. A strict comparison (`<`, `>`) is rejected when the quote words the limit only "
+    "as inclusive (no more than, no greater than, no less than, or less, or more, at least, "
+    "minimum, maximum, shall not permit ... to exceed), so write `<=` or `>=`. "
+    "The quote that holds it is one of the covenant's governing document "
     "(`document_id`) and writes that number as a threshold, not inside a longer number; when "
     "that quote or its sentence states another threshold of the unit (a step-down schedule or "
     "several tests), `threshold_unit` is other."
@@ -658,7 +661,9 @@ CP5_REVIEW_RULE = (
     "`claim_reviews`: exactly one for each pair listed under `claims_to_review`, `producer_module` "
     "and `claim_ref` as listed. Name upstream evidence by `ref` only, in `upstream_refs`: a fact "
     "ref or a citation ref of that module. A supported or partly_supported verdict names at "
-    "least one; supported is refused where a Python finding touches the claim or a ref it names."
+    "least one that belongs to that claim (one of its own citation refs, a fact its text names "
+    "or a fact filed under its id); supported is refused where a Python finding touches the "
+    "claim or a ref it names."
 )
 CP5_CONTRADICTION_RULE = (
     "A `contradictions` entry names, in `claim_refs`, claims of at least two modules, each claim "

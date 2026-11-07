@@ -633,6 +633,66 @@ def _resolve(
     return (module_id, claim_id)
 
 
+def _own_refs(head: Module, claim: Claim) -> frozenset[str]:
+    """What a review may rest a claim on (S09-A07): the claim's own citation refs, the facts its
+    text names and the facts filed under the claim's id (`T2.10.kf02.finding` for claim
+    `T2.10.kf02`)."""
+    bound = prose.bind(head.facts)
+    named = {
+        bound[run.text].fact_id
+        for run in prose.tokenize(claim.text)
+        if run.kind != "text" and run.text in bound
+    }
+    cited = {citation_ref(claim.claim_id, n) for n in range(1, len(claim.citations) + 1)}
+    filed = {f.fact_id for f in head.facts if f.fact_id.startswith(f"{claim.claim_id}.")}
+    return frozenset(named | cited | filed)
+
+
+def _ref_issues(
+    path: str, key: tuple[str, str], review: ClaimReview, known: frozenset[str], own: frozenset[str]
+) -> list[str]:
+    """The upstream_refs of one review: each resolves in the producer head, a verdict above
+    unsupported names one, and (S09-A07) one of them belongs to the claim."""
+    issues = [
+        f"{path}: unresolved upstream_ref {ref} in {key[0]}"
+        for ref in review.upstream_refs
+        if ref not in known
+    ]
+    if review.support == "unsupported":
+        return issues
+    if not review.upstream_refs:
+        issues.append(f"{path}: a {review.support} verdict names no upstream_ref")
+    elif not own.intersection(review.upstream_refs):
+        issues.append(
+            f"{path}: a {review.support} verdict names no upstream_ref of {key[1]}: cite its "
+            "own citation refs or a fact its text names"
+        )
+    return issues
+
+
+def _contradiction_issues(
+    submission: IntegritySubmission, claims: Mapping[str, frozenset[str]], names: tuple[str, ...]
+) -> list[str]:
+    issues: list[str] = []
+    for index, item in enumerate(submission.contradictions):
+        path = f"contradictions[{index}]"
+        issues.extend(_text_issues(f"{path}.nature", item.nature, names))
+        issues.extend(_text_issues(f"{path}.rationale", item.rationale, names))
+        keys: list[tuple[str, str]] = []
+        for number, claim_ref in enumerate(item.claim_refs):
+            where = f"{path}.claim_refs[{number}]"
+            key = _resolve(where, claim_ref.producer_module, claim_ref.claim_ref, claims)
+            if isinstance(key, str):
+                issues.append(key)
+            else:
+                keys.append(key)
+        if len(set(keys)) != len(keys):
+            issues.append(f"{path}: names a claim more than once")
+        if len({named.producer_module for named in item.claim_refs}) < 2:
+            issues.append(f"{path}: a contradiction names claims of at least two modules")
+    return issues
+
+
 def _review_issues(
     scope: ReviewScope, submission: IntegritySubmission, checks: PythonChecks
 ) -> list[str]:
@@ -640,6 +700,11 @@ def _review_issues(
     evaluated = {head.module_id: head for head in scope.evaluated}
     claims = {m: frozenset(c.claim_id for c in head.claims) for m, head in evaluated.items()}
     refs = {m: frozenset(upstream_refs(head)) for m, head in evaluated.items()}
+    own = {
+        (m, claim.claim_id): _own_refs(head, claim)
+        for m, head in evaluated.items()
+        for claim in head.claims
+    }
     issues: list[str] = []
     reviewed: dict[tuple[str, str], int] = {}
     for index, review in enumerate(submission.claim_reviews):
@@ -650,11 +715,7 @@ def _review_issues(
             issues.append(key)
             continue
         reviewed[key] = reviewed.get(key, 0) + 1
-        for ref in review.upstream_refs:
-            if ref not in refs[key[0]]:
-                issues.append(f"{path}: unresolved upstream_ref {ref} in {key[0]}")
-        if review.support != "unsupported" and not review.upstream_refs:
-            issues.append(f"{path}: a {review.support} verdict names no upstream_ref")
+        issues.extend(_ref_issues(path, key, review, refs[key[0]], own[key]))
         if review.support == "supported":
             marked = checks.ref_marks.get(key[0], frozenset())
             touching = [
@@ -675,22 +736,7 @@ def _review_issues(
             "Incomplete review: unreviewed material claims: "
             + ", ".join(f"{module_id} {claim_id}" for module_id, claim_id in missing)
         )
-    for index, item in enumerate(submission.contradictions):
-        path = f"contradictions[{index}]"
-        issues.extend(_text_issues(f"{path}.nature", item.nature, names))
-        issues.extend(_text_issues(f"{path}.rationale", item.rationale, names))
-        keys: list[tuple[str, str]] = []
-        for number, claim_ref in enumerate(item.claim_refs):
-            where = f"{path}.claim_refs[{number}]"
-            key = _resolve(where, claim_ref.producer_module, claim_ref.claim_ref, claims)
-            if isinstance(key, str):
-                issues.append(key)
-            else:
-                keys.append(key)
-        if len(set(keys)) != len(keys):
-            issues.append(f"{path}: names a claim more than once")
-        if len({named.producer_module for named in item.claim_refs}) < 2:
-            issues.append(f"{path}: a contradiction names claims of at least two modules")
+    issues.extend(_contradiction_issues(submission, claims, names))
     bound = scope.bound_modules()
     for index, gap in enumerate(submission.gaps):
         path = f"gaps[{index}]"

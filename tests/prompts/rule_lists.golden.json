@@ -935,9 +935,10 @@
    },
    {
     "id": "integrity_review.b",
-    "statement": "b. `claim_reviews`: exactly one for each pair listed under `claims_to_review`, `producer_module` and `claim_ref` as listed. Name upstream evidence by `ref` only, in `upstream_refs`: a fact ref or a citation ref of that module. A supported or partly_supported verdict names at least one; supported is refused where a Python finding touches the claim or a ref it names.",
+    "statement": "b. `claim_reviews`: exactly one for each pair listed under `claims_to_review`, `producer_module` and `claim_ref` as listed. Name upstream evidence by `ref` only, in `upstream_refs`: a fact ref or a citation ref of that module. A supported or partly_supported verdict names at least one that belongs to that claim (one of its own citation refs, a fact its text names or a fact filed under its id); supported is refused where a Python finding touches the claim or a ref it names.",
     "checks": [
      "fn:deploy_vii.cp5_integrity:_review_issues",
+     "fn:deploy_vii.cp5_integrity:_ref_issues",
      "fn:deploy_vii.cp5_integrity:_review_findings",
      "oracle:cp5:cp5-unreviewed-claim",
      "oracle:cp5:cp5-doubly-reviewed",
@@ -952,6 +953,7 @@
     "statement": "c. A `contradictions` entry names, in `claim_refs`, claims of at least two modules, each claim once; a `gaps` entry's `affected_modules` are bound modules.",
     "checks": [
      "fn:deploy_vii.cp5_integrity:_review_issues",
+     "fn:deploy_vii.cp5_integrity:_contradiction_issues",
      "oracle:cp5:cp5-contradiction-one-module",
      "oracle:cp5:cp5-gap-unbound-module"
     ]
@@ -995,7 +997,7 @@
    },
    {
     "id": "legal_covenants.d",
-    "statement": "d. `threshold_text` is copied from one of the covenant's own quotes and holds the one tested threshold. `threshold_value` is that number exactly as the quote writes it (null for `other` and `not stated`): Python reads the number out of the quote and rejects a value that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, `<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names only a cap. The quote that holds it is one of the covenant's governing document (`document_id`) and writes that number as a threshold, not inside a longer number; when that quote or its sentence states another threshold of the unit (a step-down schedule or several tests), `threshold_unit` is other.",
+    "statement": "d. `threshold_text` is copied from one of the covenant's own quotes and holds the one tested threshold. `threshold_value` is that number exactly as the quote writes it (null for `other` and `not stated`): Python reads the number out of the quote and rejects a value that differs. A `multiple` or `percent` threshold states its `comparison`; a maximum (`<=`, `<`) is rejected when the quote names only a floor, a minimum (`>=`, `>`) when it names only a cap. A strict comparison (`<`, `>`) is rejected when the quote words the limit only as inclusive (no more than, no greater than, no less than, or less, or more, at least, minimum, maximum, shall not permit ... to exceed), so write `<=` or `>=`. The quote that holds it is one of the covenant's governing document (`document_id`) and writes that number as a threshold, not inside a longer number; when that quote or its sentence states another threshold of the unit (a step-down schedule or several tests), `threshold_unit` is other.",
     "checks": [
      "fn:deploy_vii.cp4_legal:_threshold_issues",
      "fn:deploy_vii.cp4_legal:_direction_issues",
@@ -1451,12 +1453,14 @@
    },
    {
     "id": "rating_triggers.2",
-    "statement": "Give exactly one view for each agency in `register.agencies` of the module context, its `agency` written exactly, and none for another agency or twice.",
+    "statement": "Give exactly one view for each agency in `register.agencies` of the module context, its `agency` written exactly, and none for another agency or twice. A view of Upgrade potential needs an upgrade trigger published for that agency in `triggers`, and is refused when only that agency's downgrade triggers are reached; every view cites at least one quote that names its own agency (for a context row, a line of that agency's own row).",
     "checks": [
      "oracle:cp2h:v01",
      "oracle:cp2h:v02",
      "oracle:cp2h:v03",
-     "fn:deploy_workflow.owners.cp2h:_view_issues"
+     "fn:deploy_workflow.owners.cp2h:_view_issues",
+     "fn:deploy_workflow.owners.cp2h:_direction_issues",
+     "fn:deploy_workflow.owners.cp2h:_own_evidence_issues"
     ]
    },
    {

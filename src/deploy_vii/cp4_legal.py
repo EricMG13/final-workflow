@@ -516,13 +516,30 @@ def _row_issues(path: str, row: BaseModel, upstream: Upstream) -> list[str]:
 
 
 # Fix round 1: the cheap directional check. Wording in the threshold's own quote that names a
-# floor or a cap; a comparison pointing the other way is rejected. A quote naming neither (the
-# common "shall not permit ... to exceed") or both leaves the direction to the model's judgement,
-# a residual risk recorded in `methods/cp4.md`.
-_FLOOR = re.compile(r"(?<![A-Za-z])(?:not less than|at least|minimum)(?![A-Za-z])", re.IGNORECASE)
-_CAP = re.compile(
-    r"(?<![A-Za-z])(?:not exceed|not to exceed|not more than|maximum|shall not be greater)"
-    r"(?![A-Za-z])",
+# floor or a cap; a comparison pointing the other way is rejected. A quote naming neither or both
+# leaves the direction to the model's judgement, a residual risk recorded in `methods/cp4.md`.
+# S09-A05 widened the wording: "no greater than", "or less", "less than or equal to" and "shall
+# not permit ... to exceed" are caps; "no less than", "or more" and "shall not permit ... to be
+# less than" are floors. Every phrase here is also inclusive (non-strict): a strict comparison on
+# a quote that words the limit only so is rejected, because the verdict flips at the threshold.
+# "or less" / "or more" count only as a figure's own tail ("0.75x or less", "2.0 to 1.0 or more"):
+# "one or more occasions", "four or more quarters" and "more or less" name no limit.
+_FIGURE_OR = r"\d(?:\s*(?:x|%|times))?\s+or "
+_CAP_WORDS = (
+    r"not exceed|not to exceed|not more than|no more than|not greater than|no greater than|"
+    rf"shall not be greater|maximum|less than or equal to|{_FIGURE_OR}less|"
+    r"permit\b[^.;]{0,80}?\bto (?:exceed|be (?:greater|more) than)"
+)
+_FLOOR_WORDS = (
+    r"not less than|no less than|at least|minimum|greater than or equal to|"
+    rf"{_FIGURE_OR}(?:more|greater)|"
+    r"permit\b[^.;]{0,80}?\bto (?:be less than|fall below)"
+)
+_FLOOR = re.compile(rf"(?<![A-Za-z])(?:{_FLOOR_WORDS})(?![A-Za-z])", re.IGNORECASE)
+_CAP = re.compile(rf"(?<![A-Za-z])(?:{_CAP_WORDS})(?![A-Za-z])", re.IGNORECASE)
+_STRICT_WORDS = re.compile(
+    r"(?<![A-Za-z])(?:less than|greater than|more than|fewer than|below|above|exceed\w*|"
+    r"in excess of)(?![A-Za-z])",
     re.IGNORECASE,
 )
 
@@ -602,7 +619,8 @@ def _schedule_issues(
 
 
 def _direction_issues(path: str, row: Covenant) -> list[str]:
-    """A maximum comparison on a quote that names only a floor, or the reverse."""
+    """A maximum comparison on a quote that names only a floor, or the reverse; a strict
+    comparison on a quote whose only limit wording is inclusive."""
     if row.comparison == "none":
         return []
     wording = " ".join(normalise(quote.quote) for quote in _threshold_quotes(row))
@@ -611,6 +629,12 @@ def _direction_issues(path: str, row: Covenant) -> list[str]:
     if (maximum and floor and not cap) or (not maximum and cap and not floor):
         named = "a minimum" if floor else "a maximum"
         return [f"{path}: comparison {row.comparison} contradicts the quote, which states {named}"]
+    if row.comparison in ("<", ">") and (cap if maximum else floor):
+        bare = _CAP.sub(" ", _FLOOR.sub(" ", wording))  # the wording left once inclusive phrases go
+        if not _STRICT_WORDS.search(bare):
+            inclusive = "<=" if maximum else ">="
+            said = "contradicts the quote, which words the limit as inclusive"
+            return [f"{path}: comparison {row.comparison} {said}; use {inclusive}"]
     return []
 
 

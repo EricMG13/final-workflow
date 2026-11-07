@@ -3730,6 +3730,9 @@ def _utf8_text(value: object) -> bool:
     return True
 
 
+_BAD_LINE_ANSWER = '{"status": "refused", "error_code": "bad_arguments"}\n'
+
+
 def _drain(reader: TextIO, line: str) -> None:
     """Read on to the end of an over-length line. If the rest of it is not UTF-8 the participant's
     bytes end the drain there: the caller answers `bad_arguments` for the line, as before G7."""
@@ -3760,7 +3763,14 @@ def serve_json_lines(
     workflow._participant, workflow._transport = participant, "bounded-json-lines/1"
     _retain(workflow._store, "transport", TransportMarker(participant=participant))
     for _ in range(MAX_MESSAGES):
-        line = reader.readline(MAX_LINE + 1)
+        try:
+            line = reader.readline(MAX_LINE + 1)
+        except UnicodeDecodeError:
+            # The text reader decodes in chunks, so its position after a bad byte is unknown:
+            # answer the line that could not be read and end the stream.
+            writer.write(_BAD_LINE_ANSWER)
+            writer.flush()
+            return
         if not line:
             return
         try:

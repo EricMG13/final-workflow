@@ -513,6 +513,25 @@ def _evidence_block(request: PromptRequest) -> str | None:
     return None if body is None else data_block("CONTEXT", EVIDENCE_ID, json.dumps(body, indent=1))
 
 
+# `<` and each character NFKD folds to one (the fence's lookalike copy reads each as `<`), as its
+# JSON escape. None of them is JSON outside a string, so in JSON text only strings change.
+_LT_ESCAPES = str.maketrans({c: f"\\u{ord(c):04x}" for c in "<≮﹤＜"})
+
+
+def _json_text_safe(text: str) -> str:
+    """JSON text with each ``<`` or NFKD lookalike of one written as its escape (``\\u003c``):
+    the same value, so a model echo of a fence marker inside a string cannot make the fence
+    refuse the block. Text that is not JSON is returned unchanged (the fence still decides)."""
+    safe = text.translate(_LT_ESCAPES)
+    if safe == text:
+        return text
+    try:
+        json.loads(text)
+    except ValueError:
+        return text
+    return safe
+
+
 def compose(request: PromptRequest) -> tuple[Message, ...]:
     """The system and user messages for one request; ``NoPrompt`` for a step with no text,
     ``PromptError`` (``FenceError`` for a text that breaks its fence) when it cannot be built."""
@@ -537,13 +556,17 @@ def compose(request: PromptRequest) -> tuple[Message, ...]:
         blocks.append(untrusted_evidence_block(request.untrusted))
     blocks.extend(
         data_block(
-            "SOURCE", item.input_id, item.text, sha256=item.sha256, projection=item.projection
+            "SOURCE",
+            item.input_id,
+            _json_text_safe(item.text),
+            sha256=item.sha256,
+            projection=item.projection,
         )
         for item in request.upstream
     )
     if request.issues:
         # O6-P16: an issue may quote submitted text; one JSON string per line keeps it one bullet.
-        body = "\n".join(f"- {json.dumps(issue)}" for issue in request.issues)
+        body = "\n".join(f"- {_json_text_safe(json.dumps(issue))}" for issue in request.issues)
         blocks.append(data_block("REPAIR", REPAIR_ID, body))
     return (
         Message("system", _system(request, contract, pins is not None)),

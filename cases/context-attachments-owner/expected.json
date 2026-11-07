@@ -14,7 +14,8 @@
     "context_refused_prefix": "Context refused: ",
     "draft_wrong_context": "Draft authority needs a context that declares draft legal documents: {source_id}",
     "not_legal_source (frozen, cp4_legal.py:476-478)": "{path}: {source_id} is not an executed or filed source (CP-0 authority {authority}, or the source is not ready)",
-    "gap_match_regex": "(?<![A-Za-z0-9_])<id>(?![A-Za-z0-9_])"
+    "gap_match_regex": "['\"`]<id>['\"`]",
+    "gap_token_regex": "(?<![A-Za-z0-9_])<field or legal_documents>(?![A-Za-z0-9_])"
   },
   "attachment_ids": {
     "portfolio_workbook": "portfolio",

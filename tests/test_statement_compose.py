@@ -836,3 +836,49 @@ def test_a_zero_outflow_magnitude_row_adds_nothing_to_a_failing_check() -> None:
         ("fy2023", Decimal(250), Decimal(50)),
     ]
     assert result.lines == ()
+
+
+@pytest.mark.parametrize(
+    "book,text,expected",
+    [
+        # By hand: "US$" states USD, "C$"/"CA$" CAD, "A$" AUD; a bare "$" states a dollar
+        # currency without naming it, so it fits dollar books and no EUR or GBP book.
+        ("EUR", "(in millions of us$)", False),
+        ("USD", "(in millions of us$)", True),
+        ("EUR", "(in c$ millions)", False),
+        ("CAD", "(in ca$ millions)", True),
+        ("EUR", "(in a$ thousands)", False),
+        ("AUD", "(in a$ thousands)", True),
+        ("EUR", "cash $ 1,000", False),
+        ("GBP", "(in $ millions)", False),
+        ("USD", "(in $ millions)", True),
+        ("CAD", "(in $ millions)", True),
+        ("EUR", "(in millions)", True),
+        ("EUR", "(in r$ millions)", True),
+    ],
+)
+def test_currency_symbols_state_a_currency(book, text, expected):
+    # S11-A06.
+    assert sc._currency_matches(book, text) is expected
+
+
+def test_page_units_extracts_each_page_once_across_the_inputs_helpers(monkeypatch):
+    # S11-C09. By hand: one balance-sheet page; the five helpers of inputs() read it, and the
+    # extractor runs once for it, not once per helper, with the same units each time.
+    calls = []
+    real = fw.extract_statement_lines
+    monkeypatch.setattr(fw, "extract_statement_lines", lambda *a: calls.append(a) or real(*a))
+    fw._units_of_pages.cache_clear()
+    spans = (
+        Span(
+            locator="page:1",
+            text="CONSOLIDATED BALANCE SHEETS\n2025  2024\nCash  10  9\nTotal assets  10  9",
+        ),
+    )
+    first = fw._page_units(spans)
+    assert first == {"page:1": "BS"}
+    first["page:1"] = "IS"  # a caller's edit does not reach the cache
+    assert fw._page_units(spans) == {"page:1": "BS"}
+    assert fw._statement_kinds(spans) == {"page:1": "BS"}
+    assert list(fw._statement_units(spans)) == ["page:1"]
+    assert len(calls) == 1

@@ -265,15 +265,27 @@ def _shares_excepted(context: str) -> bool | None:
     return None
 
 
+# Currencies whose symbol is a bare "$": a bare "$" names none of them, and rules out any book
+# currency outside this set.
+_DOLLAR_BOOKS = frozenset({"USD", "CAD", "AUD", "NZD", "HKD", "SGD"})
+_BARE_DOLLAR = re.compile(r"(?<![A-Za-z$])\$")
+
+
 def _currency_matches(book_currency: str, text: str) -> bool:
+    """Whether the stated currency of a header or row text is the book's. A word, an ISO code or a
+    prefixed symbol ("US$", "C$", "CA$", "A$", "EUR", "€", "£") states a currency; a bare "$"
+    states a dollar currency without naming it, so it fits the dollar books only."""
     declared = {
         code for code, pattern in (
             ("EUR", r"€|\beuros?\b|\bEUR\b"),
             ("GBP", r"£|\bpounds?\b|\bGBP\b"),
-            ("USD", r"\bUSD\b|\bU\.?S\.?\s+dollars?\b"),
-            ("CAD", r"\bCAD\b|\bCanadian\s+dollars?\b"),
+            ("USD", r"\bUSD\b|\bU\.?S\.?\s+dollars?\b|\bU\.?S\.?\s?\$"),
+            ("CAD", r"\bCAD\b|\bCanadian\s+dollars?\b|\bC(?:A)?\$"),
+            ("AUD", r"\bAUD\b|\bAustralian\s+dollars?\b|\bA\$"),
         ) if re.search(pattern, text, re.IGNORECASE)
     }
+    if book_currency and not declared and _BARE_DOLLAR.search(text):
+        return book_currency in _DOLLAR_BOOKS
     return not declared or declared == {book_currency}
 
 

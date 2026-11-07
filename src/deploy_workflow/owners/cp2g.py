@@ -1349,11 +1349,9 @@ def _supported(cp1d: tuple[Fact, Fact, Fact] | None, why: str | None, basis: Per
 
 
 def _resolve(inputs: ForwardInputs) -> _Run:
+    """The run of a submission `content_issues` already accepted (`compute`, `_composed`)."""
     sub, ctx = inputs.submission, inputs.context
     require_calendar(ctx.basis)
-    found = content_issues(inputs)
-    if found:
-        raise ValueError("CP-2G submission has issues: " + "; ".join(bounded_issues(found)))
     ops = Operands.from_cp1(ctx.cp1_facts, ctx.basis)
     drivers = Drivers.from_submission(sub.base_drivers)
     scenario = next(s for s in ctx.cp2a.scenarios if s.row == sub.downside.scenario)
@@ -2685,6 +2683,16 @@ def _cite(b: _Book, run: _Run) -> None:
 
 def compute(inputs: ForwardInputs) -> ForwardResult:
     """The forward model of one valid submission; raises ValueError on any issue."""
+    require_calendar(inputs.context.basis)
+    found = content_issues(inputs)
+    if found:
+        raise ValueError("CP-2G submission has issues: " + "; ".join(bounded_issues(found)))
+    return _composed(inputs)
+
+
+def _composed(inputs: ForwardInputs) -> ForwardResult:
+    """`compute` of a submission whose content issues are already known to be none (one
+    validation per step, S07-cp2-gh-C01)."""
     run = _resolve(inputs)
     tests, unverified = _tests(run)
     results = {
@@ -2932,20 +2940,29 @@ def _inputs(pack: PreparedPack, submission: ForwardSubmission, upstream: Upstrea
     return ForwardInputs(context=context, submission=submission)
 
 
+def _checked(
+    pack: PreparedPack, submission: ForwardSubmission, upstream: Upstream
+) -> tuple[ForwardInputs | None, tuple[str, ...]]:
+    """`validate_forward`'s issues and, when there are none, the inputs they were found over, so
+    a caller composes without validating again (S07-cp2-gh-C01)."""
+    stale = stale_issues(bound=upstream.bound, current=upstream.current)
+    if stale:
+        return None, stale
+    try:
+        inputs = _inputs(pack, submission, upstream)
+    except (PeriodRefused, ContextRefused) as refused:
+        return None, (_basis_issue(refused),)
+    issues = content_issues(inputs)
+    return (None if issues else inputs), issues
+
+
 def validate_forward(
     *, pack: PreparedPack, submission: ForwardSubmission, upstream: Upstream
 ) -> tuple[str, ...]:
     """Every issue of `submission` over the bound `upstream`: staleness alone when a bound
     upstream changed (ruling 10; no content check runs on a stale upstream), else the core's
     content issues in their pinned order; empty when it composes."""
-    stale = stale_issues(bound=upstream.bound, current=upstream.current)
-    if stale:
-        return stale
-    try:
-        inputs = _inputs(pack, submission, upstream)
-    except (PeriodRefused, ContextRefused) as refused:
-        return (_basis_issue(refused),)
-    return content_issues(inputs)
+    return _checked(pack, submission, upstream)[1]
 
 
 class ForwardReport(Contract):
@@ -3014,10 +3031,17 @@ def forward_model(
     *, pack: PreparedPack, submission: ForwardSubmission, upstream: Upstream
 ) -> ForwardReport:
     """The composed report of a valid submission; raises ValueError on any issue."""
-    issues = validate_forward(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    inputs, issues = _checked(pack, submission, upstream)
+    if inputs is None:
         raise ValueError("; ".join(bounded_issues(issues)))
-    result = compute(_inputs(pack, submission, upstream))
+    return _report(pack, submission, inputs)
+
+
+def _report(
+    pack: PreparedPack, submission: ForwardSubmission, inputs: ForwardInputs
+) -> ForwardReport:
+    """The report of inputs `_checked` accepted."""
+    result = _composed(inputs)
     cells = {c.fact.fact_id: c.fact for c in result.cells}
     return ForwardReport(
         run=pack.run,
@@ -3061,11 +3085,10 @@ def _validate_step(store: Execution, pack: PreparedPack, attempt: Attempt) -> St
     if submission is None:
         return StepValidation(issues=shape)
     upstream = cp2g_upstream(store=store, attempt=attempt)
-    issues = validate_forward(pack=pack, submission=submission, upstream=upstream)
-    if issues:
+    inputs, issues = _checked(pack, submission, upstream)
+    if inputs is None:
         return StepValidation(issues=issues)
-    report = forward_model(pack=pack, submission=submission, upstream=upstream)
-    return StepValidation(output=report.model_dump_json())
+    return StepValidation(output=_report(pack, submission, inputs).model_dump_json())
 
 
 ENTRY_VALIDATOR = _validate_step

@@ -48,8 +48,10 @@ from deploy_workflow.model.turn import CONFIG_PROVIDERS, ModelSpec
 from deploy_workflow.owner_rendering import render_owner_slice, verify_owner_rendered_slice
 from deploy_workflow.owner_workflow import (
     AUDIT,
+    CP8_SUPERSEDED,
     OWNER_SPECS,
     OwnerWorkflow,
+    RefusedBegin,
     TornAudit,
     verify_owner_run_receipt,
 )
@@ -865,33 +867,36 @@ def _drive_resumed(workflow: OwnerWorkflow, loop: _Walk) -> str | None:
 
 
 class NativeCp8Refused(WorkflowError):
-    """The walk reached CP-8 whose owner step is the superseded decision-ledger post-mortem
-    (AGENTS.md: not an input gate). CP-8 compares delivered bundles through CP-OS."""
+    """A CP-8 attempt an earlier, unguarded run began (left pending, or settled invalid with its
+    repair next): it cannot be a refused begin, and going on would ask for the superseded
+    decision-ledger post-mortem, so reopening the run stops here, before anything is written."""
 
     def __init__(self) -> None:
-        super().__init__(
-            "native CP-8 is refused: the decision-ledger post-mortem is superseded; compare "
-            "prior and current deliverables with CP-OS run_comparison "
-            "(deploy_workflow.owners.cpos --compare)"
-        )
+        super().__init__(f"native CP-8 is refused: {CP8_SUPERSEDED}")
 
 
 class _NativeWorkflow(OwnerWorkflow):
-    """The native pathway's workflow: it never begins or resumes a CP-8 attempt. The owner API
-    and ``OWNER_SPECS["CP-8"]`` stay for the retained owner oracles and receipts. A CP-8 that
-    would not begin (CP-0 judged it ``DO NOT RUN``, or its upstream is blocked) keeps its ordinary
-    retained refusal, so a preset that lists it (portfolio_decision) still walks; only a CP-8
-    that would begin is refused, before its begin."""
+    """The native pathway's workflow: it never begins or resumes a CP-8 attempt (AGENTS.md: the
+    decision-ledger post-mortem is superseded; CP-8 compares delivered bundles through CP-OS). A
+    CP-8 the journal would begin is refused with ``CP8_SUPERSEDED`` and the walk goes on to its
+    receipt; one that would not begin (CP-0 judged it ``DO NOT RUN``, or its upstream is blocked)
+    keeps its ordinary retained refusal. The owner API and ``OWNER_SPECS["CP-8"]`` stay for the
+    retained owner oracles and receipts."""
 
     def _begin(self, module_id: str) -> bool:
-        if module_id == "CP-8":
-            try:  # the inputs check `Execution.begin` makes; it writes nothing
-                current_inputs(self._store.read(), module_id)
-            except ValueError:  # not authorized or blocked: the refusal below is retained
-                pass
-            else:
-                raise NativeCp8Refused
-        return super()._begin(module_id)
+        if module_id != "CP-8":
+            return super()._begin(module_id)
+        before = self._store.read()
+        if any(a.module_id == module_id for a in before.attempts):
+            raise NativeCp8Refused  # the repair of a CP-8 an earlier run settled invalid
+        try:  # the inputs check `Execution.begin` makes; it writes nothing
+            current_inputs(before, module_id)
+        except ValueError:  # not authorized or blocked: the ordinary retained refusal
+            return super()._begin(module_id)
+        refusal = RefusedBegin(
+            module_id=module_id, snapshot_sha256=before.content_hash(), reason=CP8_SUPERSEDED
+        )
+        return self._refuse(refusal, "superseded")
 
     def _activate(
         self, attempt: Attempt, step_id: str, *, at: ExecutionSnapshot | None = None

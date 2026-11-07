@@ -48,7 +48,7 @@
   },
   {
    "id": "relative_value.e",
-   "statement": "e. `preference.ordering` lists every instrument's `facility_id` exactly once and nothing else: you may order the issuer's own instruments, most preferred first. Unless its `confidence` is Insufficient Information it cites a market quote or a context row named in `basis.context_rows`; with no observed or indicative evidence it is Insufficient Information and states its `limitation`. Its `confidence` is below High while `confidence_caps` lists any cap.",
+   "statement": "e. `preference.ordering` lists every instrument's `facility_id` exactly once and nothing else: you may order the issuer's own instruments, most preferred first. An Insufficient Information preference has an empty `preference.ordering`; to order the instruments, state the basis and a confidence other than Insufficient Information. Unless its `confidence` is Insufficient Information it cites a market quote or a context row named in `basis.context_rows`; with no observed or indicative evidence it is Insufficient Information and states its `limitation`. Its `confidence` is below High while `confidence_caps` lists any cap.",
    "checks": [
     "fn:deploy_vii.cp3_relative_value:_preference_issues",
     "oracle:cp3-cp6:cp3-confidence-high",

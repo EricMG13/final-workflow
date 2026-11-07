@@ -579,6 +579,67 @@ def test_withheld_ranking_requires_explicit_insufficiency_and_limitation(
     assert result.issues
 
 
+# --- ruling S08-cp3-C09: an Insufficient Information preference has an empty ordering ----------
+
+# Hand-written from the ruling: the refusal names both repairs the model can make.
+INSUFFICIENT_ORDERING = (
+    "preference.ordering: an Insufficient Information preference has an empty ordering; empty it, "
+    "or state the basis and a confidence other than Insufficient Information"
+)
+MISSING = "preference.ordering: term-loan is missing"
+
+
+def _with_preference(case: str, ordering: tuple[str, ...], confidence: str) -> CP3Result:
+    inputs = make_inputs(case)
+    preference = inputs.submission.preference.model_copy(
+        update={
+            "ordering": ordering,
+            "confidence": confidence,
+            "limitation": "Evidence does not support a ranking.",
+        }
+    )
+    submission = inputs.submission.model_copy(update={"preference": preference})
+    return compute(dataclasses.replace(inputs, submission=submission))
+
+
+@pytest.mark.parametrize("case", ["positive", "gap"])
+@pytest.mark.parametrize(
+    "ordering",
+    [("term-loan",), ("term-loan", "term-loan"), ("other",), (" ",), ("",)],
+    ids=["one-instrument", "repeated", "unknown", "whitespace", "empty-entry"],
+)
+def test_s08_c09_an_insufficient_preference_with_an_ordering_is_refused(
+    case: str, ordering: tuple[str, ...]
+) -> None:
+    """Any non-empty ordering, even the trivial one-instrument one or a blank entry, is refused
+    with the repairable issue; completeness ("is missing") is not asked of it. Before the ruling
+    the one-instrument ordering composed (repro cr_c06: issues ())."""
+    result = _with_preference(case, ordering, "Insufficient Information")
+    assert result.report is None
+    assert INSUFFICIENT_ORDERING in result.issues
+    assert MISSING not in result.issues
+
+
+@pytest.mark.parametrize("case", ["positive", "gap"])
+def test_s08_c09_an_insufficient_preference_with_no_ordering_composes(case: str) -> None:
+    result = _with_preference(case, (), "Insufficient Information")
+    assert result.issues == ()
+    assert result.report is not None
+
+
+@pytest.mark.parametrize("confidence", ["High", "Medium", "Low"])
+def test_s08_c09_other_confidences_keep_the_ordering_rules(confidence: str) -> None:
+    """Positive case (one instrument, observed and talk quotes): the full ordering raises no
+    ordering issue (High is still capped: CP-2 is restricted); an empty one is "term-loan is
+    missing"; neither gets the Insufficient Information refusal."""
+    full = _with_preference("positive", ("term-loan",), confidence)
+    empty = _with_preference("positive", (), confidence)
+    assert not [i for i in full.issues if i.startswith("preference.ordering")]
+    assert MISSING in empty.issues
+    assert INSUFFICIENT_ORDERING not in full.issues + empty.issues
+    assert (full.report is not None) == (confidence != "High")
+
+
 # --- review fixes S08-cp3: a model-cited quote's `as_of` is a stated date, dated before the run ---
 
 
@@ -852,3 +913,30 @@ def test_confidence_review_s08_c03_a_basis_of_talk_and_observed_is_not_capped() 
     assert result.issues == ()
     assert result.report is not None
     assert all("indicative talk only" not in text for text in result.report.limitations)
+
+
+def test_s08_c09_review_repair_paths_in_the_gap_case() -> None:
+    """Gap case (no market evidence), hand-derived from the ruling and the evidence rule. The two
+    repairs the issue offers do not loop: emptying the ordering composes (tested above); keeping
+    the ordering and claiming Medium is refused for the missing market evidence only, never for
+    the ordering. An Insufficient Information preference with an ordering and no limitation gets
+    both issues, the ordering one once."""
+    medium = _with_preference("gap", ("term-loan",), "Medium")
+    assert medium.report is None
+    assert (
+        "preference.confidence: Insufficient Information without observed or indicative "
+        "market evidence"
+    ) in medium.issues
+    assert INSUFFICIENT_ORDERING not in medium.issues
+    assert not [i for i in medium.issues if i.startswith("preference.ordering")]
+    inputs = make_inputs("gap")
+    preference = inputs.submission.preference.model_copy(
+        update={"ordering": ("term-loan",), "limitation": ""}
+    )
+    both = compute(
+        dataclasses.replace(
+            inputs, submission=inputs.submission.model_copy(update={"preference": preference})
+        )
+    )
+    assert both.issues.count(INSUFFICIENT_ORDERING) == 1
+    assert "preference: an Insufficient Information preference states its limitation" in both.issues

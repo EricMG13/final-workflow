@@ -519,6 +519,16 @@ def _ratio(num: Num, den: Num, not_meaningful: str) -> Num:
     return Gap(not_meaningful, applicable=False) if den <= 0 else _r4(num / den)
 
 
+def _cover(ebitda: Num, interest: Num) -> Num:
+    """adjusted EBITDA / interest (ruling C-2). Ruling S08-cp3-C08: a cover that would be published
+    over an adjusted EBITDA <= 0 is not meaningful, as every ratio over adjusted EBITDA is; an
+    operand's gap (missing stays missing) and a not-meaningful interest keep their own reason."""
+    cover = _ratio(ebitda, interest, NM_INTEREST)
+    if isinstance(cover, Gap) or isinstance(ebitda, Gap) or ebitda > 0:
+        return cover
+    return Gap(NM_EBITDA, applicable=False)
+
+
 # --- the composer (lease "Method"; every value a Decimal or a Gap) -----------------------------
 
 
@@ -849,8 +859,8 @@ def compose_refinancing(*, operands: Operands, step_up_bps: int | None) -> Refin
             cash_interest_paid=paid,
             added_interest=added,
             pro_forma_interest=pro_forma,
-            interest_cover=_ratio(ebitda, paid, NM_INTEREST),
-            pro_forma_interest_cover=_ratio(ebitda, pro_forma, NM_INTEREST),
+            interest_cover=_cover(ebitda, paid),
+            pro_forma_interest_cover=_cover(ebitda, pro_forma),
             junior_claims=junior,
             junior_over_ebitda=_ratio(junior, ebitda, NM_EBITDA),
         )

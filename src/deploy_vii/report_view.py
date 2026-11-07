@@ -962,7 +962,8 @@ def navigator(view: View) -> tuple[NavRow, ...]:
 
 # Amounts in these units are scaled: the scale is stated once in the block head (decision 0004
 # section 4), so the cells show the bare number. ``currency`` (an amount with an
-# explicit ``Fact.scale``) is an amount at 0 dp too; a per-unit amount (a share price) declares ``Fact.decimals`` instead.
+# explicit ``Fact.scale``) is an amount at 0 dp too; a per-unit amount (a share price)
+# declares ``Fact.decimals`` instead.
 _AMOUNT_UNITS = frozenset({"MILLIONS", "THOUSANDS", "UNITS"})
 _PERCENT_UNITS = frozenset({"PERCENT", "decimal_fraction"})
 # Units compared for one table scale: ``currency`` (scaled by its explicit ``Fact.scale``) and the

@@ -9,11 +9,12 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from decimal import ROUND_HALF_EVEN, Context, Decimal, DecimalException, localcontext
 from typing import Literal
 
 from deploy_vii.contracts import Fact, ModuleView
+from deploy_workflow.trailing_period import states_trailing_period
 
 FactStatus = Literal["known", "missing", "conflicting", "not_applicable"]
 
@@ -158,22 +159,6 @@ def _duration_period(row: dict[str, Fact]) -> _Period:
     return _Period(_text(row["period_id"]), kind, start, end, row)
 
 
-def _whole_months(period: _Period) -> bool:
-    """The period runs from the first day of a month to the last day of a month."""
-    return period.start.day == 1 and (period.end + timedelta(days=1)).day == 1
-
-
-def _comparable_length(prior: _Period, current: _Period) -> bool:
-    """Same day count, or both whole calendar months (calendar quarters span 89-92 days and
-    years 365-366, so month counts, not days, make those like-for-like)."""
-    if prior.end - prior.start == current.end - current.start:
-        return True
-    months = [
-        (p.end.year - p.start.year) * 12 + p.end.month - p.start.month for p in (prior, current)
-    ]
-    return _whole_months(prior) and _whole_months(current) and months[0] == months[1]
-
-
 def _check_period(period: _Period, currency: str = "USD") -> None:
     row = period.row
     if any(f.period != period.identity or f.basis != _SCOPE for f in row.values()):
@@ -189,6 +174,32 @@ def _check_period(period: _Period, currency: str = "USD") -> None:
         _text(row["fiscal_quarter"])
     elif row["fiscal_quarter"].status != "not_applicable":
         raise ValueError("invalid_fact")
+
+
+# Inclusive day-count windows of a period's length (financial_workflow._DAY_WINDOWS): a quarter
+# of 90 to 92 days or 13 or 14 weeks, a half year, nine months, a year of 365 or 366 days or 52 or
+# 53 weeks.
+_LENGTH_WINDOWS = ((84, 98), (175, 189), (266, 280), (357, 371))
+
+
+def _length_window(period: _Period) -> tuple[int, int] | None:
+    days = (period.end - period.start).days + 1
+    return next((w for w in _LENGTH_WINDOWS if w[0] <= days <= w[1]), None)
+
+
+def _comparable(prior: _Period, current: _Period) -> bool:
+    """A prior/current pair of one period type whose lengths fall in the same day-count window, the
+    current period starting after the prior ends. Exact day counts differ between calendar
+    quarters (Q1 90 or 91 days, Q2 91, Q3 and Q4 92) and across a leap year (365 against 366),
+    so they are not compared. Whether the type's own words match its row, and adjacency, are the
+    composer's rules (`unsupported_pair`), as before."""
+    window = _length_window(current)
+    return (
+        prior.kind == current.kind
+        and window is not None
+        and _length_window(prior) == window
+        and current.start > prior.end
+    )
 
 
 def _basis(period: _Period) -> str:
@@ -229,12 +240,27 @@ def _selected(row: dict[str, Fact], period: _Period, measure: str, currency: str
     if fact.text is not None:
         raise ValueError("invalid_fact")
     expected = (*_dimensions(measure, currency), _SCOPE)
-    dates = f"{period.start.isoformat()} to {period.end.isoformat()}"
-    if (fact.unit, fact.currency, fact.scale, fact.basis) != expected or (
-        not isinstance(fact.period, str) or fact.period.rsplit(": ", 1)[-1] != dates
+    if (fact.unit, fact.currency, fact.scale, fact.basis) != expected or not _dated(
+        fact.period, period, expected[0]
     ):
         raise ValueError("incompatible_dimensions")
     return fact
+
+
+def _dated(stated: str | None, period: _Period, unit: str) -> bool:
+    """Whether the fact's period states the period's own dates (`<label>: start to end`). A
+    trailing ratio in a quarter column (unit MULTIPLE) is calculated from the four quarters
+    ending at the quarter, so CP-1 states that rolling period instead (`LTM <label>: start to
+    end`, the start `null` while the window is incomplete); its end is the quarter's end."""
+    if not isinstance(stated, str):
+        return False
+    if stated.rpartition(": ")[2] == f"{period.start.isoformat()} to {period.end.isoformat()}":
+        return True
+    return (
+        unit == "MULTIPLE"
+        and period.kind == "QUARTER"
+        and states_trailing_period(stated, period.end.isoformat())
+    )
 
 
 def _point(
@@ -277,6 +303,11 @@ def _point(
             if prior_amount == 0:
                 growth_status = "missing"
                 reasons.append("ZERO_DENOMINATOR")
+            elif prior_amount < 0:
+                # (current - prior) / prior flips sign on a negative base (-10 to -5 would read
+                # -50%): growth is not meaningful, never a reversed or absolute-base figure.
+                growth_status = "missing"
+                reasons.append("NEGATIVE_DENOMINATOR")
             else:
                 growth = delta / prior_amount
                 growth_status = "known"
@@ -361,11 +392,7 @@ def build_earnings_delta_in(
             _check_period(current, currency)
             if prior is not None:
                 _check_period(prior, currency)
-                if (
-                    prior.kind != current.kind
-                    or not _comparable_length(prior, current)
-                    or current.start <= prior.end
-                ):
+                if not _comparable(prior, current):
                     raise ValueError("incompatible_periods")
 
             metrics = _metrics(module)

@@ -12,45 +12,159 @@ entries below retain their historical case scope.
 
 Scope: 14 slices of the app at a313b50, each reviewed by a Sonnet agent and checked in the main
 session. A patch was kept only when its new test failed on the a313b50 source and passed after.
-Fixed:
-- **Issuer Library:** the run list is ordered by last status update, not random id
-  (`jobs.go`). A review response outlives the server write timeout. A stray `CP-1a.md` no longer
-  hides a run (`store.py`). `COPILOT_GITHUB_TOKEN` is stripped from gate environments
-  (`validate.py`). A stale status reply no longer overwrites another run's screen (`actions.js`).
-- **Runtime:** the budget's directory fsync goes through `platform_io` (`budget.py`); Windows
-  refuses `os.open` on a directory, so a paid run would have stopped creating its budget
-  (simulated). `search_source` matches on the page itself (U+0130). Journal writes retry
-  through `platform_io.replace` (`execution.py`). Handoff reads are explicit UTF-8
-  (`cpos_handoffs.py`; the app already runs `-X utf8`).
-- **Delivery and analysis:** the CP-2 `**Key risks:**` line is kept among limitations
-  (snapshot route). `rv_quotes` bounds the exponent. `_scale_of` keys on the resolved scale
-  label (owner ruling), clearing the T4.9 `mixes amount units` refusal recorded as open below;
-  `test_financial_workflow.py` then passed 21 (was 3 failed, 2 errors; agent-run).
-- **Owner ruling, delta core only:** `earnings.py` accepts whole-calendar-month pairs of equal
-  month count. CP-1B's pair rule (B19) is unchanged, so the module still refuses q2 -> q3. R5b
-  in `cases/periods-currency-owner` is re-cut to record both layers; `cases/PINS.json` was
-  regenerated (two hashes).
+Merged with main after `claude/review-fixes`, which had fixed several of the same defects; main's
+versions were kept for the run-list order and review write timeout (`jobs.go`), the stray
+`CP-1a.md` (`store.py`), the gate key list (`validate.py`), the `rv_quotes` exponent, the
+calendar-quarter delta core (`earnings.py`, owner ruling: delta core only, B19 unchanged) and
+R5b. `cpos_handoffs.py` was deleted on main, so its UTF-8 fix lapses. Fixes this entry adds:
+- a stale status reply no longer overwrites another run's screen (`actions.js`);
+- the budget's directory fsync goes through `platform_io` (`budget.py`); Windows refuses
+  `os.open` on a directory, so a paid run would have stopped creating its budget (simulated);
+- `search_source` matches on the page itself (U+0130, `handoff.py`);
+- journal writes retry through `platform_io.replace` (`execution.py`);
+- the CP-2 `**Key risks:**` line is kept among limitations (`handoff_delivery.py`);
+- `_scale_of` keys on the resolved scale label (owner ruling, `report_view.py`), clearing the
+  T4.9 `mixes amount units` refusal.
+Rejected: joining split negatives `(1,234 )` (0 of 43,461 corpus lines; breaks the spacing
+invariant); chart text at the handoff's precision (display-only; stops a retained delivery
+verifying).
+Open for the owner: a leftover `run.json.tmp` blocks a resume; `os.rename` at
+`run_inputs.py:581`; `_stated` drops a cell's note; CP-1D reads `25bps` as 25; `.copilot-home`
+depends on the launcher's working directory; an undecodable source leaves its module folder, so
+a rerun says `cpos_live_already_started`; 25 of 27 retained deliveries do not verify under
+current code (as at a313b50).
+Checks after the merge: `tools/quality_gate.py` 0 findings in 10 changed files;
+`cases/pins.py --check` matches 219 paths; 371 of 373 affected Python tests pass, and the 2
+failures (`test_cp2e_refuses_the_fy_2025_header_under_fy_2026`, `test_no_hardcoded_period_left`)
+fail on a clean main tree too; the nine web test files (191) and `go vet`/`go test` pass.
+GitNexus: this repo is not indexed.
+Not verified: real Windows; any provider; the whole suite; `test_financial_workflow.py` after the
+merge (it passed 21 before it, agent-run, and exceeds the five-minute limit).
 
-Rejected: joining split negatives `(1,234 )`, which occurs in 0 of 43,461 converted corpus lines
-and breaks the spacing invariant quote checks rely on. Chart text at the handoff's precision is
-display-only and stops the retained `web-04cd…` delivery verifying.
-Checks: affected tests per patch; Go vet and tests, Windows cross-build and the six web test
-files pass. GitNexus: this repo is not indexed. Baseline failures, the same on a clean base:
-`test_gate` 2, `test_o5_done_when` 2, `test_model_testing_mapping` 6 (missing
-`work/model-testing` output), `test_model_testing_run` 14, SHC uncovered rows 6
-(`test_statement_compose`, `test_unit_maps`), `test_html_text` 1, `test_method_cp*` 8 (pins,
-cpdr hashes, an absent commit) and `test_czr_cash_scope` 1. `test_cp1_coverage_gate` 6 was
-reported by an agent and not checked against base.
-Open for the owner:
-- a leftover `run.json.tmp` blocks a resume, pinned by a test;
-- `os.rename` at `run_inputs.py:581`;
-- `_stated` drops a cell's note;
-- CP-1D reads `25bps` as 25;
-- `.copilot-home` depends on the launcher's working directory;
-- an undecodable source leaves its module folder, so a rerun says `cpos_live_already_started`;
-- 25 of 27 retained deliveries no longer verify under current code, as at a313b50.
-Not verified: real Windows; any provider; the whole suite, running at commit time; 20 slow
-`test_earnings_workflow.py` tests, which timed out at 240 s.
+## 2026-11-07 — Fixes for the whole-app review findings (branch `claude/review-fixes`)
+
+Scope: the 253 agreed findings of the whole-app review (`docs/review-handoff/` on
+`claude/review-handoff`): 4 critical, 49 high, 94 medium, 106 low after the cross-review.
+326 files against `claude/quality-gate` (src/deploy_workflow 95, src/deploy_vii 45,
+apps/issuer-library 28, tests, five case oracles rebuilt by their own builders and re-pinned).
+No change under runs/ or deliverables/. Offline only: no provider call, network fetch or key.
+Method (user): a model matrix. Each batch was fixed by one model and reviewed by the other
+(Opus/Sonnet). The reviewer confirmed or repaired each commit, ran a rewrite tournament and
+adversarial tests, and committed separately. Every merge passed the changed-code gate
+(`tools/quality_gate.py`, 0 findings at the end over 253 changed files) and targeted fast tests
+only (each pytest call under `timeout 300`; no test_owner_*, nothing promoting CP-0/CP-1). Frozen
+prompt digests: each deliberate wording change has a strip helper (`tests/prompts/s*_strip.py`),
+and the digest failures equal main's 26 by name. The rule-list golden sha256 section was refreshed
+after wave 1 and again at the end, each in its own commit. `cases/pins.py --check` matches 219
+paths.
+
+| Severity | Fixed | Partly fixed | Kept as is by user ruling | Already fixed by an earlier fix | Not a defect / not reachable |
+|---|---|---|---|---|---|
+| critical | 4 | 0 | 0 | 0 | 0 |
+| high | 45 | 4 | 0 | 0 | 0 |
+| medium | 91 | 2 | 0 | 1 | 0 |
+| low | 94 | 3 | 4 | 2 | 3 |
+
+User rulings (2026-11-07), applied through the same matrix with a review each:
+- S12-A02: option B, fail closed. A positive `signed` amount on an outflow-linked line is refused.
+  A printed magnitude uses `outflow_magnitude`. A refund is recorded as missing with its reason, and
+  the coverage gate accepts that withheld line. `o2-synthetic` was corrected through its builder.
+- S10-A05: a native CP-8 that CP-0 commands is recorded as refused (superseded, pointing to CP-OS
+  `run_comparison`) and the run finishes with a verified receipt.
+- S18-C03: a per-launch secret held in memory only. The one-time launch ticket expires after 120 s
+  and is exchanged for a SameSite=Strict session cookie. Same-site and cross-site requests are
+  refused. A relaunch asks an idle library to quit through an owner-only request file and then
+  opens a fresh link; a busy library answers with what is running.
+- S18-C08: a workspace switch is refused while a review is in flight.
+- S08-C08: interest covers are n.m. when adjusted EBITDA is ≤ 0.
+- S08-C09: an Insufficient Information preference has an empty ordering.
+- S13-A07: the financial-synthesis scope is gated per dimension.
+- S09-A08: a "Same definition" naming a document missing from the pack must be "Not determinable".
+- S09-C04: the source-refusal wording is corrected.
+- S09-A04 remainder: CP-4C picks the secured facility by T4.18 status. Its other upstream faults
+  are typed issues. A hopeless facility issue is refused at begin (no model call); the verifier
+  recomputes the reason from that snapshot's CP-1 head.
+- CP-4 missing-document check: "set forth in", "specified in" and "ascribed to" also count as
+  pointers, and memorandum and prospectus as document nouns.
+- S04-C11: the Model rail highlight is fixed.
+- CP-2E accepts "$m", "US$m" and "USDm" as millions, and refuses a unit statement that names a
+  currency other than the run's reporting currency. CP-1D matches its Basis clause without regard
+  to case, and its second-currency guard reads ISO 4217 codes only.
+- Refund handling: `outflow_magnitude` is refused on a line whose label states an inflow (outside a
+  "net of" clause), and an accounts row cannot contradict a withheld line.
+- S14-A02: the read-window bound is confirmed, superseding the PF-R7 exemption (recorded in
+  `cases/pilot-fixes/read-window.json`).
+- S15-C05: splitlines numbering is canonical (documented in `preparation.text_content`).
+- Kept as is: S03-C06, S05-C07, S13-C10 and the fail-closed confirmations.
+
+Partly fixed: S07-A01 (strict xfail `test_a01_quarter_cp2a_swapped_metric_is_refused`), S11-A03,
+S13-A03/C05, S01-A03, S06-A06, S07-C03, S05-C09, S09-C06. Also fixed: three defects reviewers found next to fixed findings
+(non-UTF-8 lines in the source and financial servers, now one shared `workflow.read_line` that
+the owner server also uses; lone surrogates in research manifests; the CP-4 stored claim
+limitation).
+Branch review (one final reviewer over the whole branch, report only): verdict merge, no blocker
+or high finding; conflict resolutions coherent; every composed-prompt difference across the 12
+step contracts maps to a named finding. Its low items were fixed through the matrix: comments
+opened mid-line are hidden too, financial_workflow (and owner_workflow through it) uses the atomic
+`workflow._put`, and the CP-4 context.py pin test is renamed to what it checks.
+Known-failure list: 45 more base failures found during the waves and confirmed on
+`claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose,
+coverage rule, prompt-set digest, the 26 frozen-message digest failures, one o2 citation test, the
+financial-workflow full-component fixture and two research consumer-block stubs). The Issuer
+Library launch secret and relaunch quit request also need Windows and browser acceptance: the
+launch link and cookie in the report frames, the state-folder ACL check, the polling watcher,
+port rebinding and the dialogs.
+Not verified here (slow or not runnable in this container; the nightly run covers the pytest
+ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
+attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,
+test_financial_workflow and test_host_h1 as a whole; the Issuer Library jsdom suites and
+browser_check; the Windows path of the S18-A07 worker lock (compiled and vetted only). Retained-data
+checks were deterministic replays of retained outputs, not live runs.
+
+## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
+
+Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,
+`tests/test_nightly_tests.py`, `tests/nightly-known-failures.txt`, a docs/QUALITY-GATE.md section,
+one AGENTS.md bullet, and a fix in `tools/quality_gate.py`. No analytical code changed.
+Decision (user): while working, fast targeted tests only; the full suite, slow tests included,
+runs nightly at 01:00 UTC in GitHub Actions (user chose Actions over a Claude cloud session and
+UTC). Six pytest shards balanced by file size, `live`/`browser` excluded, provider keys removed,
+300 minutes per shard; Go `vet` and `test -race`; a report job fails only on a failure missing
+from the known list or an unfinished shard. The known list is seeded with the 24 base failures
+documented in the review handoff; the first run will show any other pre-existing failure as new.
+Gate fix: two changed files with one module name (two `builder/build.py`) made mypy exit 2, and
+the gate raised before its per-file fallback; the fallback now runs first. Found by the S13 fix
+review. `tests/test_quality_gate.py` gains the case: it raises GateError on the old gate and
+passes on the new one.
+Checks: `tests/test_nightly_tests.py` 9 passed and `tests/test_quality_gate.py` 8 passed (fast,
+`timeout 300`); the workflow parses (jobs pytest, report, go; schedule `0 1 * * *`); the gate on
+this change exits 0. Not verified: the workflow has not run. Scheduled runs start once it is on
+`main`; its first run establishes the real known-failure list and duration.
+
+## 2026-11-06 — Quality gate for changed code
+
+Scope: `tools/quality_gate.py`, `tools/ruff-gate.toml`, `tests/test_quality_gate.py`,
+`.github/workflows/quality-gate.yml`, `docs/QUALITY-GATE.md`, one AGENTS.md bullet. No
+analytical code changed. Standard library only; the checkers are the pinned dev
+dependencies (ruff 0.17.1, mypy 2.4.0), so no new dependency.
+Decision: gate changed code (changed lines plus the functions they fall in, new files
+whole), not the whole tree, because the baseline at `a313b50` fails every candidate
+threshold (180 functions above C901 10, 46 files `ruff format` would change, 33 strict
+mypy errors in `src`). Thresholds from comparable projects (docs/QUALITY-GATE.md): C901 at
+15 (pydantic-ai), pylint design limits at ruff defaults, E501 at the repo's 100 columns,
+strict mypy on non-test files, `ruff format`.
+Checks: `uv run pytest tests/test_quality_gate.py` 7 passed (temp git repos: hunk parsing
+on both sides with deletion anchors, decorator and nested spans, owned-line expansion,
+changed-file and changed-line detection, an end-to-end run that reports the E501, the
+mypy assignment error and the format change inside the touched code and drops the legacy
+E501 two functions up, the clean case, and both exit codes). Self-check:
+`uv run python tools/quality_gate.py --base origin/main` on this branch exits 0 with 3
+changed files and 342 lines in scope, after it caught one over-long test line and one
+formatting change in its own first draft. Dry run on the last merged PR (`--base
+a313b50^1`): 23 findings in 31 changed files, 5,005 lines in scope (E501 x5, PLR0913 x3,
+PLR0915 x1 in `owners/cpos.py` and two test files), none in the surrounding legacy code.
+The rewrite-tournament skill is not available in this environment; the changed functions were compared inline against a per-file variant (one subprocess per file for ruff too) and the batched form was kept as the simpler one. The GitHub Actions workflow ran on draft PR #18 (run 42207159101) and passed with 0
+findings; `uv` is pinned there at 0.12.5 through `astral-sh/setup-uv@v5`.
 
 ## 2026-11-06 — GitHub Copilot SDK adapter
 

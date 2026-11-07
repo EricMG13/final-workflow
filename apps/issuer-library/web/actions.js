@@ -103,7 +103,7 @@ function installNewRun(){
     $('run-progress').textContent=desc?`${head} · ${desc}`:head;
     $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${review.as_of} · ${review.id}`:review?.id||'';
     const spent=status.spent_usd??status.progress?.spent_usd;
-    $('run-spend').textContent=spent==null?'Spend appears after CP-OS records a completed model response.':`Recorded spend: USD ${spent}`;
+    $('run-spend').textContent=spent==null?'Spend appears after CP-OS records a completed model response.':spent==='unknown'?'Recorded spend could not be read; it may be above zero.':`Recorded spend: USD ${spent}`;
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
     $('open-run').hidden=!finished||status.run_available===false;
@@ -223,6 +223,8 @@ function installSettings(){
   };
   const changing=async(url,body,note)=>{
     if(settingsBusy)return;
+    // Success reloads the page, which clears a run being prepared: ask before sending anything.
+    if(!mayDiscardDraft())return;
     lock(true,note);
     try{await appRequest(url,body);location.reload();}
     catch(error){lock(false);status('Could not update the library. Details: '+error.message);}

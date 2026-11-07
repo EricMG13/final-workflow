@@ -353,34 +353,22 @@ def _q2_q3_register(currency: str) -> Module:
     return Module.model_validate_json(text).model_copy(update={"facts": tuple(facts)})
 
 
-def test_r5b_delta_core_settles_the_unequal_day_pair_and_cp1b_refuses_it() -> None:
-    """R5b (owner ruling 2026-11-07): the delta core accepts the 91-day prior q2-2026 against the
-    92-day current q3-2026 and its points are CP-1B@USD's (the same rows under different period
-    ids); the module's pair rule (`cp1b.supported`, ruling B19) stays, so CP-1B still refuses the
-    pair. The pair and both outcomes are the oracle's, `runs/R5b`."""
+def test_r5b_q3_base_cp1b_refuses_the_pair_it_does_not_support() -> None:
+    """R5b: a q3 base is not a currency refusal. The 91-day prior q2-2026 and the 92-day current
+    q3-2026 are both quarter-length, so the core accepts them (S11-A04: no raw-day comparison);
+    CP-1B then refuses `unsupported_pair`, since q2 -> q3 is neither its q3 -> q4 nor its FY pair.
+    The pair is the oracle's, `runs/R5b` `prior_period` and `current_period`."""
     run = KEY["runs"]["R5b"]
     want = run["modules"]["CP-1B"]
-    core = want["delta_core"]
-    assert core["outcome"] == "settled" and core["figures_produced"] is True
-    assert (core["prior_days"], core["current_days"]) == (91, 92)
-    assert want["outcome"] == "refused" and want["figures_produced"] is False
-    module = _q2_q3_register(run["pack_currency"])
-    report = build_earnings_delta_in(
-        cp1b.cp1_view(module), run["prior_period"], run["current_period"], run["reporting_currency"]
-    )
-    assert (report.prior_period_id, report.current_period_id) == (
-        core["prior_period_id"],
-        core["current_period_id"],
-    )
-    assert _points(report) == _oracle_points(core["oracle"])
-    owner = _compute(
-        module,
+    assert want["outcome"] == "refused" and want["error"] == "unsupported_pair"
+    found = _compute(
+        _q2_q3_register(run["pack_currency"]),
         run["prior_period"],
         run["current_period"],
         "flat_sequential",
         run["reporting_currency"],
     )
-    assert owner.report is None and owner.issues == (want["issue_contains"],)
+    assert found.issues == (want["issue_contains"],) and found.report is None
 
 
 # --- CP-1B on the owner path under a run context ---------------------------------------------------
@@ -754,12 +742,15 @@ def _l10_upstream(currency: str = "EUR") -> cpl10.Upstream:
             fact.model_copy(
                 update={
                     "label": f"{new.column} · {metric}",
-                    "period": new.period if fact.period == old_period[column] else fact.period,
+                    "period": new.period
+                    if fact.period == old_period[column]
+                    else _l10_shift(fact.period or "", currency),  # a ratio's trailing period
                     "currency": currency if fact.currency else None,
                 }
             )
         )
-    base = cpl10.Upstream(
+    return cpl10.RunUpstream(
+        run_currency=period_basis.currency_of(currency),  # S10-A04: a plain Upstream is USD only
         issuer_name=method.UPSTREAM.issuer_name,
         as_of=method.UPSTREAM.as_of,
         cp0_status_word=method.UPSTREAM.cp0_status_word,
@@ -768,10 +759,6 @@ def _l10_upstream(currency: str = "EUR") -> cpl10.Upstream:
         cp1_result_sha256=method.UPSTREAM.cp1_result_sha256,
         cp1_facts=cpl10.bind_operands(facts, quarters),
         quarters=quarters,
-    )
-    return cpl10.RunUpstream(
-        **{f: getattr(base, f) for f in base.__dataclass_fields__},
-        run_currency=period_basis.currency_of(currency),
     )
 
 

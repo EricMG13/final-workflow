@@ -16,8 +16,8 @@
   // Discovery runs every 30 seconds. Offer the change rather than moving the screen under the reader.
   const shape=value=>JSON.stringify(value.real?.map(run=>[run.id,run.files?.length,run.artifacts?.filter(item=>item.available).map(item=>item.folder)]));
   const loaded=shape(catalogue);
-  // A run being prepared is lost on reload, so the reader is asked first.
-  const reload=()=>{if(document.body.dataset.draft==='1'&&!document.getElementById('new-run').hidden&&!window.confirm('Reload now? The run you are preparing will be cleared.'))return;location.reload();};
+  // A run being prepared is lost on reload, whichever screen is showing, so the reader is asked first.
+  const reload=()=>{if(document.body.dataset.draft==='1'&&!window.confirm('Reload now? The run you are preparing will be cleared.'))return;location.reload();};
   document.getElementById('reload-workspace').addEventListener('click',reload);
   document.getElementById('reload-service').addEventListener('click',reload);
   let failures=0;

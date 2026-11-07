@@ -669,3 +669,151 @@ def test_a_stray_pipe_line_before_a_real_table_still_finds_the_table():
     raw = "## A\n| stray\n| x | y |\n|---|---|\n| 1 | 2 |\n"
     with pytest.raises(ValueError, match=r"M line 1 A is not presented \(table\)"):
         check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})
+
+
+# --- Execution words and front limits (hand-written expected strings) ---------------------
+
+CP6_FINDINGS = (
+    "### Reader summary\n"  # line 7
+    "| Bottom line | Confidence | Main limitation |\n"  # 8
+    "|---|---|---|\n"  # 9
+    "| Hold the position. | Moderate | Quarter data unaudited. |\n"  # 10
+    "\n"  # 11
+    "| Finding | Creditor impact | Confidence |\n"  # 12
+    "|---|---|---|\n"  # 13
+    "| Leverage | Higher | Low |\n"  # 14
+    "\n"  # 15
+    "### Action Bias Determination\n"  # 16
+    "Final Action Bias: Watchlist. Spreads do not pay for the risk.\n"  # 17
+    "\n"  # 18
+    "### Financials\n" + TABLE
+)
+FRONT = [
+    {
+        "module_id": "CP-6",
+        "block_id": "front",
+        "heading": "Reader summary",
+        "kind": "table",
+        "table_header": "Bottom line | Confidence | Main limitation",
+        "label": "Challenge view",
+    },
+    {
+        "module_id": "CP-6",
+        "block_id": "front",
+        "heading": "Action Bias Determination",
+        "kind": "prose",
+        "prefix": "Final Action Bias:",
+        "label": "Committee action bias",
+    },
+]
+
+
+def deliver_cp6(tmp_path: Path, text: str, front: list[dict], execution: str | None = None):
+    raw = text.encode()
+    path = tmp_path / "CP-6.md"
+    path.write_bytes(raw)
+    body = {
+        "run": {
+            "run_id": "r1",
+            "issuer_id": "TDG",
+            "issuer_name": "TransDigm Group Incorporated",
+            "as_of": "2024-12-28",
+            "case_kind": "public",
+            "pathway": "earnings_update",
+            "requested_modules": ["CP-6"],
+        },
+        "handoffs": {"CP-6": {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}},
+        "layout": {
+            "blocks": ["headline-results"],
+            "routes": [
+                {"module_id": "CP-6", "block_id": "headline-results", **ROUTE},
+            ],
+            "scope": "synthetic regression",
+            "front": front,
+        },
+    }
+    if execution is not None:
+        body["module_execution"] = {"CP-6": execution}
+    return markdown_files(DeliveryRequest.model_validate_json(json.dumps(body)), Path("/"))
+
+
+def cp6_text(findings: str = CP6_FINDINGS) -> str:
+    return handoff("Scope.", findings).replace("# CP-1B", "# CP-6")
+
+
+def test_front_routes_put_the_cited_line_above_the_call(tmp_path):
+    files = deliver_cp6(tmp_path, cp6_text(), FRONT)
+    html_text = files["report.html"].decode()
+    assert 'id="delivery-limits"' in html_text
+    assert (
+        "Challenge view: confidence Moderate; main limitation: Quarter data unaudited. "
+        "(CP-6 line 10)"
+    ) in html_text
+    assert (
+        "Committee action bias: Final Action Bias: Watchlist. Spreads do not pay for the risk. "
+        "(CP-6 line 17)"
+    ) in html_text
+    assert html_text.index('id="delivery-limits"') < html_text.index('id="call-root"')
+    coverage = json.loads(files["coverage.json"])["modules"]["CP-6"]
+    fronted = {(e["kind"], e["line"]) for e in coverage if "front" in e["blocks"]}
+    assert fronted == {("table", 7), ("prose", 16)}
+
+
+def test_a_front_route_with_no_match_says_not_stated(tmp_path):
+    text = cp6_text(CP6_FINDINGS.replace("Final Action Bias:", "Bias:"))
+    html_text = deliver_cp6(tmp_path, text, FRONT)["report.html"].decode()
+    assert "Committee action bias: not stated in the handoff" in html_text
+    assert "<li>Challenge view: confidence Moderate;" in html_text
+
+
+def test_front_text_is_escaped(tmp_path):
+    text = cp6_text(CP6_FINDINGS.replace("Quarter data unaudited.", "A <b>&</b> B."))
+    html_text = deliver_cp6(tmp_path, text, FRONT)["report.html"].decode()
+    assert "main limitation: A &lt;b&gt;&amp;&lt;/b&gt; B. (CP-6 line 10)" in html_text
+
+
+@pytest.mark.parametrize(
+    ("execution", "sentence"),
+    [
+        (
+            "live-provider",
+            (
+                "Produced by a live model run and accepted by the CP-OS check; "
+                "not native contract acceptance."
+            ),
+        ),
+        (
+            "retained-response-replay",
+            "Replayed from a retained response; no new model call was made.",
+        ),
+        ("host-session", "Produced in a host session and accepted by the CP-OS check."),
+        ("synthetic", "Synthetic test content, not issuer analysis."),
+    ],
+)
+def test_live_execution_reaches_each_module_limitation(tmp_path, execution, sentence):
+    files = deliver_cp6(tmp_path, cp6_text(), [], execution)
+    module = json.loads(files["view.json"])["modules"][0]
+    assert module["limitations"][0] == sentence
+    assert module["status"] == "candidate"
+
+
+def test_without_module_execution_the_fixed_limitation_stays_first(tmp_path):
+    module = json.loads(deliver_cp6(tmp_path, cp6_text(), [])["view.json"])["modules"][0]
+    assert module["limitations"][0].startswith("Literal checked analytical handoff")
+    assert "delivery-limits" not in deliver_cp6(tmp_path, cp6_text(), [])["report.html"].decode()
+
+
+RETAINED_LAYOUT_MANIFESTS = [
+    "runs/cpos-launch-cp2-reader-001/delivery-593bc6819bec6be2624a19fef19f4702fe424c88c2a5fb916b0ac8375f461fca.json",
+    "runs/cpos-launch-live-002/delivery-1b851b108d950efee6a7638c8754ebcd8531aa2635fcef1b892bdb0e52d80814.json",
+    "runs/cpos-sol-remaining-20261105/recovery/execution/delivery-94f5c089fa806476746a0df4d861ed406930b92f8208246f18d0cc08c2ebddca.json",
+    "runs/web-04cd5a5d02ea7d1dea714a8a6632cd21/delivery-81e5fda8cf24771b8979b3da4cd6d51b60e4804133383e0b3b8f102b93821cae.json",
+]
+
+
+@pytest.mark.parametrize("name", RETAINED_LAYOUT_MANIFESTS)
+def test_existing_layout_manifests_serialise_unchanged(name):
+    # The four of 22 retained layout manifests that round-tripped at a06406a2; the rest were
+    # written by older schemas. New optional fields must not alter these bytes.
+    raw = (Path(__file__).resolve().parent.parent / name).read_bytes()
+    assert DeliveryRequest.model_validate_json(raw).model_dump_json(indent=2).encode() == raw

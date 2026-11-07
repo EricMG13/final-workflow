@@ -575,6 +575,13 @@ def test_every_pathway_runs_end_to_end_to_a_verified_report(tmp_path, provider, 
     page = report.read_text()
     assert "not been independently reviewed" in page
     assert not (report.parent / "model.html").exists()
+    assert page.index('id="delivery-limits"') < page.index('id="call-root"')
+    modules = json.loads((report.parent / "view.json").read_text())["modules"]
+    live = (
+        "Produced by a live model run and accepted by the CP-OS check; "
+        "not native contract acceptance."
+    )
+    assert {m["limitations"][0] for m in modules} == {live}
     completed = json.loads(next(out.glob("completed-*.json")).read_text())
     assert completed["execution"] == "live-provider"
     assert completed["cp_model_published"] is False
@@ -876,7 +883,11 @@ def test_the_reader_section_reaches_the_report_unchanged(tmp_path, provider):
 def strip_of(prepared, raw: str, tmp_path: Path, block: str):
     routes = tuple(r for r in prepared.layout.routes if r.module_id == "CP-1")
     own = prepared.layout.model_copy(
-        update={"blocks": tuple(dict.fromkeys(r.block_id for r in routes)), "routes": routes}
+        update={
+            "blocks": tuple(dict.fromkeys(r.block_id for r in routes)),
+            "routes": routes,
+            "front": (),
+        }
     )
     (tmp_path / "cp-1.md").write_text(raw)
     handoff = HandoffInput(path="cp-1.md", sha256=hashlib.sha256(raw.encode()).hexdigest())
@@ -1176,3 +1187,49 @@ def test_a_release_note_on_the_stop_is_shown_in_stderr(
     argv = copilot_argv(tmp_path, "copilot-sol-medium", "--live", "--ruling", str(copilot_ruling))
     assert main(argv) == 1
     assert "adapter release also failed: stop failed: OSError" in capsys.readouterr().err
+
+
+def test_launcher_layout_adds_front_routes_only_for_requested_modules(tmp_path):
+    (tmp_path / "second").mkdir()
+    full = prepare(
+        context_file(tmp_path),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    # CP-5, CP-2 and CP-0 are in the covenant run, CP-6 is not; titles are the registry's.
+    assert [(r.module_id, r.kind, r.label) for r in full.plan.layout.front] == [
+        ("CP-5", "table", "Evidence trace validator"),
+        ("CP-2", "table", "Fundamental credit synthesizer"),
+        ("CP-0", "table", "Source readiness"),
+    ]
+    assert {r.heading for r in full.plan.layout.front} == {"Reader summary"}
+    assert {r.table_header for r in full.plan.layout.front} == {
+        "Bottom line | Confidence | Main limitation"
+    }
+    narrow = prepare(
+        context_file(tmp_path / "second"),
+        issuer_folder(tmp_path / "second"),
+        tmp_path / "out2",
+        config="sol-medium",
+        cap="50",
+        modules=("CP-4",),
+    )
+    assert [r.module_id for r in narrow.plan.layout.front] == ["CP-0"]
+
+
+def test_cp6_front_routes_lead_with_its_summary_then_its_action_bias():
+    routes = cpos_launch._front_routes(("CP-0", "CP-2", "CP-6"))
+    assert [(r.module_id, r.heading, r.kind, r.prefix, r.label) for r in routes] == [
+        ("CP-6", "Reader summary", "table", None, "Ic debate challenge"),
+        ("CP-2", "Reader summary", "table", None, "Fundamental credit synthesizer"),
+        ("CP-0", "Reader summary", "table", None, "Source readiness"),
+        (
+            "CP-6",
+            "Action Bias Determination",
+            "prose",
+            "Final Action Bias:",
+            "Committee action bias",
+        ),
+    ]

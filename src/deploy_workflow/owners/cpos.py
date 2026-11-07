@@ -406,6 +406,9 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
                 for m in (ordered if request.layout is not None else ("CP-1", "CP-1A", "CP-2"))
             },
             layout=request.layout,
+            module_execution=_module_execution(ordered, retained, request)
+            if request.layout is not None
+            else None,
             model=None
             if request.model is None
             else request.model.model_copy(
@@ -457,10 +460,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
             + "; not full pathway/native acceptance",
             "provider_cap_usd": str(request.provider_cap_usd) if live else 0,
             "modules": selected,
-            "module_execution": {
-                m: "retained-response-replay" if m in retained else request.execution
-                for m in ordered
-            },
+            "module_execution": _module_execution(ordered, retained, request),
             "cp_model_published": request.model is not None,
             "delivery_manifest_sha256": manifest_id,
             "report_sha256": _sha(report.read_bytes()),
@@ -470,6 +470,13 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         if events is not None:
             append_event(events, "delivered")
         return report
+
+
+def _module_execution(
+    ordered: tuple[str, ...], retained: Mapping[str, object], request: HandoffPlan
+) -> dict[str, Literal["host-session", "retained-response-replay", "synthetic", "live-provider"]]:
+    """How each module was produced: a retained handoff is a replay whatever the run's mode."""
+    return {m: "retained-response-replay" if m in retained else request.execution for m in ordered}
 
 
 def live_adapter_for(

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from deploy_vii.contracts import PATHWAY_MODULES, Run
 from deploy_vii.live.prompts import STEP_CONTRACTS
+from deploy_vii.registry import modules as module_descriptors
 from deploy_vii.registry import plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow.context import CONTEXT_SOURCE_ID, load_context
@@ -391,6 +392,41 @@ def chart_issues(text: str, route: MarkdownRoute) -> tuple[str, ...]:
     return tuple(issues)
 
 
+# The lines the report states above the call, front-most first: the Reader summary's first table
+# (instructed by READER_SECTION_RULES) of each module that is in the run, and CP-6's instructed
+# `Final Action Bias:` paragraph. Nothing is read that no instruction asks the module to write.
+FRONT_MODULES = ("CP-6", "CP-5", "CP-2", "CP-0")
+READER_SUMMARY_HEADER = "Bottom line | Confidence | Main limitation"
+
+
+def _front_routes(ordered: tuple[str, ...]) -> tuple[MarkdownRoute, ...]:
+    titles = {m.module_id: m.title for m in module_descriptors()}
+    routes = [
+        MarkdownRoute(
+            module_id=module_id,
+            heading="Reader summary",
+            kind="table",
+            block_id="front",
+            table_header=READER_SUMMARY_HEADER,
+            label=titles[module_id],
+        )
+        for module_id in FRONT_MODULES
+        if module_id in ordered
+    ]
+    if "CP-6" in ordered:
+        routes.append(
+            MarkdownRoute(
+                module_id="CP-6",
+                heading="Action Bias Determination",
+                kind="prose",
+                block_id="front",
+                prefix="Final Action Bias:",
+                label="Committee action bias",
+            )
+        )
+    return tuple(routes)
+
+
 def _layout(
     run: Run, ordered: tuple[str, ...], aliases: tuple[str, ...], config: str
 ) -> tuple[MarkdownLayout, tuple[str, ...]]:
@@ -432,6 +468,7 @@ def _layout(
         scope=scope,
         title=f"{run.issuer_name} — {preset.title}",
         issuer_aliases=aliases,
+        front=_front_routes(ordered),
     )
     return layout, tuple(omitted)
 
@@ -612,6 +649,7 @@ def checker(layout: MarkdownLayout) -> Check:
                     update={
                         "blocks": tuple(dict.fromkeys(r.block_id for r in routes)),
                         "routes": routes,
+                        "front": tuple(r for r in layout.front if r.module_id == task.module_id),
                     }
                 )
                 with tempfile.TemporaryDirectory() as temporary:

@@ -712,6 +712,100 @@ def _registers(
     return slots
 
 
+EXECUTION_WORDS = {
+    "live-provider": (
+        "Produced by a live model run and accepted by the CP-OS check; "
+        "not native contract acceptance."
+    ),
+    "retained-response-replay": "Replayed from a retained response; no new model call was made.",
+    "host-session": "Produced in a host session and accepted by the CP-OS check.",
+    "synthetic": "Synthetic test content, not issuer analysis.",
+}
+NOT_STATED = "not stated in the handoff"
+
+
+def _front_table(
+    route: MarkdownRoute, module: ModuleView, meta: dict[str, tuple[str, str]]
+) -> tuple[str, str, str] | None:
+    """(sentence, line, entry id) of the first data row of the table with the routed header."""
+    table = next(
+        (
+            t
+            for t in module.tables
+            if meta[t.table_id] == (route.heading, "table")
+            and " | ".join([t.row_header or "", *(c.label for c in t.columns)])
+            == route.table_header
+            and t.rows
+        ),
+        None,
+    )
+    if table is None:
+        return None
+    facts = {f.fact_id: f for f in module.facts}
+    row = table.rows[0]
+    cells = [
+        f"{column.label.lower()}{':' if index else ''} {facts[fid].text or NOT_STATED}"
+        for index, (column, fid) in enumerate(zip(table.columns, row.fact_ids, strict=True))
+    ]
+    number = facts[row.fact_ids[0]].citations[0].locator.split()[-1]
+    return "; ".join(cells), number, table.table_id
+
+
+def _front_prose(
+    route: MarkdownRoute, module: ModuleView, meta: dict[str, tuple[str, str]]
+) -> tuple[str, str, str] | None:
+    """(paragraph, line, entry id) of the first paragraph of the section opening with the prefix."""
+    fact = next(
+        (
+            f
+            for f in module.facts
+            if _names_section(meta.get(f.table_id), route.heading)
+            and (route.prefix is None or _opens_with(f.text, route.prefix))
+        ),
+        None,
+    )
+    if fact is None:
+        return None
+    return fact.text or NOT_STATED, fact.citations[0].locator.split()[-1], fact.table_id
+
+
+def front_lines(
+    routes: tuple[MarkdownRoute, ...],
+    module_views: list[ModuleView],
+    metadata: dict[str, dict[str, tuple[str, str]]],
+) -> tuple[list[str], set[tuple[str, str]]]:
+    """One sentence per front route, copied from the handoff and cited by module and line, and
+    the (module, entry id) of each handoff section a sentence came from. A route that finds
+    nothing says `not stated in the handoff`; a blank cell is the same, never zero. A table
+    route reads the first data row of the table with the routed header: its first value column
+    as `<column> <cell>` and the rest as `<column>: <cell>`. A prose route reads the first
+    paragraph of the section that opens with the route's prefix, whole."""
+    lines: list[str] = []
+    sources: set[tuple[str, str]] = set()
+    for route in routes:
+        module = next((m for m in module_views if m.module_id == route.module_id), None)
+        if module is None:
+            raise ValueError(f"markdown_front: {route.module_id} is not a supplied module")
+        label = route.label or route.heading
+        meta = metadata[module.module_id]
+        got = (_front_table if route.kind == "table" else _front_prose)(route, module, meta)
+        if got is None:
+            lines.append(f"{label}: {NOT_STATED}")
+        else:
+            text, number, entry = got
+            lines.append(f"{label}: {text} ({module.module_id} line {number})")
+            sources.add((module.module_id, entry))
+    return lines, sources
+
+
+def mark_front(record: dict[str, Any], sources: set[tuple[str, str]]) -> None:
+    """Add `front` last to the blocks of each coverage entry a front line was read from."""
+    for module_id, entries in record["modules"].items():
+        for entry in entries:
+            if (module_id, entry["id"]) in sources:
+                entry["blocks"].append("front")
+
+
 def coverage_record(
     module_views: list[ModuleView],
     metadata: dict[str, dict[str, tuple[str, str]]],
@@ -856,6 +950,17 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
             raise ValueError(f"Changed handoff: {module_id}")
         require_issuer(request.run, layout.issuer_aliases, module_id, physical_lines(raw.decode()))
         module, source, meta, owner_lines[module_id] = _literal_view(module_id, raw)
+        if request.module_execution is not None:
+            if module_id not in request.module_execution:
+                raise ValueError(f"module_execution: no execution named for {module_id}")
+            module = module.model_copy(
+                update={
+                    "limitations": (
+                        EXECUTION_WORDS[request.module_execution[module_id]],
+                        *module.limitations,
+                    )
+                }
+            )
         module_views.append(module)
         sources.append(source)
         metadata[module_id] = meta
@@ -1182,7 +1287,9 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
     anchor = '<div id="call-root"></div>'
     if rendered.count(anchor) != 1:
         raise ValueError("Existing renderer scope-banner location changed")
+    front_text, front_sources = front_lines(layout.front, module_views, metadata)
     record_of = coverage_record(module_views, metadata, owner_lines, entries, source_of)
+    mark_front(record_of, front_sources)
     check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
     files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(
@@ -1194,6 +1301,13 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
                 '<section id="delivery-scope-banner" class="banner" role="note">'
                 + html.escape(layout.scope)
                 + "</section>"
+                + (
+                    '<section id="delivery-limits" role="note"><ul>'
+                    + "".join(f"<li>{html.escape(line)}</li>" for line in front_text)
+                    + "</ul></section>"
+                    if front_text
+                    else ""
+                )
                 + (
                     '<nav aria-label="Published deliverables">'
                     '<a href="model.html">HTML Model and charts</a> · '

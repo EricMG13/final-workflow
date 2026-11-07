@@ -67,7 +67,8 @@ const byModelId=(a,b)=>b.id.localeCompare(a.id);
 // One order for the Model select, the section pager and the default: the default model first, then the rest by folder name, latest first.
 // A model of another issuer (or of none recorded) is never a run's own, whatever run it names; no run context holds none.
 const runModels=context=>{const run=contexts[context];if(!run)return [];const held=publishedModels().filter(m=>sameIssuer(m.issuerKey,run.issuerKey)&&(m.runId===run.folder||m.sources.some(s=>s.run===context))).sort(byModelId),first=modelOrder(held)[0];return first?[first,...held.filter(m=>m!==first)]:held;};
-const modelRun=model=>Object.keys(contexts).find(key=>contexts[key].folder===model.runId)||model.sources.find(s=>s.run)?.run||null;
+// A model links only to a run whose Forecast page lists it (runModels); with no such run it is shown unlinked.
+const modelRun=model=>Object.keys(contexts).find(key=>runModels(key).includes(model))||null;
 // Not superseded by another listed model; one that records a predecessor comes first, then the later folder name.
 const modelOrder=models=>[...models].sort((a,b)=>(models.some(m=>m.previous===a.id)-models.some(m=>m.previous===b.id))||((b.previous!=null)-(a.previous!=null))||byModelId(a,b));
 function modelRelationship(model,models) {

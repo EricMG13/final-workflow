@@ -485,6 +485,19 @@ test('the Report select lists the same reports as the report tabs and selects th
   const tabs=[...w.eval('reportSections("tdg-002")')].filter(s=>s[0]!=='list').map(s=>s[0]).sort();
   assert.deepEqual([...select.options].map(o=>o.value).sort(),[...tabs]);
 });
+test('an Other models row links only to a run whose Forecast lists that model',async t=>{
+  const w=fixture('W-Forecast/forecast?c=tdg-002').window;t.after(()=>w.close());
+  const base=w.DESIGN_WORKSPACE.models[0],keys=w.eval('Object.fromEntries(Object.entries(contexts).map(([k,c])=>[k,[c.issuerKey,c.folder]]))');
+  const mine=keys['tdg-002'][0],elsewhere=Object.values(keys).find(([key])=>key!==mine);
+  assert.ok(elsewhere);
+  // The model has tdg-002's issuer key but names a run of another issuer: no run lists it on its Forecast.
+  w.DESIGN_WORKSPACE.models.splice(0,w.DESIGN_WORKSPACE.models.length,Object.assign(JSON.parse(JSON.stringify(base)),{id:'stray-model',issuerKey:mine,runId:elsewhere[1],sources:[]}));
+  await go(w,'W-Library/cases');await go(w,'W-Forecast/forecast?c=tdg-002');
+  const section=w.document.querySelector('.forecast-other');
+  assert.ok(section,'the Other models list is shown');
+  assert.match(text(section),/stray-model/);
+  assert.equal(section.querySelector('a'),null,'no link to a Forecast page that lists nothing');
+});
 test('the rail closes 300 ms after the pointer leaves it for an embedded frame',async t=>{
   const {w,rail,move}=railFixture(false);t.after(()=>w.close());
   move(66);await settle(160);assert.equal(rail.classList.contains('rail-open'),true);

@@ -1207,7 +1207,7 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
         carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
         if not secured:
             if carrying is not None and not unsecured and unclassified is None:
-                unclassified = label[:200]
+                unclassified = label[:LABEL_LIMIT]
             continue
         if carrying is None:
             incomplete = True
@@ -1215,7 +1215,11 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
         total += decimal.Decimal(carrying.group(1).replace(",", ""))
         named.add(low)
     if debt["repeated"] is not None:
-        return (when, None, f"the debt register repeats a row label: {debt['repeated'][:200]}")
+        return (
+            when,
+            None,
+            f"the debt register repeats a row label: {debt['repeated'][:LABEL_LIMIT]}",
+        )
     if unclassified is not None:
         return (
             when,
@@ -1752,6 +1756,10 @@ TAIL_ROWS = (
 )
 
 
+# A free-text label copied from a handoff into the grid is cut to this many characters.
+LABEL_LIMIT = 200
+
+
 def capped(found: Any, what: str, limit: int, file: str) -> None:
     if len(found) > limit:
         raise CashflowLimit(file, what, len(found), limit)
@@ -1788,7 +1796,7 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
             RowSpec(
                 ("unit", unit),
                 "Revenue",
-                unit,
+                unit[:LABEL_LIMIT],
                 "money",
                 ("table", "qseg", total),
                 ("table", "aseg", total),
@@ -1799,7 +1807,7 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
             RowSpec(
                 ("growth", unit),
                 "Revenue",
-                f"{unit} YoY growth",
+                f"{unit[:LABEL_LIMIT]} YoY growth",
                 "percent",
                 *every(("growth", ("unit", unit))),
             )
@@ -1810,7 +1818,7 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
             RowSpec(
                 ("add-back", label),
                 "Add-backs to issuer EBITDA",
-                label,
+                label[:LABEL_LIMIT],
                 "money",
                 ("table", "qdef", label),
                 ("table", "adef", label),
@@ -2072,14 +2080,35 @@ def read_model(
     }
 
 
+def run_shows(
+    root: Path, artifact: dict[str, Any], keys: dict[str, str], run_keys: dict[str, str | None]
+) -> bool:
+    """Whether a run of the workspace shows this model: its run_id names a run of its issuer."""
+    folder = root / artifact["folder"]
+    # Documented fail-open: a record that cannot be read is not shown by a run; read_model reports
+    # the same failure as a Workspace issue.
+    try:
+        identity = listed_view(folder, delivery_json(folder))["run"]
+        key = report_issuer_key(keys, identity.get("issuer_id"))
+        return key is not None and run_keys.get(identity["run_id"]) == key
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError, MemoryError):
+        return False
+
+
 def catalogue_models(
-    root: Path, catalogue: dict[str, Any], outputs: dict[str, Any], keys: dict[str, str]
+    root: Path,
+    catalogue: dict[str, Any],
+    outputs: dict[str, Any],
+    keys: dict[str, str],
+    run_keys: dict[str, str | None] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Published models the server verified, each once, with why and from what they were built.
 
-    The models share one budget of CASHFLOW_CELL_BUDGET grid cells. They are laid out in delivery
-    path order; a model whose grid would pass the budget is listed without one, with an issue.
+    The models share one budget of CASHFLOW_CELL_BUDGET grid cells. Models some run shows
+    (run_keys: run folder -> issuer key) are laid out first, then the rest, each in delivery path
+    order; a model whose grid would pass the budget is listed without one, with an issue.
     """
+    run_keys = run_keys or {}
     shown, issues = shown_models(root, catalogue)
     listed: list[dict[str, Any]] = []
     done: set[str] = set()
@@ -2092,7 +2121,10 @@ def catalogue_models(
                 listed.append(artifact)
     built: dict[int, dict[str, Any]] = {}
     cells = 0
-    for position in sorted(range(len(listed)), key=lambda i: listed[i]["folder"]):
+    unshown = {
+        i for i, artifact in enumerate(listed) if not run_shows(root, artifact, keys, run_keys)
+    }
+    for position in sorted(range(len(listed)), key=lambda i: (i in unshown, listed[i]["folder"])):
         model = read_model(root, listed[position], outputs, keys, issues)
         if model is None:
             continue
@@ -2370,7 +2402,8 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
         runs[key].update(identity)
     reports, unread = catalogue_reports(root, catalogue, sources, keys)
     found += unread
-    models, unread = catalogue_models(root, catalogue, outputs, keys)
+    run_keys = {run["folder"]: run["issuerKey"] for run in runs.values()}
+    models, unread = catalogue_models(root, catalogue, outputs, keys, run_keys)
     found += unread
     # A compared deliverable is a curated build, not a folder that merely has its name.
     for module, config in catalog.items():

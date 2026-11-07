@@ -2615,3 +2615,59 @@ def test_the_runs_own_model_check_reads_view_json_bounded(tmp_path):
     catalogue = {"real": [{"id": "r1", "name": "r1", "artifacts": [artifact]}], "issues": []}
     shown, _ = within(10, lambda: store.shown_models(tmp_path, catalogue))
     assert shown == {folder}
+
+
+# Task 17 rider batch: budget order, label length.
+def test_a_model_some_run_shows_is_laid_out_before_models_no_run_shows(tmp_path, monkeypatch):
+    unlinked = [
+        model_delivery(
+            tmp_path,
+            f"deliverables/z-{k}",
+            forecast=REQUEST,
+            exact=exact_record(),
+            extra=cashflow_files(),
+        )
+        for k in range(2)
+    ]
+    for artifact in unlinked:  # these two name no run of the workspace
+        folder = tmp_path / artifact["folder"]
+        view = json.loads((folder / "view.json").read_text(encoding="utf-8"))
+        view["run"].update(run_id="nobody", issuer_id="BET")
+        digest = put(tmp_path, f"{artifact['folder']}/view.json", json.dumps(view))
+        record = json.loads((folder / "delivery.json").read_text(encoding="utf-8"))
+        record["files"]["view.json"] = digest
+        (folder / "delivery.json").write_text(json.dumps(record), encoding="utf-8")
+    own = model_delivery(
+        tmp_path,
+        "runs/alpha-001/deliveries/own",
+        forecast=REQUEST,
+        exact=exact_record(),
+        extra=cashflow_files(),
+    )
+
+    def record_issuer():
+        manifest = {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}
+        put(tmp_path, "runs/alpha-001/workflow.json", json.dumps({"run": manifest}))
+
+    (one,) = models_of(tmp_path, own, edit=record_issuer)["models"]
+    monkeypatch.setattr(store, "CASHFLOW_CELL_BUDGET", cell_count(one["cashflow"]) + 1)
+    result = models_of(tmp_path, *unlinked, own, edit=record_issuer)
+    grids = {m["id"]: m["cashflow"] is not None for m in result["models"]}
+    assert grids == {"z-0": False, "z-1": False, "own": True}
+    for name in ("z-0", "z-1"):
+        assert any(
+            i.startswith(f"deliverables/{name}: the cash flow model is not shown")
+            for i in result["issues"]
+        )
+
+
+def test_a_long_unit_or_add_back_label_is_cut_to_200_characters_but_still_reads_its_values(
+    tmp_path,
+):
+    unit = "U" * 300
+    annual = ANNUAL_MD.replace("Total Gamma", f"Total {unit}")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    labels = [r["label"] for r in cashflow["rows"] if r["label"].startswith("UU")]
+    assert labels == ["U" * 200, "U" * 200 + " YoY growth"]
+    cells = row(cashflow, "U" * 200)["cells"]
+    assert any(c["status"] != "gap" for c in cells)

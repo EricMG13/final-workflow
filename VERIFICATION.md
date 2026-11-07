@@ -25,20 +25,38 @@ and the digest failures equal main's 26 by name. The rule-list golden sha256 sec
 after wave 1 and again at the end, each in its own commit. `cases/pins.py --check` matches 219
 paths.
 
-| Severity | Fixed | Partly fixed | Held for a ruling | Already fixed by an earlier fix | Not a defect / not reachable |
+| Severity | Fixed | Partly fixed | Kept as is by user ruling | Already fixed by an earlier fix | Not a defect / not reachable |
 |---|---|---|---|---|---|
-| critical | 3 | 0 | 1 | 0 | 0 |
-| high | 44 | 5 | 0 | 0 | 0 |
-| medium | 89 | 2 | 2 | 1 | 0 |
-| low | 87 | 3 | 11 | 2 | 3 |
+| critical | 4 | 0 | 0 | 0 | 0 |
+| high | 45 | 4 | 0 | 0 | 0 |
+| medium | 91 | 2 | 0 | 1 | 0 |
+| low | 94 | 3 | 4 | 2 | 3 |
 
-Held for a ruling: S12-A02 (critical, sign of a positive `signed` amount on an outflow account),
-S10-A05, S18-C03, S03-C06, S04-C11, S05-C07, S08-C08, S08-C09, S09-A08, S09-C04, S13-A07, S13-C10,
-S15-C05, S18-C08. Partly fixed: S07-A01 (strict xfail
-`test_a01_quarter_cp2a_swapped_metric_is_refused`), S09-A04 (CP-4C still keys the secured facility
-on `term-loan`), S11-A03, S13-A03/C05, S01-A03, S06-A06, S07-C03, S05-C09, S09-C06. S14-A02
-amends the controller-ruled read window (PF-R7 in `cases/pilot-fixes/read-window.json`); that
-amendment awaits confirmation. Also fixed: three defects reviewers found next to fixed findings
+User rulings (2026-11-07), applied through the same matrix with a review each:
+- S12-A02: option B, fail closed. A positive `signed` amount on an outflow-linked line is refused.
+  A printed magnitude uses `outflow_magnitude`. A refund is recorded as missing with its reason, and
+  the coverage gate accepts that withheld line. `o2-synthetic` was corrected through its builder.
+- S10-A05: a native CP-8 run is refused when it would begin, with a pointer to CP-OS
+  `run_comparison`.
+- S18-C03: a per-launch secret held in memory only, sent as a one-time launch ticket and a
+  SameSite=Strict session cookie; a relaunch says "already running".
+- S18-C08: a workspace switch is refused while a review is in flight.
+- S08-C08: interest covers are n.m. when adjusted EBITDA is ≤ 0.
+- S08-C09: an Insufficient Information preference has an empty ordering.
+- S13-A07: the financial-synthesis scope is gated per dimension.
+- S09-A08: a "Same definition" naming a document missing from the pack must be "Not determinable".
+- S09-C04: the source-refusal wording is corrected.
+- S09-A04 remainder: CP-4C picks the secured facility by T4.18 status.
+- S04-C11: the Model rail highlight is fixed.
+- CP-2E accepts "$m", "US$m" and "USDm" as millions; CP-1D matches its Basis clause without regard
+  to case.
+- S14-A02: the read-window bound is confirmed, superseding the PF-R7 exemption (recorded in
+  `cases/pilot-fixes/read-window.json`).
+- S15-C05: splitlines numbering is canonical (documented in `preparation.text_content`).
+- Kept as is: S03-C06, S05-C07, S13-C10 and the fail-closed confirmations.
+
+Partly fixed: S07-A01 (strict xfail `test_a01_quarter_cp2a_swapped_metric_is_refused`), S11-A03,
+S13-A03/C05, S01-A03, S06-A06, S07-C03, S05-C09, S09-C06. Also fixed: three defects reviewers found next to fixed findings
 (non-UTF-8 lines in the source and financial servers, now one shared `workflow.read_line` that
 the owner server also uses; lone surrogates in research manifests; the CP-4 stored claim
 limitation).
@@ -47,9 +65,11 @@ or high finding; conflict resolutions coherent; every composed-prompt difference
 step contracts maps to a named finding. Its low items were fixed through the matrix: comments
 opened mid-line are hidden too, financial_workflow (and owner_workflow through it) uses the atomic
 `workflow._put`, and the CP-4 context.py pin test is renamed to what it checks.
-Known-failure list: 39 more base failures found during the waves and confirmed on
+Known-failure list: 43 more base failures found during the waves and confirmed on
 `claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose,
-prompt-set digest, and the 26 frozen-message digest failures).
+coverage rule, prompt-set digest, the 26 frozen-message digest failures, one o2 citation test and
+the financial-workflow full-component fixture). The S18-C03 launch secret also needs Windows and
+browser acceptance (launch link, cookie in the report frames, relaunch dialog).
 Not verified here (slow or not runnable in this container; the nightly run covers the pytest
 ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
 attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,

@@ -21,7 +21,8 @@ entry naming a row the unit does not have (`no_such_row`), a row-map entry that 
 (`bad_row_map_entry`), a row the contract refuses (`refused_by_contract`), a row number the unit
 repeats (`repeated_row_number`), a row whose caption names another statement than the unit's
 (`other_statement`, R23.22; the caller supplies these). "Flagged" (R23.13) means a flag that casts doubt on the values,
-`label_ends_numeric` or `more_values_than_header_years`; `footnote_marker` is informational (the
+`label_ends_numeric`, `more_values_than_header_years` or `ambiguous_separator`;
+`footnote_marker` is informational (the
 marker is already dropped and the values are clean), so a row whose only flag it is is composed.
 
 Before composing (R23.4) the totals the row map identifies are checked per mapped column, in

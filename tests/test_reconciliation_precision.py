@@ -261,3 +261,28 @@ def test_negative_parsed_trailing_zero_total_is_held_to_the_finest_place() -> No
         _parsed("-1234.0", "tot"), _parsed("-1000.0", "a"), _parsed("-233.6", "b")
     )
     assert (tolerance, difference, status) == (D("0.05"), D("0.4"), "BLOCK")
+
+
+def test_half_unit_keeps_a_stored_trailing_zero_place() -> None:
+    # Hand-derived: D("1.50") is written to two decimals -> 0.005; D("1.5") to one -> 0.05.
+    assert half_unit((D("1.50"),)) == D("0.005")
+    assert half_unit((D("1.5"), D(7))) == D("0.05")
+
+
+def test_beyond_rounding_printed_figures_replace_the_hosts_own_places() -> None:
+    # Host 1585.70 is a sum of 500 and 1085.7 (EUR conversion, not printed): the
+    # printed 500 sets the place with the stated 1586 -> 0.5; |1586 - 1585.70| = 0.3.
+    assert beyond_rounding(D(1586), D("1585.70"), [D(500)]) is False
+    # No printed figures left (every part converted): the stated figure's place alone.
+    assert beyond_rounding(D(1586), D("1585.70"), []) is False
+    # Defaulting to the host would read its conversion places: 0.005 -> differs.
+    assert beyond_rounding(D(1586), D("1585.70")) is True
+
+
+def test_check_with_a_derived_three_decimal_part_set_by_integer_peers_stays_exact() -> None:
+    # 33.333 + 33.333 + 33.334 = 100.000 against a printed 100.000: PASS at 0.0005.
+    total, parts = (
+        _stored("100.000", "t"),
+        [_stored(p, f"p{i}") for i, p in enumerate(("33.333", "33.333", "33.334"))],
+    )
+    assert _reconcile(total, *parts) == (D("0.0005"), D("0.000"), "PASS")

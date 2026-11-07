@@ -104,8 +104,9 @@ _CELL = re.compile(r"\S+(?: \S+)*")
 _DIGITS = r"[-\u2212]?[$\u00a3\u20ac]?\d(?:[\d,.]*\d)?"
 _UNREAD_NUMBER = re.compile(rf"[-\u2212+]?[$\u00a3\u20ac]?(?:\({_DIGITS}\)|{_DIGITS})%?")
 _MINUS_NUMBER = re.compile(r"[-\u2212][$\u00a3\u20ac]?\d(?:[\d,.]*\d)?")
-# A dot followed by exactly three digits (`1.234`): a decimal point, or a thousands separator.
-_DOT_THREE = re.compile(r"\(?\d{1,3}\.\d{3}\)?")
+# A dot followed by exactly three digits (`1.234`): a decimal point, or a thousands separator
+# (a leading group never starts with zero: `0.123` is a decimal).
+_DOT_THREE = re.compile(r"\(?[1-9]\d{0,2}\.\d{3}\)?")
 _INTEGER = re.compile(r"\(?\d{1,3}(?:,\d{3})*\)?|\(?\d+\)?")
 _YEAR = re.compile(r"(?<!\d)(?:19|20)\d{2}(?!\d)")
 _BARE_YEAR = re.compile(r"(?:19|20)\d{2}")

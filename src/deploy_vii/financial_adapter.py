@@ -318,7 +318,7 @@ def source_citations(review: FinancialReview, refs: tuple[SourceRef, ...]) -> tu
     index = {value.observation_id: value for value in records(review, Observation)}
     normalizations = (
         {n.normalization_id: n for book in review.books for n in normalize_facilities(book)}
-        if any(ref.source_locator == "facility-normalization" for ref in refs)
+        if any(ref.source_locator == CONVERTED for ref in refs)
         else {}
     )
     citations: list[Citation] = []
@@ -338,7 +338,7 @@ def source_citations(review: FinancialReview, refs: tuple[SourceRef, ...]) -> tu
             if not matching:
                 raise ValueError(f"Unknown facility issuance provenance: {ref.source_id}")
             citations.extend(citation for row in matching for citation in row.issuance_citations)
-        elif ref.source_locator == "facility-normalization":
+        elif ref.source_locator == CONVERTED:
             citations.extend(normalizations[ref.source_id].citations)
         else:
             raise ValueError(f"Unknown kernel provenance: {ref.source_locator}")

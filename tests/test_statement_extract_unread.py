@@ -126,3 +126,28 @@ def test_one_and_two_decimals_are_not_ambiguous() -> None:
         "p1",
     )
     assert all(AMBIGUOUS_SEPARATOR not in line.flags for line in table.lines)
+
+
+def test_leading_zero_decimal_is_not_a_dotted_thousand() -> None:
+    # A thousands group never starts with zero: 0.123 is a decimal, 12.345 may be 12,345.
+    table = extract_statement_lines(
+        _page(
+            "Rate                              0.123       (0.456)",
+            "Revenue                           1,200       1,100",
+            "Umsatz                           12.345         987",
+        ),
+        "p1",
+    )
+    rate, revenue, umsatz = table.lines
+    assert rate.flags == ()
+    assert revenue.flags == ()
+    assert umsatz.flags == (AMBIGUOUS_SEPARATOR,)
+
+
+def test_parenthesised_dotted_thousand_is_flagged_and_mixed_row_keeps_exact_values() -> None:
+    table = extract_statement_lines(
+        _page("Umsatz                         (1.234)         987"), "p1"
+    )
+    (line,) = table.lines
+    assert line.values == (Decimal("-1.234"), Decimal(987))
+    assert line.flags == (AMBIGUOUS_SEPARATOR,)

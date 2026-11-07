@@ -409,9 +409,26 @@ def _http_error_class(status: int) -> str:
     return "UnexpectedStatus"
 
 
+def _decoded_leak(redactor: Redactor, text: str) -> str | None:
+    """The redacted JSON of an error body whose decoded strings hold a key (one JSON decode
+    makes it whole: ``sk\\u002d...``), or None when the body is not JSON or decodes clean.
+    A body too deep to decode counts as a leak and comes back as a fixed notice."""
+    try:
+        data = json.loads(text)
+        clean = redactor.json_value(data)
+    except RecursionError:
+        return "error body is nested too deeply to check"
+    except ValueError:
+        return None
+    return None if clean == data else json.dumps(clean, ensure_ascii=False)
+
+
 def _http_error(redactor: Redactor, status: int, body: bytes, text: str) -> ProviderError:
     message = _provider_message(text)
-    reflected = redactor.text(message) != message  # e.g. a JSON-escaped key, whole once decoded
+    leak = _decoded_leak(redactor, text)  # any JSON shape, not only {"error": {"message": ...}}
+    reflected = leak is not None or redactor.text(message) != message
+    if leak is not None and message == text:
+        message = leak
     return ProviderError(
         kind=classify(status, body),
         error_class="KeyReflected" if reflected else _http_error_class(status),

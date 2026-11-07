@@ -295,12 +295,38 @@ def test_a_402_twice_is_credit_exhausted(tmp_path: Path) -> None:
 
 def test_a_prompt_over_the_listed_context_is_refused_before_any_send(tmp_path: Path) -> None:
     def huge(binding: Any, spec: Any, issues: Any) -> Any:
-        return prompt_for(binding, spec, ("x" * 300_000,))
+        return prompt_for(binding, spec, ("x" * 1_100_000,))  # one byte a token: over 1,050,000
 
     rig = make_rig(tmp_path, [ok(gap_submit())], prompts=huge)
     assert _stop(rig).reason == "ContextTooLong" and rig.adapter.sent == []
     (record,) = rig.records()
     assert record["error_class"] == "ContextTooLong" and record["settled_usd"] == "0"
+
+
+def test_an_offline_loop_holds_a_long_context_request_as_the_live_loop_does(tmp_path: Path) -> None:
+    # 400,000 bytes at one byte a token is a bound between the legacy 272,000 listing and the
+    # 1,050,000 ceiling a live sol loop reserves under. Offline it is held at the live price,
+    # not refused: 1,050,000 * 5 per million (5.25) + 4000 output * 15 per million (0.06) = 5.31.
+    def long_prompt(binding: Any, spec: Any, issues: Any) -> Any:
+        return prompt_for(binding, spec, ("x" * 400_000,))
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())], prompts=long_prompt, cap="50")
+    assert rig.loop.run()[-1]["status"] == "valid"
+    assert {Decimal(r["reserved_usd"]) for r in rig.records()} == {Decimal("5.31")}
+
+
+def test_an_offline_hold_within_the_listed_context_is_the_request_bound(tmp_path: Path) -> None:
+    # review S03S14m: offline, a request the 272,000 listing covers holds its own bound, never
+    # more than the live ceiling hold. The first request's bound B is the request's byte count
+    # at one byte a token; the hold is B * 2.50 (the dearer of input 2 and cache write 2.50) per
+    # million + 4000 * 10 per million (0.04), below the 5.31 a live loop holds.
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
+    assert rig.loop.run()[-1]["status"] == "valid"
+    (record,) = rig.records()
+    held = Decimal(record["reserved_usd"])
+    bound = (held - Decimal("0.04")) / Decimal("2.5") * 10**6
+    assert bound == bound.to_integral_value() and 0 < bound <= 272_000
+    assert held < Decimal("5.31")
 
 
 @pytest.mark.parametrize("bound", [Decimal(0), Decimal(-1), Decimal("NaN")])

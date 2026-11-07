@@ -571,11 +571,16 @@ class ToolLoop:
         try:
             price = price_of(config)
             bound = self._token_bound(request)
-            reserved = (
-                request_reservation_usd(price, bound, self._max_output)
-                if self._adapter.ruling is not None
-                else reservation_usd(price, bound, self._max_output)
+            # Live holds the configured context ceiling. Offline nothing is paid: a request the
+            # listed context covers holds its own bound, and a longer one what the live loop held,
+            # so a replay never holds more than the live run did nor refuses a call it held.
+            listed = price.max_input_tokens
+            hold = (
+                reservation_usd
+                if self._adapter.ruling is None and (listed is None or bound <= listed)
+                else request_reservation_usd
             )
+            reserved = hold(price, bound, self._max_output)
             self._budget.reserve(call_id, reserved, retry_of=retry_of, config_id=config)
         except (BudgetError, PricingError) as error:
             return self._refused(ctx, index, started, type(error).__name__, str(error))

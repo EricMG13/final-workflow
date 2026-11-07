@@ -78,7 +78,7 @@ class StatementReport(Contract):
     limitations: tuple[Text, ...]
 
 
-def _cell(
+def _cell(  # noqa: PLR0913 - pre-existing
     book: FinancialBook,
     statement: Literal["IS", "CFS", "BS"],
     pid: str,

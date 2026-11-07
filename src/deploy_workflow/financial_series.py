@@ -394,9 +394,9 @@ def _states_other_scope(module: ModuleView) -> bool:
     supported scope. An incomplete or unresolved identity is left to `_periods`, which raises."""
     for row in _rows(module, "T4.14"):
         facts = [row.get(key) for key in _SCOPE_FIELDS]
-        if all(f is not None and f.status == "known" and f.text is not None for f in facts):
-            if tuple(f.text for f in facts if f is not None) != _SUPPORTED_SCOPE:
-                return True
+        stated = tuple(f.text for f in facts if f is not None and f.status == "known")
+        if len(stated) == len(_SCOPE_FIELDS) and None not in stated and stated != _SUPPORTED_SCOPE:
+            return True
     return False
 
 

@@ -96,7 +96,7 @@ def _trace_fact_id(identity: str) -> str:
     )
 
 
-def _passage(
+def _passage(  # noqa: PLR0913 - pre-existing
     passage: Passage,
     issuer_name: str,
     catalogue: dict[str, EvidenceRecord],

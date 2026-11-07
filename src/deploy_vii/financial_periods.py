@@ -399,12 +399,18 @@ def historical_report(
         constructions=_constructions(specs),
         values=tuple(values),
         limitations=(
-            "Historical input series and period constructions only; statement/ratio calculations "
-            "and Model readiness are separate",
-            "Verified denotes a retained located source observation, "
-            "not independent analytical qualification",
-            "Source interpretation, normalization and reporting precision "
-            "require analytical review",
+            (
+                "Historical input series and period constructions only; statement/ratio "
+                "calculations and Model readiness are separate"
+            ),
+            (
+                "Verified denotes a retained located source observation, "
+                "not independent analytical qualification"
+            ),
+            (
+                "Source interpretation, normalization and reporting precision "
+                "require analytical review"
+            ),
             *book.limitations,
         ),
     )

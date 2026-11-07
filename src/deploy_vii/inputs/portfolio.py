@@ -736,9 +736,7 @@ def load_table(
     return Table(sheet, rows)
 
 
-def hidden_findings(
-    sheet: Sheet, grid: Mapping[tuple[int, int], Span], findings: Findings
-) -> bool:
+def hidden_findings(sheet: Sheet, grid: Mapping[tuple[int, int], Span], findings: Findings) -> bool:
     """Refuse hidden content, which is a stale or filtered row a reader of the workbook does not
     see: one issue for a hidden sheet, else one per row holding a hidden cell. True if any."""
     filled = [(cell, span) for cell, span in grid.items() if span.text.strip()]
@@ -872,7 +870,7 @@ def parse_date(name: str, value: str) -> tuple[date, tuple[str, str] | None]:
     return date.min, (f"{name} '{echo(value)}' is {kind} an ISO date YYYY-MM-DD", DATE_FIX)
 
 
-def parse_value(column: Column, value: str) -> tuple[Value, tuple[str, str] | None]:
+def parse_value(column: Column, value: str) -> tuple[Value, tuple[str, str] | None]:  # noqa: PLR0911 - pre-existing return count
     """A non-empty stored lexeme as its typed value, or the (problem, fix) it fails with."""
     name, shown = column.name, echo(value)
     if column.kind == "number":

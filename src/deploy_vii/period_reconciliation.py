@@ -557,11 +557,15 @@ def reconcile_periods(
         historical=historical,
         checks=(*checks, *_years(book, historical, rows), *_stated(book, historical, rows)),
         limitations=(
-            "Historical account/source-equation comparisons only; "
-            "no Model readiness or analytical acceptance",
+            (
+                "Historical account/source-equation comparisons only; "
+                "no Model readiness or analytical acceptance"
+            ),
             "Shared observations imply construction agreement, never independent verification",
-            "Only exact-scope sourced audited-FY explanations permit annual WARN; "
-            "no inferred FX or residual-defined proof",
+            (
+                "Only exact-scope sourced audited-FY explanations permit annual WARN; "
+                "no inferred FX or residual-defined proof"
+            ),
             "Mixed expense presentations require an explicitly comparable source bridge",
         ),
     )

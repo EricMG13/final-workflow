@@ -791,7 +791,7 @@ def _projection_gap_rows(tables: _Tables) -> None:
         )
 
 
-def canonical_tables(
+def canonical_tables(  # noqa: PLR0913 - pre-existing
     pack: PreparedPack,
     context: SourceContextReview,
     financial: FinancialReview,
@@ -839,7 +839,7 @@ def canonical_tables(
             "missing_metric_ids": _join(model.missing_metric_ids),
             "conflict_refs": _join(model.conflict_refs),
             "explanation": _join((*model.actions, *model.blocking_gap_ids))
-            or "Selected historical quarters pass their input gate; HTML Model publication is separate",
+            or "Selected historical quarters pass their input gate; HTML Model publication is separate",  # noqa: E501 - pre-existing
         },
         references=frozenset({"missing_metric_ids", "conflict_refs"}),
     )

@@ -407,9 +407,7 @@ def _account_index(book: FinancialBook) -> _AccountIndex:
         if row.sign_convention == "outflow_magnitude"
         and (metric := ACCOUNT_LINKS.get((row.statement, row.item_id))) is not None
     )
-    index = _AccountIndex(
-        tuple(result), {m: tuple(rows) for m, rows in by_metric.items()}, outflow
-    )
+    index = _AccountIndex(tuple(result), {m: tuple(rows) for m, rows in by_metric.items()}, outflow)
     _last_index = (book, index)
     return index
 

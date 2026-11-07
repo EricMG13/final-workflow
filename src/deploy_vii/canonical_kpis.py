@@ -462,17 +462,27 @@ def canonical_kpis(
         kpis=_kpi_rows(columns, frame, rolling, book, observations),
         computations=computations,
         limitations=(
-            "Canonical debt uses CP-1 carrying values excluding both lease types; Model "
-            "debt is separate",
-            "Reported income values take precedence; missing values may be derived, "
-            "conflicts never are",
-            "CFO retains the reviewed financing classifications; "
-            "FFO = adjusted CFO - working capital change",
-            "Cash conversion is FCF / adjusted EBITDA; both EBITDA variants are "
-            "explicitly retained",
+            (
+                "Canonical debt uses CP-1 carrying values excluding both lease types; Model "
+                "debt is separate"
+            ),
+            (
+                "Reported income values take precedence; missing values may be derived, "
+                "conflicts never are"
+            ),
+            (
+                "CFO retains the reviewed financing classifications; "
+                "FFO = adjusted CFO - working capital change"
+            ),
+            (
+                "Cash conversion is FCF / adjusted EBITDA; both EBITDA variants are "
+                "explicitly retained"
+            ),
             "DCF = FCF - dividends paid; share repurchases are not deducted",
-            "Calculations do not establish source reconciliation, readiness, analytical "
-            "trends or report acceptance",
+            (
+                "Calculations do not establish source reconciliation, readiness, analytical "
+                "trends or report acceptance"
+            ),
             *book.limitations,
         ),
     )

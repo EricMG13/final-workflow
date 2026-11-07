@@ -98,7 +98,7 @@ def _statement_title_start(lines: list[str]) -> int | None:
     return titles[-1] if titles else None
 
 
-def mapping_headers(
+def mapping_headers(  # noqa: C901, PLR0911, PLR0912, PLR0915 - pre-existing complexity (C901 48 at base)
     page_text: str, *, first_data_line: int, statement: Literal["BS", "IS", "CFS"]
 ) -> tuple[str, ...] | None:
     """Recover coherent column headers from this page before its first data row."""
@@ -218,9 +218,7 @@ def mapping_headers(
             ]
     complete_dates = []
     for found in _DATE.findall(years_line):
-        mo, day, yr = (
-            (found[0], found[1], found[2]) if found[0] else (found[4], found[3], found[5])
-        )
+        mo, day, yr = (found[0], found[1], found[2]) if found[0] else (found[4], found[3], found[5])
         if _iso(mo, day, yr) is None:
             return None
         complete_dates.append((mo, day, yr))

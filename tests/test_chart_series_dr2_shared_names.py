@@ -1,4 +1,4 @@
-"""S12-A06: two CP-4C creditor classes with the same name keep their own DR.2 and waterfall points."""
+"""S12-A06: two CP-4C classes with one name keep their own DR.2 and waterfall points."""
 
 import chart_dr_support as support
 

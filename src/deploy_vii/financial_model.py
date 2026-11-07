@@ -322,11 +322,15 @@ def model_report(
         limitations=(
             "Historical Model calculations only; no readiness or analytical acceptance is granted",
             "Model debt includes finance leases; canonical CP-1 debt excludes both lease types",
-            "Residuals explain arithmetic differences, not their economic causes "
-            "or independent reconciliation",
+            (
+                "Residuals explain arithmetic differences, not their economic causes "
+                "or independent reconciliation"
+            ),
             "Evidence quality tiers and analytical KPI trends remain unassessed",
-            "Full canonical CP-1 KPI coverage, Model readiness, "
-            "pro forma and projections remain pending",
+            (
+                "Full canonical CP-1 KPI coverage, Model readiness, "
+                "pro forma and projections remain pending"
+            ),
             "No CLI, journal or Workbench binding yet",
             *book.limitations,
         ),

@@ -9,9 +9,9 @@ from deploy_vii.financial_reconciliation import _account, _balance
 
 
 def test_repeated_lookups_build_the_account_index_once(monkeypatch) -> None:
-    # By hand: three linked lines (two periods, one metric "net_cash_change" with the second line cited as an
-    # outflow magnitude, one "revenue" line) give the accounts of statement_accounts, built once
-    # however many times the reconciliation asks.
+    # By hand: three linked lines (two periods, one metric "net_cash_change" with the second line
+    # cited as an outflow magnitude, one "revenue" line) give the accounts of
+    # statement_accounts, built once however many times the reconciliation asks.
     stmt_items = {m: k for k, m in sv.ACCOUNT_LINKS.items()}
     cfs_capex, is_revenue = stmt_items["net_cash_change"], stmt_items["revenue"]
     periods = (

@@ -18,7 +18,7 @@ from deploy_vii.preparation import SourceRequest, prepare_source
 
 _SOURCE = (Path(__file__).parent / "product" / "test_inputs_portfolio.py").read_text()
 _NAMESPACE: dict[str, Any] = {"date": __import__("datetime").date}
-exec(
+exec(  # noqa: S102 - reads valid() from a module that cannot be imported here
     "from typing import Any\n"
     + _SOURCE[_SOURCE.index("BRIEF_SHEETS: dict") : _SOURCE.index("HOLDING = {")],
     _NAMESPACE,

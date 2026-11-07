@@ -498,10 +498,14 @@ def canonical_gaps(
         period_reconciliation=reconciliation,
         gaps=gaps,
         limitations=(
-            "Cumulative implemented-register gaps only; narrative "
-            "and full consumer readiness remain separate",
-            "Generated calculations and absence of a gap do not "
-            "establish analytical or Module acceptance",
+            (
+                "Cumulative implemented-register gaps only; narrative "
+                "and full consumer readiness remain separate"
+            ),
+            (
+                "Generated calculations and absence of a gap do not "
+                "establish analytical or Module acceptance"
+            ),
         ),
     )
 

@@ -242,7 +242,7 @@ MODEL_FILE_LIMIT = 64 * 1024 * 1024  # The Go server's read cap for a delivered 
 CHUNK = 1024 * 1024
 
 
-class UnreadableFile(Exception):
+class UnreadableFile(OSError):
     """A path that is not a plain, bounded file: absent is OSError; this is everything else."""
 
 
@@ -261,12 +261,17 @@ def regular_chunks(path, follow=True, limit=MODEL_FILE_LIMIT):
         descriptor = os.open(path, flags)
     except ValueError as error:  # An embedded NUL.
         raise UnreadableFile("an invalid path") from error
-    with os.fdopen(descriptor, "rb") as handle:
-        info = os.fstat(handle.fileno())
+    try:
+        info = os.fstat(descriptor)
         if not stat.S_ISREG(info.st_mode):
             raise UnreadableFile("not a regular file")
         if info.st_size > limit:
             raise UnreadableFile("over the size limit")
+        handle = os.fdopen(descriptor, "rb")
+    except BaseException:
+        os.close(descriptor)
+        raise
+    with handle:
         total = 0
         while chunk := handle.read(CHUNK):
             total += len(chunk)
@@ -576,11 +581,20 @@ def collect_runs(root, shown, catalog, link, strict=True):
     return runs, outputs, inputs, sources, pins, issues
 
 
-def built_from(folder, sources):
-    """Each handoff beside a report, traced to the run files holding the same bytes, or named as unmatched."""
+def built_from(folder, sources, label=None, issues=None):
+    """Each handoff beside a report, traced to the run files holding the same bytes, or named as unmatched.
+
+    A handoff that is not a plain file of at most 64 MiB is skipped and, when `issues` is given,
+    named there with `label`; one stray file never makes the report or the library unreadable.
+    """
     rows = []
     for path in sorted(folder.glob("CP-*.md")):
-        digest = sha256(path)
+        try:
+            digest = sha256(path)
+        except OSError as error:
+            if issues is not None:
+                issues.append(f"{label}: {path.name} could not be read ({describe(error)})")
+            continue
         match = HANDOFF_NAME.match(path.name)
         if not match:
             continue
@@ -647,7 +661,7 @@ def catalogue_reports(root, catalogue, sources, keys):
                         }
                         for n, h in sorted(delivery["files"].items())
                     ],
-                    "builtFrom": built_from(root / folder, sources),
+                    "builtFrom": built_from(root / folder, sources, folder, issues),
                 }
             )
     return reports, issues
@@ -875,7 +889,17 @@ def read_cashflow(record, handoff):
     """
     try:
         return cashflow_of(json.loads(record.decode("utf-8")), handoff)
-    except (OSError, ValueError, KeyError, TypeError, AttributeError, IndexError, ArithmeticError):
+    except (
+        OSError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        IndexError,
+        ArithmeticError,
+        RecursionError,
+        MemoryError,
+    ):
         return None
 
 
@@ -900,6 +924,8 @@ def catalogue_models(root, catalogue, outputs, keys):
                 sources = model_sources(root, delivery, outputs, folder, issues)
                 register = handoff_text = None
                 files = delivery["files"]
+                if not isinstance(files, dict):
+                    raise TypeError("files is not an object")
                 if "forecast.md" in files:
                     handoff = listed_bytes(root / folder, delivery, "forecast.md")
                     if handoff is None:
@@ -913,7 +939,15 @@ def catalogue_models(root, catalogue, outputs, keys):
                     else None
                 )
                 previous = delivery.get("previous_directory")
-            except (OSError, ValueError, KeyError, TypeError, AttributeError, MemoryError) as error:
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                AttributeError,
+                RecursionError,
+                MemoryError,
+            ) as error:
                 issues.append(f"{folder}: could not be read ({describe(error)})")
                 continue
             cashflow = None if exact is None else read_cashflow(exact, handoff_text)
@@ -983,7 +1017,15 @@ def delivery_identities(root, catalogue):
                 ]
                 run_id, name = identity["run_id"], identity["issuer_name"]
                 issuer_id = identity.get("issuer_id") or None
-            except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                TypeError,
+                AttributeError,
+                RecursionError,
+                MemoryError,
+            ):
                 continue
             if isinstance(run_id, str) and isinstance(name, str) and name:
                 valid_id = issuer_id if isinstance(issuer_id, str) else None

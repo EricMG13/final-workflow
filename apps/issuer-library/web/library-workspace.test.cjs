@@ -411,3 +411,12 @@ test('A malformed escape in the section is an unknown section, never an error',a
   assert.equal(route.module,'W-Forecast');
   assert.notEqual(route.section,'%E0%A4%A');
 });
+
+test('The Forecast tab opens the default model: not superseded, preferring one that records a predecessor',async t=>{
+  // tdg-model-2 records tdg-model-1; the latest folder, tdg-model-3, records none: the rule, not the folder name, decides.
+  const forged=structuredClone(workspace),by=id=>forged.store.models.find(m=>m.id===id);
+  by('tdg-model-3').previous=null;by('tdg-model-2').previous='tdg-model-1';by('tdg-model-1').previous=null;
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  assert.equal(d.getElementById('model-select').value,'tdg-model-2');
+  assert.deepEqual([...d.querySelectorAll('#model-select option')].map(o=>o.value),['tdg-model-2','tdg-model-3','tdg-model-1']);
+});

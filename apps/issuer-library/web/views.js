@@ -64,7 +64,8 @@ const reportsUsing=output=>window.DESIGN_WORKSPACE.reports.filter(r=>r.builtFrom
 // A run's published models: those recorded for its folder and those built from a file it holds.
 const publishedModels=()=>window.DESIGN_WORKSPACE.models;
 const byModelId=(a,b)=>b.id.localeCompare(a.id);
-const runModels=context=>publishedModels().filter(m=>m.runId===contexts[context].folder||m.sources.some(s=>s.run===context)).sort(byModelId);
+// One order for the Model select, the section pager and the default: the default model first, then the rest by folder name, latest first.
+const runModels=context=>{const held=publishedModels().filter(m=>m.runId===contexts[context].folder||m.sources.some(s=>s.run===context)).sort(byModelId),first=modelOrder(held)[0];return first?[first,...held.filter(m=>m!==first)]:held;};
 const modelRun=model=>Object.keys(contexts).find(key=>contexts[key].folder===model.runId)||model.sources.find(s=>s.run)?.run||null;
 // Not superseded by another listed model; one that records a predecessor comes first, then the later folder name.
 const modelOrder=models=>[...models].sort((a,b)=>(models.some(m=>m.previous===a.id)-models.some(m=>m.previous===b.id))||((b.previous!=null)-(a.previous!=null))||byModelId(a,b));
@@ -370,7 +371,7 @@ function cashflowSection(model) {
 function forecastView(context,id) {
   const models=runModels(context);
   if(!models.length)return forecastEmpty(context);
-  const model=models.find(m=>m.id===id)||modelOrder(models)[0];
+  const model=models.find(m=>m.id===id)||models[0];
   const acceptance=reportAcceptance(model);
   const select=`<label for="model-select">Model</label><select id="model-select">${models.map(m=>`<option value="${esc(m.id)}" ${m.id===model.id?'selected':''}>${esc(`${m.id} · ${modelRelationship(m,models)}`)}</option>`).join('')}</select>`;
   const why=`<section class="forecast-why"><h2>Why this model was built</h2>${model.scope==null?'':`<p class="forecast-scope">${esc(model.scope)}</p>`}${model.inputContract==null?'':`<p class="forecast-input">${esc(`Input contract: ${model.inputContract}`)}</p>`}${model.revisionNote==null?'':`<p class="forecast-revision">${esc(`Revision note: ${model.revisionNote}`)}</p>`}</section>`;

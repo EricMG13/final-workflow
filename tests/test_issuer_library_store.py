@@ -1156,3 +1156,53 @@ def test_a_multiple_or_percent_that_rounds_to_zero_has_no_sign(exact, kind, show
 def test_units_are_read_from_a_request_with_windows_line_endings():
     handoff = "# CP\r\n\r\n## Request\r\n\r\nAmounts in USD\r\nmillions.\r\n\r\n## Findings\r\n\r\nEUR billions.\r\n"
     assert store.cashflow_units(handoff) == "USD millions"
+
+
+# Fix round: a stray or hostile file in one delivery never ends the store.
+def test_a_stray_oversize_handoff_beside_a_report_is_named_and_the_library_stays(tmp_path):
+    report = view_delivery(tmp_path, "deliverables/r-1", "alpha-001", "ALP", "Alpha Holdings")
+    with open(tmp_path / "deliverables/r-1/CP-0-attempt-1.md", "wb") as f:
+        f.truncate(64 * 1024 * 1024 + 1)
+    catalogue = identity_catalogue(tmp_path, {"alpha-001": (None, None, None)}, [report])
+    result = store.workspace_store(tmp_path, catalogue)
+    assert [r["id"] for r in result["reports"]] == ["r-1"]
+    assert result["reports"][0]["builtFrom"] == []
+    (issue,) = [i for i in result["issues"] if "CP-0-attempt-1.md" in i]
+    assert issue.startswith("deliverables/r-1: CP-0-attempt-1.md could not be read (UnreadableFile")
+
+
+def test_deeply_nested_json_in_a_model_is_an_issue_not_a_crash(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1", forecast=REQUEST, exact="[" * 20000)
+    result = models_of(tmp_path, artifact)
+    assert result["models"][0]["cashflow"] is None
+    assert "deliverables/m-1: forecast_exact.json is missing or unreadable" in result["issues"]
+    artifact = model_delivery(tmp_path, "deliverables/m-2")
+    (tmp_path / "deliverables/m-2/view.json").write_text("[" * 20000, encoding="utf-8")
+    result = models_of(tmp_path, artifact)
+    assert [m["id"] for m in result["models"]] == []
+    assert any(i.startswith("deliverables/m-2: could not be read (") for i in result["issues"])
+
+
+def test_a_directory_source_is_not_a_readable_file_and_leaks_no_descriptor(tmp_path):
+    def prepare(root):
+        (root / "runs/alpha-001/adir").mkdir(parents=True)
+
+    before = len(os.listdir("/dev/fd")) if os.path.isdir("/dev/fd") else None
+    result, (model,) = source_model(tmp_path, "dir", "runs/alpha-001/adir", prepare)
+    assert (model["sources"][0]["sha256"], model["sources"][0]["changed"]) == (None, None)
+    assert "deliverables/m-1: source dir is not a readable file" in result["issues"]
+    if before is not None:
+        assert len(os.listdir("/dev/fd")) <= before + 1
+
+
+def test_a_files_list_in_a_delivery_is_an_issue_not_a_crash(tmp_path):
+    artifact = model_delivery(tmp_path, "deliverables/m-1")
+    record = json.loads((tmp_path / "deliverables/m-1/delivery.json").read_text(encoding="utf-8"))
+    record["files"] = ["model.html"]
+    (tmp_path / "deliverables/m-1/delivery.json").write_text(json.dumps(record), encoding="utf-8")
+    result = models_of(tmp_path, artifact)
+    assert result["models"] == []
+    assert (
+        "deliverables/m-1: could not be read (TypeError: files is not an object)"
+        in result["issues"]
+    )

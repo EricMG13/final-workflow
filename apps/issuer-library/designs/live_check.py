@@ -4,15 +4,13 @@
         [--minutes 60] [--out DIR] [--rehearse]
 
 Needs FW_PYTHON and ISSUER_LIBRARY_BINARY. --rehearse serves the fake engine (no provider, no
-key) through the same walk and skips the flow and evidence checks, saying so in its scope.
-Provider keys are popped from this process's environment at start and passed only to the server
-process (which runs in its own process group, stopped on every exit path).
+key) and skips the flow and evidence checks, saying so in its scope. Provider keys are popped from
+this process's environment and passed only to the server (its own process group, stopped on exit).
 """
 
 import argparse
 import hashlib
 import importlib
-import importlib.util
 import json
 import math
 import os
@@ -22,7 +20,6 @@ import signal
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 from contextlib import suppress
 from decimal import Decimal, InvalidOperation
@@ -54,7 +51,6 @@ KEY_MODULES = {"CP-0", "CP-1", "CP-1A"}  # ... and what the launcher runs for it
 # live_check is gone (any signal, a crash), so it stops the server's group. See arm_watchdog.
 WATCHDOG = 'read _; kill -TERM -- "-$0"; sleep 15; kill -KILL -- "-$0"'
 HALTING = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP, signal.SIGQUIT)
-INTERRUPTED = threading.Event()  # a signal asked live_check to stop
 KEY_RUNNER = (
     "import importlib.util as u, sys\nfrom decimal import Decimal\nfrom pathlib import Path\n"
     "s = u.spec_from_file_location('answer_key', sys.argv[1]); m = u.module_from_spec(s)\n"
@@ -69,13 +65,7 @@ class Refusal(Exception):
 
 def config_models() -> dict[str, str]:
     """The model each configuration runs (turn.py, a stdlib-only table, loaded by path)."""
-    path = R / "src/deploy_workflow/model/turn.py"
-    spec = importlib.util.spec_from_file_location("turn_models", path)
-    assert spec and spec.loader
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["turn_models"] = module
-    spec.loader.exec_module(module)
-    return dict(module.CONFIG_MODELS)
+    return dict(runpy.run_path(str(R / "src/deploy_workflow/model/turn.py"))["CONFIG_MODELS"])
 
 
 def call_faults(rows: list[dict[str, Any]], config: str) -> list[str]:
@@ -100,8 +90,16 @@ def call_faults(rows: list[dict[str, Any]], config: str) -> list[str]:
 
 
 def spend_faults(rows: list[dict[str, Any]], cap: Decimal, status_spent: str) -> list[str]:
-    charged = sum((Decimal(str(r["settled_usd"])) for r in rows), Decimal(0))
-    found = [f"settled spend {charged} is not above zero"] if charged <= 0 else []
+    amounts, unknown = [], 0
+    for r in rows:
+        try:
+            amounts.append(Decimal(str(r["settled_usd"])))
+        except (KeyError, InvalidOperation):  # null is the engine's unknown cost
+            unknown += 1
+    charged = sum(amounts, Decimal(0))
+    found = [f"{unknown} calls of unknown cost: spend is not known"] if unknown else []
+    if charged <= 0:
+        found.append(f"settled spend {charged} is not above zero")
     if charged > cap:
         found.append(f"settled spend {charged} exceeds cap {cap}")
     try:
@@ -118,12 +116,14 @@ def handoff_faults(run: Path, modules: set[str]) -> list[str]:
     if not done:
         return ["no completed-*.json: execution is not recorded"]
     record = json.loads(done[0].read_text())
-    kinds = {record.get("execution"), *dict(record.get("module_execution", {})).values()}
+    executed = dict(record.get("module_execution", {}))
+    kinds = {record.get("execution"), *executed.values()}
     found = (
         [] if kinds == {"live-provider"} else [f"execution {sorted(map(str, kinds))} is not live"]
     )
+    if set(executed) != modules:
+        found.append(f"module_execution {sorted(executed)} != accepted {sorted(modules)}")
     text = {m: (run / f"{m}.md").read_bytes() for m in modules if (run / f"{m}.md").exists()}
-    found += [f"{m}: no accepted handoff file" for m in sorted(modules - set(text))]
     digest = {m: hashlib.sha256(raw).hexdigest().encode() for m, raw in text.items()}
     for later, upstream in (("CP-1", "CP-0"), ("CP-1A", "CP-0"), ("CP-1A", "CP-1")):
         if later in text and upstream in text and digest[upstream] not in text[later]:
@@ -177,7 +177,10 @@ def answer_key(run: Path, cap: Decimal) -> list[str]:
         return ["answer key assert_live_evidence timed out after 300 s"]
     if done.returncode == 0:
         return []
-    return ["answer key assert_live_evidence: " + " | ".join(done.stderr.strip().splitlines()[-4:])]
+    tail = " | ".join(done.stderr.strip().splitlines()[-4:])
+    return [
+        f"answer key assert_live_evidence (exit {done.returncode})" + (f": {tail}" if tail else "")
+    ]
 
 
 def parse(argv: list[str]) -> argparse.Namespace:
@@ -203,8 +206,9 @@ def parse(argv: list[str]) -> argparse.Namespace:
         raise Refusal(f"no provider key in the environment (one of {', '.join(PROVIDER_KEYS)})")
     if not (math.isfinite(args.minutes) and args.minutes >= 1):
         raise Refusal("--minutes must be at least 1")
-    if args.out and Path(args.out).exists() and any(Path(args.out).iterdir()):
-        raise Refusal("--out exists and is not empty")
+    used = Path(args.out) if args.out else None
+    if used and used.exists() and (not used.is_dir() or any(used.iterdir())):
+        raise Refusal("--out exists and is not an empty folder")
     for name in ("FW_PYTHON", "ISSUER_LIBRARY_BINARY"):
         if not os.environ.get(name):
             raise Refusal(f"{name} is not set")
@@ -218,25 +222,20 @@ def group_alive(server: subprocess.Popen[bytes]) -> bool:
     server.poll()  # reap the server itself, so a zombie does not count
     try:
         os.killpg(server.pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
+    except (ProcessLookupError, PermissionError):
         # macOS refuses signal 0 to a group holding only zombies (reparented, not yet reaped).
         # The group is ours (same user), so no live foreign process explains the refusal.
         return False
     return True
 
 
-def leads_group(server: subprocess.Popen[bytes]) -> bool:
-    try:
-        return os.getpgid(server.pid) == server.pid
-    except ProcessLookupError:
-        return True  # already gone; killpg on its id finds nothing either way
-
-
 def stop_group(server: subprocess.Popen[bytes]) -> str | None:
     """SIGTERM, then SIGKILL, the server's process group; a message if anything may still live."""
-    if not leads_group(server):
+    try:
+        leads = os.getpgid(server.pid) == server.pid
+    except ProcessLookupError:
+        leads = True  # already gone; killpg on its id finds nothing either way
+    if not leads:
         for sig in (signal.SIGTERM, signal.SIGKILL):
             with suppress(ProcessLookupError):
                 os.kill(server.pid, sig)
@@ -278,12 +277,17 @@ def arm_watchdog(server: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
     )
 
 
+def intake_status(ws: Path) -> Path | None:
+    """The status.json both the shown-spend check and the teardown read: the last by name."""
+    return max((ws / "intake").glob("*/status.json"), default=None)
+
+
 def spend_of(ws: Path) -> tuple[str | None, Decimal, int]:
     """status.json's recorded spend, the ledger's settled sum, and rows of unknown cost.
 
     A row with no settled amount (cost unknown) or a torn line counts as unknown, never as zero."""
     status: str | None = None
-    for path in sorted((ws / "intake").glob("*/status.json")):
+    if path := intake_status(ws):
         try:
             spent = json.loads(path.read_text()).get("spent_usd")
             status = None if spent is None else str(spent)
@@ -403,7 +407,9 @@ def check_run(
     report.locator("#view-root").wait_for(state="attached", timeout=30000)
     run = max((ws / "runs").glob("web-*"))
     summary["run_id"] = run.name
-    state = json.loads(next((ws / "intake").glob("*/status.json")).read_text())
+    status_file = intake_status(ws)
+    assert status_file, "no intake status.json"
+    state = json.loads(status_file.read_text())
     summary["report"] = str(next(run.glob("deliveries/*/report.html"), ""))
     note(
         shown_spend == f"Recorded spend: USD {state.get('spent_usd')}",
@@ -479,11 +485,7 @@ def run_walk(
 
 def report_spend(bc: Any, ws: Path, summary: dict[str, Any]) -> None:
     status, ledger, unknown = spend_of(ws)
-    summary["spent_usd"], summary["ledger_usd"], summary["unknown_cost_calls"] = (
-        status,
-        str(ledger),
-        unknown,
-    )
+    summary.update(spent_usd=status, ledger_usd=str(ledger), unknown_cost_calls=unknown)
     extra = f" + {unknown} calls of unknown cost" if unknown else ""
     print(f"spend: status.json USD {status}, ledger USD {ledger}{extra}", flush=True)
     if unknown:
@@ -508,17 +510,12 @@ def finish(bc: Any, args: argparse.Namespace, out: Path, summary: dict[str, Any]
     bc.FAULTS.write(out / "faults.json", scope, passed, secrets)
     recorded = json.loads((out / "faults.json").read_text()) | {"mode": mode}
     (out / "faults.json").write_text(redact(json.dumps(recorded, indent=2), secrets) + "\n")
-    summary |= {"mode": mode, "scope": scope, "failed": len(bc.FAULTS.items)}
+    summary.update(mode=mode, scope=scope, failed=len(bc.FAULTS.items))
     (out / "summary.json").write_text(
         redact(json.dumps(summary, indent=2, default=str), secrets) + "\n"
     )
     print(f"{passed} passed, {len(bc.FAULTS.items)} faults: {out / 'faults.json'}")
     return int(bool(bc.FAULTS.items) or passed != len(bc.results))
-
-
-def terminate(_signal: int, _frame: Any) -> None:
-    INTERRUPTED.set()
-    raise KeyboardInterrupt
 
 
 def main(argv: list[str]) -> int:
@@ -545,6 +542,12 @@ def main(argv: list[str]) -> int:
         flush=True,
     )
     summary: dict[str, Any] = {"run_id": None, "spent_usd": None, "report": None}
+    signalled_at: list[int] = []  # faults recorded when the first signal arrived
+
+    def terminate(_signal: int, _frame: Any) -> None:
+        signalled_at.append(len(bc.FAULTS.items))
+        raise KeyboardInterrupt
+
     for sig in HALTING:  # also SIGINT: a shell's background job starts with it ignored
         signal.signal(sig, terminate)
     try:
@@ -556,8 +559,10 @@ def main(argv: list[str]) -> int:
         bc.FAULTS.add("live", "exception", f"{type(error).__name__}: {str(error)[:600]}")
     finally:
         ignore_signals()
-        for fault in bc.FAULTS.items:  # a Ctrl-C to the whole group also breaks the browser
-            if INTERRUPTED.is_set() and fault.kind == "exception":
+        # A Ctrl-C to the whole group also breaks the browser: only faults recorded after the
+        # signal are relabelled; a failure from before it keeps its kind.
+        for fault in bc.FAULTS.items[signalled_at[0] :] if signalled_at else ():
+            if fault.kind == "exception":
                 fault.kind = "interrupted"
         bc.scan_server_logs()
         code = finish(bc, args, out, summary)

@@ -5,11 +5,13 @@ import hashlib
 import importlib.util
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -19,6 +21,7 @@ sys.path.insert(0, str(DESIGNS))
 spec = importlib.util.spec_from_file_location("live_check", DESIGNS / "live_check.py")
 live_check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(live_check)
+from faults import Faults
 
 KEY_NAMES = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "COPILOT_GITHUB_TOKEN")
 NOT_PROVIDER = ("GH_TOKEN", "GITHUB_TOKEN")
@@ -30,14 +33,15 @@ def test_provider_keys_are_the_adapters_key_variables() -> None:
     assert set(live_check.PROVIDER_KEYS) == set(KEY_VARIABLES.values())
 
 
+WITH_KEY = {"OPENAI_API_KEY": "sk-test-not-a-real-key"}
+
+
 def refuse(
-    tmp_path: Path, *args: str, key: bool = True, extra: dict[str, str] | None = None
+    tmp_path: Path, *args: str, extra: dict[str, str] = WITH_KEY, keep: bool = False
 ) -> subprocess.CompletedProcess[str]:
     env = {k: v for k, v in os.environ.items() if k not in KEY_NAMES + NOT_PROVIDER}
     env |= {"FW_PYTHON": sys.executable, "ISSUER_LIBRARY_BINARY": str(tmp_path / "missing-binary")}
-    if key:
-        env["OPENAI_API_KEY"] = "sk-test-not-a-real-key"
-    env |= extra or {}
+    env |= extra
     out = tmp_path / "out"
     done = subprocess.run(
         [sys.executable, str(DESIGNS / "live_check.py"), *args, "--out", str(out)],
@@ -47,79 +51,68 @@ def refuse(
         timeout=60,
         check=False,
     )
-    assert not out.exists()
+    assert keep or not out.exists()
     assert "sk-test-not-a-real-key" not in done.stdout + done.stderr
     return done
 
 
-def test_refuses_without_cap(tmp_path: Path) -> None:
-    done = refuse(tmp_path)
-    assert done.returncode == 2 and "--cap" in done.stderr and len(done.stderr.splitlines()) == 1
+BAD_CAPS = [(("--cap", c), WITH_KEY, "--cap") for c in ("0", "-1", "nan", "inf", "-inf", "abc")]
 
 
-@pytest.mark.parametrize("cap", ["0", "-1", "nan", "inf", "-inf", "abc"])
-def test_refuses_non_positive_or_nan_cap(tmp_path: Path, cap: str) -> None:
-    done = refuse(tmp_path, "--cap", cap)
-    assert done.returncode == 2 and "--cap" in done.stderr and len(done.stderr.splitlines()) == 1
+@pytest.mark.parametrize(
+    ("args", "extra", "word"),
+    [
+        ((), WITH_KEY, "--cap"),
+        *BAD_CAPS,
+        (("--cap", "5"), {}, "provider key"),
+        (("--cap", "5"), {"GH_TOKEN": "gh-test-token-123"}, "provider key"),
+        (("--cap", "5", "--minutes", "0.5"), WITH_KEY, "--minutes"),
+        (("--rehearse",), {}, "--cap"),  # a rehearsal needs no key, but a cap
+    ],
+)
+def test_refuses_with_one_line_before_anything_exists(
+    tmp_path: Path, args: tuple[str, ...], extra: dict[str, str], word: str
+) -> None:
+    done = refuse(tmp_path, *args, extra=extra)
+    assert done.returncode == 2 and word in done.stderr and len(done.stderr.splitlines()) == 1
 
 
-def test_refuses_without_any_provider_key(tmp_path: Path) -> None:
-    done = refuse(tmp_path, "--cap", "5", key=False)
-    assert done.returncode == 2 and "provider key" in done.stderr
-    assert len(done.stderr.splitlines()) == 1
+@pytest.mark.parametrize(
+    "make", [lambda p: p.write_text("1"), lambda p: (p.mkdir(), (p / "x").write_text("1"))]
+)
+def test_refuses_an_out_that_is_a_file_or_a_used_folder(tmp_path: Path, make) -> None:
+    make(tmp_path / "out")
+    done = refuse(tmp_path, "--cap", "5", keep=True)
+    assert done.returncode == 2 and "--out" in done.stderr and (tmp_path / "out").exists()
 
 
-def test_github_tokens_are_not_provider_keys(tmp_path: Path) -> None:
-    done = refuse(tmp_path, "--cap", "5", key=False, extra={"GH_TOKEN": "gh-test-token-123"})
-    assert done.returncode == 2 and "provider key" in done.stderr
-
-
-def test_refuses_short_minutes_and_used_out_folder(tmp_path: Path) -> None:
-    assert "--minutes" in refuse(tmp_path, "--cap", "5", "--minutes", "0.5").stderr
-    used = tmp_path / "out"
-    used.mkdir()
-    (used / "x").write_text("1")
-    done = subprocess.run(
-        [
-            sys.executable,
-            str(DESIGNS / "live_check.py"),
-            "--cap",
-            "5",
-            "--rehearse",
-            "--out",
-            str(used),
-        ],
-        env={**os.environ, "FW_PYTHON": "x", "ISSUER_LIBRARY_BINARY": __file__},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert done.returncode == 2 and "--out" in done.stderr and (used / "x").exists()
-
-
-def test_stop_group_kills_the_whole_group_and_reports_spend(tmp_path: Path) -> None:
+def test_stop_group_kills_the_whole_group() -> None:
     server = subprocess.Popen(["sh", "-c", "sleep 60 & sleep 60 & wait"], start_new_session=True)
     assert live_check.group_alive(server)
     assert live_check.stop_group(server) is None
     assert not live_check.group_alive(server)
+
+
+def test_spend_of_sums_the_ledger_and_counts_unknown_cost_and_torn_rows(tmp_path: Path) -> None:
     intake = tmp_path / "intake/web-1"
     intake.mkdir(parents=True)
     (intake / "status.json").write_text(json.dumps({"spent_usd": "0.25"}))
-    (tmp_path / "runs/web-1/live").mkdir(parents=True)
-    (tmp_path / "runs/web-1/live/calls.jsonl").write_text(
-        json.dumps({"settled_usd": "0.10"}) + "\n" + json.dumps({"settled_usd": "0.20"}) + "\n"
-    )
-    assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.30"), 0)
-
-
-def test_spend_of_counts_unknown_cost_and_torn_rows(tmp_path: Path) -> None:
-    (tmp_path / "intake/web-1").mkdir(parents=True)
-    (tmp_path / "intake/web-1/status.json").write_text(json.dumps({"spent_usd": "5.78"}))
     live = tmp_path / "runs/web-1/live"
     live.mkdir(parents=True)
+    rows = [{"settled_usd": "0.10"}, {"settled_usd": "0.20"}]
+    (live / "calls.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert live_check.spend_of(tmp_path) == ("0.25", Decimal("0.30"), 0)
     rows = [{"settled_usd": "0.05"}, {"settled_usd": None, "cost_status": "unknown"}]
     (live / "calls.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows) + '{"settled_u')
-    assert live_check.spend_of(tmp_path) == ("5.78", Decimal("0.05"), 2)
+    assert live_check.spend_of(tmp_path)[1:] == (Decimal("0.05"), 2)
+
+
+def test_check_run_and_spend_of_read_the_same_intake_status(tmp_path: Path) -> None:
+    for name, spent in (("web-1", "1"), ("web-2", "2")):
+        (tmp_path / "intake" / name).mkdir(parents=True)
+        (tmp_path / "intake" / name / "status.json").write_text(json.dumps({"spent_usd": spent}))
+    last = live_check.intake_status(tmp_path)
+    assert last and last.parent.name == "web-2" and live_check.spend_of(tmp_path)[0] == "2"
 
 
 def test_stop_group_names_a_server_that_does_not_lead_its_group() -> None:
@@ -142,17 +135,11 @@ def test_watchdog_stops_the_group_when_its_pipe_closes() -> None:
     dog.wait()
 
 
-class Page:
-    def __init__(self, model: str, cap: str, ids: list[str]) -> None:
-        self.shown = {"rows": {"Model": model, "Maximum spend": f"USD {cap}"}, "ids": ids}
-
-    def evaluate(self, _script: str) -> dict:
-        return self.shown
-
-
 def review(modules: str, ids: list[str]) -> list[str]:
     args = argparse.Namespace(config="sol-medium", cap=Decimal(10), modules=modules)
-    return live_check.check_review(Page("openai gpt-6.1-sol · medium", "10", ids), args)
+    rows = {"Model": "openai gpt-6.1-sol · medium", "Maximum spend": "USD 10"}
+    page = SimpleNamespace(evaluate=lambda _script: {"rows": rows, "ids": ids})
+    return live_check.check_review(page, args)
 
 
 def test_review_for_the_answer_key_case_must_list_exactly_its_modules() -> None:
@@ -172,11 +159,6 @@ def test_answer_key_case_follows_the_request_not_the_run() -> None:
 def test_answer_key_env_never_optimises_asserts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PYTHONOPTIMIZE", "1")
     assert "PYTHONOPTIMIZE" not in live_check.key_env()
-
-
-def test_rehearsal_needs_no_key_but_still_needs_a_cap(tmp_path: Path) -> None:
-    done = refuse(tmp_path, "--rehearse", key=False)
-    assert done.returncode == 2 and "--cap" in done.stderr
 
 
 CP0 = "CP-0 body\n"
@@ -262,3 +244,46 @@ def test_live_evidence_requires_filed_literals(tmp_path: Path) -> None:
     run = make_run(tmp_path, rows3(), cp1=f"Net sales 7,940 only. {d0}\n")
     found = evidence(run)
     assert len(found) == 1 and "6,261" in found[0]
+
+
+def test_unknown_cost_row_is_a_fault_not_a_crash(tmp_path: Path) -> None:
+    rows = [*rows3()[:2], row("CP-1A", settled_usd=None, cost_status="unknown")]
+    found = evidence(make_run(tmp_path, rows), spent="0.60")
+    assert any("unknown" in f for f in found)
+
+
+def test_module_execution_must_name_exactly_the_accepted_modules(tmp_path: Path) -> None:
+    run = make_run(tmp_path, rows3())
+    record = next(run.glob("completed-*.json"))
+    record.write_text(
+        json.dumps({"execution": "live-provider", "module_execution": {"CP-0": "live-provider"}})
+    )
+    assert any("module_execution" in f for f in evidence(run))
+
+
+def test_answer_key_names_the_return_code_of_a_runner_with_no_stderr(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("FW_PYTHON", sys.executable)
+    killed = subprocess.CompletedProcess([], -9, "", "")
+    monkeypatch.setattr(live_check.subprocess, "run", lambda *a, **k: killed)
+    found = live_check.answer_key(tmp_path, Decimal(5))
+    assert len(found) == 1 and "-9" in found[0]
+
+
+def test_a_failure_before_the_signal_keeps_its_kind(monkeypatch, tmp_path) -> None:
+    bc = SimpleNamespace(FAULTS=Faults(), results=[], secrets=list, scan_server_logs=lambda: None)
+
+    def walk_then_signal(bc, args, out, summary, held) -> None:
+        bc.FAULTS.add("live", "exception", "TimeoutError: before the signal")
+        os.kill(os.getpid(), signal.SIGINT)
+        time.sleep(1)
+
+    saved = {s: signal.getsignal(s) for s in live_check.HALTING}
+    monkeypatch.setitem(sys.modules, "browser_check", bc)
+    monkeypatch.setattr(live_check, "run_walk", walk_then_signal)
+    monkeypatch.setattr(os, "environ", {"FW_PYTHON": "x", "ISSUER_LIBRARY_BINARY": __file__})
+    try:
+        live_check.main(["--cap", "1", "--rehearse", "--out", str(tmp_path / "o")])
+    finally:
+        for sig, handler in saved.items():
+            signal.signal(sig, handler)
+    assert [f.kind for f in bc.FAULTS.items] == ["exception", "interrupted"]

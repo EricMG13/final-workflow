@@ -122,7 +122,8 @@ a jsdom install, `FW_PLAYWRIGHT_PYTHON` a Python with Playwright (test-only tool
 - Kinds: `check` (a failed check), `console`, `pageerror`, `http` (5xx, or an unexpected 4xx),
   `requestfailed`, `server-log` (a crash in the Go server's log), `flow` (a flow-check finding),
   `exception` (the walk stopped; later checks did not run). The live walk adds `worker` (a process
-  left after stop) and `interrupted` (SIGINT or SIGTERM; spend may be above zero).
+  left after stop) and `interrupted` (SIGINT, SIGTERM, SIGHUP or SIGQUIT; spend may be above zero; only exception faults
+  recorded after the signal are relabelled, an earlier failure keeps its kind).
 - Artifacts: `<walk>-failure.png` and `.html`, `server-<port>.log`, `state-<port>/library.log`.
 - `server-log` covers the Go server's log only. `jobs.go` discards the engine's stdout and stderr,
   so an engine traceback never reaches a scanned log.
@@ -158,17 +159,21 @@ a jsdom install, `FW_PLAYWRIGHT_PYTHON` a Python with Playwright (test-only tool
 - Checks: the review screen against the arguments before Start; the run completes; the app's
   spend equals `status.json`; "Built from" matches the accepted handoffs; flow checks with
   `--sources data/public-corpus/v1/TDG`; `live_evidence` (calls, models, spend within the cap);
-  filed values in the report; and, for sol-medium with CP-0/CP-1/CP-1A, the answer key
-  `assert_live_evidence` in `tests/test_cpos_launch.py`.
+  filed values in the report; and the answer key `assert_live_evidence` in
+  `tests/test_cpos_launch.py` (rule below). Intake `status.json` is read as the last by name, by
+  both the shown-spend check and the teardown.
 - The server and worker are stopped on every exit, including SIGHUP and SIGQUIT, and on SIGKILL
   or a crash of `live_check` through a watchdog in its own session (it cannot see a hung
-  `live_check`). After a SIGKILL no `faults.json` is written: read `status.json` and
+  `live_check`). SIGHUP stops the walk even under `nohup` (the handler replaces the inherited
+  ignore; it fails safe: worker and server are stopped). After a SIGKILL no `faults.json` is written: read `status.json` and
   `live/calls.jsonl` by hand. Spend is reported from `status.json` and the ledger; a call of
   unknown cost is counted and recorded as a fault, never as zero. Output in `--out`:
   `faults.json` and `summary.json`.
-- The answer key runs whenever the request is `sol-medium` with `--modules "CP-1 CP-1A"`, and the
-  review screen must then list exactly CP-0, CP-1 and CP-1A. A mismatch is the key's fault.
-- Owner notes: do not run it backgrounded with `&` (Ctrl-C is ignored there); `FW_PYTHON` needs
+- The answer key runs only when the config is `sol-medium` and the requested modules are exactly
+  "CP-1 CP-1A" (decided from the arguments); the review screen must then list exactly CP-0, CP-1
+  and CP-1A. Any other request is labelled "answer key not applicable" in the scope. A review
+  screen that lists other modules is an exception fault before Start (no spend).
+- Owner notes: do not run it backgrounded with `&` (a job started that way may ignore Ctrl-C; SIGINT stops the walk otherwise); `FW_PYTHON` needs
   pytest for the answer key; do not set `PYTHONOPTIMIZE`; other environment secrets reach the
   server and worker.
 

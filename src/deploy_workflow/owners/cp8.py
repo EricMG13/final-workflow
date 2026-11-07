@@ -1549,7 +1549,9 @@ class _Composer:
         if item.absence is not None:
             self.cells.gap(field, item.absence.reason, refs=_some(item.absence.quote))
         elif item.text is not None and item.quote is not None:
-            self.cells.text(field, item.text, refs=(item.quote,), value_class="source")
+            # the page's spelling, with whitespace read as the quote matcher reads it (S10-C03)
+            text = " ".join(item.text.split())
+            self.cells.text(field, text, refs=(item.quote,), value_class="source")
         else:
             raise ValueError(f"A validated decision field has a text or an absence: {field}")
 

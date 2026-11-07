@@ -1018,3 +1018,41 @@ def test_s10_c02_limitation_and_gap_text_get_the_rationale_checks() -> None:
     # a blank limitation keeps the single "empty" issue
     sub["overall"]["limitation"] = "   "
     assert _issues(sub) == ["overall.limitation: empty"]
+
+
+def test_s10_review_limitation_and_gap_text_resolve_no_reference() -> None:
+    # S10 review, hand-read: overall.limitation and gap texts are plain text (a claim limitation
+    # and Module.limitations), so a reference is printed literally, braces and all. In the
+    # rationale (run text) the same reference resolves and stays accepted.
+    ref = "{TL10.2.cash.change}"
+    sub = _with(("overall", "rationale"), f"Cash moved by {ref} over the pair.")
+    assert _issues(sub) == []
+    sub = _with(("overall", "category"), cpl10.INSUFFICIENT)
+    sub["overall"]["confidence"] = cpl10.INSUFFICIENT
+    sub["overall"]["limitation"] = f"The move of {ref} rests on two quarters."
+    assert _issues(sub) == ["overall.limitation: Unresolved reference: TL10.2.cash.change"]
+    sub["overall"]["limitation"] = "The screen rests on [two] quarters."
+    assert _issues(sub) == ["overall.limitation: Unresolved reference: two"]
+    gap = _with(("gaps", 0, "action"), "Supply the {cash} statements, then rerun.")
+    assert _issues(gap) == ["gaps[0].action: Unresolved reference: cash"]
+    # "Discovery" holds no prohibited word; the oracle's own gap texts stay accepted
+    gap = _with(("gaps", 0, "why_it_matters"), "Discovery of a seasonal pattern needs a year.")
+    assert _issues(gap) == []
+
+
+def test_s10_review_a_known_money_operand_without_currency_is_refused() -> None:
+    # S10 review, hand-read: a known MILLIONS operand with no currency is not on the USD basis
+    # (None is not USD), so the plain Upstream refuses it; a known multiple has no currency and
+    # is not a money operand, so a None there is accepted.
+    cash_q1 = cpl10.QUARTERS[0].column + " · cash_closing"
+    none = [
+        f.model_copy(update={"currency": None}) if f.label == cash_q1 else f for f in _cp1_facts()
+    ]
+    assert next(f for f in none if f.label == cash_q1).status == "known"
+    with pytest.raises(
+        cpl10.UpstreamError, match=f"currency None is not USD: {re.escape(cash_q1)}"
+    ):
+        _upstream(none)
+    multiples = [f for f in _cp1_facts() if f.unit == "MULTIPLE" and f.status == "known"]
+    assert multiples and all(f.currency is None for f in multiples)
+    assert _upstream().currency.currency == "USD"

@@ -1199,7 +1199,8 @@ def _text_issues(sub: ChangeScreenSubmission, bound: Mapping[str, Fact], issuer:
     facts, then prohibited words (substring match, the v1 limit of L10-b), then empty text. The
     stated `overall.limitation` and the gap texts are analyst text too and get the same two checks
     (S10-C02); a blank one and a gap field with a digit keep their own issues (`_overall_issues`,
-    `_gap_issues`)."""
+    `_gap_issues`). They are plain text (a limitation, never a claim's run text), so no reference
+    resolves in them: a `{fact}` there would be printed literally."""
     texts = [
         (f"assessments[{i}].{field}", getattr(a, field))
         for i, a in enumerate(sub.assessments)
@@ -1213,12 +1214,12 @@ def _text_issues(sub: ChangeScreenSubmission, bound: Mapping[str, Fact], issuer:
             issues.append(f"{path}: empty")
     limitation = sub.overall.limitation
     if limitation is not None and not is_blank(limitation):
-        issues += _prose_issues("overall.limitation", limitation, bound, issuer)
+        issues += _prose_issues("overall.limitation", limitation, {}, issuer)
     for i, gap in enumerate(sub.gaps):
         for field in ("gap", "why_it_matters", "action"):
             text = getattr(gap, field)
             if not is_blank(text) and not _DIGIT.search(text):
-                issues += _prose_issues(f"gaps[{i}].{field}", text, bound, issuer)
+                issues += _prose_issues(f"gaps[{i}].{field}", text, {}, issuer)
     return issues
 
 

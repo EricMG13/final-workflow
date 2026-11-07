@@ -748,17 +748,27 @@ def _review_issues(
     return issues
 
 
+def _checked(
+    scope: ReviewScope, submission: IntegritySubmission
+) -> tuple[tuple[str, ...], PythonChecks | None]:
+    """The issues of `submission` over `scope` and the Python checks they were made against
+    (None when the submission or scope was refused before the checks ran): one `python_checks`
+    pass, handed on to the composer (S09-C06)."""
+    try:
+        submission = IntegritySubmission.model_validate_json(submission.model_dump_json())
+    except ValidationError as error:
+        return shape_issues(error), None
+    if scope.issues:
+        return scope.issues, None
+    checks = python_checks(scope)
+    return tuple(dict.fromkeys(_review_issues(scope, submission, checks))), checks
+
+
 def validate_integrity(scope: ReviewScope, submission: IntegritySubmission) -> tuple[str, ...]:
     """Every issue of `submission` over `scope`, in a stable order; empty when it composes.
 
     A scope that cannot be reviewed (stale or unreadable inputs) returns its own issues."""
-    try:
-        submission = IntegritySubmission.model_validate_json(submission.model_dump_json())
-    except ValidationError as error:
-        return shape_issues(error)
-    if scope.issues:
-        return scope.issues
-    return tuple(dict.fromkeys(_review_issues(scope, submission, python_checks(scope))))
+    return _checked(scope, submission)[0]
 
 
 # --- composition -------------------------------------------------------------------------------
@@ -1244,13 +1254,29 @@ def _status_tables(c: _Composition, own: Mapping[str, str], status: str) -> None
     )
 
 
+def review_outcome(
+    scope: ReviewScope, submission: IntegritySubmission
+) -> tuple[tuple[str, ...], IntegrityReport | None]:
+    """(issues, None) for a refused submission, else ((), the composed review): the validation and
+    the composition share one `python_checks` pass."""
+    issues, checks = _checked(scope, submission)
+    if issues or checks is None:
+        return issues, None
+    return (), _composed(scope, submission, checks)
+
+
 def integrity_review(scope: ReviewScope, submission: IntegritySubmission) -> IntegrityReport:
     """The composed CP-5 review of a valid submission; raises ValueError on any issue."""
-    issues = validate_integrity(scope, submission)
-    if issues:
+    issues, report = review_outcome(scope, submission)
+    if issues or report is None:
         raise ValueError("; ".join(issues))
+    return report
+
+
+def _composed(
+    scope: ReviewScope, submission: IntegritySubmission, checks: PythonChecks
+) -> IntegrityReport:
     submission = IntegritySubmission.model_validate_json(submission.model_dump_json())
-    checks = python_checks(scope)
     findings = _ordered((*checks.findings, *_review_findings(submission)))
     c = _Composition(scope, submission, checks, findings)
     own: dict[str, str] = {}
@@ -1313,11 +1339,10 @@ def _validate_step(store: Execution, attempt: Attempt) -> StepValidation:
         )
     except ValidationError as error:
         return StepValidation(issues=shape_issues(error))
-    scope = review_scope(store, attempt)
-    issues = validate_integrity(scope, submission)
-    if issues:
+    issues, report = review_outcome(review_scope(store, attempt), submission)
+    if issues or report is None:
         return StepValidation(issues=issues)
-    return StepValidation(output=integrity_review(scope, submission).model_dump_json())
+    return StepValidation(output=report.model_dump_json())
 
 
 def submit_cp5_step(store: Execution, ticket_id: str, step_id: str, payload: str) -> Attempt:
@@ -1378,7 +1403,9 @@ def all_facts(head: Module) -> Sequence[Fact]:
     return head.facts
 
 
-def context_block(scope: ReviewScope, facts: FactProjection = all_facts) -> dict[str, object]:
+def context_block(
+    scope: ReviewScope, facts: FactProjection = all_facts, checks: PythonChecks | None = None
+) -> dict[str, object]:
     """What the `integrity_review` CONTEXT block states, all Python's: per bound analyst head
     its status, the facts `facts` projects (Python's spelling), claims with their citation refs
     and the Python findings that touch each, limitations and inherited limitations; the claims
@@ -1387,8 +1414,10 @@ def context_block(scope: ReviewScope, facts: FactProjection = all_facts) -> dict
 
     `facts` is the seam a live projection uses to trim the block (every fact of a promoted CP-1
     is tens of megabytes of JSON): only the projected facts are spelled and listed. The checks
-    and the validator always run over every fact; the projection changes the prompt only."""
-    checks = python_checks(scope)
+    and the validator always run over every fact; the projection changes the prompt only.
+    `checks` is the `python_checks(scope)` the caller already holds."""
+    if checks is None:
+        checks = python_checks(scope)
     evaluated = {head.module_id for head in scope.evaluated}
     heads = sorted(scope.heads, key=lambda pair: _rank(pair[0].input_id))
     return {

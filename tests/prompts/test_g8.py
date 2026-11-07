@@ -24,6 +24,7 @@ from s09_a05_strip import undo_s09_a05
 from s09_a07_strip import undo_s09_a07
 from s09_strip import undo_s09
 from s13_strip import undo_s13
+from s14_c04_strip import undo_s14_c04
 from s15_strip import undo_s15
 from turns_strip import undo_turns
 
@@ -171,6 +172,7 @@ def test_the_tokens_and_the_g8_block_are_the_only_change_to_the_frozen_message(
     # B34, then B30, then B29: undo the context-row basis wording in CP-3's method text, rules d
     # and e and the Basis schema text.
     system = undo_b29(step_id, undo_b30(step_id, undo_b34(step_id, system)))
+    system = undo_s14_c04(step_id, system)  # S14-C04: rule 2's REPAIR sentence
     body = json.dumps(
         [
             [messages[0].role, system],

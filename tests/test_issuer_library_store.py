@@ -2097,11 +2097,58 @@ def test_a_table_of_more_than_2000_rows_is_refused_before_any_cell_is_built(tmp_
     assert issues == [limit_issue("quarter.md", "table rows", 2001, 2000)]
 
 
-def test_deduplication_does_not_use_list_membership():
-    import inspect
+def test_thousands_of_repeated_business_unit_labels_collapse_to_the_distinct_set(tmp_path):
+    units = "".join("| Total Same | 1 | 1 |\n" for _ in range(1900))
+    annual = ANNUAL_MD.replace("| Net Sales | 1,100", units + "| Net Sales | 1,100")
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    assert issues == []
+    labels = [
+        r["label"]
+        for r in cashflow["rows"]
+        if r["band"] == "Revenue" and "growth" not in r["label"]
+    ]
+    assert labels.count("Same") == 1 and len(labels) == 5  # four units + Revenue
+    many = "".join(f"| Total U{n} | 1 | 1 |\n" for n in range(1900))
+    annual = ANNUAL_MD.replace("| Net Sales | 1,100", many + "| Net Sales | 1,100")
+    cashflow, issues = cashflow_issue_texts(tmp_path, extra=cashflow_files(annual=annual))
+    assert cashflow is None and "business-unit rows, 1903 > 200" in issues[0]
 
-    source = inspect.getsource(store.listed_labels) + inspect.getsource(store.cashflow_rows)
-    assert " not in units" not in source and "not in labels" not in source
+
+def test_one_q1_per_fiscal_year_and_growth_needs_a_prior_of_similar_length(tmp_path):
+    quarter = with_quarter_columns(
+        "2024-10-01–2024-12-31", "2025-10-01–2025-11-30", "2025-10-01–2025-12-31"
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert columns_of(cashflow) == [
+        ("Q1 FY2025 (YTD)", True),
+        ("2025-10-01–2025-11-30", False),
+        ("Q1 FY2026 (YTD)", True),
+    ]
+    growth = row(cashflow, "Revenue YoY growth")["cells"]
+    assert growth[1]["reason"] == "prior-year period not in the handoffs"
+    quarter = with_quarter_columns("2024-10-01–2024-12-31", "2025-10-01–2026-01-08")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    cell = row(cashflow, "Revenue YoY growth")["cells"][1]
+    assert (cell["display"], cell["reason"]) == (NA, "the prior-year period has a different length")
+
+
+def test_a_reversed_span_is_not_a_quarter(tmp_path):
+    quarter = with_quarter_columns("2025-10-01–2025-09-15")
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(quarter=quarter))
+    assert columns_of(cashflow) == [("2025-10-01–2025-09-15", False)]
+
+
+def test_a_repeated_debt_register_label_makes_leverage_na(tmp_path):
+    annual = ANNUAL_MD.replace(
+        "| 5% senior",
+        "| 6% secured notes due 2030 | Principal 200; carrying 200 | x |\n| 5% senior",
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=annual))
+    cell = row(cashflow, "Senior secured leverage (secured debt / Adj EBITDA)")["cells"][3]
+    assert (cell["display"], cell["reason"]) == (
+        NA,
+        "the debt register repeats a row label: 6% secured notes due 2030",
+    )
 
 
 YTD_REGISTER = (

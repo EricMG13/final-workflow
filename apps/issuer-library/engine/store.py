@@ -847,6 +847,7 @@ UNIT_ROW_LIMIT = 200
 ADD_BACK_ROW_LIMIT = 200
 TABLE_ROW_LIMIT = 2000
 QUARTER_DAYS = 100
+QUARTER_LENGTH_SLACK = 7
 FORECAST_CASES = (("REFERENCE", "Base case (reference illustration)"), ("DOWNSIDE", "Downside"))
 NOT_HELD = "\u2014"
 PRIOR_MISSING = "prior-year period not in the handoffs"
@@ -1019,16 +1020,18 @@ def markdown_table(lines, file):
     body = [table_cells(line) for line in lines[1 + separated :]]
     label_header = CASHFLOW_LABELS["label_header"]
     label_column = header.index(label_header) if label_header in header else 0
-    rows = {}
+    rows, repeated = {}, None
     for row in body:
         if label_column < len(row):
+            if row[label_column] in rows and repeated is None:
+                repeated = row[label_column]
             rows.setdefault(row[label_column], row)
     periods = {}
     for index, name in enumerate(header):
         key = period_key(name)
         if key is not None:
             periods.setdefault(key, index)
-    return {"header": header, "rows": rows, "periods": periods}
+    return {"header": header, "rows": rows, "periods": periods, "repeated": repeated}
 
 
 def markdown_tables(text, file):
@@ -1112,8 +1115,14 @@ def secured_debt(tables):
             continue
         total += decimal.Decimal(carrying.group(1).replace(",", ""))
         named.add(low)
+    if debt["repeated"] is not None:
+        return (when, None, f"the debt register repeats a row label: {debt['repeated'][:200]}")
     if unclassified is not None:
-        return (when, None, unclassified)
+        return (
+            when,
+            None,
+            f"the debt register has a row that cannot be classified: {unclassified}",
+        )
     return (when, total, None) if required <= named and not incomplete else None
 
 
@@ -1188,6 +1197,10 @@ def fiscal_inputs(record):
     return years
 
 
+def span_days(start, end):
+    return (datetime.date.fromisoformat(end) - datetime.date.fromisoformat(start)).days
+
+
 def quarter_numbers(quarters, ends):
     """Per quarter, the fiscal year it opens (as Q1) or None.
 
@@ -1201,11 +1214,20 @@ def quarter_numbers(quarters, ends):
             openings.setdefault(day, int(label.removeprefix("FY")) + 1)
         except (ValueError, OverflowError):
             continue  # a register row with an unreadable end opens no fiscal year
-    numbers = []
-    for start, end in quarters:
-        first, last = datetime.date.fromisoformat(start), datetime.date.fromisoformat(end)
-        numbers.append(openings.get(first) if (last - first).days <= QUARTER_DAYS else None)
-    return numbers
+    numbers, longest = [], {}
+    for index, (start, end) in enumerate(quarters):
+        days = span_days(start, end)
+        number = (
+            openings.get(datetime.date.fromisoformat(start)) if 0 <= days <= QUARTER_DAYS else None
+        )
+        numbers.append(number)
+        if number is not None and days > longest.get(number, (-1, 0))[0]:
+            longest[number] = (days, index)
+    # One Q1 per fiscal year: the longest span; the other candidates are plain date ranges.
+    return [
+        number if number is not None and longest[number][1] == index else None
+        for index, number in enumerate(numbers)
+    ]
 
 
 def cashflow_columns(quarters, fiscal, cases, ends=None):
@@ -1241,6 +1263,10 @@ def cashflow_columns(quarters, fiscal, cases, ends=None):
         label = f"{start}–{end}" if number is None else f"Q1 FY{number} (YTD)"
         prior = None if number is None else first_quarter.get(number - 1)
         add(label, "Quarter", "q", None, start, end, ("q", start, end), prior, number is not None)
+        if prior is not None and abs(span_days(start, end) - span_days(*quarters[prior])) > (
+            QUARTER_LENGTH_SLACK
+        ):
+            columns[-1]["length_differs"] = True
     fiscal_index = {}
     for label, values in fiscal:
         found = FISCAL_HEADER.fullmatch(label)
@@ -1299,6 +1325,8 @@ def op_growth(ctx, column, index, grid, kind, source):
         return not_modelled_cell()
     if column["prior"] is None:
         return unavailable_cell(PRIOR_MISSING)
+    if column.get("length_differs"):
+        return unavailable_cell("the prior-year period has a different length")
     return derive("percent", [current, grid[source][column["prior"]]], lambda a, b: a / b - 1)
 
 
@@ -1314,15 +1342,13 @@ def op_senior(ctx, column, index, grid, kind):
     """Secured carrying values over Adj EBITDA, for the fiscal year ending on the register date only."""
     if ctx["secured"] is None:
         return unavailable_cell(COMPONENT_MISSING)
-    when, total, unclassified = ctx["secured"]
+    when, total, problem = ctx["secured"]
     if ctx["ends"].get(column["label"]) != when.isoformat():
         return unavailable_cell(
             f"secured-debt carrying values are recorded only at {display_date(when.isoformat())}"
         )
-    if unclassified is not None:
-        return unavailable_cell(
-            f"the debt register has a row that cannot be classified: {unclassified}"
-        )
+    if problem is not None:
+        return unavailable_cell(problem)
     return derive("multiple", [grid["adj"][index]], lambda a: total / a)
 
 

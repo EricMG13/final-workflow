@@ -672,3 +672,17 @@ def test_fiscal_year_labels_of_another_format_across_a_year_end_get_the_reason()
         )
     )
     assert [f.reason for f in ok] == [None] * 5
+
+
+@pytest.mark.parametrize(
+    "field,text",
+    [("currency", "EUR"), ("accounting_basis", "US GAAP"), ("unit", "THOUSANDS")],
+)
+def test_a_register_in_another_currency_unit_or_basis_gets_the_unsupported_reason(field, text):
+    # S11-C08. By hand: every T4.14 period states EUR (or US GAAP, or thousands); the projection
+    # converts nothing, so S.1 to S.5 in order each carry the same reason and no points.
+    figures = cp1_chart_series(change(fixture(), table="T4.14", field=field, text=text))
+    assert [f.fig_id for f in figures] == ["S.1", "S.2", "S.3", "S.4", "S.5"]
+    assert {f.points for f in figures} == {()}
+    assert {f.reason for f in figures} == {figures[0].reason}
+    assert "another currency, unit, accounting basis or perimeter" in figures[0].reason

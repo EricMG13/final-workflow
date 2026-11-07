@@ -4,7 +4,6 @@ Model residuals never enter these comparisons. Shared source observations are
 identified explicitly so a construction cannot certify itself as independent.
 """
 
-from datetime import timedelta
 from decimal import Decimal, localcontext
 from itertools import pairwise
 from typing import Literal
@@ -16,6 +15,7 @@ from deploy_vii.financial_contracts import (
     CashMovementBridge,
     FinancialBook,
     FinancialReview,
+    opening_day,
 )
 from deploy_vii.financial_periods import (
     HistoricalReport,
@@ -284,11 +284,7 @@ def _period_cash(
     any contributing source uses a bridge, every contribution must be assessed
     and its cash check must pass before the constructed check can agree.
     """
-    opening = (
-        node.start_date - timedelta(days=1)
-        if node.start_date and node.start_date.toordinal() > 1
-        else None
-    )
+    opening = opening_day(node.start_date)
     sources = _source_periods(report, node)
     assessments = {b.period_id: b for b in book.cash_movement_bridges}
     adjusted = any(pid in assessments for pid, _ in sources)
@@ -539,9 +535,15 @@ def _stated(
 
 
 def reconcile_periods(
-    pack: PreparedPack, review: FinancialReview, book_id: str
+    pack: PreparedPack,
+    review: FinancialReview,
+    book_id: str,
+    *,
+    historical: HistoricalReport | None = None,
 ) -> PeriodReconciliationReport:
-    historical = historical_report(pack, review, book_id)
+    """The period reconciliation of one book. `historical` is the book's `historical_report`,
+    when the caller already built it from this pack and review."""
+    historical = historical or historical_report(pack, review, book_id)
     review = FinancialReview.model_validate_json(review.model_dump_json())
     book = next(b for b in review.books if b.book_id == book_id)
     rows = {(v.construction_id, v.series_key): v for v in historical.values}
@@ -555,11 +557,15 @@ def reconcile_periods(
         historical=historical,
         checks=(*checks, *_years(book, historical, rows), *_stated(book, historical, rows)),
         limitations=(
-            "Historical account/source-equation comparisons only; "
-            "no Model readiness or analytical acceptance",
+            (
+                "Historical account/source-equation comparisons only; "
+                "no Model readiness or analytical acceptance"
+            ),
             "Shared observations imply construction agreement, never independent verification",
-            "Only exact-scope sourced audited-FY explanations permit annual WARN; "
-            "no inferred FX or residual-defined proof",
+            (
+                "Only exact-scope sourced audited-FY explanations permit annual WARN; "
+                "no inferred FX or residual-defined proof"
+            ),
             "Mixed expense presentations require an explicitly comparable source bridge",
         ),
     )

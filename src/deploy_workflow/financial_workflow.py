@@ -15,6 +15,7 @@ from collections import Counter
 from collections.abc import Collection, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from typing import Any, Literal, TextIO, cast
@@ -608,29 +609,36 @@ def _page_units(spans: Sequence[Span]) -> dict[str, str | None]:
     A page with no statement title continues the previous page's unit (its kind) when no equity or
     notes title stands before its first data row and no caption opens it (`_opens_table`).
 
-    ponytail: `_statement_units` and `_statement_kinds` each call this, so the extractor runs twice
-    per page (about 220 ms on the 107-page CZR 10-K)."""
+    The result is cached by the page spans' (locator, text): `_statement_units`,
+    `_statement_kinds` and the helpers of every `inputs()` and gate call read the same pages, and
+    the extractor is the cost (about 220 ms per two passes over the 107-page CZR 10-K)."""
     pages = {
-        int(span.locator.split(":")[1]): span
+        int(span.locator.split(":")[1]): (span.locator, span.text)
         for span in spans
         if _PAGE_LOCATOR.fullmatch(span.locator)
     }
+    return dict(_units_of_pages(tuple(pages[number] for number in sorted(pages))))
+
+
+@lru_cache(maxsize=8)
+def _units_of_pages(pages: tuple[tuple[str, str], ...]) -> dict[str, str | None]:
+    """`_page_units` of the numbered `(locator, text)` pages in page order."""
     units: dict[str, str | None] = {}
-    for number in sorted(pages):
-        span = pages[number]
-        rows = extract_statement_lines(span.text, span.locator).lines
+    for locator, text in pages:
+        number = int(locator.split(":")[1])
+        rows = extract_statement_lines(text, locator).lines
         if not rows:
             continue
         first_row = rows[0].line_no - 1
-        titles = _page_title_kinds(span.text)
+        titles = _page_title_kinds(text)
         primary = {"BS", "IS", "CI", "CFS"}
         if titles and titles[0][1] <= primary:
             mapped = {"IS" if k == "CI" else k for _, found in titles for k in found & primary}
-            units[span.locator] = mapped.pop() if len(mapped) == 1 else None
-        elif any(index < first_row for index, _ in titles) or _opens_table(span.text, first_row):
+            units[locator] = mapped.pop() if len(mapped) == 1 else None
+        elif any(index < first_row for index, _ in titles) or _opens_table(text, first_row):
             continue  # an equity or notes title, or a caption (`_opens_table`), opens the page
         elif f"page:{number - 1}" in units:
-            units[span.locator] = units[f"page:{number - 1}"]
+            units[locator] = units[f"page:{number - 1}"]
     return units
 
 

@@ -232,11 +232,21 @@ def valid_syntax(value: str) -> str:
     return value
 
 
+_RUN_BRACKETS = str.maketrans("[]{}", "()()")
+
+
+def run_name(name: str) -> str:
+    """A supplied name as it stands in run text: braces and square brackets are reserved there, so
+    each one becomes a round bracket ("Acme [UK] Ltd" reads "Acme (UK) Ltd")."""
+    return name.translate(_RUN_BRACKETS)
+
+
 def bare_figures(text: str, *, names: Collection[str] = ()) -> tuple[str, ...]:
-    """Numeric tokens of literal text that no label and no supplied name covers."""
+    """Numeric tokens of literal text that no label and no supplied name covers (a name in run text
+    form, `run_name`, counts as the name)."""
     covered = [False] * len(text)
     spans = [m.span() for pattern in LABELS.values() for m in pattern.finditer(text)]
-    for name in names:
+    for name in dict.fromkeys((*names, *map(run_name, names))):
         if name:
             spans += [m.span() for m in re.finditer(re.escape(name), text)]
     for start, end in spans:

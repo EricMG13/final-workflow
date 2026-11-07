@@ -9,8 +9,9 @@ import hashlib
 import json
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
@@ -381,9 +382,17 @@ def linked(folder: Path) -> bool:
     return folder.is_symlink() or folder.is_junction()
 
 
-def handoff_files(run_dir: Path) -> list[Path]:
+class Handoff(NamedTuple):
+    """One handoff file as read once: the parsed text and every hash shown come from these bytes."""
+
+    module: str
+    raw: bytes
+    sha256: str
+
+
+def handoff_files(run_dir: Path) -> dict[Path, Handoff]:
     """Handoffs at the run root, then those the launcher delivered; each distinct file once."""
-    paths: list[Path] = []
+    found: dict[Path, Handoff] = {}
     seen: set[str] = set()
     base = run_dir.resolve()
     for path in [*sorted(run_dir.glob("CP-*.md")), *sorted(run_dir.glob("deliveries/*/CP-*.md"))]:
@@ -391,52 +400,72 @@ def handoff_files(run_dir: Path) -> list[Path]:
         # not a linked file, not a linked or junctioned delivery folder, nothing resolving outside.
         if (
             # Windows matches these patterns regardless of case; the names here do not.
-            HANDOFF_NAME.match(path.name)
+            (match := HANDOFF_NAME.match(path.name))
             and path.name.endswith(".md")
             and not OUTPUT_SKIP.search(path.name)
             and path.is_file()
             and not path.is_symlink()
             and (path.parent == run_dir or not linked(path.parent))
             and path.resolve().is_relative_to(base)
-            and sha256(path) not in seen
         ):
-            seen.add(sha256(path))
-            paths.append(path)
-    return paths
+            raw = path.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()
+            if digest not in seen:
+                seen.add(digest)
+                found[path] = Handoff(match[0], raw, digest)
+    return found
 
 
-def collect_runs(root, shown, catalog, link, strict=True):
+def collect_runs(
+    root: Path,
+    shown: dict[str, tuple[str, ...]],
+    catalog: dict[str, Any],
+    link: Callable[[str, str, str], str],
+    strict: bool = True,
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, list[dict[str, Any]]],
+    dict[str, str],
+    list[str],
+]:
     """Parse every saved output of every shown run; each file keeps its own identity."""
-    runs, outputs, inputs, sources, pins, issues = {}, {}, {}, {}, {}, []
+    runs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+    inputs: dict[str, Any] = {}
+    sources: dict[str, list[dict[str, Any]]] = {}
+    pins: dict[str, str] = {}
+    issues: list[str] = []
     for key, (folder, issuer, title, label, sector, period) in shown.items():
         run_dir = root / "runs" / folder
 
-        def relative(path, base=run_dir):  # The default binds this run's folder.
+        # The default binds this run's folder.
+        def relative(path: Path, base: Path = run_dir) -> str:
             return path.relative_to(base).as_posix()
 
-        grouped = {}
-        for path in handoff_files(run_dir):
+        grouped: dict[str, dict[str, list[Path]]] = {}
+        read = handoff_files(run_dir)
+        for path, handoff in read.items():
             kind = "inputs" if INPUT_NAME.search(path.name) else "outputs"
-            grouped.setdefault(HANDOFF_NAME.match(path.name)[0], {"outputs": [], "inputs": []})[
-                kind
-            ].append(path)
-            sources.setdefault(sha256(path), []).append(
+            grouped.setdefault(handoff.module, {"outputs": [], "inputs": []})[kind].append(path)
+            sources.setdefault(handoff.sha256, []).append(
                 {"run": key, "source": f"{folder}/{relative(path)}", "output": kind == "outputs"}
             )
-        modules = {}
-        first = None
+        modules: dict[str, Any] = {}
+        first: str | None = None
         for module, files in grouped.items():
             config = catalog.get(module, {})
-            pinned = None
+            pinned: str | None = None
             labels = {
                 relative(f): output_label(module, f, files["outputs"]) for f in files["outputs"]
             }
             for path in files["outputs"]:
                 name = relative(path)
                 output_id = f"{folder}/{name}"
-                digest = sha256(path)
-                sections, problem = structured(path.read_bytes(), strict)
-                record = {
+                digest = read[path].sha256
+                sections, problem = structured(read[path].raw, strict)
+                record: dict[str, Any] = {
                     "id": output_id,
                     "run": key,
                     "module": module,
@@ -451,7 +480,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                     "firstHeading": config.get("firstHeading"),
                     "sections": sections,
                 }
-                record.update(reader_fields(sections))
+                record.update(reader_fields(sections))  # type: ignore[no-untyped-call]  # legacy untyped parser
                 if record["issue"]:
                     issues.append(f"{output_id}: {record['issue']}")
                 if problem:
@@ -459,7 +488,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                     issues.append(f"{output_id}: shown unstructured ({problem})")
                 if config.get("path") == output_id:
                     try:
-                        record.update(pinned_fields(sections, config, module))
+                        record.update(pinned_fields(sections, config, module))  # type: ignore[no-untyped-call]  # legacy untyped parser
                         pins[module] = pinned = output_id
                         first = first or module
                     except (ValueError, KeyError, IndexError) as error:
@@ -469,7 +498,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                 outputs[output_id] = record
             for path in files["inputs"]:
                 name = relative(path)
-                digest = sha256(path)
+                digest = read[path].sha256
                 inputs[f"{folder}/{name}"] = {
                     "module": module,
                     "run": key,
@@ -482,7 +511,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
             modules[module] = {
                 "outputs": [f"{folder}/{s}" for s in sources_here],
                 "inputs": [f"{folder}/{relative(f)}" for f in files["inputs"]],
-                "default": default_output(
+                "default": default_output(  # type: ignore[no-untyped-call]  # legacy untyped helper
                     folder, sources_here, pinned, {s: labels[s][1] for s in sources_here}
                 )
                 if sources_here
@@ -646,7 +675,7 @@ def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, An
     for key, row in shown.items():
         # Documented fail-open: one run that cannot be read is hidden and reported in Settings.
         try:
-            part = collect_runs(root, {key: row}, catalog, link, strict=False)  # type: ignore[no-untyped-call]  # legacy untyped parser
+            part = collect_runs(root, {key: row}, catalog, link, strict=False)
         except Exception as error:  # noqa: BLE001
             found.append(f"{row[0]}: could not be read ({error!r})")
             continue

@@ -10,11 +10,13 @@ so the quarter period is q4-2025 (the alias ends the same day).
 
 import importlib
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from deploy_vii.contracts import Fact
+from deploy_workflow import owner_workflow
 from deploy_workflow.owners import cp4c
 
 conn: Any = importlib.import_module("test_connect_cp4c")
@@ -234,10 +236,8 @@ def test_an_unreadable_alias_or_period_is_refused_by_validator_and_view(tmp_path
     # Ruling: the two former raises settle like the count issue. Alias disagreement: the validator
     # returns exactly the one issue line (no raise) and the view offers nothing but that line.
     cp1 = conn.cp1_facts(alias=("SECURED", "SUBORDINATED"))
-    store, attempt, upstream = _upstream(tmp_path, cp1)
-    line = (
-        "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias"
-    )
+    store, _, upstream = _upstream(tmp_path, cp1)
+    line = "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias"
     assert upstream.cp1.facility_issue == line
     pack = store.pack()
     assert cp4c.validate_restructuring(
@@ -252,8 +252,11 @@ def test_an_unreadable_alias_or_period_is_refused_by_validator_and_view(tmp_path
     assert none.cp1.facility_issue == "CP-4C: CP-1 states no T4.14 period"
     # Two QUARTER periods ending on the same latest day: no single current period (2025-12-31).
     twin = tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14") + conn._t414(
-        (("q3-2025", "QUARTER", "2025-09-30"), ("q4-2025", "QUARTER", "2025-12-31"),
-         ("q4b-2025", "QUARTER", "2025-12-31"))
+        (
+            ("q3-2025", "QUARTER", "2025-09-30"),
+            ("q4-2025", "QUARTER", "2025-12-31"),
+            ("q4b-2025", "QUARTER", "2025-12-31"),
+        )
     )
     _, _, two = _upstream(tmp_path / "two", twin)
     assert two.cp1.facility_issue == "CP-4C: CP-1 has no single current T4.18 period at 2025-12-31"
@@ -271,3 +274,74 @@ def test_a_rejected_attempt_has_one_repair_and_then_no_further_begin(tmp_path: P
     assert conn._finished(store, repair).issues == (ZERO,)
     with pytest.raises(ValueError, match="one repair has been consumed"):
         store.begin(cp4c.MODULE_ID)
+
+
+# --- ruling: a facility issue the model cannot fix is refused before the begin -----------------
+# The issue comes only from CP-1's rows, so the one repair could never clear it. `_PRE_BEGIN` is
+# the existing pre-call hook (CP-DR's anchors use it): it runs in `OwnerWorkflow._begin` before
+# `store.begin`, so no attempt exists and no request or spend can follow.
+
+
+class _Recording:
+    """The store `_begin` reads, recording every `begin` it is asked for."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner, self.begun = inner, []
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+    def begin(self, module_id: str) -> Any:
+        self.begun.append(module_id)
+        return self._inner.begin(module_id)
+
+
+@pytest.mark.parametrize(
+    "cp1,line",
+    [
+        (_without_current_row(conn.cp1_facts()), ZERO),
+        (conn.cp1_facts() + _row("revolver", "revolver", "SECURED"), TWO),
+        (
+            conn.cp1_facts(alias=("SECURED", "SUBORDINATED")),
+            "CP-4C: term-loan seniority differs between its q4-2025 row and its fy-2025 alias",
+        ),
+        (
+            tuple(f for f in conn.cp1_facts() if f.table_id != "T4.14"),
+            "CP-4C: CP-1 states no T4.14 period",
+        ),
+    ],
+)
+def test_a_hopeless_facility_issue_stops_cp4c_before_any_begin(
+    tmp_path: Path, cp1: tuple[Fact, ...], line: str
+) -> None:
+    store, _, _ = conn.seed(tmp_path, cp1=cp1)
+    # `seed` begins CP-4C; the hook reads heads only, so it is called on that state too.
+    with pytest.raises(cp4c.Cp4cUpstreamFault) as raised:
+        owner_workflow._PRE_BEGIN["CP-4C"](store, store.read())
+    assert str(raised.value) == line
+
+
+def test_begin_never_reaches_the_store_for_a_hopeless_facility_issue(tmp_path: Path) -> None:
+    real, _, _ = conn.seed(tmp_path, cp1=_without_current_row(conn.cp1_facts()))
+    store = _Recording(real)
+    before = real.read().content_hash()
+    stand_in: Any = SimpleNamespace(_store=store, _refusals=[], _refusal_kind=None)
+    with pytest.raises(cp4c.Cp4cUpstreamFault, match="shows 0 secured facilities"):
+        owner_workflow.OwnerWorkflow._begin(stand_in, cp4c.MODULE_ID)
+    # No begin was asked, so no attempt, response or spend exists; the journal is unchanged.
+    assert store.begun == []
+    assert real.read().content_hash() == before
+
+
+def test_one_secured_facility_passes_the_hook_unchanged(tmp_path: Path) -> None:
+    store, _, _ = conn.seed(tmp_path)
+    before = store.read().content_hash()
+    assert owner_workflow._PRE_BEGIN["CP-4C"](store, store.read()) is None
+    assert store.read().content_hash() == before
+
+
+def test_the_hook_passes_a_run_without_a_settled_cp1(tmp_path: Path) -> None:
+    # Nothing to read: `begin` refuses on its own edge rule as before.
+    store, _, _ = conn.seed(tmp_path)
+    empty = store.read().model_copy(update={"heads": ()})
+    assert owner_workflow._PRE_BEGIN["CP-4C"](store, empty) is None

@@ -291,6 +291,7 @@ _ENTRY_VALIDATORS: dict[str, Callable[[Execution, PreparedPack, Attempt], StepVa
 # generic missing input (O7-R20, `research/anchors.py`).
 _PRE_BEGIN: dict[str, Callable[[Execution, ExecutionSnapshot], object]] = {
     "CP-DR": cpdr.check_begin,
+    "CP-4C": cp4c.check_begin,  # the facility issue is CP-1's data: no paid attempt can fix it
 }
 # CP-0 and CP-1 keep the reused financial helpers, which are bound to their 11-field binding.
 _FINANCIAL_MODULES = frozenset({"CP-0", "CP-1"})

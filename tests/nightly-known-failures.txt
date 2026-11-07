@@ -68,3 +68,14 @@ tests/test_method_cpdr.py::test_d12_records_for_the_vii_files_are_chained_after_
 tests/model/test_o5_done_when.py::test_the_live_pause_refuses_and_touches_no_environment  # docs/rulings/2026-10-31-context-plan.md missing
 tests/model/test_gate.py::test_only_the_model_testing_ruling_lifts_the_pause  # same
 tests/model/test_gate.py::test_good_ruling_construction_touches_nothing_and_complete_reads_the_three_key_variables_once  # same
+
+# tests/prompts: fail at base (confirmed on the base tree 2026-11-07)
+tests/prompts/test_compose.py::test_an_existing_contract_appears_verbatim[financials]  # financials contract drift, as financials.k above
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[carriage-return-header]  # the form refuses it earlier with ContextRefused, not FenceError
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[end]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[end-prefix]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-context]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-evidence]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-repair]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[forged-source]  # same
+tests/prompts/test_fence.py::test_a_research_question_with_a_marker_is_refused[indented-header]  # same

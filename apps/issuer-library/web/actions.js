@@ -36,8 +36,7 @@ function spendText(status){
 // The app-wide run watcher: one list request at load, then every 5 s while a run is active. It sets
 // runMark (the title prefix) and the rail mark, and notifies when a run this page saw running finishes.
 let runMark='',titleBase='';
-const runWatch={timer:null,busy:false,states:new Map(),finished:null};
-const FINISH_MARK={complete:'✓ '};
+const runWatch={timer:null,busy:false,states:new Map(),finished:null,last:null};
 function applyTitle(){if(titleBase)document.title=`${runMark}${titleBase} · Issuer Library`;}
 function runTarget(job){return `${job.state==='complete'?'W-Reports/list':'W-Overview/overview'}?c=${encodeURIComponent(job.id)}`;}
 function reloadApp(){location.reload();}
@@ -59,7 +58,7 @@ function showRunMark(job){
 function notifyFinished(job){
   if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
   const note=new Notification('Issuer Library',{body:job.state==='complete'?`${job.issuer||'The'} run complete`:stopSentence(job)||job.message||`Run ${job.state}`,tag:job.id});
-  note.onclick=()=>{window.focus();location.hash=runTarget(job);if(document.body.dataset.draft!=='1')reloadApp();};
+  note.onclick=()=>{window.focus();if(mayDiscardDraft()){location.hash=runTarget(job);reloadApp();}};
 }
 async function watchRuns(){
   if(runWatch.busy)return;

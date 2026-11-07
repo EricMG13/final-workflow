@@ -209,3 +209,50 @@ def test_that_alone_still_refers_to_the_document_itself() -> None:
 def test_a_possessive_name_is_held_by_a_source_ending_it() -> None:
     held = (_source("credit-agreement", "x.pdf"),)
     assert _run("as defined in the Company’s Credit Agreement", extra=held) == ()
+
+
+# --- ruling: "set forth in", "specified in", "ascribed to ... in"; memorandum and prospectus ---
+# Each expected name is the quoted words after the pointer, case folded, read by hand.
+
+POINTER_CASES = [
+    ("has the meaning set forth in the Credit Agreement", "credit agreement"),
+    ("as set forth in Section 1.1 of the Credit Agreement", "credit agreement"),
+    ("has the meaning specified in the Credit Agreement", "credit agreement"),
+    ("have the meanings ascribed to such term in the Note Indenture", "note indenture"),
+    ("the meaning ascribed in the Credit Agreement", "credit agreement"),
+    ("as defined in the Offering Memorandum", "offering memorandum"),
+    ("as set forth in the Base Prospectus Supplement", "base prospectus supplement"),
+    ("specified in the Final Prospectus", "final prospectus"),
+    ("defined in the Information Memoranda", "information memoranda"),
+]
+
+
+@pytest.mark.parametrize("text,document", POINTER_CASES)
+def test_each_new_pointer_and_noun_is_refused_when_the_document_is_missing(
+    text: str, document: str
+) -> None:
+    assert _run(text) == (ISSUE.format(documents=f"'{document}'"),)
+
+
+@pytest.mark.parametrize("text,document", POINTER_CASES)
+def test_each_new_pointer_and_noun_is_accepted_when_the_document_is_present(
+    text: str, document: str
+) -> None:
+    held = (_source("doc", document.title() + ".pdf"),)
+    assert _run(text, extra=held) == ()
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "as defined in the Senior Secured Facility",  # the loan itself, not a document
+        "as set forth in the Senior Secured Notes",
+        "specified in the Finance Documents",
+        "set forth in the Conditions",
+        "as specified in the Commitment Letter",
+        "ascribed to such term in this Agreement",
+        "set forth in the Memorandum",  # no qualifier: same shape as "the Agreement"
+    ],
+)
+def test_facility_notes_documents_conditions_letter_name_no_document(text: str) -> None:
+    assert _run(text) == ()

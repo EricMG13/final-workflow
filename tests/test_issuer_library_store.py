@@ -2521,7 +2521,7 @@ def test_a_run_level_failure_names_its_type_and_reason_not_a_repr(tmp_path, monk
     assert "(ValueError: " in issue and "ValueError('" not in issue and len(issue) < 200
 
 
-# Task 17: a workspace-wide cash flow budget, no issuer-ID bridging, the run's own model read bounded.
+# Task 17: a workspace cash flow budget, no issuer-ID bridging, the own-model check read bounded.
 def cell_count(cashflow):
     return len(cashflow["rows"]) * len(cashflow["columns"])
 

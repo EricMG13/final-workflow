@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io/fs"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -705,5 +707,116 @@ func TestWindowsAccessListJudgement(t *testing.T) {
 		if got := othersMayWrite(c.list, trusted); got != c.others {
 			t.Errorf("%s: others may write %v, want %v", label, got, c.others)
 		}
+	}
+}
+
+// Review of S18 ruling 1: Start racing the quit watcher. Expected by hand, whichever runs first:
+// either Start gets 202 and the watcher then sees one run (it keeps running, answers "busy: 1
+// run, 0 reviews", and has not asked the app to stop), or the watcher wins (it stops) and Start
+// gets 503 with no claim and no worker, so nothing is orphaned. Any other pair is a defect.
+func TestStartRacingAQuitRequestNeverOrphansAWorker(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	var stops atomic.Int32
+	app.stop = func() { stops.Add(1) }
+	state := app.loc.State
+	started, quit := 0, 0
+	for round := range 40 {
+		var review map[string]any
+		w := reviewRequest(t, app, `["annual.txt"]`)
+		if w.Code != 200 {
+			t.Fatalf("round %d: review %d %s", round, w.Code, w.Body.String())
+		}
+		must(t, json.Unmarshal(w.Body.Bytes(), &review))
+		id := review["id"].(string)
+		plantRequest(t, state)
+		before := stops.Load()
+		var code int
+		var stopped bool
+		gate := make(chan struct{})
+		var group sync.WaitGroup
+		group.Go(func() {
+			<-gate
+			code = call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`).Code
+		})
+		group.Go(func() {
+			<-gate
+			time.Sleep(time.Duration(round%8) * 100 * time.Microsecond)
+			stopped = app.answerQuitRequest()
+		})
+		close(gate)
+		group.Wait()
+		claim := !absent(t, filepath.Join(root, "intake", id, "start.claim"))
+		switch {
+		case code == 202 && !stopped:
+			started++
+			if got := answerOf(t, state); got != "busy: 1 run, 0 reviews" || stops.Load() != before {
+				t.Fatalf("round %d: Start won; answer %q, stops %d", round, got, stops.Load()-before)
+			}
+			waitIdle(t, app)
+		case code == 503 && stopped:
+			quit++
+			if claim || !absent(t, filepath.Join(root, "intake", id, "synthetic-starts.txt")) || stops.Load() != before+1 {
+				t.Fatalf("round %d: quit won; claim %v, stops %d", round, claim, stops.Load()-before)
+			}
+			app.refreshing.Unlock() // The test's stand-in for the process ending.
+		default:
+			t.Fatalf("round %d: Start %d, library stopped %v", round, code, stopped)
+		}
+		_ = os.Remove(filepath.Join(state, quitAnswerName))
+		app.mu.Lock()
+		app.quitting = false
+		app.mu.Unlock()
+	}
+	t.Logf("Start won %d rounds, quit won %d", started, quit)
+}
+
+// Review of S18 ruling 1: planted answers and links on the relaunch side. Expected by hand: a
+// fresh, well-formed busy answer left in the folder before the relaunch (nobody is running to
+// write it) is deleted at the start, so the relaunch waits its 300 ms and reports
+// errAlreadyRunning rather than busy; a link at quit.answer is deleted, never followed; a link at
+// quit.request is replaced by a plain file of this launch (the link's target keeps its content);
+// a hard link to an old file is judged stale, removed, and its other name is untouched.
+func TestRelaunchSidePlantedAnswersAndLinks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("links are judged by Unix rules here")
+	}
+	shortQuitTimes(t, 300*time.Millisecond)
+	state := t.TempDir()
+	held, err := net.Listen("tcp4", "127.0.0.1:0")
+	must(t, err)
+	defer held.Close()
+	answer, request := filepath.Join(state, quitAnswerName), filepath.Join(state, quitRequestName)
+	outside := filepath.Join(t.TempDir(), "outside")
+	must(t, os.WriteFile(outside, []byte("kept"), 0600))
+
+	must(t, os.WriteFile(answer, []byte(`"busy: 9 runs, 9 reviews"`), 0600))
+	if _, err := askToQuit(state, held.Addr().String()); !errors.Is(err, errAlreadyRunning) {
+		t.Errorf("a pre-planted answer: %v", err)
+	}
+	must(t, os.Symlink(outside, answer))
+	if _, err := askToQuit(state, held.Addr().String()); !errors.Is(err, errAlreadyRunning) || !absent(t, answer) {
+		t.Errorf("a linked answer: %v, removed %v", err, absent(t, answer))
+	}
+	must(t, os.Symlink(outside, request))
+	if !placeQuitRequest(request, "quit requested by process 1\n") {
+		t.Error("the request behind a link was not replaced")
+	}
+	if info, err := os.Lstat(request); err != nil || !info.Mode().IsRegular() {
+		t.Errorf("request after a link: %v %v", info, err)
+	}
+	must(t, os.Remove(request))
+	old := filepath.Join(t.TempDir(), "old")
+	must(t, os.WriteFile(old, []byte("kept"), 0600))
+	must(t, os.Chtimes(old, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)))
+	must(t, os.Link(old, request))
+	if !placeQuitRequest(request, "quit requested by process 1\n") {
+		t.Error("a stale hard link was not replaced")
+	}
+	if raw, _ := os.ReadFile(old); string(raw) != "kept" {
+		t.Errorf("the hard link's other name changed: %q", raw)
+	}
+	if raw, _ := os.ReadFile(outside); string(raw) != "kept" {
+		t.Errorf("the link target changed: %q", raw)
 	}
 }

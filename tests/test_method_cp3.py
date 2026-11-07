@@ -913,3 +913,30 @@ def test_confidence_review_s08_c03_a_basis_of_talk_and_observed_is_not_capped() 
     assert result.issues == ()
     assert result.report is not None
     assert all("indicative talk only" not in text for text in result.report.limitations)
+
+
+def test_s08_c09_review_repair_paths_in_the_gap_case() -> None:
+    """Gap case (no market evidence), hand-derived from the ruling and the evidence rule. The two
+    repairs the issue offers do not loop: emptying the ordering composes (tested above); keeping
+    the ordering and claiming Medium is refused for the missing market evidence only, never for
+    the ordering. An Insufficient Information preference with an ordering and no limitation gets
+    both issues, the ordering one once."""
+    medium = _with_preference("gap", ("term-loan",), "Medium")
+    assert medium.report is None
+    assert (
+        "preference.confidence: Insufficient Information without observed or indicative "
+        "market evidence"
+    ) in medium.issues
+    assert INSUFFICIENT_ORDERING not in medium.issues
+    assert not [i for i in medium.issues if i.startswith("preference.ordering")]
+    inputs = make_inputs("gap")
+    preference = inputs.submission.preference.model_copy(
+        update={"ordering": ("term-loan",), "limitation": ""}
+    )
+    both = compute(
+        dataclasses.replace(
+            inputs, submission=inputs.submission.model_copy(update={"preference": preference})
+        )
+    )
+    assert both.issues.count(INSUFFICIENT_ORDERING) == 1
+    assert "preference: an Insufficient Information preference states its limitation" in both.issues

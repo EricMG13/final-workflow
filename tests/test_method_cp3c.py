@@ -2039,3 +2039,27 @@ def test_confidence_review_s08_a09_only_a_positive_cp1_cash_interest_is_not_mean
     assert cells["T3D.3.r07"].amount == Decimal(pro_forma)
     assert cells["T3D.3.r08"].amount is not None
     assert cells["T3D.3.r08"].amount.quantize(Decimal("0.0001")) == Decimal(pro_forma_cover)
+
+
+# --- review of S08-cp3-C08: precedence at the composer, operands given directly ---------------
+
+
+def test_s08_c08_review_precedence_at_the_composer() -> None:
+    """Hand-derived from the ruling. EBITDA -30 and paid interest 5: an unassessed step-up leaves
+    the pro forma interest missing, so the pro forma cover keeps that gap and the plain cover is
+    over EBITDA (not meaningful); a 0 bp step-up makes the pro forma interest 5 + 0, so both are
+    over EBITDA. A missing EBITDA with zero interest names the missing EBITDA first (operand
+    gaps come before the interest test). A tiny positive EBITDA over a 400 bp step-up publishes."""
+    negative = _single(adjusted_ebitda=Decimal(-30), cash_interest_paid=Decimal(5))
+    unassessed = cp3c.compose_refinancing(operands=negative, step_up_bps=None)
+    assert unassessed.interest_cover == _nm("adjusted EBITDA is zero or negative")
+    assert _missing(unassessed.pro_forma_interest_cover)
+    zero_bp = cp3c.compose_refinancing(operands=negative, step_up_bps=0)
+    nm = _nm("adjusted EBITDA is zero or negative")
+    assert (zero_bp.interest_cover, zero_bp.pro_forma_interest_cover) == (nm, nm)
+    missing = _single(adjusted_ebitda=None, cash_interest_paid=Decimal(0))
+    r = cp3c.compose_refinancing(operands=missing, step_up_bps=0)
+    assert _missing(r.interest_cover)
+    tiny = _single(adjusted_ebitda=Decimal("0.000000001"), cash_interest_paid=Decimal(5))
+    r = cp3c.compose_refinancing(operands=tiny, step_up_bps=0)
+    assert r.interest_cover == Decimal("0.0000")

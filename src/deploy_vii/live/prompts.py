@@ -311,6 +311,8 @@ def _renamed_links() -> str:
 
 
 STATEMENT_ITEMS_RULE = _statement_items_rule()
+# S12-A02 withheld refunds (user ruling, fail closed): the conflict
+# `statement_validation._withheld_account_issues` refuses.
 CONFLICT_RULE = (
     "An `accounts` entry and the statement line linked to it (the same metric and `period_id`; "
     "a line is usually linked to the account named like its `item_id`; the renamed links are: "
@@ -322,7 +324,10 @@ CONFLICT_RULE = (
     "`conflicting` with a null `amount`, a `reason` and at least two distinct located "
     "`alternatives` (each with an `amount`, `citations` and an `explanation`), never two silent "
     "values. A statement line whose `status` is `conflicting` leaves the matching `accounts` "
-    "amount null (`conflicting` or `missing`), never a canonical value."
+    "amount null (`conflicting` or `missing`), never a canonical value. Likewise a line of an "
+    "outflow account withheld as `missing` (rule d: a net inflow such as a refund) leaves that "
+    "period's `accounts` entry of its account out or with a null `amount`, never a figure the "
+    "statement withholds."
 )
 SEGMENT_ALLOCATION_RULE = (
     "`segment_allocation` places every `segment_id` exactly once: each segment appears in "

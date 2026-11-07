@@ -793,9 +793,10 @@
    },
    {
     "id": "financials.g",
-    "statement": "g. An `accounts` entry and the statement line linked to it (the same metric and `period_id`; a line is usually linked to the account named like its `item_id`; the renamed links are: IS `ebitda_reported` is the `ebitda` account, IS `ebitda_adjusted` is the `adjusted_ebitda` account, IS `income_tax_total` is the `income_tax_expense` account, CFS `capex_total` is the `capex_and_intangible_investment` account) must carry the same amount, an outflow compared as a negative number (for example the IS `income_tax_total` line and the `income_tax_expense` account). When the source gives two values, write the disagreement explicitly: set that observation's `status` to `conflicting` with a null `amount`, a `reason` and at least two distinct located `alternatives` (each with an `amount`, `citations` and an `explanation`), never two silent values. A statement line whose `status` is `conflicting` leaves the matching `accounts` amount null (`conflicting` or `missing`), never a canonical value.",
+    "statement": "g. An `accounts` entry and the statement line linked to it (the same metric and `period_id`; a line is usually linked to the account named like its `item_id`; the renamed links are: IS `ebitda_reported` is the `ebitda` account, IS `ebitda_adjusted` is the `adjusted_ebitda` account, IS `income_tax_total` is the `income_tax_expense` account, CFS `capex_total` is the `capex_and_intangible_investment` account) must carry the same amount, an outflow compared as a negative number (for example the IS `income_tax_total` line and the `income_tax_expense` account). When the source gives two values, write the disagreement explicitly: set that observation's `status` to `conflicting` with a null `amount`, a `reason` and at least two distinct located `alternatives` (each with an `amount`, `citations` and an `explanation`), never two silent values. A statement line whose `status` is `conflicting` leaves the matching `accounts` amount null (`conflicting` or `missing`), never a canonical value. Likewise a line of an outflow account withheld as `missing` (rule d: a net inflow such as a refund) leaves that period's `accounts` entry of its account out or with a null `amount`, never a figure the statement withholds.",
     "checks": [
-     "fn:deploy_vii.statement_validation:statement_issues"
+     "fn:deploy_vii.statement_validation:statement_issues",
+     "fn:deploy_vii.statement_validation:_withheld_account_issues"
     ]
    },
    {

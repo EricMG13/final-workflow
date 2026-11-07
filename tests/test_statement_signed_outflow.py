@@ -911,3 +911,184 @@ def test_a_withheld_refund_label_reads_missing_downstream() -> None:
     q2_cell = frame[column["q2-2025"]]["acct:cash_taxes_paid"]
     # Missing, never 0, -15 or +15.
     assert (q2_cell.value, q2_cell.reason) == (None, "NOT_STATED")
+
+
+# --- user ruling: an accounts row cannot contradict a withheld refund -----------------------------
+# Hand-derived: a `book.accounts` row takes precedence over the statement (`effective_accounts`) and
+# an outflow account's row is read -abs(amount). Beside a statement line withheld as `missing` (a
+# net refund of 15), an account written +15 would read -15 in a period the statement withholds:
+# wrong by 30 against the printed refund, and a figure where the register should hold none. So any
+# account amount (+15, -15 or 0) beside a withheld line of its account and period is a conflict; a
+# null account amount (`missing` or `conflicting`) or no account row agrees with the withheld line.
+
+CONFLICT_ISSUE = "Account contradicts a withheld statement line"
+
+
+def account(metric: str, amount: Decimal | None, period_id: str = "FY2024") -> AccountObservation:
+    return AccountObservation(
+        metric_id=metric,
+        period_id=period_id,
+        value=observation(f"acct-{metric}-{period_id}", amount),
+    )
+
+
+def with_accounts(lines: tuple[StatementLine, ...], *rows: AccountObservation) -> FinancialBook:
+    return book(lines).model_copy(update={"accounts": rows})
+
+
+def conflicts(issues: tuple[str, ...]) -> list[str]:
+    return [issue for issue in issues if CONFLICT_ISSUE in issue]
+
+
+@pytest.mark.parametrize(("statement", "item", "account_id"), OUTFLOW_ITEMS)
+def test_an_account_amount_beside_a_withheld_line_is_refused(
+    statement: str, item: str, account_id: str
+) -> None:
+    line = outflow_line(statement, item, None)
+    forged = with_accounts((line,), account(account_id, Decimal(15)))
+    [issue] = conflicts(statement_issues(forged))
+    # The account, the period and the line, and the repair, in one sentence.
+    assert f"account {account_id} FY2024 carries an amount while {line.line_id}" in issue
+    assert f"({statement} {item}) is withheld as `missing`" in issue
+    assert "leave that account row out or give it a null `amount`" in issue
+    assert ". " not in issue
+
+
+@pytest.mark.parametrize(
+    "amount", [Decimal(15), Decimal(-15), Decimal(0)], ids=["positive", "negative", "zero"]
+)
+def test_any_account_figure_beside_a_withheld_line_is_refused(amount: Decimal) -> None:
+    # 0 is a figure, not a gap: a zero account beside a withheld refund still contradicts it.
+    line = outflow_line("CFS", "cash_taxes_paid", None)
+    forged = with_accounts((line,), account("cash_taxes_paid", amount))
+    assert len(conflicts(statement_issues(forged))) == 1
+
+
+def test_a_null_account_beside_a_withheld_line_is_accepted() -> None:
+    line = outflow_line("CFS", "cash_taxes_paid", None)
+    missing = account("cash_taxes_paid", None)
+    conflicting = AccountObservation(
+        metric_id="cash_taxes_paid",
+        period_id="FY2024",
+        value=Observation(
+            observation_id="acct-conflict",
+            status="conflicting",
+            amount=None,
+            citations=(cite(REFUND),),
+            reason="Two figures are printed",
+            alternatives=(
+                Alternative(amount=Decimal(15), citations=(cite(REFUND),), explanation="table"),
+                Alternative(amount=Decimal(-15), citations=(cite("note"),), explanation="note"),
+            ),
+        ),
+    )
+    assert statement_issues(with_accounts((line,), missing)) == ()
+    assert statement_issues(with_accounts((line,), conflicting)) == ()
+    assert statement_issues(with_accounts((line,))) == ()
+
+
+@pytest.mark.parametrize(
+    ("line_amount", "convention", "account_amount"),
+    [
+        (Decimal(-15), "signed", Decimal(15)),  # both read -15: agree
+        (Decimal(-15), "signed", Decimal(-15)),
+        (Decimal(15), "outflow_magnitude", Decimal(15)),  # magnitude 15 reads -15: agree
+        (Decimal(0), "signed", Decimal(0)),
+    ],
+)
+def test_an_account_beside_a_known_line_is_unchanged(
+    line_amount: Decimal, convention: str, account_amount: Decimal
+) -> None:
+    line = outflow_line("CFS", "cash_taxes_paid", line_amount, convention=convention)
+    assert (
+        statement_issues(with_accounts((line,), account("cash_taxes_paid", account_amount))) == ()
+    )
+
+
+def test_an_account_beside_a_known_line_that_disagrees_keeps_the_existing_issue() -> None:
+    # Line -15, account -16: the existing disagreement issue, not the withheld-line conflict.
+    line = outflow_line("CFS", "cash_taxes_paid", Decimal(-15))
+    issues = statement_issues(with_accounts((line,), account("cash_taxes_paid", Decimal(-16))))
+    assert issues == (
+        "Statement/account disagreement requires explicit conflict: cash_taxes_paid FY2024",
+    )
+
+
+def test_an_account_in_another_period_than_the_withheld_line_is_unchanged() -> None:
+    # FY2024 withheld, account for FY2023 with no FY2023 line: nothing to contradict.
+    line = outflow_line("CFS", "cash_taxes_paid", None)
+    assert (
+        statement_issues(with_accounts((line,), account("cash_taxes_paid", Decimal(15), "FY2023")))
+        == ()
+    )
+
+
+def test_another_accounts_metric_beside_a_withheld_line_is_unchanged() -> None:
+    # The withheld line is cash_taxes_paid; the account is cash_interest_paid: no link.
+    line = outflow_line("CFS", "cash_taxes_paid", None)
+    forged = with_accounts((line,), account("cash_interest_paid", Decimal(15)))
+    assert statement_issues(forged) == ()
+
+
+@pytest.mark.parametrize(
+    ("statement", "item", "metric"),
+    [("IS", "revenue", "revenue"), ("IS", "income_tax_total", "income_tax_expense")],
+)
+def test_a_withheld_line_of_an_account_that_is_not_an_outflow_is_not_caught(
+    statement: str, item: str, metric: str
+) -> None:
+    # Outside the ruling: a non-outflow account is read as written, so no sign is invented.
+    line = outflow_line(statement, item, None)
+    assert conflicts(statement_issues(with_accounts((line,), account(metric, Decimal(15))))) == []
+
+
+def _accounts_case(q2_account: AccountObservation | None) -> tuple[PreparedPack, FinancialReview]:
+    """`flow_book` for cash_taxes_paid with Q2 withheld and, optionally, a Q2 accounts row."""
+    q2 = outflow_line("CFS", "cash_taxes_paid", None, period_id="q2-2025")
+    full = flow_book("CFS", "cash_taxes_paid", q2)
+    rows = () if q2_account is None else (q2_account,)
+    return case(full.model_copy(update={"accounts": rows}))
+
+
+def test_an_account_beside_a_withheld_refund_fails_the_whole_review_closed() -> None:
+    pack, review = _accounts_case(account("cash_taxes_paid", Decimal(15), "q2-2025"))
+    [issue] = validate_financial_review(pack, review)
+    assert issue.startswith(
+        f"book: {CONFLICT_ISSUE}: account cash_taxes_paid q2-2025 carries an amount while "
+        "cfs-cash-taxes-paid (CFS cash_taxes_paid)"
+    )
+    for build in (statement_report, reconcile_financials, kernel_registers):
+        with pytest.raises(ValueError, match=CONFLICT_ISSUE):
+            build(pack, review, "book")
+
+
+@pytest.mark.parametrize("repair", ["missing", "absent"])
+def test_a_repaired_account_reads_the_withheld_refund_as_missing(repair: str) -> None:
+    row = account("cash_taxes_paid", None, "q2-2025") if repair == "missing" else None
+    pack, review = _accounts_case(row)
+    assert validate_financial_review(pack, review) == ()
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    q2 = frame[column["q2-2025"]]["acct:cash_taxes_paid"]
+    # Q2 has no figure (never 0, -15 or +15), so the LTM at Q4 cannot be summed.
+    assert q2.value is None
+    assert ltm[column["q4-2025"]]["acct:cash_taxes_paid"].value is None
+
+
+def test_an_account_beside_a_known_line_reads_unchanged_end_to_end() -> None:
+    # Q2 line signed -15 and a Q2 account +15: both read -15. Q1 -1, Q2 -15, Q3 -1, Q4 0: LTM -17.
+    q2 = outflow_line("CFS", "cash_taxes_paid", Decimal(-15), period_id="q2-2025")
+    full = flow_book("CFS", "cash_taxes_paid", q2)
+    acct = account("cash_taxes_paid", Decimal(15), "q2-2025")
+    pack, review = case(full.model_copy(update={"accounts": (acct,)}))
+    assert validate_financial_review(pack, review) == ()
+    regs = kernel_registers(pack, review, "book")
+    columns = history.historical_columns(regs)
+    frame = history.account_frame(regs, columns)
+    ltm = history.ltm_frames(regs, columns)
+    column = {c.period_id: c.column_id for c in columns}
+    assert frame[column["q2-2025"]]["acct:cash_taxes_paid"].value == Decimal(-15)
+    assert ltm[column["q4-2025"]]["acct:cash_taxes_paid"].value == Decimal(-17)

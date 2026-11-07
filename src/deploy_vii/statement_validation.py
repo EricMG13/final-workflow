@@ -312,6 +312,29 @@ def _inflow_label_issues(book: FinancialBook) -> list[str]:
     ]
 
 
+def _withheld_account_issues(book: FinancialBook) -> list[str]:
+    """User ruling (S12-A02, fail closed): a `book.accounts` row of an `OUTFLOW_METRICS` account
+    is read -abs(amount) and takes precedence over the statement, so an amount beside that
+    account's statement line withheld as `missing` (a net inflow such as a refund) would give the
+    period the outflow the statement withholds. It is a conflict for the model to repair."""
+    withheld = {
+        (line.period_id, metric): line
+        for line in book.statement_lines
+        if line.value.status == "missing"
+        and (metric := ACCOUNT_LINKS.get((line.statement, line.item_id))) in OUTFLOW_METRICS
+    }
+    return [
+        f"Account contradicts a withheld statement line: account {account.metric_id} "
+        f"{account.period_id} carries an amount while {line.line_id} ({line.statement} "
+        f"{line.item_id}) is withheld as `missing` for that period (a net inflow such as a "
+        "refund); leave that account row out or give it a null `amount` (status `missing` with a "
+        "`reason`), never a figure the statement withholds"
+        for account in book.accounts
+        if account.value.amount is not None
+        and (line := withheld.get((account.period_id, account.metric_id))) is not None
+    ]
+
+
 def statement_issues(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 27, 26 branches, 70 statements at base, unchanged)
     book: FinancialBook,
 ) -> tuple[str, ...]:
@@ -442,7 +465,12 @@ def statement_issues(  # noqa: C901, PLR0912, PLR0915 - pre-existing (C901 27, 2
             for amount in linked.get((period_id, "opex_including_da"), ())
         ):
             issues.append(f"OPEX must include SG&A and intangible amortization: {period_id}")
-    return (*issues, *_signed_outflow_issues(book), *_inflow_label_issues(book))
+    return (
+        *issues,
+        *_signed_outflow_issues(book),
+        *_inflow_label_issues(book),
+        *_withheld_account_issues(book),
+    )
 
 
 class _AccountIndex(NamedTuple):

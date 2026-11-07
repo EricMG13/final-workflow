@@ -11,7 +11,7 @@ const workflowTitle=value=>String(value).replace(/_/g,' ').replace(/\b[a-z]/g,le
 const STATE_BADGE={running:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
 const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
 // Why a run stopped, in words a reader can act on. The redacted message follows the sentence.
-const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap. Retained work is kept; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
+const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
 function stopSentence(status){return WORKFLOW_ACTIVE.includes(status.state)||status.state==='complete'?'':STOP_COPY[status.reason]||'';}
 function stopText(status){const sentence=stopSentence(status);return sentence?(status.message?`${sentence} ${status.message}`:sentence):`${status.state}: ${status.message||''}`;}
 function describeModule(status,modules,nameOf){

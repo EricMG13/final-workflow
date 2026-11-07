@@ -2892,3 +2892,20 @@ def test_a_deliverable_name_equal_after_case_and_spacing_raises_no_issue(tmp_pat
     result, run = named_run_with_deliveries(tmp_path, ("ALP", "  alpha   HOLDINGS "))
     assert run["issuerKey"] == "id:alp"
     assert not any(i.startswith("runs/alpha-001") for i in result["issues"])
+
+
+def test_named_run_id_says_no_id_recorded_when_no_deliverable_has_one() -> None:
+    delivered = [{"issuer_id": None, "issuer_name": "Zeta Corp"}]
+    run_id, issue = store.named_run_id("Alpha Holdings", None, delivered)
+    assert run_id is None
+    assert (
+        issue
+        == "deliverables name the issuer 'Zeta Corp', not 'Alpha Holdings'; no issuer ID recorded"
+    )
+
+
+def test_named_run_id_keeps_the_id_when_the_names_differ() -> None:
+    delivered = [{"issuer_id": "ZET", "issuer_name": "Zeta Corp"}]
+    run_id, issue = store.named_run_id("Alpha Holdings", None, delivered)
+    assert run_id == "ZET"
+    assert issue == "deliverables name the issuer 'Zeta Corp', not 'Alpha Holdings'; issuer ID kept"

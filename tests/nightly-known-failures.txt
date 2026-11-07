@@ -40,7 +40,7 @@ tests/test_line_locators.py::test_extract_statements_rebases_rows_to_their_own_l
 tests/test_line_locators.py::test_a_page_pack_is_byte_identical_to_base
 tests/test_connect_cp1c.py::test_spec_row_is_appended_to_the_relative_value_composition  # fails at base (S05 medium fixer)
 
-# tests/test_model_testing_run.py: 14 fail at base (VERIFICATION.md 2026-11-05 notes them; upstream on_start fires for resumed modules)
+# tests/test_model_testing_run.py: 14 fail at base (VERIFICATION.md 2026-11-05 notes them)
 tests/test_model_testing_run.py::test_offline_pilot_scores
 tests/test_model_testing_run.py::test_score_and_report_commands_rebuild_the_outputs
 tests/test_model_testing_run.py::test_report_counts_settlements

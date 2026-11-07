@@ -2375,13 +2375,14 @@ def named_run_id(
             if squeezed(item["issuer_name"]) != squeezed(name)
         }
     )
+    taken = issuer_id or delivered[0]["issuer_id"]
     issue = (
         f"deliverables name the issuer {', '.join(repr(o) for o in others)}, not {name!r}; "
-        "issuer ID kept"
+        + ("issuer ID kept" if taken else "no issuer ID recorded")
         if others
         else None
     )
-    return issuer_id or delivered[0]["issuer_id"], issue
+    return taken, issue
 
 
 def recorded_identity(

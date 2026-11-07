@@ -96,7 +96,7 @@ test('polling stops when no run is active',async t=>{
 });
 test('a stopped run leads with the sentence for its reason',async t=>{
   const rows=[
-    ['budget','stopped','Stopped: the next model call would pass the spending cap. Retained work is kept; a new run needs a higher cap.'],
+    ['budget','stopped','Stopped: the next model call would pass the spending cap; a new run needs a higher cap.'],
     ['checker','stopped','Stopped: a module\'s handoff did not pass its check within the allowed turns.'],
     ['provider','stopped','Stopped: the model provider returned an error or an unknown charge.'],
     ['interrupted','interrupted','Stopped: the run was interrupted before a response was retained.'],

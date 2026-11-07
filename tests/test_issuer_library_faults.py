@@ -62,3 +62,20 @@ def test_faults_write_round_trips(tmp_path: Path) -> None:
         "artifacts": ["a.png"],
     }
     assert data["faults"][1]["artifacts"] == []
+
+
+def test_crashes_finds_a_recovered_handler_panic_after_a_log_timestamp() -> None:
+    log = (
+        "2026/11/07 12:00:01 listening\n2026/11/07 12:00:02 http: panic serving 127.0.0.1:1: boom\n"
+    )
+    assert len(faults.crashes(log)) == 1
+    assert len(faults.crashes("http: panic serving x\n")) == 1
+
+
+def test_faults_write_redacts_secrets_in_every_field(tmp_path: Path) -> None:
+    found = faults.Faults()
+    found.add("w", "exception", "key sk-abcdef123456 leaked", url="http://x/sk-abcdef123456")
+    path = tmp_path / "faults.json"
+    found.write(path, "scope", 0, secrets=["sk-abcdef123456"])
+    assert "sk-abcdef123456" not in path.read_text()
+    assert "[redacted]" in path.read_text()

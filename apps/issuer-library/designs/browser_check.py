@@ -77,6 +77,7 @@ def serve(
     shutil.rmtree(state, ignore_errors=True)
     LOGS[port] = S / f"server-{port}.log"
     LOGS[port].write_bytes(b"")  # stdout and stderr both append, so neither overwrites the other
+    stderr = LOGS[port].open("ab")
     process = subprocess.Popen(
         [
             APP,
@@ -90,8 +91,18 @@ def serve(
         ],
         env=env,
         stdout=subprocess.PIPE,
-        stderr=LOGS[port].open("ab"),
+        stderr=stderr,
     )
+    stderr.close()  # the child holds its own copy
+    try:
+        return wait_ready(process, port)
+    except BaseException:
+        process.terminate()
+        process.wait()
+        raise
+
+
+def wait_ready(process: subprocess.Popen[bytes], port: int) -> subprocess.Popen[bytes]:
     for _ in range(100):
         try:
             urllib.request.build_opener(urllib.request.ProxyHandler({})).open(
@@ -108,12 +119,17 @@ def serve(
     raise SystemExit("server did not start")
 
 
+def secrets() -> list[str]:
+    """Every provider key value in this environment, and the dummy key the fake engine gets."""
+    return [os.environ[k] for k in KEYS if k in os.environ] + ["not-a-real-key"]
+
+
 def copy_log(process: subprocess.Popen[bytes], log: Path) -> None:
     """Copy the server's stdout after the launch line into its log, so the pipe never fills."""
     assert process.stdout is not None
     with log.open("ab") as out:
         for line in process.stdout:
-            out.write(line)
+            out.write(redact(line.decode(errors="replace"), secrets()).encode())
             out.flush()
 
 
@@ -159,9 +175,6 @@ class SignedBrowser:
         page = context.new_page()
         self.pages.append(page)
         return page
-
-    def last_open_page(self) -> Any:
-        return next((p for p in reversed(self.pages) if not p.is_closed()), None)
 
     def close(self) -> None:
         self.browser.close()
@@ -589,17 +602,21 @@ def attempt(walk: str, browser: SignedBrowser, action: Any) -> None:
     an "exception" fault with a screenshot and the page source, and the gate then exits 1."""
     global WALK
     WALK = walk
+    opened = len(browser.pages)
     try:
         action()
     except (Exception, SystemExit) as error:  # noqa: BLE001
         artifacts: list[str] = []
         detail = f"{type(error).__name__}: {str(error)[:600]}"
-        page = browser.last_open_page()
+        # Only pages this walk opened; a name already used gets a number, so nothing is overwritten.
+        page = next((p for p in reversed(browser.pages[opened:]) if not p.is_closed()), None)
         if page is not None:
             try:
-                png, html = S / f"{walk}-failure.png", S / f"{walk}-failure.html"
+                taken = len(list(S.glob(f"{walk}-failure*.png")))
+                stem = f"{walk}-failure" + (f"-{taken + 1}" if taken else "")
+                png, html = S / f"{stem}.png", S / f"{stem}.html"
                 page.screenshot(path=str(png))
-                html.write_text(page.content())
+                html.write_text(redact(page.content(), secrets()))
                 artifacts = [str(png), str(html)]
             except PlaywrightError as capture:
                 detail += f" (page capture failed: {str(capture)[:200]})"
@@ -609,13 +626,16 @@ def attempt(walk: str, browser: SignedBrowser, action: Any) -> None:
 
 def scan_server_logs() -> None:
     """Redact every provider key value in each server log, then record each crash it shows."""
-    secrets = [os.environ[k] for k in KEYS if k in os.environ] + ["not-a-real-key"]
+    known = secrets()
     for drain in DRAINS:
         drain.join(timeout=5)
-    for port, log in LOGS.items():
+    # The Go server logs to <state-dir>/library.log; server-<port>.log holds only engine stdio.
+    logs = [(port, log) for port, log in LOGS.items()]
+    logs += [(port, S / f"state-{port}" / "library.log") for port in LOGS]
+    for port, log in logs:
         if not log.exists():
             continue
-        text = redact(log.read_text(errors="replace"), secrets)
+        text = redact(log.read_text(errors="replace"), known)
         log.write_text(text)
         for crash in crashes(text):
             FAULTS.add(f"server-{port}", "server-log", crash, artifacts=[str(log)])
@@ -643,12 +663,16 @@ def main(argv: list[str]) -> int:
     only = argv or list(engines)
     servers: list[subprocess.Popen[bytes]] = []
     try:
-        servers.append(serve(R, 53901, R / "apps/issuer-library/engine"))
-        with sync_playwright() as driver:
-            for number, name in enumerate(only):
-                browser = SignedBrowser(getattr(driver, name).launch(**engines[name]))
-                walk_engine(browser, name, number, servers)
-                browser.close()
+        try:
+            servers.append(serve(R, 53901, R / "apps/issuer-library/engine"))
+            with sync_playwright() as driver:
+                for number, name in enumerate(only):
+                    browser = SignedBrowser(getattr(driver, name).launch(**engines[name]))
+                    walk_engine(browser, name, number, servers)
+                    browser.close()
+        except (Exception, SystemExit) as error:  # noqa: BLE001 - recorded below, never silent
+            note(False, f"setup: stopped: {type(error).__name__}: {str(error)[:600]}", fault=False)
+            FAULTS.add("setup", "exception", f"{type(error).__name__}: {str(error)[:600]}")
     finally:
         for server in servers:
             server.terminate()
@@ -656,7 +680,7 @@ def main(argv: list[str]) -> int:
             server.wait()
         scan_server_logs()
         passed = sum(ok for ok, _ in results)
-        FAULTS.write(S / "faults.json", SCOPE, passed)
+        FAULTS.write(S / "faults.json", SCOPE, passed, secrets())
         print(f"{passed} passed, {len(results) - passed} failed")
         print(f"faults: {S / 'faults.json'}")
     return int(bool(FAULTS.items) or passed != len(results))
@@ -666,7 +690,8 @@ def walk_engine(browser: SignedBrowser, name: str, number: int, servers: list[An
     workspace = S / f"ws-{name}"
 
     def library() -> None:
-        walk: Any = real_workspace  # the walk itself predates typing; its checks are the proof
+        # Via Any: real_workspace is untyped; typing it would pull its 75 statements into the gate.
+        walk: Any = real_workspace
         walk(browser, name, 53901, full=name == "chromium")
 
     def fake_run() -> None:
@@ -686,8 +711,8 @@ def walk_engine(browser: SignedBrowser, name: str, number: int, servers: list[An
         )
         new_run(browser, "stopped", 53910, stopped, start="stop")
 
-    attempt(name, browser, library)
-    attempt(name, browser, fake_run)
+    attempt(f"{name}-library", browser, library)
+    attempt(f"{name}-run", browser, fake_run)
     if name == "chromium":
         attempt("stopped", browser, stopped_run)
 

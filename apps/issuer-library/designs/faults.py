@@ -6,22 +6,15 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+# Go log lines may start with a date and time; "http: panic serving" is net/http recovering a panic.
 CRASH = re.compile(
-    r"^(panic: |fatal error: |Traceback \(most recent call last\):|WARNING: DATA RACE)",
+    r"^(\d{4}/\d\d/\d\d \d\d:\d\d:\d\d(\.\d+)? )?"
+    r"(panic: |fatal error: |http: panic serving |Traceback \(most recent call last\):"
+    r"|WARNING: DATA RACE)",
     re.MULTILINE,
 )
 # A navigation or frame swap cancels a load; the cancelled request is not a fault.
 IGNORED_FAILURES: tuple[str, ...] = ("net::ERR_ABORTED", "NS_BINDING_ABORTED")
-KINDS = (
-    "check",
-    "console",
-    "pageerror",
-    "http",
-    "requestfailed",
-    "server-log",
-    "flow",
-    "exception",
-)
 
 
 def redact(text: str, secrets: Iterable[str]) -> str:
@@ -66,11 +59,11 @@ class Faults:
     ) -> None:
         self.items.append(Fault(walk, kind, detail, url, artifacts or []))
 
-    def write(self, path: Path, scope: str, passed: int) -> None:
+    def write(self, path: Path, scope: str, passed: int, secrets: Iterable[str] = ()) -> None:
         data = {
             "scope": scope,
             "passed": passed,
             "failed": len(self.items),
             "faults": [asdict(item) for item in self.items],
         }
-        path.write_text(json.dumps(data, indent=2) + "\n")
+        path.write_text(redact(json.dumps(data, indent=2), secrets) + "\n")

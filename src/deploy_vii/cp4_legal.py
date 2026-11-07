@@ -492,13 +492,17 @@ def _row_issues(path: str, row: BaseModel, upstream: Upstream) -> list[str]:
     for source_id in dict.fromkeys(quote.source_id for quote in _quotes(row)):
         if source_id not in legal:
             issues.append(
-                f"{path}: {source_id} is not an executed or filed source (CP-0 authority "
-                f"{upstream.authority.get(source_id, 'none')}, or the source is not ready)"
+                f"{path}: {source_id} is not an executed, filed or, on a draft-documents run, "
+                f"draft source (CP-0 authority {upstream.authority.get(source_id, 'none')}, or "
+                "the source is not ready)"
             )
     quotes = _quotes(row)
     if isinstance(row, LegalDocument):
         if row.source_id not in legal:
-            issues.append(f"{path}: {row.source_id} is not an executed or filed source")
+            issues.append(
+                f"{path}: {row.source_id} is not an executed, filed or, on a draft-documents "
+                "run, draft source"
+            )
         if not quotes:
             issues.append(f"{path}: a document row quotes its own source")
         if any(quote.source_id != row.source_id for quote in quotes):

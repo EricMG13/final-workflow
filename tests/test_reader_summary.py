@@ -169,3 +169,25 @@ def test_a_summary_figure_keeps_the_sign_unit_and_scale_the_handoff_wrote(
     if not accepted:
         assert len(issues) == 1 and "does not match the handoff" in issues[0]
         assert detail.split(" was ")[-1].rstrip(".") in issues[0]
+
+
+@pytest.mark.parametrize(
+    ("summary", "absent"),
+    [
+        # Hand-derived: a malformed figure is still read as its digit runs, as before the sign
+        # and unit check; none of these runs is in the handoff, so each is reported.
+        ("Version 1.2.3 applies.", ("1.2", "3")),
+        ("Dated 28.12.2024.", ("28.12", "2024")),
+        ("Margin was 12,5%.", ("12", "5")),
+        ("Debt was 1,2345.", ("1", "2345")),
+    ],
+)
+def test_a_malformed_summary_figure_is_still_checked(summary: str, absent: tuple[str, ...]) -> None:
+    issues = reader_issues(with_detail(summary, "Nothing numeric here."))
+    assert issues == tuple(
+        f"Reader summary number {n} does not appear in the handoff" for n in absent
+    )
+
+
+def test_a_malformed_figure_written_the_same_in_the_handoff_matches() -> None:
+    assert reader_issues(with_detail("Version 1.2.3 applies.", "Version 1.2.3 applies.")) == ()

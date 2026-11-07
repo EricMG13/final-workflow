@@ -447,3 +447,25 @@ def test_wrapped_list_item_stays_whole_and_an_unclosed_fence_ends_at_its_section
     assert prose_of(text, "Watch") == [("- Track cash interest.", [8, 9]), ("- Second.", [10])]
     assert prose_of(text, "Code") == [("``` x = 1 y = 2", [13, 14, 16])]
     assert [t for t, _ in prose_of(text, "Calculations")] == ["None."]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Ford's notes are secured.", "Ford’s notes are secured.", "Ford-owned notes.", "FORD, Inc."],
+)
+def test_issuer_name_beside_a_possessive_hyphen_or_comma_is_accepted(text):
+    require_issuer(ISSUER_RUN, (), "CP-1B", ["# CP-1B Analysis", "## Request", text])
+
+
+def test_a_wrapped_item_line_opening_with_a_year_or_parenthesised_number_is_not_a_new_item():
+    # Hand-derived: "2024." has four digits, so line 9 continues the item on line 8; "1)" and
+    # "2)" (lines 10 and 11) are items of their own; "  - nested" (line 12) is a new item.
+    findings = (
+        "### Watch\n- Leverage fell in\n2024. Revenue rose.\n1) First\n2) Second\n  - nested\n"
+    )
+    assert prose_of(handoff("Scope.", findings), "Watch") == [
+        ("- Leverage fell in 2024. Revenue rose.", [8, 9]),
+        ("1) First", [10]),
+        ("2) Second", [11]),
+        ("- nested", [12]),
+    ]

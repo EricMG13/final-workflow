@@ -13,15 +13,16 @@ TABLES = (
     ("Finding", "Creditor impact", "Confidence"),
 )
 CODE = re.compile(r"\bCP-[A-Z0-9]+\b|\bT\d+[A-Z]?\.\d+\b|\b[0-9A-Fa-f]{16,}\b")
-# A number as the reader sees it: whole (never inside a longer number), with the sign it was
-# written with (a leading minus, or parentheses) and the unit or scale written beside it.
+# A number as the reader sees it: the longest run of digits at that place (3.14 is read whole,
+# never as 3.1; a malformed 1.2.3 or 12,5 is still read, as 1.2 and 3, or 12 and 5), with the
+# sign it was written with (a leading minus, or parentheses) and the unit or scale beside it.
 _UNIT = (
     r"%|x\b|pp\b|bps\b|\s?per ?cent\b"
     r"|(?:\s?(?:US\$|USD|\$|EUR|€|GBP|£))?\s?(?:thousands?|millions?|billions?|trillions?|bn|mm|k|m)\b"
 )
 NUMBER = re.compile(
-    r"(?<!\d)(?<!\d[.,])(?P<open>\()?(?P<minus>(?<![\w)])[-\u2212])?"
-    r"(?P<n>\d+(?:,\d{3}(?!\d))*(?:\.\d+)?)(?!\d)(?![.,]\d)"
+    r"(?<!\d)(?P<open>\()?(?P<minus>(?<![\w)])[-\u2212])?"
+    r"(?P<n>\d+(?:,\d{3}(?!\d))*(?:\.\d+)?)"
     rf"(?P<u1>{_UNIT})?(?P<close>\))?(?P<u2>{_UNIT})?",
     re.IGNORECASE,
 )

@@ -279,6 +279,16 @@ def literal_module(
     )
 
 
+def _names_section(meta: tuple[str, str] | None, heading: str) -> bool:
+    """Whether prose metadata is a `heading` section, under its bare label or, where the heading
+    repeats, its path label (`Findings > heading`, `... (line 12)`), so no copy goes unseen."""
+    return (
+        meta is not None
+        and meta[1] == "prose"
+        and re.fullmatch(rf"(?:.+ > )?{re.escape(heading)}(?: \(line \d+\))?", meta[0]) is not None
+    )
+
+
 def _portfolio_call(
     module: ModuleView | None,
     metadata: dict[str, tuple[str, str]],
@@ -294,12 +304,13 @@ def _portfolio_call(
     choices = (
         r"Include|Avoid|Resize-Reduce|Resize-Increase|Maintain-Hold|Requires More Work"
         if portfolio
-        else r"Avoid|Watchlist|Starter Position|Core Hold|Add / Increase|Reduce / Trim|Exit|Requires More Work"
+        else r"Avoid|Watchlist|Starter Position|Core Hold|Add / Increase|Reduce / Trim|Exit"
+        r"|Requires More Work"
     )
     records = [
         fact
         for fact in module.facts
-        if metadata.get(fact.table_id) == (heading, "prose")
+        if _names_section(metadata.get(fact.table_id), heading)
         and (fact.text or "").startswith(prefix)
     ]
     if not records:

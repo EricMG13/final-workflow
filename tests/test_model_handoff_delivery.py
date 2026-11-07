@@ -454,3 +454,22 @@ def test_a_small_nonzero_ratio_is_not_displayed_as_zero() -> None:
     # Ratios that are not near zero keep two places.
     assert cells["gross_carrying_multiple", "FY2024"].count(".") == 1
     assert len(cells["gross_carrying_multiple", "FY2024"].split(".")[1].rstrip("x")) == 2
+
+
+@pytest.mark.parametrize(
+    ("value", "places"),
+    [
+        # Hand-derived: two places unless half a unit in the last place exceeds |value|.
+        (None, 2),
+        (Decimal(0), 2),
+        (Decimal("4.17"), 2),
+        (Decimal("0.005"), 2),  # 0.01x at two places (half-up): not zero
+        (Decimal("0.0049"), 3),  # 0.00x at two places, 0.005x at three
+        (Decimal("-0.004"), 3),
+        (Decimal("0.00000049"), 6),  # the contract's six-place cap
+    ],
+)
+def test_ratio_places_widen_only_to_keep_a_nonzero_ratio_from_reading_zero(value, places):
+    from deploy_workflow.model_handoff_delivery import _ratio_decimals
+
+    assert _ratio_decimals(value) == places

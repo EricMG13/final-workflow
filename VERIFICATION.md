@@ -8,6 +8,86 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Fixes for the whole-app review findings (branch `claude/review-fixes`)
+
+Scope: the 253 agreed findings of the whole-app review (`docs/review-handoff/` on
+`claude/review-handoff`): 4 critical, 49 high, 94 medium, 106 low after the cross-review.
+326 files against `claude/quality-gate` (src/deploy_workflow 95, src/deploy_vii 45,
+apps/issuer-library 28, tests, five case oracles rebuilt by their own builders and re-pinned).
+No change under runs/ or deliverables/. Offline only: no provider call, network fetch or key.
+Method (user): a model matrix. Each batch was fixed by one model and reviewed by the other
+(Opus/Sonnet). The reviewer confirmed or repaired each commit, ran a rewrite tournament and
+adversarial tests, and committed separately. Every merge passed the changed-code gate
+(`tools/quality_gate.py`, 0 findings at the end over 253 changed files) and targeted fast tests
+only (each pytest call under `timeout 300`; no test_owner_*, nothing promoting CP-0/CP-1). Frozen
+prompt digests: each deliberate wording change has a strip helper (`tests/prompts/s*_strip.py`),
+and the digest failures equal main's 26 by name. The rule-list golden sha256 section was refreshed
+after wave 1 and again at the end, each in its own commit. `cases/pins.py --check` matches 219
+paths.
+
+| Severity | Fixed | Partly fixed | Kept as is by user ruling | Already fixed by an earlier fix | Not a defect / not reachable |
+|---|---|---|---|---|---|
+| critical | 4 | 0 | 0 | 0 | 0 |
+| high | 45 | 4 | 0 | 0 | 0 |
+| medium | 91 | 2 | 0 | 1 | 0 |
+| low | 94 | 3 | 4 | 2 | 3 |
+
+User rulings (2026-11-07), applied through the same matrix with a review each:
+- S12-A02: option B, fail closed. A positive `signed` amount on an outflow-linked line is refused.
+  A printed magnitude uses `outflow_magnitude`. A refund is recorded as missing with its reason, and
+  the coverage gate accepts that withheld line. `o2-synthetic` was corrected through its builder.
+- S10-A05: a native CP-8 that CP-0 commands is recorded as refused (superseded, pointing to CP-OS
+  `run_comparison`) and the run finishes with a verified receipt.
+- S18-C03: a per-launch secret held in memory only. The one-time launch ticket expires after 120 s
+  and is exchanged for a SameSite=Strict session cookie. Same-site and cross-site requests are
+  refused. A relaunch asks an idle library to quit through an owner-only request file and then
+  opens a fresh link; a busy library answers with what is running.
+- S18-C08: a workspace switch is refused while a review is in flight.
+- S08-C08: interest covers are n.m. when adjusted EBITDA is ≤ 0.
+- S08-C09: an Insufficient Information preference has an empty ordering.
+- S13-A07: the financial-synthesis scope is gated per dimension.
+- S09-A08: a "Same definition" naming a document missing from the pack must be "Not determinable".
+- S09-C04: the source-refusal wording is corrected.
+- S09-A04 remainder: CP-4C picks the secured facility by T4.18 status. Its other upstream faults
+  are typed issues. A hopeless facility issue is refused at begin (no model call); the verifier
+  recomputes the reason from that snapshot's CP-1 head.
+- CP-4 missing-document check: "set forth in", "specified in" and "ascribed to" also count as
+  pointers, and memorandum and prospectus as document nouns.
+- S04-C11: the Model rail highlight is fixed.
+- CP-2E accepts "$m", "US$m" and "USDm" as millions, and refuses a unit statement that names a
+  currency other than the run's reporting currency. CP-1D matches its Basis clause without regard
+  to case, and its second-currency guard reads ISO 4217 codes only.
+- Refund handling: `outflow_magnitude` is refused on a line whose label states an inflow (outside a
+  "net of" clause), and an accounts row cannot contradict a withheld line.
+- S14-A02: the read-window bound is confirmed, superseding the PF-R7 exemption (recorded in
+  `cases/pilot-fixes/read-window.json`).
+- S15-C05: splitlines numbering is canonical (documented in `preparation.text_content`).
+- Kept as is: S03-C06, S05-C07, S13-C10 and the fail-closed confirmations.
+
+Partly fixed: S07-A01 (strict xfail `test_a01_quarter_cp2a_swapped_metric_is_refused`), S11-A03,
+S13-A03/C05, S01-A03, S06-A06, S07-C03, S05-C09, S09-C06. Also fixed: three defects reviewers found next to fixed findings
+(non-UTF-8 lines in the source and financial servers, now one shared `workflow.read_line` that
+the owner server also uses; lone surrogates in research manifests; the CP-4 stored claim
+limitation).
+Branch review (one final reviewer over the whole branch, report only): verdict merge, no blocker
+or high finding; conflict resolutions coherent; every composed-prompt difference across the 12
+step contracts maps to a named finding. Its low items were fixed through the matrix: comments
+opened mid-line are hidden too, financial_workflow (and owner_workflow through it) uses the atomic
+`workflow._put`, and the CP-4 context.py pin test is renamed to what it checks.
+Known-failure list: 45 more base failures found during the waves and confirmed on
+`claude/quality-gate` were added (`tests/model` ruling files, `tests/prompts` fence/compose,
+coverage rule, prompt-set digest, the 26 frozen-message digest failures, one o2 citation test, the
+financial-workflow full-component fixture and two research consumer-block stubs). The Issuer
+Library launch secret and relaunch quit request also need Windows and browser acceptance: the
+launch link and cookie in the report frames, the state-folder ACL check, the polling watcher,
+port rebinding and the dialogs.
+Not verified here (slow or not runnable in this container; the nightly run covers the pytest
+ones): every `test_owner_*` suite, including those touched by replay reuse, owner rendering, CP-0
+attachments and the shared `read_line`; test_run_pathway*, test_run_inputs, test_cp1_hybrid_offline,
+test_financial_workflow and test_host_h1 as a whole; the Issuer Library jsdom suites and
+browser_check; the Windows path of the S18-A07 worker lock (compiled and vetted only). Retained-data
+checks were deterministic replays of retained outputs, not live runs.
+
 ## 2026-11-07 — Nightly full-suite run; gate fix for duplicate module names
 
 Scope: `.github/workflows/nightly-tests.yml`, `tools/nightly_tests.py`,

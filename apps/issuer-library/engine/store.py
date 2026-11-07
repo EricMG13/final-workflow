@@ -9,14 +9,17 @@ import hashlib
 import json
 import re
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, NamedTuple
 from urllib.parse import quote
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE if (HERE / "src").is_dir() else HERE.parents[2]
 OUTPUT_SKIP = re.compile(r"instructions|prompt|calculations|verification")
-INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery")
+INPUT_NAME = re.compile(r"selected-input|peer-inputs|delivery|-request\.md")
 HANDOFF_NAME = re.compile(r"CP-[A-Z0-9]+")
+OUTPUT_SEPARATORS = ("-", "_", ".", " ")
 AEROSPACE = "Aerospace & defense"
 # Reading labels written by hand. Route key: (folder under runs/, issuer, title, run label, sector, period).
 CURATED_RUNS = {
@@ -205,7 +208,7 @@ def parse_source(text):
     return sections
 
 
-def sha256(path):
+def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -227,9 +230,11 @@ def locate_quote(sections, locator, owner):
     raise ValueError(f"{owner}: quote locator no longer matches {locator}")
 
 
-def output_label(module, path, siblings):
+def output_label(module: str, path: Path, siblings: list[Path]) -> tuple[str, int | None]:
     """Name a saved output from its file; a label never ranks it as accepted or primary."""
-    stem = module if path.name == f"{module}.md" else path.name[len(module) + 1 : -3]
+    rest = path.name.removeprefix(module).removesuffix(".md")
+    # At most one separator follows the module code; a name with nothing else is its own label.
+    stem = (rest[1:] if rest[:1] in OUTPUT_SEPARATORS else rest) or (path.name if rest else module)
     attempt = re.fullmatch(r"(?:(.+)-)?attempt-(\d+)", stem)
     if not attempt:
         repeated = sum(s.name == path.name for s in siblings) > 1
@@ -237,8 +242,9 @@ def output_label(module, path, siblings):
         return stem[0].upper() + stem[1:] + (
             f" · delivery {path.parent.name[:8]}" if delivered else ""
         ), None
-    prefix = f"{attempt[1]}-" if attempt[1] else ""
-    total = sum(bool(re.fullmatch(rf"{module}-{prefix}attempt-\d+\.md", s.name)) for s in siblings)
+    # Siblings in the same series share the file name up to "attempt-", taken literally.
+    head = re.escape(path.name.removesuffix(f"attempt-{attempt[2]}.md"))
+    total = sum(bool(re.fullmatch(rf"{head}attempt-\d+\.md", s.name)) for s in siblings)
     counted = f"attempt {attempt[2]} of {total}"
     return (f"{attempt[1].capitalize()} · {counted}" if attempt[1] else counted.capitalize()), int(
         attempt[2]
@@ -354,71 +360,112 @@ def reader_fields(sections):
     return {"summary": summary, "charts": charts, "issue": "; ".join(problems) or None}
 
 
-def structured(raw, strict):
-    """Typed blocks. In the app a handoff the parser refuses stays readable as one flagged block."""
+def structured(raw: bytes, strict: bool) -> tuple[list[dict[str, Any]], str | None]:
+    """Typed blocks. In the app a handoff the parser refuses stays readable as one flagged block.
+
+    A UTF-8 byte-order mark, which Windows editors often write, is not part of the first heading.
+    """
     try:
-        return parse_source(raw.decode("utf-8")), None
+        return parse_source(raw.decode("utf-8-sig")), None  # type: ignore[no-untyped-call]  # legacy untyped parser
     except ValueError as error:
         if strict:
             raise
-        text = raw.decode("utf-8", "replace")
+        text = raw.decode("utf-8-sig", "replace")
         block = {"type": "text", "line": 1, "end": text.count("\n") + 1, "text": text}
         return [{"heading": "Unstructured handoff", "level": 1, "line": 1, "blocks": [block]}], str(
             error
         )
 
 
-def handoff_files(run_dir):
-    """Handoffs at the run root, then those the launcher delivered; a repeated delivery is one file."""
-    paths, seen = [], set()
+def linked(folder: Path) -> bool:
+    """A symbolic link or Windows junction: either can lead a folder out of its run."""
+    return folder.is_symlink() or folder.is_junction()
+
+
+class Handoff(NamedTuple):
+    """One handoff file as read once: the parsed text and every hash shown come from these bytes."""
+
+    module: str
+    raw: bytes
+    sha256: str
+
+
+def handoff_files(run_dir: Path) -> dict[Path, Handoff]:
+    """Handoffs at the run root, then those the launcher delivered; each distinct file once."""
+    found: dict[Path, Handoff] = {}
+    seen: set[str] = set()
+    base = run_dir.resolve()
     for path in [*sorted(run_dir.glob("CP-*.md")), *sorted(run_dir.glob("deliveries/*/CP-*.md"))]:
-        # The server serves regular files only, so a link out of the run is not a handoff either.
+        # The server serves regular files only, so a link out of the run is not a handoff either:
+        # not a linked file, not a linked or junctioned delivery folder, nothing resolving outside.
         if (
             # Windows matches these patterns regardless of case; the names here do not.
-            HANDOFF_NAME.match(path.name)
+            (match := HANDOFF_NAME.match(path.name))
             and path.name.endswith(".md")
             and not OUTPUT_SKIP.search(path.name)
             and path.is_file()
             and not path.is_symlink()
-            and sha256(path) not in seen
+            and (path.parent == run_dir or not linked(path.parent))
+            and path.resolve().is_relative_to(base)
         ):
-            seen.add(sha256(path))
-            paths.append(path)
-    return paths
+            raw = path.read_bytes()
+            digest = hashlib.sha256(raw).hexdigest()
+            if digest not in seen:
+                seen.add(digest)
+                found[path] = Handoff(match[0], raw, digest)
+    return found
 
 
-def collect_runs(root, shown, catalog, link, strict=True):
+def collect_runs(
+    root: Path,
+    shown: dict[str, tuple[str, ...]],
+    catalog: dict[str, Any],
+    link: Callable[[str, str, str], str],
+    strict: bool = True,
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, Any],
+    dict[str, list[dict[str, Any]]],
+    dict[str, str],
+    list[str],
+]:
     """Parse every saved output of every shown run; each file keeps its own identity."""
-    runs, outputs, inputs, sources, pins, issues = {}, {}, {}, {}, {}, []
+    runs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+    inputs: dict[str, Any] = {}
+    sources: dict[str, list[dict[str, Any]]] = {}
+    pins: dict[str, str] = {}
+    issues: list[str] = []
     for key, (folder, issuer, title, label, sector, period) in shown.items():
         run_dir = root / "runs" / folder
 
-        def relative(path, base=run_dir):  # The default binds this run's folder.
+        # The default binds this run's folder.
+        def relative(path: Path, base: Path = run_dir) -> str:
             return path.relative_to(base).as_posix()
 
-        grouped = {}
-        for path in handoff_files(run_dir):
+        grouped: dict[str, dict[str, list[Path]]] = {}
+        read = handoff_files(run_dir)
+        for path, handoff in read.items():
             kind = "inputs" if INPUT_NAME.search(path.name) else "outputs"
-            grouped.setdefault(HANDOFF_NAME.match(path.name)[0], {"outputs": [], "inputs": []})[
-                kind
-            ].append(path)
-            sources.setdefault(sha256(path), []).append(
+            grouped.setdefault(handoff.module, {"outputs": [], "inputs": []})[kind].append(path)
+            sources.setdefault(handoff.sha256, []).append(
                 {"run": key, "source": f"{folder}/{relative(path)}", "output": kind == "outputs"}
             )
-        modules = {}
-        first = None
+        modules: dict[str, Any] = {}
+        first: str | None = None
         for module, files in grouped.items():
             config = catalog.get(module, {})
-            pinned = None
+            pinned: str | None = None
             labels = {
                 relative(f): output_label(module, f, files["outputs"]) for f in files["outputs"]
             }
             for path in files["outputs"]:
                 name = relative(path)
                 output_id = f"{folder}/{name}"
-                digest = sha256(path)
-                sections, problem = structured(path.read_bytes(), strict)
-                record = {
+                digest = read[path].sha256
+                sections, problem = structured(read[path].raw, strict)
+                record: dict[str, Any] = {
                     "id": output_id,
                     "run": key,
                     "module": module,
@@ -433,7 +480,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                     "firstHeading": config.get("firstHeading"),
                     "sections": sections,
                 }
-                record.update(reader_fields(sections))
+                record.update(reader_fields(sections))  # type: ignore[no-untyped-call]  # legacy untyped parser
                 if record["issue"]:
                     issues.append(f"{output_id}: {record['issue']}")
                 if problem:
@@ -441,7 +488,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                     issues.append(f"{output_id}: shown unstructured ({problem})")
                 if config.get("path") == output_id:
                     try:
-                        record.update(pinned_fields(sections, config, module))
+                        record.update(pinned_fields(sections, config, module))  # type: ignore[no-untyped-call]  # legacy untyped parser
                         pins[module] = pinned = output_id
                         first = first or module
                     except (ValueError, KeyError, IndexError) as error:
@@ -451,7 +498,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
                 outputs[output_id] = record
             for path in files["inputs"]:
                 name = relative(path)
-                digest = sha256(path)
+                digest = read[path].sha256
                 inputs[f"{folder}/{name}"] = {
                     "module": module,
                     "run": key,
@@ -464,7 +511,7 @@ def collect_runs(root, shown, catalog, link, strict=True):
             modules[module] = {
                 "outputs": [f"{folder}/{s}" for s in sources_here],
                 "inputs": [f"{folder}/{relative(f)}" for f in files["inputs"]],
-                "default": default_output(
+                "default": default_output(  # type: ignore[no-untyped-call]  # legacy untyped helper
                     folder, sources_here, pinned, {s: labels[s][1] for s in sources_here}
                 )
                 if sources_here
@@ -487,21 +534,68 @@ def collect_runs(root, shown, catalog, link, strict=True):
     return runs, outputs, inputs, sources, pins, issues
 
 
-def built_from(folder, sources):
-    """Each handoff beside a report, traced to the run files holding the same bytes, or named as unmatched."""
+def built_from(
+    files: dict[str, str], sources: dict[str, list[dict[str, Any]]]
+) -> list[dict[str, Any]]:
+    """Each handoff the verified delivery lists, traced to the run files holding the same bytes.
+
+    The names and hashes are delivery.json's, which the server verified; a handoff-looking file
+    beside the report that the delivery does not list was not verified and is not "built from".
+    """
     rows = []
-    for path in sorted(folder.glob("CP-*.md")):
-        digest = sha256(path)
-        match = HANDOFF_NAME.match(path.name)
-        if not match:
+    for name, digest in sorted(files.items()):
+        match = HANDOFF_NAME.match(name)
+        if not match or not name.endswith(".md"):
             continue
-        module = match[0]
-        matches = sources.get(digest) or [{"run": None, "source": path.name, "output": False}]
-        rows += [{"module": module, "sha256": digest, **match} for match in matches]
+        matches = sources.get(digest) or [{"run": None, "source": name, "output": False}]
+        rows += [{"module": match[0], "sha256": digest, **found} for found in matches]
     return rows
 
 
-def catalogue_reports(root, catalogue, sources):
+def report_record(
+    root: Path, folder: str, artifact: dict[str, Any], sources: dict[str, list[dict[str, Any]]]
+) -> dict[str, Any]:
+    """One verified deliverable as the app shows it; raises when its delivery cannot be read."""
+    name = Path(folder).name
+    delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
+    identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))["run"]
+    issuer_name, as_of = identity["issuer_name"], identity["as_of"]
+    files = {str(n): str(h) for n, h in delivery["files"].items()}
+    # The hand-written labels describe the TransDigm builds under deliverables/; a folder of that
+    # name elsewhere or for another issuer keeps the issuer its own view.json records.
+    curated = (
+        folder == f"deliverables/{name}"
+        and name in CURATED_REPORTS
+        and str(issuer_name).startswith("TransDigm Group")
+    )
+    issuer = "TransDigm Group" if curated else issuer_name
+    if curated:
+        label, status = CURATED_REPORTS[name]
+    else:
+        label = artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
+        status = "Superseded" if artifact.get("state") == "superseded" else None
+    return {
+        "id": name,
+        "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,
+        "label": label,
+        "status": status,
+        "issuer": issuer,
+        "sha256": files["report.html"],
+        "scope": delivery.get("scope"),
+        "modelPublished": delivery.get("cp_model_published", False),
+        "href": artifact["href"] + "&embedded=1",
+        "download": artifact["href"] + "&download=1",
+        "files": [
+            {"name": n, "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1"}
+            for n, h in sorted(files.items())
+        ],
+        "builtFrom": built_from(files, sources),
+    }
+
+
+def catalogue_reports(
+    root: Path, catalogue: dict[str, Any], sources: dict[str, list[dict[str, Any]]]
+) -> tuple[list[dict[str, Any]], list[str]]:
     """Deliverables the server verified, each once, with what it was built from."""
     reports, seen, issues = [], set(), []
     for run in catalogue["real"]:
@@ -513,53 +607,18 @@ def catalogue_reports(root, catalogue, sources):
             seen.add(name)
             # Documented fail-open: reported in Settings; the other deliverables stay readable.
             try:
-                delivery = json.loads((root / folder / "delivery.json").read_text(encoding="utf-8"))
-                identity = json.loads((root / folder / "view.json").read_text(encoding="utf-8"))[
-                    "run"
-                ]
-                issuer_name, as_of = identity["issuer_name"], identity["as_of"]
-            except (OSError, ValueError, KeyError) as error:
+                reports.append(report_record(root, folder, artifact, sources))
+            except (OSError, ValueError, KeyError, TypeError, AttributeError) as error:
                 issues.append(f"{folder}: could not be read ({error!r})")
-                continue
-            curated = name in CURATED_REPORTS
-            issuer = "TransDigm Group" if curated else issuer_name
-            default = (
-                artifact["label"] if artifact["label"] != name else f"{issuer} · as of {as_of}"
-            )
-            label, status = CURATED_REPORTS.get(
-                name, (default, "Superseded" if artifact.get("state") == "superseded" else None)
-            )
-            reports.append(
-                {
-                    "id": name,
-                    "build": list(CURATED_REPORTS).index(name) + 1 if curated else None,
-                    "label": label,
-                    "status": status,
-                    "issuer": issuer,
-                    "sha256": delivery["files"]["report.html"],
-                    "scope": delivery.get("scope"),
-                    "modelPublished": delivery.get("cp_model_published", False),
-                    "href": artifact["href"] + "&embedded=1",
-                    "download": artifact["href"] + "&download=1",
-                    "files": [
-                        {
-                            "name": n,
-                            "href": f"/files/{quote(f'{folder}/{n}')}?sha256={h}&download=1",
-                        }
-                        for n, h in sorted(delivery["files"].items())
-                    ],
-                    "builtFrom": built_from(root / folder, sources),
-                }
-            )
     return reports, issues
 
 
-def visual_catalogue():
+def visual_catalogue() -> list[dict[str, str]]:
     with (REPO / "docs/visualisations/catalogue.csv").open(encoding="utf-8-sig") as source:
         return list(csv.DictReader(source))
 
 
-def recorded_run(run_dir):
+def recorded_run(run_dir: Path) -> dict[str, str]:
     """The text fields of the launcher's own manifest; a run without a readable one records none."""
     try:
         manifest = json.loads((run_dir / "workflow.json").read_text(encoding="utf-8"))
@@ -568,7 +627,7 @@ def recorded_run(run_dir):
         return {}
 
 
-def run_row(root, run):
+def run_row(root: Path, run: dict[str, Any]) -> tuple[str, ...]:
     """Labels for a run with no curated ones: the launcher's own manifest, else the catalogue."""
     folder = run["id"]
     identity = recorded_run(root / "runs" / folder)
@@ -583,12 +642,13 @@ def run_row(root, run):
     return (folder, issuer, issuer, label, run.get("sector") or "Unclassified", period)
 
 
-def workspace_store(root, catalogue):
-    """Everything the app reads. A curated pin that stopped matching is dropped and reported, not fatal."""
+def workspace_store(root: str | Path, catalogue: dict[str, Any]) -> dict[str, Any]:
+    """Everything the app reads. A curated pin that stopped matching is dropped, not fatal."""
     root = Path(root)
     catalog = json.loads((HERE / "catalog.json").read_text(encoding="utf-8"))
     curated = {row[0]: (key, row) for key, row in CURATED_RUNS.items()}
     shown, issues = {}, list(catalogue.get("issues") or [])
+    route_keys = {curated[run["id"]][0] for run in catalogue["real"] if run["id"] in curated}
     for run in catalogue["real"]:
         folder = run["id"]
         if folder.startswith("delivery:"):
@@ -596,13 +656,22 @@ def workspace_store(root, catalogue):
         if not SAFE_FOLDER.fullmatch(folder):
             issues.append(f"{folder}: folder name cannot be linked; rename it to show this run")
             continue
+        if folder in route_keys and folder not in curated:
+            # The route key names the retained case in links and pins: never replace it.
+            issues.append(f"{folder}: name is a retained case's route key; rename it to show it")
+            continue
         key, row = curated.get(folder) or (folder, run_row(root, run))
         shown[key] = row
 
-    def link(folder, relative, digest):
+    def link(folder: str, relative: str, digest: str) -> str:
         return f"/files/{quote(f'runs/{folder}/{relative}')}?sha256={digest}"
 
-    runs, outputs, inputs, sources, pins, found = {}, {}, {}, {}, {}, []
+    runs: dict[str, Any] = {}
+    outputs: dict[str, Any] = {}
+    inputs: dict[str, Any] = {}
+    sources: dict[str, list[dict[str, Any]]] = {}
+    pins: dict[str, Any] = {}
+    found: list[str] = []
     for key, row in shown.items():
         # Documented fail-open: one run that cannot be read is hidden and reported in Settings.
         try:
@@ -619,6 +688,7 @@ def workspace_store(root, catalogue):
         found += part[5]
     reports, unread = catalogue_reports(root, catalogue, sources)
     found += unread
+    # A compared deliverable is a curated build, not a folder that merely has its name.
     for module, config in catalog.items():
         compare = config.get("compare")
         if (
@@ -627,7 +697,7 @@ def workspace_store(root, catalogue):
             and not (
                 compare["recheck"] in outputs
                 and {compare["prior"], compare["current"], compare["repaired"]}
-                <= {r["id"] for r in reports}
+                <= {r["id"] for r in reports if r["build"]}
             )
         ):
             del pins[module]

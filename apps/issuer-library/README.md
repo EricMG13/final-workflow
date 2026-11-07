@@ -11,6 +11,7 @@ delivery folders. Candidate output remains explicitly qualified.
    Choose the appropriate Windows ZIP (amd64 for Intel/AMD, arm64 for Windows on ARM).
 2. Double-click **Issuer Library.exe**. It opens the default browser and runs
    only on `127.0.0.1`. No Python, Node, installation downloads or internet are needed.
+   The browser is signed in to this launch only (see **Local session** below).
 3. In **Settings** on the left rail, enter the full folder containing `runs/` and
    `deliverables/`, then choose **Save and reload**. The default is the Windows
    Documents known folder plus `FinalWorkflow`; existing folders are not moved.
@@ -22,8 +23,15 @@ delivery folders. Candidate output remains explicitly qualified.
    Discovery runs every 30 seconds; when it finds a change the app offers **Reload**.
    **Download original HTML** saves the standalone report.
 5. **Quit library** in Settings stops the service. Closing a tab leaves it running.
-   Launching the executable again reopens the same per-user instance. Quitting or
-   changing workspace is refused while a model run is active.
+   Launching the executable again asks its running per-user instance to quit: with no model
+   run and no run review in flight it quits, and the new launch opens a fresh window. This is
+   also the way back in when the browser has lost its session (cookies cleared, a private window
+   closed). With a run or review in flight the library keeps running and the new launch says
+   "Issuer Library is busy (1 run, 0 reviews); wait for it to finish, then start it again." (see
+   **Relaunch** below). Quitting or changing workspace is refused while a model run is active.
+   Switching to another workspace is also refused (409, "A run review is in progress…") while a
+   run review writes into the current one, up to the 10-minute review bound however the review
+   ends; saving the same workspace still works.
 
 The Windows binaries are cross-compiled pilot builds, not signed enterprise
 releases. Windows execution, browser rendering and enterprise rollout still need
@@ -76,6 +84,9 @@ standard parent folders in a new writable workspace. Existing run destinations a
 overwritten. A stopped web run shows the handoffs it accepted and publishes no report. It
 is not resumed from the app; the command line can resume the run folder.
 A crash/interruption is retained and does not trigger an automatic paid restart.
+The worker holds `intake/<run-id>/worker.lock` while it runs. When the app starts again, a run
+still marked running whose worker has ended is shown as interrupted; one whose worker is still
+running stays active (no second Start, no workspace change) until that worker ends.
 
 The Windows package contains pinned Python 3.13.15 and its dependency wheels,
 verified against upstream SHA-256 digests at build time. It needs no Python/pip
@@ -91,7 +102,8 @@ paid model success have not been demonstrated on this macOS build host.
 - Managed configuration: `%ProgramData%\FinalWorkflow\IssuerLibrary\settings.json`.
   If present, it takes precedence and locks workspace changes in the UI/CLI.
 - Per-user state: `%LOCALAPPDATA%\FinalWorkflow\IssuerLibrary\settings.json`,
-  `index.json` and `library.log` (rotated on launch above 1 MiB).
+  `index.json` and `library.log` (rotated on launch above 1 MiB), and for a moment during a
+  relaunch `quit.request` or `quit.answer`.
 - Business data: an approved workspace with `data/`, `runs/` and `deliverables/`.
   Windows Known Folder APIs resolve Documents, LocalAppData and ProgramData,
   including folder redirection. No user-specific absolute path is embedded.
@@ -107,6 +119,53 @@ locally available: disconnected network shares and cloud placeholders cannot be
 read. A moved workspace needs one configuration update. Store the canonical files
 in the workspace, not in the index; the index is disposable and rebuilt on launch.
 Per-user state must not be redirected to a shared index used by multiple users.
+
+**Local session.** Loopback is shared by every user and process on the machine, so the headers
+the app checks (Host, Origin, Sec-Fetch-Site, `X-Issuer-Library`) are not enough on their own.
+Sec-Fetch-Site is accepted only as `same-origin` (the app's page, its report and context frames
+and its downloads) or `none` (the address the launcher opens), or absent; `same-site` is
+refused with 403 like `cross-site`, because a page on another `127.0.0.1` port is the same site
+and the SameSite=Strict cookie goes with its requests. Each launch makes a random one-time
+ticket and a random session secret (32 bytes each, `crypto/rand`), held in memory only: never
+in `library.log`, settings, the index or a response body. The launcher opens
+`/launch?ticket=…`; the first GET exchanges the ticket for an `HttpOnly; SameSite=Strict;
+Path=/` cookie and redirects to `/`, so the ticket leaves the address bar (a HEAD or a wrong
+ticket does not spend it; a used ticket is refused). The ticket expires 120 seconds after the
+library is ready (after its first discovery): an expired ticket gets the same 403 and is never
+accepted, and starting the library again opens a fresh link (see **Relaunch**). On a shared
+Linux or macOS host other local users can read the ticket on the command line of the browser
+opener (`xdg-open` or `open`) and of a browser it starts, for that short window: until the
+browser has exchanged it, 120 seconds at most. Windows is the target platform. The cookie has
+no `Secure` flag because plain loopback HTTP has no TLS, and no expiry. Every request except
+`/launch` and `/health` (the instance check, which reads no workspace data) needs the cookie,
+compared in constant time; without it the answer is 403 "Open Issuer Library from its
+launcher…". With `--no-browser` the one-time link is printed on standard output only, for
+whoever started the library. Cookies are not separated by port, so the cookie name carries the
+port.
+
+**Relaunch.** A second launch asks `/health` and finds its own instance, whose secret it cannot
+learn. It asks that instance to quit through the per-user state folder instead: no network
+endpoint, and no secret on disk. It creates `quit.request` there (owner-only, holding only its
+process id) and waits up to 10 seconds; the running instance looks for it every 250 ms.
+- No model run and no run review in flight: the instance deletes the request, lets requests in
+  flight finish (3 seconds at most), stops and releases its port. The new launch then starts as
+  usual and opens a fresh one-time link; the old browser session ends with the old instance.
+- A run or review in flight: the instance keeps running, writes `quit.answer` (no secret, for
+  example `busy: 1 run, 0 reviews`) and deletes the request. The new launch deletes the answer,
+  shows "Issuer Library is busy (1 run, 0 reviews); wait for it to finish, then start it again."
+  and opens nothing.
+- No answer in time (an older build, or a hung instance): the new launch withdraws its request
+  and says "Issuer Library is already running and did not quit for this launch", with the
+  Settings and Task Manager ways to quit it.
+
+Neither side acts while other users can write to the state folder: a group or world write bit
+on Linux and macOS (or a folder of another user), and on Windows an access-control entry giving
+write access to anyone but the user, SYSTEM and Administrators (`%LOCALAPPDATA%` is private this
+way by default). The instance deletes unread a request older than 20 seconds or one that is not
+a plain file private to the user (a link is deleted, never followed). A starting instance clears
+both files. A discovery or workspace change in progress defers the request to the next look, and
+once the instance agrees to quit no review or Start begins (503). With `--workspace` a relaunch
+behaves the same and the new instance uses that workspace.
 
 Only enumerated files under the selected workspace can be served. Pinned files
 are rechecked when opened. Reports run in an opaque sandbox with external network
@@ -154,7 +213,10 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
   Each supplied metric has a decimal-string `value`, `unit`, `period`, `basis` and
   source key. Units must carry currency/scale where applicable, e.g. `USD m`.
   Keep unavailable values null, distinct from zero. Evidence checks establish
-  literal transport, not an independent financial interpretation of the row.
+  literal transport, not an independent financial interpretation of the row:
+  the value must equal a whole number in the quote, sign and scale included
+  (thousands commas group three digits; an accounting `(12.3)` is `-12.3`). A
+  fragment of a date, range, list or decimal-comma figure does not count.
   Optional `provenance` is the producer's explicit `cited`, `calculated` or
   `synthetic` classification. Omit it when unknown: the interface shows
   **Not classified** beside the source link. A verified source alone does not
@@ -196,9 +258,12 @@ Windows amd64/arm64 executables and a macOS arm64 development binary are produce
 No issuer runs, uploaded PDFs, provider credentials or complete reports enter the ZIP.
 A clearly fictional context is included only for the explicit offline smoke test.
 
-`--state-dir` provides an isolated state directory for tests. `--port` overrides
-the stable per-user loopback port if another application occupies it. A running
-instance must be quit before changing command-line workspace settings.
+`--state-dir` provides an isolated state directory for tests. `--port` overrides the stable
+per-user loopback port if another application occupies it. A relaunch, with or without
+`--workspace`, asks an idle running instance to quit first (see **Relaunch**). `--no-browser`
+prints `Issuer Library: http://127.0.0.1:<port>/launch?ticket=…`; open that link once, within
+120 seconds (`packaging/smoke_test.py` and `designs/browser_check.py` read it from the pipe and
+keep the cookie in memory).
 
 DOM simulation tests (existing optional local jsdom installation). `designs/build.py`
 writes their fixture from the curated retained runs and fails if a curated pin goes stale:

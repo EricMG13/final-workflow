@@ -3,7 +3,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -60,3 +65,84 @@ func showError(message string) {
 func configureWorkerCommand(command *exec.Cmd) {
 	command.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000}
 }
+
+const errorSharingViolation syscall.Errno = 32
+
+// holdWorkerLock creates the worker lock at name, open without write sharing, as a handle for
+// command to inherit. While the worker (or this app, until it closes its copy) has it open,
+// nobody can open the file for writing; Windows closes the worker's handle when the worker ends,
+// however it ends, so the lock lasts exactly as long as the worker process, past this app.
+func holdWorkerLock(command *exec.Cmd, name string) (*os.File, error) {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return nil, err
+	}
+	inherit := syscall.SecurityAttributes{Length: uint32(unsafe.Sizeof(syscall.SecurityAttributes{})), InheritHandle: 1}
+	handle, err := syscall.CreateFile(path, syscall.GENERIC_READ, syscall.FILE_SHARE_READ, &inherit, syscall.OPEN_ALWAYS, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return nil, err
+	}
+	command.SysProcAttr.AdditionalInheritedHandles = append(command.SysProcAttr.AdditionalInheritedHandles, handle)
+	return os.NewFile(uintptr(handle), name), nil
+}
+
+// workerAlive reports whether a worker still holds the lock at name. A missing lock means no
+// worker ever held one.
+func workerAlive(name string) (bool, error) {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return false, err
+	}
+	handle, err := syscall.CreateFile(path, syscall.GENERIC_WRITE, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_ATTRIBUTE_NORMAL, 0)
+	switch {
+	case err == nil:
+		syscall.CloseHandle(handle)
+		return false, nil
+	case errors.Is(err, syscall.ERROR_FILE_NOT_FOUND):
+		return false, nil
+	case errors.Is(err, errorSharingViolation):
+		return true, nil
+	}
+	return false, err
+}
+
+// privateFolder returns an error unless only this user, SYSTEM and Administrators may write to the
+// folder name, according to its access-control list. The per-user local application data folder
+// is private this way by default. Permission bits do not describe access on Windows.
+func privateFolder(name string) error {
+	path, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return err
+	}
+	var acl unsafe.Pointer
+	var descriptor syscall.Handle
+	// GetNamedSecurityInfoW(name, SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, ...)
+	result, _, _ := syscall.NewLazyDLL("advapi32.dll").NewProc("GetNamedSecurityInfoW").Call(uintptr(unsafe.Pointer(path)), 1, 4, 0, 0, uintptr(unsafe.Pointer(&acl)), 0, uintptr(unsafe.Pointer(&descriptor)))
+	if result != 0 {
+		return fmt.Errorf("the state folder's permissions cannot be read: %w", syscall.Errno(result))
+	}
+	defer syscall.LocalFree(descriptor)
+	if acl == nil { // A null DACL gives everyone full access.
+		return fmt.Errorf("everyone can write to the state folder %s", name)
+	}
+	size := binary.LittleEndian.Uint16(unsafe.Slice((*byte)(acl), 4)[2:])
+	list := bytes.Clone(unsafe.Slice((*byte)(acl), size))
+	token, err := syscall.OpenCurrentProcessToken()
+	if err != nil {
+		return err
+	}
+	defer token.Close()
+	user, err := token.GetTokenUser()
+	if err != nil {
+		return err
+	}
+	sid := bytes.Clone(unsafe.Slice((*byte)(unsafe.Pointer(user.User.Sid)), syscall.GetLengthSid(user.User.Sid)))
+	if othersMayWrite(list, [][]byte{sid, sidSystem, sidAdministrators, sidCreatorOwner, sidOwnerRights}) {
+		return fmt.Errorf("other users can write to the state folder %s", name)
+	}
+	return nil
+}
+
+// ownerOnly reports whether info describes a plain file (not a link or other reparse point). Its
+// access comes from the state folder, which privateFolder has checked.
+func ownerOnly(info fs.FileInfo) bool { return info.Mode().IsRegular() }

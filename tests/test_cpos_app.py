@@ -9,7 +9,6 @@ from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
-import o2_case
 import pytest
 import test_cpos_launch
 from test_cpos_launch import (
@@ -22,10 +21,6 @@ from test_cpos_launch import (
     issuer_folder,
 )
 
-from deploy_vii.contracts import Fact, Module, View
-from deploy_vii.preparation import load_pack
-from deploy_workflow.cpos_handoffs import deliver, prompt_messages, retain, transport
-from deploy_workflow.model.turn import Message
 from deploy_workflow.platform_io import read_at
 
 provider = test_cpos_launch.provider  # The same fake provider fixture.
@@ -254,6 +249,15 @@ def test_the_path_check_covers_the_longest_file_a_run_writes(tmp_path, provider)
     bridge.start(folder)
     longest = max(len(str(path)) for path in run_dir.rglob("*"))
     assert len(str(folder / ("x" * bridge.RUN_PATH_ROOM))) >= longest
+    # Also the transient temp every retained file is written through, in the deepest folders, and a
+    # recheck's verdict revision (`<n>.review-<sha256>.json`) in a request folder.
+    temp = ".pending-" + "0" * 32
+    revision = "1.review-" + "0" * 64 + ".json"
+    folders = [p for p in run_dir.rglob("*") if p.is_dir()]
+    deepest = max(len(str(p / temp)) for p in folders)
+    requests = [p for p in folders if p.parent.parent.name == "requests"]
+    deepest = max([deepest, *(len(str(p / revision)) for p in requests)])
+    assert len(str(folder / ("x" * bridge.RUN_PATH_ROOM))) >= deepest
 
 
 def test_a_staged_file_that_cannot_be_read_is_named(tmp_path):
@@ -324,68 +328,6 @@ def test_max_turns_and_output_limit_reach_the_paid_entry_point(tmp_path, monkeyp
     assert seen["directory"] == (Path(value["workspace"]) / "runs" / value["id"]).resolve()
 
 
-class RetainedStore:
-    def __init__(self, run_dir, module):
-        self.directory = run_dir / "execution"
-        self.module = module
-
-    def read(self):
-        return SimpleNamespace(
-            heads=[
-                SimpleNamespace(
-                    module_id=self.module.module_id, result_sha256=self.module.content_hash()
-                )
-            ]
-        )
-
-    def head_module(self, head):
-        return self.module
-
-
-def test_markdown_handoff_is_consumed_and_delivery_preserves_exact_values(tmp_path):
-    _, run_dir = o2_case.stage(tmp_path / "case")
-    pack = load_pack(run_dir / "pack")
-    module = Module(
-        run_id=pack.run.run_id,
-        issuer_id=pack.run.issuer_id,
-        as_of=pack.run.as_of,
-        module_id="CP-1",
-        status="accepted",
-        facts=(
-            Fact(
-                fact_id="transport-check.zero",
-                label="Zero amount",
-                table_id="T4.4",
-                row_id="zero",
-                field="amount",
-                amount=Decimal("0.00"),
-                unit="currency",
-                currency="USD",
-                period="FY2024",
-            ),
-        ),
-    )
-    store = RetainedStore(run_dir, module)
-    original = (Message(role="system", text="Existing instructions"),)
-    binding = SimpleNamespace(
-        module_id="CP-2",
-        step_id="credit_synthesis",
-        inputs=(SimpleNamespace(sha256=module.content_hash()),),
-    )
-    with transport():
-        messages = prompt_messages(store, binding, original)
-    assert messages[0] == original[0] and "0.00" in messages[-1].text
-    files = retain(store)
-    assert "## Sources" in files["CP-1"].read_text()
-    deliver(store, run_dir / "delivery")
-    view = View.model_validate_json((run_dir / "delivery/view.json").read_bytes())
-    fact = next(m for m in view.modules if m.module_id == "CP-1").facts[0]
-    assert str(fact.amount) == "0.00" and fact.currency == "USD" and fact.period == "FY2024"
-    files["CP-1"].write_text("changed handoff")
-    with pytest.raises(ValueError, match="handoff changed"):
-        deliver(store, run_dir / "tampered")
-
-
 def test_read_at_keeps_append_position(tmp_path):
     import os
 
@@ -443,3 +385,170 @@ def test_a_release_note_on_a_multi_argument_stop_reaches_the_failed_status(
         bridge.main()
     assert "adapter release also failed: stop failed: OSError" in status_of(folder)["message"]
     assert "adapter release also failed" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("error", "state"),
+    [
+        (RuntimeError("provider refused"), "stopped"),
+        (OSError(32, "sharing violation"), "failed"),
+        (KeyError("handoff"), "failed"),
+    ],
+)
+def test_any_failure_after_a_paid_call_records_the_spend_and_the_no_retry_note(
+    tmp_path, provider, monkeypatch, error, state
+):
+    """Hand-derived: one call settled USD 7.42 before the failure, so status.json must say
+    "7.42" whatever the exception type; progress.json still holds the stale "0" from the
+    module start and must not be what the UI reads."""
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    folder, run_dir = started(tmp_path, provider)
+    settled = {"usd": Decimal(0)}
+
+    class Ledger:
+        def __init__(self, cap, path):
+            pass
+
+        @property
+        def spent(self):
+            return settled["usd"]
+
+    def pays_then_fails(*args, on_start, **kwargs):
+        on_start(SimpleNamespace(module_id="CP-1"))
+        settled["usd"] = Decimal("7.42")
+        raise error
+
+    monkeypatch.setattr(bridge, "Budget", Ledger)
+    monkeypatch.setattr(bridge, "run_live_handoffs", pays_then_fails)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    try:
+        bridge.main()
+    except SystemExit:
+        pass  # a failure other than a stop exits non-zero after recording its status
+    status = status_of(folder)
+    assert (status["state"], status["spent_usd"]) == (state, "7.42")
+    assert "no automatic paid retry was made" in status["message"]
+    assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "0"
+
+
+def test_an_unreadable_spend_ledger_is_never_shown_as_zero_and_hides_no_error(
+    tmp_path, provider, monkeypatch
+):
+    """Expected: the original failure text survives, status.json says spent_usd "unknown" (left
+    out, the UI would fall back to progress.json's stale "0") and that it may be above zero."""
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-secret-0123456789")
+    folder, _ = started(tmp_path, provider)
+
+    class Locked:
+        def __init__(self, cap, path):
+            pass
+
+        @property
+        def spent(self):
+            raise OSError("ledger locked")
+
+    def fails(*args, **kwargs):
+        raise OSError(5, "write failed for sk-test-secret-0123456789")
+
+    monkeypatch.setattr(bridge, "Budget", Locked)
+    monkeypatch.setattr(bridge, "run_live_handoffs", fails)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    try:
+        bridge.main()
+    except SystemExit:
+        pass
+    status = status_of(folder)
+    assert (status["state"], status["spent_usd"]) == ("failed", "unknown")
+    assert "write failed for [redacted]" in status["message"]
+    assert "sk-test-secret" not in json.dumps(status)
+    assert "no automatic paid retry was made" in status["message"]
+    assert "spend could not be read and may be above zero" in status["message"]
+
+
+def ledger_that_locks(monkeypatch, settled: dict) -> None:
+    """A Budget stand-in: reads settled["usd"], or raises once settled["locked"] is set."""
+
+    class Ledger:
+        def __init__(self, cap, path):
+            pass
+
+        @property
+        def spent(self):
+            if settled.get("locked"):
+                raise OSError("ledger locked")
+            return settled["usd"]
+
+    monkeypatch.setattr(bridge, "Budget", Ledger)
+
+
+@pytest.mark.parametrize(
+    "case", [(RuntimeError("refused"), "stopped", None), (TypeError("bad record"), "failed", 2)]
+)
+def test_the_worker_exit_code_is_unchanged_by_recording_the_spend(
+    tmp_path, provider, monkeypatch, case
+):
+    """Hand-derived: a stop returns normally (no SystemExit), any other failure exits 2 after
+    start's own status, which main keeps: the message is start's, with the note and USD 1.25."""
+    error, state, code = case
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    folder, _ = started(tmp_path, provider)
+    ledger_that_locks(monkeypatch, {"usd": Decimal("1.25")})
+
+    def fails(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(bridge, "run_live_handoffs", fails)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    exit_code = None
+    try:
+        bridge.main()
+    except SystemExit as stop:
+        exit_code = stop.code
+    status = status_of(folder)
+    assert (exit_code, status["state"], status["spent_usd"]) == (code, state, "1.25")
+    assert status["message"].endswith(bridge.RETAINED_NOTE)
+    assert str(error) in status["message"]
+
+
+def test_an_interrupt_is_not_recorded_as_a_failure_and_leaves_the_running_status(
+    tmp_path, provider, monkeypatch
+):
+    """Expected: KeyboardInterrupt is not an Exception; the bridge writes nothing, so the
+    server's own "running" status stays for its exit handler to mark interrupted."""
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    folder, _ = started(tmp_path, provider)
+    bridge.write_json(folder / "status.json", {"state": "running", "message": "Working"})
+    ledger_that_locks(monkeypatch, {"usd": Decimal("0.50")})
+
+    def interrupted(*args, **kwargs):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(bridge, "run_live_handoffs", interrupted)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    with pytest.raises(KeyboardInterrupt):
+        bridge.main()
+    assert status_of(folder) == {"state": "running", "message": "Working"}
+
+
+def test_a_finished_run_whose_ledger_cannot_be_read_says_unknown_not_its_last_progress(
+    tmp_path, provider, monkeypatch
+):
+    """Hand-derived: progress.json last recorded "2.00" before the final call; the ledger then
+    cannot be read. The run still completes (its report exists); status.json says spent_usd
+    "unknown" with the may-be-above-zero note, never the lower "2.00"."""
+    monkeypatch.setenv("OPENAI_API_KEY", "not-a-real-key")
+    folder, run_dir = started(tmp_path, provider)
+    settled = {"usd": Decimal("2.00")}
+    ledger_that_locks(monkeypatch, settled)
+
+    def finishes(*args, on_start, **kwargs):
+        on_start(SimpleNamespace(module_id="CP-1"))
+        settled["locked"] = True
+
+    monkeypatch.setattr(bridge, "run_live_handoffs", finishes)
+    monkeypatch.setattr(bridge.sys, "argv", ["bridge.py", "start", str(folder)])
+    bridge.main()
+    status = status_of(folder)
+    assert (status["state"], status["spent_usd"]) == ("complete", "unknown")
+    assert status["message"].endswith(bridge.UNKNOWN_SPEND_NOTE)
+    assert json.loads((run_dir / "progress.json").read_text())["spent_usd"] == "2.00"

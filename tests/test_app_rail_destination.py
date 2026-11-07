@@ -17,10 +17,10 @@ console.log(JSON.stringify(%s.map(route => [route, destOf(route)])));
 """
 
 
-def destinations(source: str, routes: list[str]) -> dict[str, str | None]:
+def destinations(source: str, routes: list[str], setup: str = "") -> dict[str, str | None]:
     found = re.search(r"  const destOf = \(route\) => \{.*?\n  \};\n", source, re.DOTALL)
     assert found, "destOf not found in app.js"
-    script = HARNESS % (found.group(0), json.dumps(routes))
+    script = HARNESS % (setup + found.group(0), json.dumps(routes))
     run = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
     return dict(json.loads(run.stdout))
 
@@ -42,3 +42,14 @@ def test_model_routes_light_the_model_rail_entry_and_the_others_are_unchanged() 
         "limitations": "limits",
         "x": None,
     }
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+def test_cp_model_lights_model_whether_or_not_the_page_lists_it_as_a_module() -> None:
+    """report.html lists CP-MODEL among its modules (its page is reached from the Model
+    destination); model.html's patched rail link may name it without a module entry."""
+    source = APP.read_text(encoding="utf-8")
+    listed = 'modules["CP-MODEL"] = {module_id: "CP-MODEL"};\n'
+    got = destinations(source, ["CP-MODEL", "CP-2"], setup=listed)
+    assert got == {"CP-MODEL": "model", "CP-2": "analysis"}
+    assert source.count('["model", "Model", "#CP-1"]') == 1  # the delivery patches need one

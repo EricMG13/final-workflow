@@ -28,7 +28,7 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from deploy_vii.contracts import PathwayId
-from deploy_vii.execution import Attempt, Execution, ExecutionSnapshot
+from deploy_vii.execution import Attempt, Execution, ExecutionSnapshot, current_inputs
 from deploy_vii.live.prompts import PromptError
 from deploy_vii.preparation import PreparedPack, load_pack
 from deploy_vii.registry import plan
@@ -879,13 +879,17 @@ class NativeCp8Refused(WorkflowError):
 class _NativeWorkflow(OwnerWorkflow):
     """The native pathway's workflow: it never begins or resumes a CP-8 attempt. The owner API
     and ``OWNER_SPECS["CP-8"]`` stay for the retained owner oracles and receipts. A CP-8 that
-    CP-0 does not command keeps its ordinary ``Run CP-8`` refusal, so a preset that lists it
-    (portfolio_decision) still walks; only a CP-8 that would run is refused, before its begin."""
+    would not begin (CP-0 judged it ``DO NOT RUN``, or its upstream is blocked) keeps its ordinary
+    retained refusal, so a preset that lists it (portfolio_decision) still walks; only a CP-8
+    that would begin is refused, before its begin."""
 
     def _begin(self, module_id: str) -> bool:
         if module_id == "CP-8":
-            cp0 = next((h for h in self._store.read().heads if h.module_id == "CP-0"), None)
-            if cp0 is not None and [c.text for c in cp0.commands if c.row_id == "CP-8"]:
+            try:  # the inputs check `Execution.begin` makes; it writes nothing
+                current_inputs(self._store.read(), module_id)
+            except ValueError:  # not authorized or blocked: the refusal below is retained
+                pass
+            else:
                 raise NativeCp8Refused
         return super()._begin(module_id)
 

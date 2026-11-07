@@ -312,20 +312,49 @@ def coverage_issues(pack: PreparedPack, review: ReadinessReview) -> tuple[str, .
     """Limitations that call a page range absent although the pack retains every page in it.
 
     Each text is checked against the sources it is about: a source assessment's own source;
-    otherwise the sources an item attaches or cites; otherwise every ready paged source."""
+    otherwise the sources an item attaches or cites; otherwise the pack sources the text names
+    (`_named`). A text about no pack source (an uncited gap on a document never
+    supplied) is not compared with the pack's coverage. A consumer's `missing_source` is about a
+    source outside the pack, so only the pack sources it names are compared."""
     texts: list[tuple[str, tuple[str, ...]]] = []
     for assessment in review.sources:
         texts += [(text, (assessment.source_id,)) for text in assessment.limitations]
     for consumer in review.consumers:
         scope = consumer.source_ids or tuple(item.source_id for item in consumer.citations)
         texts += [(text, scope) for text in consumer.limitations]
-        texts += [(consumer.missing_source, scope)] if consumer.missing_source else []
+        texts += [(consumer.missing_source, ())] if consumer.missing_source else []
     for gap in review.gaps:
         texts.append((gap.description, tuple(item.source_id for item in gap.citations)))
     for claim in review.analysis:
         scope = tuple(item.source_id for item in claim.citations)
         texts += [(claim.limitation, scope)] if claim.limitation else []
-    return absence_issues(pack, texts)
+    labels = _source_labels(pack)
+    scoped = [(text, scope or _named(labels, text)) for text, scope in texts]
+    about_pack = [(text, scope) for text, scope in scoped if scope]
+    return absence_issues(pack, about_pack)
+
+
+def _words(text: str) -> str:
+    """Lowercase alphanumeric words, space-separated and space-padded, for whole-word lookup."""
+    return " " + " ".join(re.findall(r"[a-z0-9]+", text.lower())) + " "
+
+
+def _source_labels(pack: PreparedPack) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """Each pack source with the word forms of its id and file name (`annual-report` is
+    " annual report ", `ar.pdf` is " ar pdf "); a label with no such word is left out."""
+    return tuple(
+        (
+            source.source_id,
+            tuple(w for w in map(_words, (source.source_id, source.name)) if w.strip()),
+        )
+        for source in pack.sources
+    )
+
+
+def _named(labels: tuple[tuple[str, tuple[str, ...]], ...], text: str) -> tuple[str, ...]:
+    """The pack sources whose id or file name `text` names as whole words."""
+    words = _words(text)
+    return tuple(source_id for source_id, forms in labels if any(f in words for f in forms))
 
 
 def context_authority_issues(pack: PreparedPack, review: ReadinessReview) -> list[str]:

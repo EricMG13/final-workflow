@@ -704,13 +704,6 @@ def _render(workflow: OwnerWorkflow, run_dir: Path, shown: Path | None) -> str |
         run_dir / "owner-run.json",
         run_dir / "delivery",
     )
-    from deploy_workflow.cpos_handoffs import ACTIVE, deliver
-    if ACTIVE.get():
-        try:
-            deliver(Execution(execution), delivery)
-        except (ValueError, OSError) as error:
-            return f"delivery: {error}"
-        return None
     try:
         render_owner_slice(execution, receipt_path, shown, delivery)
         verify_owner_rendered_slice(execution, receipt_path, shown, delivery)
@@ -803,7 +796,11 @@ class _ReplayingLoop:
                 return
             if module in self._replay.replayed:
                 replay_module(
-                    self._workflow, self._replay.earlier, module, execution=self._execution
+                    self._workflow,
+                    self._replay.earlier,
+                    module,
+                    execution=self._execution,
+                    retained=self._replay.retained,
                 )
             else:
                 self._loop.run_step()

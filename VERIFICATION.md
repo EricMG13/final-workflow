@@ -25,12 +25,13 @@ provider call).
 - Whole-branch Fable review (0c596eac..9b3215fa): Ready to merge. Its three Lows were fixed in
   398ae209 and the controller reran the probes (`branch-stop-reason-unknown-charge.py`,
   `branch-stop-in-delivery.sh`, `branch-double-gaps-heading.py`): 0, 0, 0.
+- Final: `validate.py` full exit 0 at 398ae209 (node 275, python 523, go test/vet incl. windows,
+  amd64/arm64 builds, ruff); `tools/quality_gate.py` exit 0.
 - Owner items: `tests/test_retained_planning.py::test_issuer_identity_cannot_be_assembled_across_title_and_request`
   fails at base 0c596eac and is not in `tests/nightly-known-failures.txt`; `_literal_tables` is not
   fence-aware (pre-existing, cannot cause a false failure); Task 10 `clear()` waits behind an
   in-flight store run (latency only); Task 8/9 Info notes.
-- Not verified: `validate.py` full after 9b3215fa and 398ae209 (only the probes, quick and the
-  quality gate are recorded for them); the browser gate (`FW_PLAYWRIGHT_PYTHON` unset); the
+- Not verified: the browser gate (`FW_PLAYWRIGHT_PYTHON` unset); the
   workspace reload on Windows; any provider run.
 
 ## 2026-11-07 — Phase 2: delivery gaps, coverage record, front lines (branch `claude/system-design-remaining-calls-e06c23`)

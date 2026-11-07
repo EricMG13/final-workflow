@@ -247,6 +247,11 @@ class Signal:
         return f"CP-1A judges CP-2 {self.status}"
 
     @property
+    def critical(self) -> bool:
+        """A Critical CP-1A row: only a gaps row of severity Critical restates it (S06-A06)."""
+        return self.source != "downstream_readiness"
+
+    @property
     def restatement(self) -> str:
         if self.source == "gaps_ledger":
             what = f"the Critical CP-1A gap {self.ref}"
@@ -254,7 +259,8 @@ class Signal:
             what = f"the Critical CP-1A disclosure item {self.ref}"
         else:
             what = f"CP-1A's {self.status} readiness of CP-2 ({self.ref})"
-        return f"gaps: restate {what} in a gaps row that cites it"
+        row = "a gaps row of severity Critical" if self.critical else "a gaps row"
+        return f"gaps: restate {what} in {row} that cites it"
 
     @property
     def limitation(self) -> str:
@@ -453,9 +459,14 @@ def _propagation_issues(submission: CreditSynthesisSubmission, upstream: Upstrea
     reasons = list(dict.fromkeys((*blocked, *(item.reason for item in signals))))
     if reasons and submission.assessment.confidence == "High":
         issues.append(f"assessment.confidence: capped below High because {'; '.join(reasons)}")
+    # S06-A06: a Critical CP-1A row is restated only by a Critical gaps row, so CP-2 cannot
+    # downgrade it (its own limitation reads "Gap (<severity>): ...").
     restated = {ref for gap in submission.gaps for ref in gap.cp1a_refs}
+    critical = {r for gap in submission.gaps if gap.severity == "Critical" for r in gap.cp1a_refs}
     issues.extend(
-        item.restatement for item in signals if item.ref is not None and item.ref not in restated
+        item.restatement
+        for item in signals
+        if item.ref is not None and item.ref not in (critical if item.critical else restated)
     )
     return issues
 

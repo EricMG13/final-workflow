@@ -25,7 +25,7 @@
   },
   {
    "id": "relative_value.c",
-   "statement": "c. Indicative talk is never a market level: an `observed` row never quotes talk wording (talk, indicative, guidance, initial price thoughts), and neither an indicative_talk row's own text nor a text whose basis is talk alone uses a level verb (trades at, quoted at, priced at, yields). With talk only, the preference's `confidence` is below High.",
+   "statement": "c. Indicative talk is never a market level: an `observed` row never quotes talk wording (talk, indicative, guidance, initial price thoughts), nor part of a sentence that carries it, and neither an indicative_talk row's own text nor a text whose basis is talk alone uses a level verb (trades at, quoted at, priced at, yields). With talk only, the preference's `confidence` is below High, and so it is when the market evidence its basis cites is talk only.",
    "checks": [
     "fn:deploy_vii.cp3_relative_value:_market_row",
     "fn:deploy_vii.cp3_relative_value:_preference_issues",

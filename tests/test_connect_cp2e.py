@@ -949,3 +949,21 @@ def test_an_absence_digit_issue_names_the_submission_path(
     issues = cp2e.validate_macro_fx(submission=raw, pages=_pages("positive"))
     assert f"{key}.{part}: digits are not allowed" in issues
     assert not any(i.startswith(f"{path[-1]}.") for i in issues if path[0] == "fx")
+
+
+def test_without_a_run_context_the_statements_must_state_the_default_usd(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """S06-A07: the context comparison ran only with a run context, so any quoted code was
+    accepted. With none, the run's basis is the default USD: a page stating EUR is refused."""
+    pages = dict(cp2e._pages_of(_pack("positive")))
+    pages = {k: v.replace("Currency: USD", "Currency: EUR") for k, v in pages.items()}
+    monkeypatch.setattr(cp2e, "_pages_of", lambda pack: pages)
+    raw = _positive()
+    raw["reporting_currency"]["quote"] = "Currency: EUR; amounts in millions."
+    raw["reporting_currency"]["code_text"] = "EUR"
+    out = _validate(raw)
+    assert out.output is None
+    assert out.issues == (
+        "reporting_currency: the statements state EUR, the run's default basis is USD",
+    )

@@ -26,7 +26,7 @@ from decimal import ROUND_HALF_UP, Context, Decimal, localcontext
 from types import MappingProxyType
 from typing import Any, Literal
 
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from deploy_vii.business_context import spelled
 from deploy_vii.contracts import (
@@ -57,6 +57,7 @@ from deploy_vii.execution import (
     inherited_limitations,
     text_sha256,
 )
+from deploy_vii.financial_contracts import Number
 from deploy_vii.live.schema import exact_json, json_object, normalise
 from deploy_vii.live.submission import Submitted
 from deploy_vii.model._cells import CONTEXT as CP1_CONTEXT
@@ -1709,6 +1710,54 @@ def _claims(o: Operands, b: Bridge, tables: tuple[Table, ...]) -> tuple[ClaimTex
 # --- the module calculation -------------------------------------------------------------------
 
 
+SECTION_NAMES: Mapping[Section, str] = MappingProxyType(
+    {
+        "liquidity_runway": "Liquidity runway",
+        "maturity_wall": "Maturity wall",
+        "funding_gap": "Funding gap",
+    }
+)
+ANALYST_GAP = "{section}: {limitation}"
+"""S06-C02: an Insufficient Information assessment's own limitation, carried verbatim into
+CP-2D's limitations (T2E.7 kind Gap) after the section's name."""
+
+
+def _analyst_rows(submission: LiquidityBridgeSubmission) -> list[tuple[str, str]]:
+    """S06-C02: the analyst's own words, verbatim, after the five category rows of T2E.6: the
+    minimum-cash rationale (or the absence reason and follow-up), then per section in lease order
+    its text, its credit implication and any limitation. Validation has already refused blank,
+    figure-bearing or conclusion-bearing text, so nothing here is Python's analysis."""
+    rows: list[tuple[str, str]] = []
+    if submission.minimum_cash is not None:
+        rows.append(("Minimum cash rationale", submission.minimum_cash.rationale))
+    absence = submission.minimum_cash_absence
+    if absence is not None:
+        rows += [
+            ("Minimum cash not assessed: reason", absence.reason),
+            ("Minimum cash not assessed: follow-up", absence.follow_up),
+        ]
+    by_section = {a.section: a for a in submission.assessments}
+    for section in SECTIONS:
+        a, name = by_section[section], SECTION_NAMES[section]
+        rows.append((f"{name} assessment", a.text))
+        rows.append((f"{name} credit implication", a.credit_implication))
+        if a.limitation is not None:
+            rows.append((f"{name} limitation", a.limitation))
+    return rows
+
+
+def _analyst_limitations(submission: LiquidityBridgeSubmission) -> list[tuple[str, str, str]]:
+    """(T2E.7 label, kind, text) of each assessment's stated limitation, in lease order."""
+    by_section = {a.section: a for a in submission.assessments}
+    stated: list[tuple[str, str, str]] = []
+    for section in SECTIONS:
+        limitation, name = by_section[section].limitation, SECTION_NAMES[section]
+        if limitation is not None:
+            text = ANALYST_GAP.format(section=name, limitation=limitation)
+            stated.append((f"{name} assessment", "Gap", text))
+    return stated
+
+
 def _judgments(b: Bridge, submission: LiquidityBridgeSubmission) -> Ledger:
     categories = {a.section: a.category for a in submission.assessments}
     minimum = (
@@ -1719,9 +1768,8 @@ def _judgments(b: Bridge, submission: LiquidityBridgeSubmission) -> Ledger:
     rows = (
         ("Horizon", _months_text(b.horizon_months)),
         ("Minimum cash", minimum),
-        ("Liquidity runway", categories["liquidity_runway"]),
-        ("Maturity wall", categories["maturity_wall"]),
-        ("Funding gap", categories["funding_gap"]),
+        *((SECTION_NAMES[s], categories[s]) for s in SECTIONS),
+        *_analyst_rows(submission),
     )
     return Ledger("T2E.6", "Analyst judgments", "Judgment", ("value", "Value"), rows)
 
@@ -1741,7 +1789,10 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
     if issues:
         raise ValueError("; ".join(issues))
     bridge = bridge_of(inputs)
-    limitations = _limitations(operands=o, bridge=bridge, pinned=inputs.pinned)
+    limitations = (
+        *_limitations(operands=o, bridge=bridge, pinned=inputs.pinned),
+        *_analyst_limitations(inputs.submission),
+    )
     tables = (
         _sources_and_uses(o, bridge),
         _position(o, bridge),
@@ -1771,6 +1822,15 @@ def compute(inputs: Cp2dInputs) -> Cp2dResult:
 
 HORIZON_ISSUE = "horizon_months must be between 1 and 60"
 NEGATIVE_MINIMUM_ISSUE = "minimum_cash.amount must not be negative"
+# S06-A05: a minimum cash is held to the bound of every CP-1 amount (`financial_contracts.Number`:
+# below 1e18, 28 digits, 10 places). A finite amount outside it (1e300, 1E-999999999 or 130 digits)
+# passed every check and then could not be spelled exactly, so submit raised and every resume
+# raised again; it is refused here instead.
+_AMOUNT: TypeAdapter[Decimal] = TypeAdapter(Number)
+MINIMUM_RANGE_ISSUE = (
+    "minimum_cash.amount must be a CP-1 amount: less than 1e18, at most 28 digits and 10 decimal "
+    "places"
+)
 BOTH_ISSUE = "give minimum_cash or minimum_cash_absence, not both"
 NEITHER_ISSUE = "give minimum_cash or minimum_cash_absence"
 SECTION_ISSUE = "assessments must hold exactly one row per section"
@@ -1829,6 +1889,14 @@ def analyst_text_fields(submission: LiquidityBridgeSubmission) -> list[tuple[str
     return fields
 
 
+def _is_amount(amount: Decimal) -> bool:
+    try:
+        _AMOUNT.validate_python(amount)
+    except ValidationError:
+        return False
+    return True
+
+
 def submission_issues(
     *,
     submission: LiquidityBridgeSubmission,
@@ -1843,6 +1911,8 @@ def submission_issues(
         issues.append(HORIZON_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash.amount < 0:
         issues.append(NEGATIVE_MINIMUM_ISSUE)
+    if s.minimum_cash is not None and not _is_amount(s.minimum_cash.amount):
+        issues.append(MINIMUM_RANGE_ISSUE)
     if s.minimum_cash is not None and s.minimum_cash_absence is not None:
         issues.append(BOTH_ISSUE)
     if s.minimum_cash is None and s.minimum_cash_absence is None:

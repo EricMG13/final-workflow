@@ -541,7 +541,7 @@ CP2_BASIS_RULE = (
 CP2_SIGNALS_RULE = (
     "While the CONTEXT block lists any `cp1a_signals`, or CP-1A is blocked, the assessment's "
     "`confidence` is below High. Each signal whose `restate` is true is restated: its ref is in "
-    "the `cp1a_refs` of a `gaps` row."
+    "the `cp1a_refs` of a `gaps` row, of severity Critical when the signal's status is Critical."
 )
 CP2_RUN_TEXT_RULE = (
     "Every text field is nonblank run text: digits only in period, filing and section labels and "
@@ -610,9 +610,11 @@ CP3_EVIDENCE_RULE = (
 )
 CP3_TALK_RULE = (
     "Indicative talk is never a market level: an `observed` row never quotes talk wording (talk, "
-    "indicative, guidance, initial price thoughts), and neither an indicative_talk row's own text "
+    "indicative, guidance, initial price thoughts), nor part of a sentence that carries it, and "
+    "neither an indicative_talk row's own text "
     "nor a text whose basis is talk alone uses a level verb (trades at, quoted at, priced at, "
-    "yields). With talk only, the preference's `confidence` is below High."
+    "yields). With talk only, the preference's `confidence` is below High, and so it is when the "
+    "market evidence its basis cites is talk only."
 )
 CP3_BASIS_RULE = (
     "Name instruments only by a `facility_id` listed under `cp1_facilities`, each once. Every "

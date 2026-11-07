@@ -787,6 +787,27 @@ def test_c1_cost_claim_with_neither_cover_known() -> None:
     )
 
 
+def test_a_positive_cp1_cash_interest_leaves_both_pro_forma_values_not_meaningful() -> None:
+    """S08-A09/C05: CP-1 stores cash interest as a negative outflow. A stored +2.00 negates to
+    paid -2.00 (T3D.3.r01, exact); with a 1000 bp step-up the added interest is still known
+    (T3D.3.r06), but pro forma interest (-2.00 + added) and its cover are not meaningful, as the
+    base cover is: before the fix the pro forma cover printed 10.0000x (30 / 3.00)."""
+    inputs = _with_cp1(cash_interest=_cp1_amount("cash_interest", "2.00"))
+    result = cp3c.compute(_with_step_up(inputs, 1000))
+    cells = _cells_of(result)
+    assert cells["T3D.3.r01"].amount == Decimal("-2.00")
+    assert cells["T3D.3.r06"].status == "known"
+    for fact_id in ("T3D.3.r03", "T3D.3.r07", "T3D.3.r08"):
+        assert (cells[fact_id].status, cells[fact_id].reason) == (
+            "not_applicable",
+            cp3c.NM_INTEREST,
+        ), fact_id
+    assert _claim(result, "CP-3C-COST-01") == (
+        f"{COST}{{T3D.3.r06|US$ m}} to annual cash interest; interest cover is [T3D.3.r03] "
+        "before and [T3D.3.r08] after it."
+    )
+
+
 # C-2 reasons
 
 
@@ -1928,3 +1949,27 @@ def test_r13_a_missing_cash_closing_needs_no_currency() -> None:
     ).refinancing.base_resources
     assert isinstance(base, cp3c.Gap)
     assert base.reason == "Not calculable: cash and cash equivalents is missing"
+
+
+@pytest.mark.parametrize(
+    ("stored", "cover", "pro_forma", "pro_forma_cover"),
+    [
+        ("0.00", None, "5.00", "6.0000"),
+        ("-2.00", "15.0000", "7.00", "4.2857"),
+    ],
+)
+def test_confidence_review_s08_a09_only_a_positive_cp1_cash_interest_is_not_meaningful(
+    stored: str, cover: str | None, pro_forma: str, pro_forma_cover: str
+) -> None:
+    """Hand-derived from the S08-A09 test's operands (adjusted EBITDA 30; a 1000 bp step-up adds
+    5.00): a stored zero gives paid 0 (base cover n.m., pro forma 0 + 5.00 = 5.00, 30 / 5.00 =
+    6.0000: the pro forma interest is positive, so its cover is meaningful); the normal stored
+    -2.00 gives paid 2.00, cover 30 / 2.00 = 15.0000, pro forma 7.00, 30 / 7.00 = 4.2857."""
+    inputs = _with_cp1(cash_interest=_cp1_amount("cash_interest", stored))
+    cells = _cells_of(cp3c.compute(_with_step_up(inputs, 1000)))
+    assert (cells["T3D.3.r03"].status == "known") == (cover is not None)
+    if cover is not None:
+        assert cells["T3D.3.r03"].amount == Decimal(cover)
+    assert cells["T3D.3.r07"].amount == Decimal(pro_forma)
+    assert cells["T3D.3.r08"].amount is not None
+    assert cells["T3D.3.r08"].amount.quantize(Decimal("0.0001")) == Decimal(pro_forma_cover)

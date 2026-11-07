@@ -23,6 +23,7 @@ var resources embed.FS
 type Application struct {
 	engine     Engine
 	activeJobs map[string]bool
+	reviews    int // reviews in flight, each writing into the workspace it read; guarded by mu
 	mu         sync.RWMutex
 	refreshing sync.Mutex // serialises catalogue rebuilds and workspace switches; taken before mu
 	loc        Locations
@@ -186,9 +187,19 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// reviewInFlight refuses a workspace switch while a review writes into the current workspace.
+const reviewInFlight = "A run review is in progress; wait for it to finish before changing the workspace"
+
+// switchesDuringReviewLocked reports whether moving to workspace would switch it while a review
+// is in flight. Saving the same workspace is not a switch. The caller holds app.mu.
+func (app *Application) switchesDuringReviewLocked(workspace string) bool {
+	return app.reviews > 0 && workspace != filepath.Clean(app.config.Workspace)
+}
+
 // changeSettings switches to the requested workspace, refusing with an HTTP status and message
-// while a run is active, under IT policy or for an unusable folder. The new workspace is
-// discovered without app.mu; the settings, configuration and catalogue then change together.
+// while a run is active, while a review is in flight (for a switch), under IT policy or for an
+// unusable folder. The new workspace is discovered without app.mu; the settings, configuration
+// and catalogue then change together.
 func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (int, string) {
 	app.refreshing.Lock()
 	defer app.refreshing.Unlock()
@@ -211,6 +222,12 @@ func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (
 		return http.StatusBadRequest, "Enter an absolute workspace folder"
 	}
 	config.Workspace = filepath.Clean(config.Workspace)
+	app.mu.RLock()
+	reviewing := app.switchesDuringReviewLocked(config.Workspace)
+	app.mu.RUnlock()
+	if reviewing {
+		return 409, reviewInFlight
+	}
 	info, err := os.Stat(config.Workspace)
 	if err != nil || !info.IsDir() {
 		return http.StatusBadRequest, "The workspace folder is unavailable"
@@ -220,6 +237,9 @@ func (app *Application) changeSettings(w http.ResponseWriter, r *http.Request) (
 	defer app.mu.Unlock()
 	if len(app.activeJobs) > 0 { // A run started while the new workspace was being read.
 		return 409, "Wait for the active run before changing its workspace"
+	}
+	if app.switchesDuringReviewLocked(config.Workspace) { // Likewise a review.
+		return 409, reviewInFlight
 	}
 	if err = saveJSON(filepath.Join(app.loc.State, "settings.json"), config); err != nil {
 		return http.StatusInternalServerError, "Could not save settings"

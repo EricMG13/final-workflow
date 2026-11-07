@@ -26,7 +26,10 @@ delivery folders. Candidate output remains explicitly qualified.
    Launching the executable again does not open a window: it finds its running per-user
    instance and says "Issuer Library is already running" and to quit it (Settings > Quit
    library, or end Issuer Library in Task Manager) and start it again. Quitting or
-   changing workspace is refused while a model run is active.
+   changing workspace is refused while a model run is active. Switching to another
+   workspace is also refused (409, "A run review is in progress…") while a run review
+   writes into the current one, up to the 10-minute review bound however the review ends;
+   saving the same workspace still works.
 
 The Windows binaries are cross-compiled pilot builds, not signed enterprise
 releases. Windows execution, browser rendering and enterprise rollout still need

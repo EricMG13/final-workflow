@@ -296,9 +296,17 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not create run identity", 500)
 		return
 	}
-	app.mu.RLock()
+	// The review writes into this workspace until it ends, however it ends (refusal, error, the
+	// review bound, a client that went away), so a workspace switch is refused until then.
+	app.mu.Lock()
+	app.reviews++
 	workspace := app.config.Workspace
-	app.mu.RUnlock()
+	app.mu.Unlock()
+	defer func() {
+		app.mu.Lock()
+		app.reviews--
+		app.mu.Unlock()
+	}()
 	job := NewJob{ID: "web-" + hex.EncodeToString(nonce), Workspace: workspace, Config: r.FormValue("config"), Cap: r.FormValue("cap_usd"), Modules: modules, MaxTurns: maxTurns, Sources: []UploadedSource{}}
 	root, err := os.OpenRoot(workspace)
 	if err != nil {

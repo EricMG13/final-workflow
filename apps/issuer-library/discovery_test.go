@@ -557,3 +557,48 @@ func TestMetricMustBeAWholeNumberOfTheQuoteWithItsSignAndScale(t *testing.T) {
 		}
 	}
 }
+
+// C09: a run manifest that declares its own runs/<id>/deliveries/<v> folder gets that delivery
+// once: the verified entry replaces the declared one, keeping its label, relationship and a
+// superseded state; a refused delivery stays one unavailable entry with the refusal.
+func TestDeclaredRunDeliveryIsListedOnce(t *testing.T) {
+	root, manifest := fixture(t)
+	own, superseded, foreign := "runs/case-a/deliveries/v1", "runs/case-a/deliveries/v0", "runs/case-a/deliveries/vx"
+	manifest.Run.Artifacts = []Artifact{
+		{Folder: own, Label: "Annual report", State: "candidate", Relationship: "related"},
+		{Folder: superseded, Label: "Earlier", State: "superseded", Relationship: "direct"},
+		{Folder: foreign, Label: "Copied", State: "candidate", Relationship: "direct"},
+	}
+	putJSON(t, root, "runs/case-a/library.json", manifest)
+	addDelivery(t, root, "v1", "case-a", "EX")
+	addDelivery(t, root, "v0", "case-a", "EX")
+	addDelivery(t, root, "vx", "other-run", "EX")
+	for _, folder := range []string{"v1", "v0", "vx"} {
+		moveDelivery(t, root, folder, "case-a")
+	}
+	cat := discover(root, Catalogue{})
+	listed := map[string][]Artifact{}
+	for _, run := range cat.Real {
+		for _, artifact := range run.Artifacts {
+			listed[artifact.Folder] = append(listed[artifact.Folder], artifact)
+		}
+	}
+	for folder, want := range map[string]Artifact{
+		own:        {Label: "Annual report", State: "candidate", Relationship: "related", Available: true},
+		superseded: {Label: "Earlier", State: "superseded", Relationship: "direct", Available: true},
+		foreign:    {Label: "Copied", State: "candidate", Relationship: "direct", Issue: "Delivery run identity does not match this run"},
+	} {
+		got := listed[folder]
+		if len(got) != 1 {
+			t.Errorf("%s listed %d times: %+v", folder, len(got), got)
+			continue
+		}
+		a := got[0]
+		if a.Label != want.Label || a.State != want.State || a.Relationship != want.Relationship || a.Available != want.Available || a.Issue != want.Issue || (a.Href != "") != want.Available {
+			t.Errorf("%s: %+v, want %+v", folder, a, want)
+		}
+	}
+	if cat.Allowed[own+"/report.html"] == "" || cat.Allowed[foreign+"/report.html"] != "" {
+		t.Errorf("pins: own=%q foreign=%q", cat.Allowed[own+"/report.html"], cat.Allowed[foreign+"/report.html"])
+	}
+}

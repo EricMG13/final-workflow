@@ -405,6 +405,17 @@ func runDeliveryIdentityIssue(root *os.Root, folder, id string, run Run, view de
 	return ""
 }
 
+// declaredAs is a verified delivery under the label and relationship its run manifest declared;
+// a declared superseded state is kept.
+func declaredAs(declared, artifact Artifact) Artifact {
+	artifact.Label = declared.Label
+	artifact.Relationship = declared.Relationship
+	if declared.State == "superseded" {
+		artifact.State = declared.State
+	}
+	return artifact
+}
+
 func discover(workspace string, seeds Catalogue) Catalogue {
 	cat := Catalogue{Real: []Run{}, Illustrative: []Run{}, Sources: map[string]Source{}, Issues: []string{}, Allowed: map[string]string{}, Workspace: workspace, Live: true, BuiltAt: time.Now().UTC().Format("02 Jan 2006, 15:04:05 UTC")}
 	root, err := os.OpenRoot(workspace)
@@ -497,7 +508,16 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 			for name, hash := range files {
 				cat.Allowed[name] = hash
 			}
-			run.Artifacts = append(run.Artifacts, artifact)
+			declared := false
+			for i, old := range run.Artifacts {
+				if old.Folder == delivered {
+					run.Artifacts[i] = declaredAs(old, artifact)
+					declared = true
+				}
+			}
+			if !declared {
+				run.Artifacts = append(run.Artifacts, artifact)
+			}
 		}
 		cat.Real = append(cat.Real, run)
 	}
@@ -512,12 +532,7 @@ func discover(workspace string, seeds Catalogue) Catalogue {
 			run := &cat.Real[i]
 			for j, old := range run.Artifacts {
 				if old.Folder == folder {
-					updated := artifact
-					updated.Label = old.Label
-					updated.Relationship = old.Relationship
-					if old.State == "superseded" {
-						updated.State = old.State
-					}
+					updated := declaredAs(old, artifact)
 					if artifact.Available && view.Run.IssuerID != run.Issuer {
 						updated.Available = false
 						updated.Href = ""

@@ -386,7 +386,7 @@
   "decision_ledger": [
    {
     "id": "decision_ledger.1",
-    "statement": "Every `decision` field gives exactly one of `text` with its `quote` (the `text` occurring in that quote) or an `absence`; only `posture` and `size` may be absent. `action_bias` is Overweight, Neutral, Underweight or Insufficient Information, `confidence` is Insufficient Information, Low, Medium or High, and `decision_date` is written Month D, YYYY. Every decision quote cites `prior_case`; `observations` is always present.",
+    "statement": "Every `decision` field gives exactly one of `text` with its `quote` (the `text` occurring in that quote) or an `absence`; only `posture` and `size` may be absent. `action_bias` is Overweight, Neutral, Underweight or Insufficient Information, `confidence` is Insufficient Information, Low, Medium or High, and `decision_date` is written Month D, YYYY. Every decision quote cites `prior_case`; `observations` is always present. The `action_bias` and `confidence` words occur in their quote as whole words (\"High\" is not in \"Highly\"), and a `text` is matched with dashes and quote marks read as the quote check reads them, so copy it as the page prints it.",
     "checks": [
      "oracle:cp8:r00",
      "oracle:cp8:r01",

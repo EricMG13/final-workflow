@@ -477,6 +477,16 @@ def _wrap_split(value: str, quote: str) -> bool:
     return hyphen_wrapped(quote) and "- " in _W_MINUS.sub("-", normalise(value))
 
 
+def _in_quote(text: str, quote: str, *, whole_word: bool) -> bool:
+    """``text`` occurs in ``quote`` once both read the way the quote matcher reads a page (S10-C03:
+    an em dash or curly apostrophe copied from the page matches). A vocabulary word (``whole_word``)
+    must be a whole word: "High" is not in "Highly uncertain" (S10-A03)."""
+    read, page = _norm(text), _norm(quote)
+    if not whole_word:
+        return read in page
+    return re.search(rf"(?<![A-Za-z0-9]){re.escape(read)}(?![A-Za-z0-9])", page) is not None
+
+
 def _labelled(metric: str, value: str, quote: str) -> bool:
     """``value`` is the figure bound to the measure's label (a multiple for leverage/cover), and
     the only one: every occurrence of the label that binds a figure binds this one (S10-A01)."""
@@ -683,7 +693,9 @@ class _Checker:
             self.found.append(f"{path}: text is empty")
         elif vocabulary is not None and text not in vocabulary:
             self.found.append(f"{path}: {text} is not one of {', '.join(vocabulary)}")
-        elif text not in _norm(quote.quote) or _wrap_split(text, quote.quote):
+        elif not _in_quote(text, quote.quote, whole_word=vocabulary is not None) or _wrap_split(
+            text, quote.quote
+        ):
             self.found.append(f"{path}: text {text} does not occur in the quote")
         elif name == "decision_date":
             self.decision_date = parse_date(text)

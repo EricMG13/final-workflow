@@ -743,3 +743,23 @@ def test_a_family_a_dossier_cell_cannot_hold_stops_intake_before_any_fetch(name:
     with pytest.raises(it.IntakeError) as raised:
         it.parse_rows([one_url_row(family=case["family"])])
     assert str(raised.value) == case["reason"]
+
+
+# S16 A06/C08: hand-derived - a control character anywhere in the path is a manifest error
+# (IntakeError), never a raw ValueError from the file system call.
+@pytest.mark.parametrize("path", ["a\x00b.txt", "a\nb.txt", "\x00", "a\x1fb.txt", "dir/\x7f.txt"])
+def test_a_control_character_in_a_path_is_an_intake_error(tmp_path: Path, path: str) -> None:
+    rows = it.parse_rows(
+        [
+            {
+                "path": path,
+                "family": "Wire",
+                "locator": "L1",
+                "tag": "research",
+                "published": "2025-01-01",
+            }
+        ]
+    )
+    day = date(2026, 1, 1)
+    with pytest.raises(it.IntakeError, match="control character"):
+        it.intake(rows, base_dir=tmp_path, dest_dir=None, as_of=day, cutoff=day, today=day)

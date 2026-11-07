@@ -146,3 +146,36 @@ def test_a12_an_empty_sheet_gets_the_spelled_header_fix() -> None:
         f"q.xlsx:rv_quotes!A1: sheet rv_quotes is empty — fix: {FIX['empty']}",
         "FAILED: 1 issues",
     )
+
+
+# --- review: boundaries the fix must keep and the duplicate fold's white space --------------------
+
+
+@pytest.mark.parametrize("price", ["99.5", "101.25", "+5", ".5", "1e99", "1e-99", "5E2"])
+def test_review_legitimate_prices_still_pass(price: str) -> None:
+    """Every lexeme is a number above zero with at most a two-digit exponent."""
+    assert _lines([_row(price=price)]) == ("OK: 1 rows",)
+
+
+def test_review_a_three_digit_exponent_price_is_not_a_number_and_does_not_crash() -> None:
+    assert _lines([_row(price="1e100")]) == (
+        f"q.xlsx:rv_quotes!G2: price '1e100' is not a number — fix: {FIX['number']}",
+        "FAILED: 1 issues",
+    )
+
+
+def test_review_two_digit_exponents_compare_as_values() -> None:
+    """1e99 is far above 1e-99, so a bid of 1e99 exceeds an ask of 1e-99."""
+    assert _lines([_row(bid="1e99", ask="1e-99")]) == (
+        f"q.xlsx:rv_quotes!J2:K2: bid 1e99 exceeds ask 1e-99 — fix: {FIX['bid_ask']}",
+        "FAILED: 1 issues",
+    )
+
+
+def test_review_a_no_break_space_provider_is_a_duplicate() -> None:
+    rows = [_row(price="98.5"), _row(price="97", provider="Dealer A")]
+    problem = "duplicates row 2 on facility_id, as_of, provider and quote_kind"
+    assert _lines(rows) == (
+        f"q.xlsx:rv_quotes!A3:F3: {problem} — fix: {FIX['duplicate']}",
+        "FAILED: 1 issues",
+    )

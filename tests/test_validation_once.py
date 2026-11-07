@@ -281,3 +281,21 @@ def test_cp3_public_guard_still_refuses() -> None:
     with pytest.raises(ValueError, match="not an instruments row"):
         cp3_relative_value.relative_value(inputs.pack, bad, upstream)
     assert cp3.compute(dataclasses.replace(inputs, submission=bad)).issues == issues
+
+
+def test_review_an_upstream_catalogue_is_per_object_and_a_replaced_upstream_rebuilds() -> None:
+    """The cached catalogue belongs to one Upstream; `dataclasses.replace` yields a fresh object
+    whose catalogue follows its own bound CP-2 status (blocked: empty)."""
+    inputs = tm3.make_inputs("positive")
+    upstream = cp3._upstream(inputs)
+    catalogue = upstream.catalogue
+    assert catalogue and upstream.catalogue is catalogue
+    blocked = tuple(
+        item.model_copy(update={"status": "blocked"})
+        if item.input_id == cp3_relative_value.CP2
+        else item
+        for item in upstream.bound
+    )
+    other = dataclasses.replace(upstream, bound=blocked)
+    assert other.catalogue == {}
+    assert upstream.catalogue is catalogue

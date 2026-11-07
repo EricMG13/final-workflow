@@ -79,7 +79,7 @@ from deploy_workflow.host import SourceSession
 from deploy_workflow.statement_lines import LineTools, respace, seen_tables
 from deploy_workflow.tools.source import SourceError
 from deploy_workflow.unit_maps import Expansion, UnitInputs, expand
-from deploy_workflow.workflow import SourceEvidence, WorkflowError
+from deploy_workflow.workflow import SourceEvidence, WorkflowError, read_line
 
 _LINE_LOCATOR = re.compile(r"line:([0-9]+)")
 _PAGE_LOCATOR = re.compile(r"page:[0-9]+")
@@ -2655,6 +2655,17 @@ def verify_financial_slice_receipt(
         raise WorkflowError("identity_mismatch") from None
 
 
+def _request_of(line: str) -> dict[str, Any]:
+    """The request object on one whole line (`read_line` has read an over-length one to its end);
+    an over-length or unterminated line, or anything but a JSON object, is `bad_arguments`."""
+    if len(line) > MAX_LINE or not line.endswith("\n"):
+        raise WorkflowError("bad_arguments")
+    request = json.loads(line, parse_constant=_nonfinite_json)
+    if type(request) is not dict:
+        raise WorkflowError("bad_arguments")
+    return request
+
+
 def serve_json_lines(
     workflow: FinancialWorkflow,
     reader: TextIO,
@@ -2667,17 +2678,11 @@ def serve_json_lines(
         raise WorkflowError("not_permitted")
     workflow._participant, workflow._transport = participant, "bounded-json-lines/1"
     for _ in range(MAX_MESSAGES):
-        line = reader.readline(MAX_LINE + 1)
+        line = read_line(reader, writer, MAX_LINE)
         if not line:
             return
         try:
-            if len(line) > MAX_LINE or not line.endswith("\n"):
-                while line and not line.endswith("\n"):
-                    line = reader.readline(MAX_LINE + 1)
-                raise WorkflowError("bad_arguments")
-            request = json.loads(line, parse_constant=_nonfinite_json)
-            if type(request) is not dict:
-                raise WorkflowError("bad_arguments")
+            request = _request_of(line)
             operation = request.get("operation")
             if operation == "invoke" and set(request) == {"operation", "tool", "arguments"}:
                 result = workflow.invoke(request["tool"], request["arguments"])

@@ -139,12 +139,28 @@ def _check_url(url: str) -> None:
         raise IntakeError(str(refusal)) from None
 
 
+def _encodable(text: str) -> bool:
+    try:
+        text.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return True
+
+
 def parse_rows(rows: Sequence[Mapping[str, Any]]) -> tuple[ManifestRow, ...]:
     """Validate the manifest rows; any malformed row stops intake (the user's file is wrong)."""
     parsed: list[ManifestRow] = []
     for row in rows:
         if unknown := sorted(set(row) - set(ROW_KEYS)):
             raise IntakeError(f"manifest row has unknown fields: {', '.join(unknown)}")
+        for key, value in row.items():
+            if isinstance(value, str) and not _encodable(value):
+                # The value is never echoed; a path keeps its established reason.
+                raise IntakeError(
+                    "manifest path is not a usable file path"
+                    if key == "path"
+                    else f"manifest row {key} is not valid text (a lone surrogate)"
+                )
         if row.get("tag") != "research":
             raise IntakeError("manifest row tag must be 'research'")
         path, url = row.get("path"), row.get("url")

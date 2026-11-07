@@ -817,3 +817,39 @@ def test_a_unicode_path_name_is_still_read(tmp_path: Path, name: str) -> None:
     got = _one_path_intake(tmp_path, name)
     assert [(a.item_id, a.path) for a in got.accepted] == [("ev-1", name)]
     assert got.refused == ()
+
+
+# Followup of S16-A06/C08: a lone surrogate in a row string is refused at parse time (it used to
+# pass intake and raise UnicodeEncodeError in evidence_bytes).
+# Expected (hand-derived): "\udcff" is a lone low surrogate -> IntakeError for path, family and
+# locator, and the refusal text never contains the value; "é中文" is valid UTF-8 and parses;
+# and a valid JSON pair (U+1F600) in a path is accepted.
+@pytest.mark.parametrize("key", ["path", "family", "locator"])
+def test_lone_surrogate_in_a_row_string_is_refused(manifest: dict[str, Any], key: str) -> None:
+    with pytest.raises(it.IntakeError, match="not valid text|not a usable file path") as caught:
+        it.parse_rows([row_of(manifest, **{key: "\udcff.txt"})])
+    assert "udcff" not in str(caught.value) and "\udcff" not in str(caught.value)
+
+
+def test_non_ascii_path_and_paired_surrogates_are_accepted(
+    tmp_path: Path, manifest: dict[str, Any]
+) -> None:
+    name = "é中文" + json.loads('"\\ud83d\\ude00"') + ".txt"  # the pair decodes to U+1F600
+    put(tmp_path, name, b"good body")
+    result = call(tmp_path, manifest, [row_of(manifest, path=name)])
+    assert len(result.accepted) == 1 and not result.refused
+
+
+def test_surrogate_refusal_comes_before_any_fetch(tmp_path: Path, manifest: dict[str, Any]) -> None:
+    fetched: list[str] = []
+
+    def fetch(*args: object, **kwargs: object) -> Any:
+        fetched.append("called")
+        raise AssertionError("a fetch was attempted")
+
+    url = {k: v for k, v in row_of(manifest).items() if k != "path"} | {
+        "url": "https://x.example/a"
+    }
+    with pytest.raises(it.IntakeError, match="not a usable file path"):
+        call(tmp_path, manifest, [url, row_of(manifest, path="\udcff.txt")], fetch=fetch)
+    assert fetched == [] and not (tmp_path / "out").exists()

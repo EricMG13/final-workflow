@@ -16,8 +16,9 @@ Scope: the Library screening screen (L2, L3 tests, L4 docs and Help), macOS only
 - Gates, exit 0: `python3 apps/issuer-library/validate.py quick` (node pass 357, python 610 passed; FW_PYTHON absolute); `uv run python tools/quality_gate.py` 0 findings.
 - README "Run from source" block run as written with `--no-browser` and an isolated `--state-dir`: launch ticket exchange 303, `/` 200, `/api/workspace` 200, `/api/catalogue` served; stopped afterwards.
 - Browser gate (L3 report): 131/133; the 2 failures are the fake-provider check, which also fails on origin/main `c9e8be31`. Not re-run.
-- Owner acceptance of the Library screen is pending. Confidence-review and rewrite-tournament run at the whole-branch review.
-Not verified: Windows/Edge rendering; real screen readers; owner acceptance; the weekly full suite; nothing pushed.
+- Whole-branch review (Opus, confidence-review and rewrite-tournament): approve; its one Low (an unreadable number bound kept after a panel rebuild) fixed in `b08558ee`. After rebasing onto `8f313722`, quick (node 358) and the quality gate exit 0 on both branch tips.
+- Owner opened the app and accepted the Library screen on 2026-11-08 (Checkpoint L).
+Not verified: Windows/Edge rendering; real screen readers; the weekly full suite; the browser gate after the rebase.
 
 ## 2026-11-08 — Issuer Library: Impeccable polish of the run lifecycle surfaces (branch `claude/app-sections-skill-use-d9996f`)
 

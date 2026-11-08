@@ -24,6 +24,7 @@ Reason = Literal[
     "PRIOR_PERIOD_MISSING",
     "REGISTER_DATE_DIFFERS",
     "UNCLASSIFIED_ROW",
+    "WINDOW_MISSING",
 ]
 
 

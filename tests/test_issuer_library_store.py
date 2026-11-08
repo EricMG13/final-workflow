@@ -2404,7 +2404,8 @@ def test_a_table_cell_keeps_its_rows_kind():
     table = {"rows": {"Margin": ["Margin", "0.25"], "A": ["A", "1"], "B": ["B", "0.5"]}}
     table["periods"] = {("fy", "FY2024"): 1}
     column = {"period": ("fy", "FY2024")}
-    cell = store.CellContext(store.CashflowInputs({"t": table}, None, {}), column, 0, {}, "percent")
+    inputs = store.CashflowInputs({"t": table}, None, {}, {})
+    cell = store.CellContext(inputs, column, 0, {}, "percent")
     assert store.op_table(cell, "t", "Margin")["display"] == "25.00%"
     summed = store.op_table_sum(cell, "t", "A", "B")
     assert summed["display"] == "150.00%"
@@ -2945,3 +2946,92 @@ def test_named_run_id_keeps_the_id_when_the_names_differ() -> None:
     run_id, issue = store.named_run_id("Alpha Holdings", None, delivered)
     assert run_id == "ZET"
     assert issue == "deliverables name the issuer 'Zeta Corp', not 'Alpha Holdings'; issuer ID kept"
+
+
+# Recorded quarter values (Task 9): hand-written expectations, windows as the bridge prints them.
+LTM_ROW = "LTM Adj EBITDA (As Defined)"
+SENIOR_ROW = "Senior secured leverage (secured debt / Adj EBITDA)"
+TOTAL_ROW = "Total leverage (debt / Adj EBITDA)"
+LTM_NEEDED_TEXT = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+AFTER_DEBT_TEXT = "needs quarter-end total carrying debt, which the model does not derive"
+AFTER_SENIOR_TEXT = (
+    "needs quarter-end senior secured carrying debt, which the model does not derive"
+)
+
+
+def quarter_record(quarters):
+    return calculation_record(quarters=quarters)
+
+
+def test_ltm_adj_ebitda_and_quarter_end_leverage_show_where_the_record_holds_them(tmp_path):
+    record = quarter_record(
+        {
+            "2025-10-01–2025-12-31": {
+                "ltm_adj_ebitda": amount("4322"),
+                "senior_secured_multiple": amount("4.6719"),
+            },
+            "2024-10-01-2024-12-31": {"ltm_adj_ebitda": amount("100")},  # hyphen as printed
+        }
+    )
+    cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(record))
+    assert issues == []
+    assert shown(cashflow, LTM_ROW) == ["100", DASH, "4,322", "540", "594", NM, NM]
+    assert shown(cashflow, SENIOR_ROW) == [NA, NA, "4.67x", "3.00x", NA, NM, NM]
+    assert row(cashflow, SENIOR_ROW)["cells"][2]["exact"] == "4.6719"
+    total = row(cashflow, TOTAL_ROW)["cells"]
+    assert [(c["display"], c["reason"]) for c in total[:3]] == [
+        (NA, AFTER_DEBT_TEXT),
+        (NA, LTM_NEEDED_TEXT),
+        (NA, AFTER_DEBT_TEXT),
+    ]
+
+
+def test_without_quarter_values_the_old_text_stays_and_the_ltm_row_is_dashes(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    assert shown(cashflow, LTM_ROW) == [DASH, DASH, DASH, "540", "594", NM, NM]
+    for label in (SENIOR_ROW, TOTAL_ROW):
+        assert [c["reason"] for c in row(cashflow, label)["cells"][:3]] == [LTM_NEEDED_TEXT] * 3
+
+
+def test_a_recorded_ltm_without_a_recorded_leverage_says_the_debt_total_is_missing(tmp_path):
+    record = quarter_record({"2025-10-01–2025-12-31": {"ltm_adj_ebitda": amount("4322")}})
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(record))
+    for label, text in ((SENIOR_ROW, AFTER_SENIOR_TEXT), (TOTAL_ROW, AFTER_DEBT_TEXT)):
+        cell = row(cashflow, label)["cells"][2]
+        assert (cell["display"], cell["reason"]) == (NA, text)
+    other = row(cashflow, TOTAL_ROW)["cells"][0]
+    assert other["reason"] == LTM_NEEDED_TEXT
+
+
+def test_quarter_reasons_read_in_words(tmp_path):
+    expected = {
+        "WINDOW_MISSING": "the year-to-date or prior-year window is not in the handoffs",
+        "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
+        "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
+        "COMPONENT_MISSING": "a component is not in the handoffs",
+        "NOT_STATED": "a component is not in the handoffs",
+        "NOT_SOURCED": "not reported in the source",
+        "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero or negative",
+    }
+    for code, words in expected.items():
+        record = quarter_record(
+            {
+                "2025-10-01–2025-12-31": {
+                    "ltm_adj_ebitda": amount(None, code),
+                    "senior_secured_multiple": amount(None, code),
+                }
+            }
+        )
+        cashflow, _ = cashflow_of(tmp_path / code, extra=cashflow_files(record))
+        for label in (LTM_ROW, SENIOR_ROW):
+            cell = row(cashflow, label)["cells"][2]
+            assert (cell["display"], cell["reason"]) == (NA, words), (code, label)
+
+
+def test_a_malformed_quarters_entry_is_reported_like_a_malformed_value_entry(tmp_path):
+    for bad in ({"2025-10-01–2025-12-31": {"ltm_adj_ebitda": "4322"}}, ["not", "a", "dict"]):
+        cashflow, issues = cashflow_of(
+            tmp_path / str(len(str(bad))), extra=cashflow_files(quarter_record(bad))
+        )
+        assert cashflow is None
+        assert issues == ["deliverables/m-1: calculation.json is missing or unreadable"]

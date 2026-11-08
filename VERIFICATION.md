@@ -8,6 +8,29 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-08 — Phase 5: LTM Adj EBITDA and quarter-end leverage (branch `claude/model-ltm`)
+
+Scope: Tasks 9-10 and the end batch (da425880..853c9ee1), stacked on Phase 4; macOS only.
+Phase diff: 760 changed lines (cap 800). **Deterministic retained-data** check: TDG
+`runs/cpos-tdg-model-001` inputs and quarter handoff `runs/tdg-003`, no provider call.
+- Answer key (checked by hand before dispatch): LTM 4,173 + 1,061 − 912 = 4,322; quarter secured
+  20,192. The plan's "4.7x" is "4.67x" in the store's format (two places).
+- Controller live check (real app, retained data): classifiable model Q1 FY2025 LTM 4,322, senior
+  4.67x, FY2024 senior 4.80x; full TDG model Q1 FY2025 LTM 4,322, senior n.a. "the debt register has
+  a row that cannot be classified", total/net leverage "needs quarter-end total carrying debt, which
+  the model does not derive".
+- Reviews: Task 9 mx-precise + mx-adversary, one fix round (required secured rows, LTM span, Total
+  rows, one Net column, repeated bridge row, duplicate windows, operand reasons, hidden text),
+  re-review pass; Task 10 mx-precise approve; end batch (LTM span 364-371; senior fallback text);
+  phase mx-architect approve.
+- Gates: `validate.py full` exit 0; `tools/quality_gate.py` exit 0; pytest 265 passed.
+- Follow-ups on `claude/register-hardening` (owner asked to apply them): escaped pipes, subtotal and
+  emphasised labels, an anchor without its table, label spacing, hidden text inside a table, the
+  WINDOW_MISSING wording and the LTM start date.
+
+Not verified: Windows/Edge rendering; any issuer other than TDG; a non-Q1 year-to-date window with
+real data; in-app runs still publish no model (Decision 10); the weekly full suite.
+
 ## 2026-11-08 — Phase 4: derived rows in calculation.json (branch `claude/model-derived-rows`)
 
 Scope: Tasks 7-8 (5139dc9f..60c101c7), the Low batch 33be4f6c and the end commit; macOS only.

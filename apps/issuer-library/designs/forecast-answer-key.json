@@ -857,6 +857,23 @@
     ]
    },
    {
+    "band": "Adjusted EBITDA",
+    "label": "LTM Adj EBITDA (As Defined)",
+    "display": [
+     "—",
+     "—",
+     "2,646",
+     "3,395",
+     "4,173",
+     "n.m.",
+     "n.m.",
+     "n.m.",
+     "n.m.",
+     "n.m.",
+     "n.m."
+    ]
+   },
+   {
     "band": "Earnings to cash proxy",
     "label": "Cash interest",
     "display": [

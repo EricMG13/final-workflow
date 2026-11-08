@@ -737,3 +737,259 @@ def test_the_page_names_the_unclassified_row_and_the_ambient_context_is_ignored(
     expected = build_model(*args).files
     with localcontext(Context(prec=3, rounding="ROUND_CEILING")):
         assert build_model(*args).files == expected
+
+
+BRIDGE = "### Issuer segment EBITDA As Defined bridge"
+QUARTER_REGISTER = "### Debt — December 28, 2024"
+WINDOW = "2024-10-01–2024-12-28"
+ADVANCES = b"| 15 | Government refundable advances | 16 | \xe2\x80\x94 | \xe2\x80\x94 | 16 |\n"
+LEASES = b"| 16 | Finance lease obligations | 260 | \xe2\x80\x94 | \xe2\x80\x94 | 260 |\n"
+
+
+def quarter_build(register: bool = False, drop: tuple[bytes, ...] = ()):
+    """The CASE inputs asking for quarter rows; `drop` removes lines from a quarter copy."""
+    request, specs, raw = source_inputs()
+    if drop:
+        for line in drop:
+            assert line in raw["quarter"]
+            raw["quarter"] = raw["quarter"].replace(line, b"", 1)
+        specs["quarter"] = HandoffInput(
+            path="changed.md", sha256=sha256(raw["quarter"]).hexdigest()
+        )
+    rows = DerivedRows(
+        quarter_bridge=BRIDGE, quarter_debt_register=QUARTER_REGISTER if register else None
+    )
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    return json.loads(published.files["calculation.json"])["quarters"]
+
+
+def test_ltm_adj_ebitda_is_fy_plus_ytd_less_prior_ytd() -> None:
+    quarters = quarter_build()
+    assert list(quarters) == [WINDOW]
+    entry = quarters[WINDOW]["ltm_adj_ebitda"]
+    assert entry["amount"] == "4322"  # 4,173 + 1,061 - 912
+    assert entry["unit"] == "MILLIONS" and entry["currency"] == "USD"
+    assert (entry["period"], entry["start_date"], entry["end_date"]) == (
+        WINDOW,
+        "2024-10-01",
+        "2024-12-28",
+    )
+    assert entry["formula"] == (
+        "fiscal-year Adj EBITDA As Defined + year-to-date window - prior-year window"
+    )
+    assert [(s["source_id"], s["locator"], s["cell_text"]) for s in entry["sources"]] == [
+        ("annual", "line 350", "4,173"),
+        ("quarter", "line 351", "1,061"),
+        ("quarter", "line 351", "912"),
+    ]
+    assert "senior_secured_debt" not in quarters[WINDOW]
+
+
+def test_the_tdg_quarter_register_cannot_be_classified() -> None:
+    entries = quarter_build(register=True)[WINDOW]
+    for key in ("senior_secured_debt", "senior_secured_multiple"):
+        assert entries[key]["amount"] is None and entries[key]["reason"] == "UNCLASSIFIED_ROW"
+    assert entries["senior_secured_debt"]["note"] == "Government refundable advances"
+
+
+def test_a_classifiable_quarter_register_gives_quarter_end_leverage() -> None:
+    entries = quarter_build(register=True, drop=(ADVANCES, LEASES))[WINDOW]
+    # 649 + 8,645 + 2,079 + 2,728 + 1,438 + 986 + 2,181 + 1,486
+    assert entries["senior_secured_debt"]["amount"] == "20192"
+    assert entries["senior_secured_debt"]["start_date"] is None
+    assert entries["senior_secured_debt"]["end_date"] == "2024-12-28"
+    assert Decimal(entries["senior_secured_multiple"]["amount"]) == rounded(Fraction(20192, 4322))
+    assert entries["senior_secured_multiple"]["unit"] == "MULTIPLE"
+
+
+def test_a_repeated_quarter_register_label_gives_no_total() -> None:
+    request, specs, raw = source_inputs()
+    twin = b"| 4 | Term loans | 8,702 | (24) | (33) | 8,645 |\n"
+    assert twin in raw["quarter"]
+    raw["quarter"] = raw["quarter"].replace(twin, twin * 2, 1)
+    raw["quarter"] = raw["quarter"].replace(ADVANCES, b"").replace(LEASES, b"")
+    specs["quarter"] = HandoffInput(path="changed.md", sha256=sha256(raw["quarter"]).hexdigest())
+    rows = DerivedRows(quarter_bridge=BRIDGE, quarter_debt_register=QUARTER_REGISTER)
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    debt = json.loads(published.files["calculation.json"])["quarters"][WINDOW][
+        "senior_secured_debt"
+    ]
+    assert debt["amount"] is None and debt["reason"] == "UNCLASSIFIED_ROW"
+    assert debt["note"] == "repeated row label: Term loans"
+
+
+def test_quarters_are_absent_without_a_quarter_bridge_request() -> None:
+    assert "quarters" not in json.loads(build_model(*annual_only()).files["calculation.json"])
+    request, specs, raw = source_inputs()
+    published = build_model(request.run, specs, raw, request.model)
+    assert "quarters" not in json.loads(published.files["calculation.json"])
+    rows = DerivedRows(debt_register=REGISTER)
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    assert "quarters" not in json.loads(published.files["calculation.json"])
+
+
+ROW_BRIDGE = b"| 9 | Total Company EBITDA As Defined | 1,061 | 912 |\n"
+TERM_ROW = b"| 4 | Term loans | 8,702 | (24) | (33) | 8,645 |\n"
+SECURITIZATION_ROW = (
+    "| 3 | Short-term borrowings—trade receivable securitization facility | 650 | (1) | — | 649 |\n"
+).encode()
+NOTES_2033 = (
+    "| 14 | 6.00% secured notes due 2033 (“2033 Secured Notes”) | 1,500 | (14) | — | 1,486 |\n"
+).encode()
+
+
+def edited_quarters(quarter=(), annual=(), register=False, periods=None):
+    """The CASE quarter rows after in-memory text edits (old, new) of the retained handoffs."""
+    request, specs, raw = source_inputs()
+    layout = request.model
+    for key, edits in (("quarter", quarter), ("annual", annual)):
+        for old, new in edits:
+            assert old in raw[key]
+            raw[key] = raw[key].replace(old, new, 1)
+        if edits:
+            specs[key] = HandoffInput(path="changed.md", sha256=sha256(raw[key]).hexdigest())
+    if annual:
+        for key in ("forecast", "forecast_exact"):
+            del specs[key], raw[key]
+        layout = layout.model_copy(update={"extra_handoffs": {}, "forecast_exact": None})
+    if periods:
+        merged = {
+            **layout.periods,
+            **{k: layout.periods[k].model_copy(update=v) for k, v in periods.items()},
+        }
+        layout = layout.model_copy(update={"periods": merged})
+    rows = DerivedRows(
+        quarter_bridge=BRIDGE, quarter_debt_register=QUARTER_REGISTER if register else None
+    )
+    layout = layout.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    return json.loads(published.files["calculation.json"])["quarters"]
+
+
+def test_a_quarter_register_without_its_required_secured_rows_gives_no_total() -> None:
+    for gone in (TERM_ROW, SECURITIZATION_ROW):
+        edits = [(ADVANCES, b""), (LEASES, b""), (gone, b"")]
+        debt = edited_quarters(quarter=edits, register=True)[WINDOW]["senior_secured_debt"]
+        assert debt["amount"] is None and debt["reason"] == "COMPONENT_MISSING"
+
+
+@pytest.mark.parametrize(
+    "label", ["Total secured notes", "TOTAL senior secured notes", "total term loans"]
+)
+def test_a_total_labelled_register_row_is_a_subtotal(label: str) -> None:
+    subtotal = f"| 14a | {label} | 10,950 | (88) | (14) | 10,898 |\n".encode()
+    edits = [(ADVANCES, b""), (LEASES, b""), (NOTES_2033, NOTES_2033 + subtotal)]
+    debt = edited_quarters(quarter=edits, register=True)[WINDOW]["senior_secured_debt"]
+    assert debt["amount"] == "20192"
+
+
+def test_two_net_columns_in_the_quarter_register_are_refused() -> None:
+    edits = [(b"| Costs USD m |", b"| Net costs USD m |")]
+    with pytest.raises(ValueError, match="Net"):
+        edited_quarters(quarter=edits, register=True)
+
+
+def test_a_repeated_bridge_row_is_refused() -> None:
+    with pytest.raises(ValueError, match="model_row"):
+        edited_quarters(quarter=[(ROW_BRIDGE, ROW_BRIDGE + ROW_BRIDGE)])
+
+
+def test_the_prior_window_must_start_with_the_fiscal_year_and_the_year_be_full() -> None:
+    header = "| Source row | Label | 2024-10-01–2024-12-28 | 2023-10-01–2023-12-30 |"
+    at = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text().index(BRIDGE)
+    block = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()[at:]
+    block = block[: block.index(header) + len(header)]
+    early = [(block.encode(), block.replace("2023-10-01–", "2023-09-24–").encode())]
+    ltm = edited_quarters(quarter=early)[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+    assert "prior-year window" in ltm["note"]
+    stub = [
+        (
+            b"| FY2024 | Historical duration | 2023-10-01 | 2024-09-30 |",
+            b"| FY2024 | Historical duration | 2024-01-01 | 2024-09-30 |",
+        )
+    ]
+    ltm = edited_quarters(annual=stub, periods={"FY2024": {"start_date": date(2024, 1, 1)}})[
+        WINDOW
+    ]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+    assert "full year" in ltm["note"]
+
+
+@pytest.mark.parametrize(
+    ("prior_end", "days"), [("2023-12-21", 373), ("2024-01-05", 358), ("2023-12-23", 371)]
+)
+def test_the_ltm_must_span_a_year_like_the_kernel(prior_end: str, days: int) -> None:
+    """Prior-window end to this window end, hand-counted: 2024-12-28 less each end."""
+    header = "| Source row | Label | 2024-10-01–2024-12-28 | 2023-10-01–2023-12-30 |"
+    text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()
+    block = text[text.index(BRIDGE) :]
+    block = block[: block.index(header) + len(header)]
+    edit = [(block.encode(), block.replace("2023-12-30", prior_end).encode())]
+    ltm = edited_quarters(quarter=edit)[WINDOW]["ltm_adj_ebitda"]
+    if days == 371:  # the kernel's upper bound is inclusive
+        assert ltm["amount"] == "4322"
+        return
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+    assert str(days) in ltm["note"] and "364" in ltm["note"]
+
+
+def bridge_with_column(header: str, value: str) -> list[tuple[bytes, bytes]]:
+    """An edit adding a column to the bridge table: `value` on its Total Company row."""
+    text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()
+    start = text.index(BRIDGE)
+    table = text[start : text.index("\n\n", text.index("| Source row", start))]
+    lines = []
+    for line in table.split("\n")[2:]:
+        if not line.startswith("|"):
+            continue
+        cell = "---" if line.startswith("|---") else ""
+        if "Total Company EBITDA As Defined" in line:
+            cell = value
+        if line.startswith("| Source row"):
+            cell = header
+        lines.append(line + f" {cell} |")
+    block = table[table.index("| Source row") :]
+    return [(block.encode(), "\n".join(lines).encode())]
+
+
+def test_one_window_printed_twice_is_refused() -> None:
+    edits = bridge_with_column("2024-10-01-2024-12-28", "1,070")
+    with pytest.raises(ValueError, match="window"):
+        edited_quarters(quarter=edits)
+
+
+def test_two_matching_prior_windows_give_no_ltm() -> None:
+    edits = bridge_with_column("2023-10-02–2023-12-30", "915")
+    ltm = edited_quarters(quarter=edits)[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+    assert ltm["note"] == "two prior-year windows match"
+
+
+def test_a_dash_operand_keeps_its_own_reason() -> None:
+    dash = ROW_BRIDGE.replace(b"| 1,061 |", "| — |".encode())
+    ltm = edited_quarters(quarter=[(ROW_BRIDGE, dash)])[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["reason"] == "NOT_STATED"
+    header = (
+        b"| Reported line | FY2024 | FY2023 | FY2022 |\n|---|---:|---:|---:|\n"
+        b"| Power & Control EBITDA As Defined |"
+    )
+    renamed = header.replace(b"FY2024", b"FY 2024")
+    ltm = edited_quarters(annual=[(header, renamed)])[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and "FY2024" in ltm["note"]
+
+
+def test_a_total_row_inside_an_html_comment_is_not_read() -> None:
+    row = b"| Total Company EBITDA As Defined | 4,173 | 3,395 | 2,646 |"
+    draft = (
+        b"<!-- superseded draft\n| Reported line | FY2024 |\n|---|---:|\n"
+        b"| Total Company EBITDA As Defined | 9,999 |\n-->\n\n"
+    )
+    visible = row.replace(b"As Defined |", b"As Defined (as reported) |", 1)
+    title = b"### T4.17 \xe2\x80\x94 Reported EBITDA and add-back bridge"
+    edits = [(row, visible), (title, draft + title)]
+    ltm = edited_quarters(annual=edits)[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None

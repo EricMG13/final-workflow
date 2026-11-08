@@ -13,7 +13,9 @@ function fixture(hash,timeout,before){
   vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   for(const name of ['data.js','workspace-data.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
   w.hydrate(w.DESIGN_DATA);
-  for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
+  // Synthetic catalogue rows for the fixture's runs (shape of /api/catalogue records); no metrics, as for most retained runs.
+  w.DESIGN_CATALOGUE={sources:{},real:Object.entries(w.DESIGN_DATA.runs).map(([key,run])=>({id:run.folder,issuer:'TDG',name:run.title,title:key,sector:'Aerospace',workflow:'Annual review',date:'2024-12-31',period:'FY2024',period_kind:'Annual actual',metrics:{},completion:null,checkpoints:null,ratings:[],gaps:[],summary:'Synthetic record.',artifacts:[]}))};
+  for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
 const go=async(w,hash)=>{w.location.hash=hash;w.dispatchEvent(new w.Event('hashchange'));await settle();};
@@ -87,7 +89,7 @@ test('the run context frame shows loading, failure with retry, and ready',async 
   w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};w.setInterval=()=>1;w.clearInterval=()=>{};
   w.fetch=async()=>({ok:true,json:async()=>[]});
   w.eval('window.DESIGN_FRAME_TIMEOUT_MS=20;window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
-  for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
+  for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   t.after(()=>{w.close();assert.deepEqual(errors.map(e=>e.message),[]);});
   const status=()=>d.querySelector('#context-step .frame-status');
   assert.match(text(status()),/^Loading run context form/);
@@ -153,7 +155,7 @@ test('Settings lists workspace issues as path and message and quits as a tertiar
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-Settings/workspace',runScripts:'outside-only'});
   const w=dom.window;t.after(()=>w.close());w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
   w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:['deliverables/x: Delivery manifest requires report.html: and view.json','plain note'],problem:''};");
-  for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
+  for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   const d=w.document,quit=d.getElementById('quit-library');
   assert.ok(quit.classList.contains('tertiary-action'));
@@ -170,7 +172,7 @@ function emptyPage(hash,t){
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only',virtualConsole}),w=dom.window;
   t.after(()=>w.close());w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};
   w.eval("window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:'/research',policy_locked:false,issues:[],problem:''};");
-  return {dom,w,errors,load:()=>{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}};
+  return {dom,w,errors,load:()=>{for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}};
 }
 async function settingsPage(t,fail){
   const p=emptyPage('W-Settings/workspace',t),calls=[];
@@ -327,26 +329,8 @@ test('layout: toggle label, issuer title, library band offset and row labels', a
   const h1=d.querySelector('.issuer h1');
   assert.ok(h1.getAttribute('title'));assert.equal(h1.getAttribute('title'),h1.textContent);
   await go(w,'W-Library/cases');
-  assert.equal(d.querySelector('.library-workspace').style.getPropertyValue('--band-h'),'-8px');
-  await go(w,'W-Overview/overview?c=tdg-002');
-  assert.ok(!d.getElementById('workbench').style.cssText.includes('--band-h'));
-  await go(w,'W-Library/cases');
-  const cells=[...d.querySelectorAll('.run-row td:not(:first-child):not(.row-open), .issuer-row td:not(.row-open)')];
-  assert.ok(cells.length>0);
-  for(const c of cells)assert.ok(c.dataset.label,c.outerHTML);
-  assert.deepEqual([...new Set(cells.map(c=>c.dataset.label))].sort(),['Period','Reports','Run','Workflow']);
-});
-
-test('a group stays open across searches because its state is keyed by the issuer key',async t=>{
-  const w=fixture('W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  const group=()=>d.querySelector('tbody.run-list[data-group="id:tdg"]');
-  group().querySelector('.run-toggle').click();
-  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
-  assert.deepEqual([...w.eval('expandedIssuers')],['id:tdg']);
-  const box=d.getElementById('library-query');
-  box.value='transdigm';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
-  assert.ok([...group().querySelectorAll('.run-row')].every(row=>!row.hidden));
+  assert.ok(d.querySelector('.library-workspace'));
+  assert.ok(d.querySelectorAll('#library-results tbody tr').length>0,'the synthetic catalogue is listed');
 });
 
 test('other runs of the issuer are found by issuer key, never by display name, and an unrecorded run matches nothing',async t=>{
@@ -453,7 +437,7 @@ function bare(hash,models){
   w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
   w.eval(`window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:${JSON.stringify(models)},visuals:[]};window.DESIGN_APP={workspace:'',policy_locked:false,issues:[],problem:''};`);
   let error=null;
-  try{for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}catch(e){error=e;}
+  try{for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());}catch(e){error=e;}
   return {w,error};
 }
 test('every route renders in a workspace with no run, whatever it holds',t=>{

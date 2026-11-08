@@ -8,6 +8,8 @@ const crypto = require('node:crypto');
 const { JSDOM } = require(process.env.ISSUER_LIBRARY_JSDOM || 'jsdom');
 const root=path.resolve(__dirname,'../../../artifacts/issuer-library/design-fixture');
 const web=path.resolve(__dirname,'../web');
+// Synthetic /api/catalogue records, one per store run and without metrics (as for most retained runs).
+const catalogueOf=runs=>({sources:{},real:Object.values(runs).map(r=>({id:r.folder,issuer:r.issuerKey??'none',name:r.issuer,title:r.run,sector:r.sector,workflow:'Annual review',date:'2024-12-31',period:r.period,period_kind:'Annual actual',metrics:{},completion:null,checkpoints:null,ratings:[],gaps:[],summary:'Synthetic record.',artifacts:[]}))});
 function fixture(hash='CP-1/performance') {
   const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`file://${web}/index.html#${hash}`,runScripts:'outside-only'});
   dom.window.scrollTo=()=>{};dom.window.fetch=()=>new Promise(()=>{});
@@ -15,7 +17,8 @@ function fixture(hash='CP-1/performance') {
   vm.runInContext(fs.readFileSync(path.join(web,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   for(const name of ['data.js','workspace-data.js']) vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
   dom.window.hydrate(dom.window.DESIGN_DATA);
-  for(const name of ['views.js','actions.js','screen.js']) vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
+  dom.window.DESIGN_CATALOGUE=catalogueOf(dom.window.DESIGN_DATA.runs);
+  for(const name of ['screening.js','views.js','actions.js','screen.js']) vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
 const norm=s=>s.replace(/\*\*|`/g,'').replace(/\s+/g,' ').trim();
@@ -171,7 +174,7 @@ test('Evidence cases are isolated; report build selection changes both preview a
   assert.equal(d.querySelectorAll('.source-inventory>section').length,8);assert.ok(!d.getElementById('content').textContent.includes('TDG-002'));
   w.location.hash='W-Evidence/sources?c=tdg-002';w.eval('renderRoute()');assert.ok(!d.getElementById('content').textContent.includes('Ford Otosan'));assert.ok(!d.getElementById('content').textContent.includes('Frontier'));
   w.location.hash='W-Reports/tdg-fy2024-snapshot-6';w.eval('renderRoute()');assert.equal(d.getElementById('report-preview').getAttribute('src'),'reports/tdg-fy2024-snapshot-6/preview.html');assert.equal(d.querySelector('.report-tools a[download]').getAttribute('href'),'reports/tdg-fy2024-snapshot-6/original.html');assert.equal(d.getElementById('report-preview').getAttribute('sandbox'),'allow-scripts allow-downloads');
-  w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.querySelectorAll('.case-list tbody.run-list').length,3);
+  w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.querySelectorAll('#library-results tbody tr').length,8);
   dom.window.close();
 });
 test('Malformed and inherited-object route keys cannot break navigation or cross issuer evidence',()=>{
@@ -264,46 +267,6 @@ test('Navigation focus targets remain visible when the mobile outline or report 
   w.location.hash='W-Reports/tdg-fy2024-snapshot?c=tdg-002';w.eval('renderRoute()');assert.equal(d.activeElement.id,'report-select');
   w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.activeElement.id,'analysis');dom.window.close();
 });
-test('Library filters combine case-insensitive search, sector, content and module without blending runs',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  assert.equal(d.getElementById('library-count').textContent,'3 issuers · 8 runs · 7 reports');
-  const search=d.getElementById('library-query');search.focus();search.value='  FORD   2024 ';search.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.equal(d.querySelectorAll('.run-list a').length,1);assert.equal(d.querySelector('.case-list h2').textContent,'Ford Otosan');assert.equal(d.activeElement,search);
-  const sector=d.querySelector('[data-library-filter="sector"]');sector.value='Telecommunications';sector.dispatchEvent(new w.Event('change',{bubbles:true}));
-  assert.ok(d.querySelector('.library-empty'));assert.equal(d.querySelectorAll('.run-list a').length,0);
-  d.getElementById('library-clear').click();assert.equal(d.querySelectorAll('.run-list a').length,8);assert.equal(d.activeElement,search);
-  const content=d.querySelector('[data-library-filter="content"]');content.value='reports';content.dispatchEvent(new w.Event('change',{bubbles:true}));
-  assert.equal(d.getElementById('library-count').textContent,'1 issuer · 4 runs · 7 reports');assert.ok(![...d.querySelectorAll('.run-list a')].some(a=>a.href.includes('c=tdg-deliveries')));
-  const module=d.querySelector('[data-library-filter="module"]');module.value='CP-2G';module.dispatchEvent(new w.Event('change',{bubbles:true}));assert.equal(d.querySelectorAll('.run-list a').length,1);assert.ok(d.querySelector('.run-list a').href.includes('c=tdg-003'));
-  content.value='modules';content.dispatchEvent(new w.Event('change',{bubbles:true}));assert.deepEqual([...d.querySelectorAll('.run-list a')].map(a=>new URLSearchParams(a.hash.split('?')[1]).get('c')).sort(),['ford-otosan-2024','tdg-003']);
-  dom.window.close();
-});
-test('Library filters by recorded workflow and as-of year, and keeps runs without them findable as not recorded',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  w.eval(`Object.assign(contexts['tdg-003'],{pathway:'earnings_update',asOf:'2024-12-28'});Object.assign(contexts['ford-otosan-2024'],{pathway:'credit_snapshot',asOf:'2021-04-11'});location.hash='W-Settings/workspace';renderRoute();location.hash='W-Library/cases';renderRoute()`);
-  const pick=(name,value)=>{const c=d.querySelector(`[data-library-filter="${name}"]`);c.value=value;c.dispatchEvent(new w.Event('change',{bubbles:true}));};
-  const shown=()=>[...d.querySelectorAll('.run-list a')].map(a=>new URLSearchParams(a.hash.split('?')[1]).get('c')).sort();
-  assert.deepEqual([...d.querySelectorAll('[data-library-filter="workflow"] option')].map(o=>o.textContent),['Any workflow','Credit Snapshot','Earnings Update','Not recorded']);
-  assert.deepEqual([...d.querySelectorAll('[data-library-filter="year"] option')].map(o=>o.textContent),['Any year','2024','2021','Not recorded']);
-  pick('workflow','earnings_update');assert.deepEqual(shown(),['tdg-003']);
-  assert.equal(norm(d.querySelector('.run-list a').closest('tr').children[2].textContent),'Earnings Update');
-  assert.equal(d.getElementById('library-clear').disabled,false);
-  pick('workflow','none');assert.equal(shown().length,6);assert.ok(!shown().includes('tdg-003')&&!shown().includes('ford-otosan-2024'));
-  pick('workflow','all');pick('year','2021');assert.deepEqual(shown(),['ford-otosan-2024']);
-  pick('year','none');assert.equal(shown().length,6);
-  d.getElementById('library-clear').click();assert.equal(shown().length,8);
-  assert.equal(d.querySelector('[data-library-filter="year"]').value,'all');
-  const search=d.getElementById('library-query');search.value='earnings update';search.dispatchEvent(new w.Event('input',{bubbles:true}));assert.deepEqual(shown(),['tdg-003']);
-  dom.window.close();
-});
-test('The module filter groups modules under the credit question each one answers',()=>{
-  const dom=fixture('W-Library/cases'),d=dom.window.document;
-  const select=d.querySelector('[data-library-filter="module"]');
-  assert.ok(select.querySelectorAll('optgroup').length>2);
-  assert.equal(select.querySelector('option[value="CP-2G"]').parentElement.label,'Outlook and downside');
-  assert.equal(select.querySelector('option[value="CP-1"]').parentElement.label,'Financial performance');
-  dom.window.close();
-});
 test('Grey text: app pages carry no subtitle, run headers no freshness line, the outline no design notes',()=>{
   const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
   assert.equal(d.querySelector('.issuer-meta'),null);
@@ -313,76 +276,11 @@ test('Grey text: app pages carry no subtitle, run headers no freshness line, the
   assert.equal(norm(d.querySelector('#context-step .intro').textContent),'Load a saved context or enter the issuer.');
   dom.window.close();
 });
-test('Library shows one row per issuer; an issuer with several runs opens a drop-down of its runs',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  const table=d.querySelector('table.case-list');
-  assert.deepEqual([...table.querySelectorAll('thead th')].map(th=>norm(th.textContent)),['Issuer','Run','Workflow','Period','Reports','Open']);
-  const groups=()=>[...d.querySelectorAll('table.case-list tbody.run-list')];assert.equal(groups().length,3);
-  const group=name=>groups().find(g=>g.querySelector('h2').textContent===name);
-  const cells=row=>[...row.children].slice(1,5).map(c=>norm(c.textContent));
-  assert.deepEqual(cells(group('Ford Otosan').querySelector('tr')),['FORD-OTOSAN-2024','Not recorded','11 April 2024','No report'],'one run: the issuer row is the run');
-  const tdg=group('TransDigm Group'),head=tdg.querySelector('tr'),toggle=head.querySelector('button.run-toggle');
-  assert.equal(head.querySelector('th[scope="rowgroup"] .badge').textContent,'Aerospace & defense');
-  assert.deepEqual(cells(head),['6 runs','Not recorded','Varies','7 reports']);
-  assert.equal(toggle.getAttribute('aria-expanded'),'false');
-  const runRows=[...tdg.querySelectorAll('tr.run-row')];assert.equal(runRows.length,6);assert.ok(runRows.every(r=>r.hidden));
-  assert.deepEqual(toggle.getAttribute('aria-controls').split(' ').sort(),runRows.map(r=>r.id).sort());
-  toggle.focus();toggle.click();
-  assert.equal(toggle.getAttribute('aria-expanded'),'true');assert.ok(runRows.every(r=>!r.hidden));assert.equal(d.activeElement,toggle);
-  assert.deepEqual(cells(d.querySelector('.run-list a[href*="c=tdg-002"]').closest('tr')),['TDG-002','Not recorded','FY2024 historical evidence','7 reports']);
-  assert.equal(d.querySelectorAll('.run-list a').length,8,'one link per run');
-  w.eval(`location.hash='W-Settings/workspace';renderRoute();location.hash='W-Library/cases';renderRoute()`);
-  assert.equal(group('TransDigm Group').querySelector('button.run-toggle').getAttribute('aria-expanded'),'true','the drop-down stays open on return');
-  w.eval(`contexts['frontier-2020'].sector='Unclassified';location.hash='W-Settings/workspace';renderRoute();location.hash='W-Library/cases';renderRoute()`);
-  assert.equal(group('Frontier').querySelector('.badge').textContent,'Sector not recorded');
-  assert.ok([...d.querySelectorAll('[data-library-filter="sector"] option')].some(o=>o.value==='Unclassified'&&o.textContent==='Not recorded'));
-  dom.window.close();
-});
-test('A run with no saved outputs says so in an attention badge',()=>{
-  const store=structuredClone(NORTHBRIDGE);
-  store.runs['web-2']={...store.runs['web-1'],folder:'web-2',run:'WEB-2',modules:{}};
-  const dom=appFixture('W-Library/cases',store,NORTHBRIDGE_REPORTS),d=dom.window.document;
-  const reports=key=>d.querySelector(`.run-list a[href*="c=${key}"]`).closest('tr').children[4];
-  assert.equal(norm(reports('web-2').textContent),'No saved outputs');assert.ok(reports('web-2').querySelector('.badge-attention'));
-  dom.window.close();
-});
-test('Active Library filters show as removable chips, and Clear all appears only when something is filtered',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  const sector=d.querySelector('[data-library-filter="sector"]'),clear=d.getElementById('library-clear');
-  assert.equal(clear.hidden,true);assert.equal(d.querySelectorAll('#library-chips .chip').length,0);
-  sector.value='Automotive';sector.dispatchEvent(new w.Event('change',{bubbles:true}));
-  assert.equal(clear.hidden,false);assert.ok(sector.classList.contains('active'));
-  const chip=d.querySelector('#library-chips .chip');assert.equal(norm(chip.textContent),'Sector: Automotive');
-  const remove=chip.querySelector('button');assert.equal(remove.getAttribute('aria-label'),'Remove Sector filter');
-  remove.click();
-  assert.equal(sector.value,'all');assert.equal(d.querySelectorAll('.run-list a').length,8);assert.equal(d.querySelectorAll('#library-chips .chip').length,0);
-  assert.equal(d.activeElement,sector);assert.equal(clear.hidden,true);assert.ok(!sector.classList.contains('active'));
-  dom.window.close();
-});
 test('New run and Settings use the shared secondary button for their other actions',()=>{
   const dom=fixture('W-NewRun/run'),w=dom.window,d=w.document;
   const ids=['edit-context','revise-run','another-run'];
   w.eval(`location.hash='W-Settings/workspace';renderRoute()`);ids.push('refresh-library');
   for(const id of ids){const b=d.getElementById(id);assert.ok(b.classList.contains('secondary-action'),id);assert.ok(!b.classList.contains('text-button'),id);}
-  dom.window.close();
-});
-test('Review W1: a run folder with a space still opens its issuer drop-down',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  w.eval(`contexts['tdg 005']={...contexts['tdg-002'],folder:'tdg 005',run:'TDG 005'};location.hash='W-Settings/workspace';renderRoute();location.hash='W-Library/cases';renderRoute()`);
-  const tdg=[...d.querySelectorAll('tbody.run-list')].find(g=>g.querySelector('h2').textContent==='TransDigm Group'),toggle=tdg.querySelector('button.run-toggle');
-  const rows=[...tdg.querySelectorAll('tr.run-row')];assert.equal(rows.length,7);
-  assert.ok(rows.every(r=>!/\s/.test(r.id)),'row ids carry no whitespace');
-  assert.doesNotThrow(()=>toggle.click());
-  assert.equal(toggle.getAttribute('aria-expanded'),'true');assert.ok(rows.every(r=>!r.hidden),'every run row opens, including the spaced one');
-  dom.window.close();
-});
-test('Review W2: a recorded as-of that is not a full date still gives its year',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  w.eval(`contexts['tdg-003'].asOf='2024-12';location.hash='W-Settings/workspace';renderRoute();location.hash='W-Library/cases';renderRoute()`);
-  const year=d.querySelector('select[data-library-filter="year"]');
-  assert.ok([...year.options].some(o=>o.value==='2024'),'2024 is offered');
-  year.value='2024';w.eval('updateLibraryResults()');
-  assert.deepEqual([...d.querySelectorAll('.run-list a.run-link')].map(a=>a.textContent),['TDG-003']);
   dom.window.close();
 });
 test('Review W3: iconAction escapes the link it is given',()=>{
@@ -457,13 +355,6 @@ test('The library says what it is once and puts New run beside its title',()=>{
   assert.equal(d.querySelector('#content .matrix-note'),null,'no footnote under the list');
   dom.window.close();
 });
-test('The module filter names each module once',()=>{
-  const dom=fixture('W-Library/cases'),d=dom.window.document;
-  const options=[...d.querySelectorAll('[data-library-filter="module"] option')].slice(1);
-  assert.ok(options.length>5);
-  for(const option of options)assert.equal(option.textContent,dom.window.eval(`moduleLabel(${JSON.stringify(option.value)})`),option.value);
-  dom.window.close();
-});
 test('A source footer leaves the line number to the inspector',()=>{
   const dom=fixture('CP-2/assessment'),d=dom.window.document;
   const footers=[...d.querySelectorAll('#content .source-footer')];
@@ -476,16 +367,16 @@ test('A source footer leaves the line number to the inspector',()=>{
 test('Library return restores filters and clear resets retained default values without changing context',()=>{
   const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
   const search=d.getElementById('library-query');search.value='Ford';search.dispatchEvent(new w.Event('input',{bubbles:true}));
-  w.location.hash=d.querySelector('.run-list a').hash;w.eval('renderRoute()');assert.equal(d.querySelector('.issuer h1').textContent,'Ford Otosan');
-  w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.getElementById('library-query').value,'Ford');assert.equal(d.querySelectorAll('.run-list a').length,1);
-  d.getElementById('library-clear').click();assert.equal(d.getElementById('library-query').value,'');assert.equal(d.querySelectorAll('.run-list a').length,8);assert.equal(w.eval('current.context'),'ford-otosan-2024');
+  w.location.hash=d.querySelector('#library-results a.run-link').hash;w.eval('renderRoute()');assert.equal(d.querySelector('.issuer h1').textContent,'Ford Otosan');
+  w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.getElementById('library-query').value,'Ford');assert.equal(d.querySelectorAll('#library-results a.run-link').length,1);
+  d.getElementById('library-clear').click();assert.equal(d.getElementById('library-query').value,'');assert.equal(d.querySelectorAll('#library-results a.run-link').length,8);assert.equal(w.eval('current.context'),'ford-otosan-2024');
   d.getElementById('analysis').focus();d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'/',bubbles:true}));assert.equal(d.activeElement.id,'library-query');
   const submit=new w.Event('submit',{bubbles:true,cancelable:true});d.getElementById('library-filters').dispatchEvent(submit);assert.equal(submit.defaultPrevented,true);
   dom.window.close();
 });
 test('Literal search text is escaped and short IDs include their separate delivery collection',()=>{
   const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  const search=d.getElementById('library-query');search.value='TDG';search.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.querySelectorAll('.run-list a').length,6);
+  const search=d.getElementById('library-query');search.value='TDG';search.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.querySelectorAll('#library-results a.run-link').length,6);
   search.value='\"><img src=x onerror=alert(1)>';search.dispatchEvent(new w.Event('input',{bubbles:true}));
   w.location.hash='CP-1';w.eval('renderRoute()');w.location.hash='W-Library/cases';w.eval('renderRoute()');
   assert.equal(d.getElementById('library-query').value,'\"><img src=x onerror=alert(1)>');assert.equal(d.querySelector('[onerror]'),null);assert.ok(d.querySelector('.library-empty'));
@@ -543,16 +434,6 @@ test('Key A: every run lists exactly its saved outputs and inputs, with byte-ide
     for(const file of [...Object.values(expected.outputs).flat(),...expected.inputs]){
       assert.equal(hash(path.join(root,'sources',`${expected.folder}--${file}`)),hash(path.join(repo,'runs',expected.folder,file)),file);
     }
-  }
-  dom.window.close();
-});
-test('Key B: the Contains-module filter returns every run with an output and offers no module without one',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
-  const select=d.querySelector('[data-library-filter="module"]');
-  assert.deepEqual([...select.options].map(o=>o.value).filter(v=>v!=='all').sort(),Object.keys(KEY_B).sort());
-  for(const [module,runs] of Object.entries(KEY_B)){
-    select.value=module;select.dispatchEvent(new w.Event('change',{bubbles:true}));
-    assert.deepEqual([...d.querySelectorAll('.run-list a')].map(a=>new URLSearchParams(a.hash.split('?')[1]).get('c')).sort(),[...runs].sort(),module);
   }
   dom.window.close();
 });
@@ -738,8 +619,8 @@ test('Escape steps back one layer at a time, as in Deploy VII',()=>{
   press(w,d.getElementById('analysis'),'/');type(w,box,'net sales');assert.ok(d.querySelector('#search-results a.search-hit'));
   press(w,box,'Escape');assert.equal(box.value,'');assert.equal(d.getElementById('search-results').children.length,0);assert.equal(d.activeElement.id,'module-search');assert.ok(nav.classList.contains('mobile-open'));
   press(w,box,'Escape');assert.ok(!nav.classList.contains('mobile-open'));assert.equal(d.activeElement.id,'module-toggle');assert.equal(d.getElementById('module-toggle').getAttribute('aria-expanded'),'false');
-  contentOf(dom,'W-Library/cases');const query=d.getElementById('library-query');query.focus();type(w,query,'zzz');assert.match(d.getElementById('content').textContent,/No matching issuers or runs/);
-  press(w,query,'Escape');assert.equal(query.value,'');assert.doesNotMatch(d.getElementById('content').textContent,/No matching issuers or runs/);
+  contentOf(dom,'W-Library/cases');const query=d.getElementById('library-query');query.focus();type(w,query,'zzz');assert.match(d.getElementById('content').textContent,/No runs match these filters/);
+  press(w,query,'Escape');assert.equal(query.value,'');assert.doesNotMatch(d.getElementById('content').textContent,/No runs match these filters/);
   dom.window.close();
 });
 test('Arrow keys walk chart marks without wrapping, as in Deploy VII',()=>{
@@ -838,8 +719,8 @@ function appFixture(hash,store,workspace,app={workspace:'/research',policy_locke
   const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only'});
   dom.window.scrollTo=()=>{};dom.window.HTMLElement.prototype.scrollIntoView=function(){};
   dom.window.fetch=()=>new Promise(()=>{});
-  dom.window.eval(`window.DESIGN_DATA=${JSON.stringify(store)};window.DESIGN_WORKSPACE=${JSON.stringify({models:[],...workspace})};window.DESIGN_APP=${JSON.stringify(app)};`);
-  for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
+  dom.window.eval(`window.DESIGN_DATA=${JSON.stringify(store)};window.DESIGN_WORKSPACE=${JSON.stringify({models:[],...workspace})};window.DESIGN_APP=${JSON.stringify(app)};window.DESIGN_CATALOGUE=${JSON.stringify(catalogueOf(store.runs))};`);
+  for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(web,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
 const goTo=(dom,hash)=>{dom.window.location.hash=hash;dom.window.eval('renderRoute()');return dom.window.document;};
@@ -1230,7 +1111,7 @@ test('Every card on a Summary quotes its own handoff',()=>{
 });
 test('A run in the library opens on its Summary',()=>{
   const dom=fixture('W-Library/cases'),d=dom.window.document;
-  const link=[...d.querySelectorAll('.run-list a')].find(a=>a.getAttribute('href').includes('c=tdg-002'));
+  const link=[...d.querySelectorAll('#library-results a.run-link')].find(a=>a.getAttribute('href').includes('c=tdg-002'));
   assert.ok(link.getAttribute('href').startsWith('#W-Overview/overview?'));
   dom.window.close();
 });

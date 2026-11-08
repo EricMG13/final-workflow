@@ -227,5 +227,19 @@
     "pointer": "/run/private_side",
     "value": true,
     "why": "case_kind is public; no private_side_source (pointer adds the member)"
+  },
+  {
+    "name": "rating scope bogus",
+    "fixture": "synthetic",
+    "pointer": "/run/ratings/0/scope",
+    "value": "bogus",
+    "why": "scope must be issuer or facility"
+  },
+  {
+    "name": "rating scope wrong case",
+    "fixture": "synthetic",
+    "pointer": "/run/ratings/0/scope",
+    "value": "Issuer",
+    "why": "scope is case sensitive: Issuer is not issuer"
   }
 ]

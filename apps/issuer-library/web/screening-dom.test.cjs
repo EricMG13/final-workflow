@@ -201,3 +201,13 @@ test('hostile record text is rendered as text; no markup, handler or script link
   p.set('library-period',bad);assert.deepEqual(p.ids(),[run.id],'the period kind selects as text');
   check();
 });
+
+test('a number box holding unreadable text does not leave an invisible filter after the panel is rebuilt',t=>{
+  const p=page(t),box=p.d.getElementById('library-leverageMin');
+  Object.defineProperty(box,'validity',{value:{badInput:true}});
+  box.dispatchEvent(new p.w.Event('input',{bubbles:true}));
+  assert.deepEqual(p.ids(),[],'unreadable text excludes every run while it is shown');
+  p.d.querySelector('[data-library-nav="reports"]').click();
+  assert.equal(p.d.getElementById('library-leverageMin').value,'');
+  assert.ok(p.ids().length>0,'the report rows are listed under the empty box');
+});

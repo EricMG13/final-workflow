@@ -521,12 +521,16 @@ function libraryPanel() {
   const advanced=libraryAdvanced();
   return `<header class="block-head"><h2>Screening criteria</h2><span class="hint">Combined filters</span></header><div class="search-row"><label class="library-search"><span class="sr-only">Search issuer, run or sector</span>${icon('search')}<input id="library-query" data-library-filter="search" type="search" value="${esc(f.search)}" placeholder="Search issuer, run or sector…" autocomplete="off" aria-controls="library-results"></label><button id="library-clear" class="tertiary-action" type="button">Reset filters</button></div><div class="library-filters">${select('sector','Sector','All sectors',values(r=>r.sector).map(plain))}${select('workflow','Workflow','All workflows',values(r=>r.workflow).map(plain))}${select('completion','Completeness','Any completeness',[['75','75% or above'],['50','50% or above'],['100','100% complete'],['unassessed','Not assessed']])}${select('availability','Deliverables','All runs',[['report','Report available'],['handoff','No report available']])}</div><details id="metric-filters" ${advanced?'open':''}><summary>Credit metrics &amp; period <span id="metric-filter-count">${advanced?`· ${advanced} active`:''}</span></summary><div class="library-filters">${select('basis','Leverage basis','All bases · definitions differ',values(r=>r.metrics.leverage?.basis).map(plain))}${select('period','Financial period','All period types',values(r=>r.period_kind).map(plain))}${number('leverageMin','Leverage, minimum (x)','No minimum')}${number('leverageMax','Leverage, maximum (x)','No maximum')}${number('coverageMin','Coverage, minimum (x)','No minimum')}${number('coverageMax','Coverage, maximum (x)','No maximum')}</div><p class="hint">Numeric filters exclude unavailable values. Select a leverage basis to keep definitions consistent; coverage definitions remain visible on each row.</p></details>`;
 }
+// A panel rebuild shows an unreadable number box empty, so its stored 'invalid' bound is dropped to keep the filter and the control in agreement.
+const clearInvalidBounds=()=>['leverageMin','leverageMax','coverageMin','coverageMax'].forEach(k=>{if(libraryFilters[k]==='invalid')libraryFilters[k]='';});
 function libraryView() {
+  clearInvalidBounds();
   const view=libraryRows();
   return `<div class="library-screen"><nav id="library-nav" class="library-nav" aria-label="Issuers">${libraryNav()}</nav><div class="library-main"><form id="library-filters" class="library-panel" role="search" aria-label="Screen issuer runs">${libraryPanel()}</form><section class="library-results-panel" aria-label="Run results"><p id="library-count" role="status" aria-live="polite">${libraryCount(view)}</p><div id="library-results">${libraryResults(view)}</div></section><section id="run-detail" class="run-detail" aria-label="Selected run details" tabindex="-1" ${view.rows.some(r=>r.id===libraryState.selected)?'':'hidden'}>${libraryDetail(view)}</section></div></div>`;
 }
 // Re-places the results from the current filters; the panel itself is only rebuilt on a reset so typing keeps its focus.
 function updateLibrary(panel=false) {
+  if(panel)clearInvalidBounds();
   const view=libraryRows();
   if(panel)$('library-filters').innerHTML=libraryPanel();
   $('library-nav').innerHTML=libraryNav();

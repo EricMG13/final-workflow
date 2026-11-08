@@ -97,6 +97,7 @@ function installNewRun(){
     $('review-run').disabled=busy||running;
     $('start-run').disabled=busy||running||!review?.provider_ready||!$('run-confirm').checked;
     $('revise-run').disabled=busy||running;
+    $('resume-run').disabled=busy||running;
     $('run-sources').disabled=busy||running;
     const wanted=(running||activeListed)&&!$('new-run').hidden;
     if(wanted&&!watch)watch=setInterval(poll,2000);
@@ -168,6 +169,12 @@ function installNewRun(){
     $('run-spend').textContent=spendText(status);
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
+    // A run that ended without a report can be reviewed again with its accepted work retained.
+    const resumable=finished&&status.state!=='complete'&&status.state!=='reviewed';
+    $('resume-field').hidden=!resumable;$('resume-run').hidden=!resumable;
+    const field=$('resume-budget');
+    // Set once per run, so a poll never overwrites what the reader typed.
+    if(resumable&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=review?.cap_usd||$('run-budget').value;}
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
     $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});
@@ -179,10 +186,19 @@ function installNewRun(){
     for(const [label,value] of [['Workflow',workflowTitle(result.pathway)],['As of',displayDate(result.as_of)],['Model',`${result.provider} ${result.model} · ${result.effort}`],['Maximum spend',`USD ${result.cap_usd}`],['Held per call',`USD ${result.hold_usd}`],['Max turns per module',String(result.max_turns)]])summary.append(textNode('dt',label),textNode('dd',value));
     const readiness=textNode('p',result.provider_ready?'Model provider configured. Review the scope and budget before starting.':`Cannot start · ${result.provider_key} is not set in the launching environment. Set it, restart the app and review again.`);
     readiness.className=result.provider_ready?'matrix-note':'caution';
+    let resumed=null;
+    if(result.resume_of){
+      const kept=Array.isArray(result.retained_modules)?result.retained_modules:[];
+      const named=kept.map(id=>result.module_details.find(item=>item.id===id)?.title||id);
+      const why=typeof result.retained_note==='string'?result.retained_note:'';
+      const head=kept.length?`Resumes run ${result.resume_of}. Retained without a new model call: ${named.join(', ')}.`:why?`Resumes run ${result.resume_of}.`:`Resumes run ${result.resume_of}. No module of it was accepted; every module runs again.`;
+      resumed=textNode('p',[head,why,kept.length||!why?'':'Every module runs again.'].filter(Boolean).join(' '));
+      resumed.className='matrix-note';
+    }
     const modules=list('ol',result.modules.map(id=>{const detail=result.module_details.find(item=>item.id===id),item=textNode('li',detail?.title||id);item.title=detail?`${id}: ${detail.purpose}`:id;return item;}));
     modules.className='review-modules';
     const ignored=result.ignored.length?result.ignored:['None'];
-    $('run-review').replaceChildren(textNode('h3',result.issuer),summary,readiness,textNode('h4','Modules to run, in order'),modules,
+    $('run-review').replaceChildren(textNode('h3',result.issuer),summary,readiness,...(resumed?[resumed]:[]),textNode('h4','Modules to run, in order'),modules,
       details(`Source files · ${result.sources.length} chosen, ${result.ignored.length} ignored`,[list('ul',result.sources.map(source=>textNode('li',`${source.path} · SHA-256 ${source.sha256}`))),textNode('h4','Ignored: no module can read these'),list('ul',ignored.map(name=>textNode('li',name)))]),
       details(`Report · ${result.report_sections.length} sections, ${result.omitted.length} not produced`,[textNode('h4','Sections this run fills'),list('ul',result.report_sections.map(name=>textNode('li',name))),textNode('h4','Sections it does not produce'),list('ul',(result.omitted.length?result.omitted:['None']).map(name=>textNode('li',name)))]),
       details('Scope and limitations',[textNode('p',result.scope),textNode('p',`The spend ceiling applies to this run folder. Each call holds up to the amount shown while in flight; this is not an estimate of total cost. Prices dated ${displayDate(result.prices_as_of)}.`)]));
@@ -245,6 +261,17 @@ function installNewRun(){
       review=result;$('run-confirm').checked=false;
       reviewSummary(result);stage('review');
     }catch(error){message('Could not prepare the run review. Check the inputs and choose Validate and review run again. Details: '+error.message);}
+    finally{busy=false;controls();}
+  });
+  $('resume-run').addEventListener('click',async()=>{
+    if(busy||running||!review?.id)return;
+    busy=true;controls();message('Checking the stopped run\'s inputs and retained work. No model call has been made…');
+    try{
+      const result=await appRequest('/api/runs/resume',{id:review.id,cap_usd:$('resume-budget').value,max_turns:Number(review.max_turns)||Number($('run-turns').value)});
+      if(!result.ok){message(result.problems.join('\n'));return;}
+      review=result;$('run-confirm').checked=false;
+      reviewSummary(result);stage('review');
+    }catch(error){message('Could not prepare the resumed run. Details: '+error.message);}
     finally{busy=false;controls();}
   });
   $('start-run').addEventListener('click',async()=>{

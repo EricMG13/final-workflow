@@ -229,6 +229,19 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 	if run.Facilities == nil {
 		run.Facilities = []Facility{}
 	}
+	for i := range run.Facilities {
+		if run.Facilities[i].Terms == nil {
+			run.Facilities[i].Terms = map[string]*Metric{}
+		}
+		if run.Facilities[i].Quotes == nil {
+			run.Facilities[i].Quotes = []FacilityQuote{}
+		}
+		for j := range run.Facilities[i].Quotes {
+			if run.Facilities[i].Quotes[j].Terms == nil {
+				run.Facilities[i].Quotes[j].Terms = map[string]*Metric{}
+			}
+		}
+	}
 	run.HandoffHref = ""
 	if run.Sector == "" {
 		run.Sector = "Unclassified"

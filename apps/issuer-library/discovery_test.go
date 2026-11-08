@@ -966,8 +966,10 @@ func TestManifestAdmitsAnswerKey(t *testing.T) {
 					t.Fatalf("%s served but not in the answer key: %v", key, v)
 				}
 			}
-			if facilities, ok := served["facilities"].([]any); !ok || (len(want["facilities"].([]any)) == 0 && len(facilities) != 0) {
-				t.Fatalf("facilities must be served as an array: %v", served["facilities"])
+			facilities, ok := served["facilities"].([]any)
+			wantFacilities, wantOK := want["facilities"].([]any)
+			if !ok || !wantOK || (len(wantFacilities) == 0 && len(facilities) != 0) {
+				t.Fatalf("facilities must be served as an array: %v (answer key %v)", served["facilities"], want["facilities"])
 			}
 		})
 	}
@@ -982,6 +984,7 @@ func TestManifestRejectCases(t *testing.T) {
 		c := item.(map[string]any)
 		t.Run(c["name"].(string), func(t *testing.T) {
 			cat, run := discoverFixture(t, c["fixture"].(string), caseChange(t, c))
+			t.Logf("rejected: %v", run.Gaps)
 			if len(run.Gaps) == 0 || !strings.HasPrefix(run.Gaps[len(run.Gaps)-1], "Run metadata rejected:") || len(cat.Issues) == 0 {
 				t.Fatalf("not rejected (%s): gaps %v issues %v", c["why"], run.Gaps, cat.Issues)
 			}
@@ -1009,5 +1012,25 @@ func TestManifestAcceptCases(t *testing.T) {
 				t.Fatalf("admitted run lost metrics or served null facilities: %+v", run)
 			}
 		})
+	}
+}
+
+// A facility written without quotes or terms is still served with [] and {}, never null.
+func TestManifestOmittedFacilityCollectionsServedEmpty(t *testing.T) {
+	_, run := discoverFixture(t, "synthetic", func(doc any) any {
+		facilities := doc.(map[string]any)["run"].(map[string]any)["facilities"].([]any)
+		delete(facilities[0].(map[string]any), "quotes")
+		delete(facilities[1].(map[string]any), "terms")
+		return doc
+	})
+	if len(run.Facilities) != 2 {
+		t.Fatalf("facilities not admitted: %+v", run.Gaps)
+	}
+	raw, err := json.Marshal(run.Facilities)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), "null") {
+		t.Fatalf("facility served with null collection: %s", raw)
 	}
 }

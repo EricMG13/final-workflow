@@ -69,7 +69,7 @@ test('default Latest view shows the key rows, tags what Latest does not screen a
   const tagged=sorted(p.logic('LibraryLogic.screened(window.DESIGN_CATALOGUE.real,{}).filter(e=>e.notScreened).map(e=>e.run.id)'));
   assert.deepEqual(sorted(p.ids().filter(id=>p.row(id).includes('No report · not screened'))),tagged);
   assert.ok(tagged.includes('aldermoor-2025-001'),'the stopped run is tagged');
-  const left=total-p.logic('LibraryLogic.screened(window.DESIGN_CATALOGUE.real,{}).length'); // rows Any run adds
+  const left=byName('runs any, no other filter').expected_ids.length-key.expected_ids.length; // rows Any run adds, from the key
   assert.match(text(p.d.getElementById('library-coverage')),new RegExp(`${left} runs not screened.*Any run`));
   p.set('library-runs','any');
   assert.deepEqual(sorted(p.ids()),byName('runs any, no other filter').expected_ids);
@@ -200,6 +200,7 @@ test('cash and undrawn sort as metrics, missing last',t=>{
     const out=p.logic(`LibraryLogic.sortRuns(window.DESIGN_CATALOGUE.real,'${k}','desc').map(r=>r.id)`);
     const have=out.filter(id=>fig(rows.find(r=>r.id===id),k)!==null).map(id=>fig(rows.find(r=>r.id===id),k));
     assert.deepEqual(have,[...have].sort((a,b)=>b-a),k);
-    assert.equal(out.findIndex(id=>fig(rows.find(r=>r.id===id),k)===null)>=have.length-0||have.length===out.length,true,`${k}: missing last`);
+    const firstMissing=out.findIndex(id=>fig(rows.find(r=>r.id===id),k)===null);
+    assert.ok(firstMissing===-1||firstMissing===have.length,`${k}: missing last`);
   }
 });

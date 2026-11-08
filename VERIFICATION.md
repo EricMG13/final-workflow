@@ -8,6 +8,26 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-08 — Native Windows notice (branch `claude/native-toast`)
+
+Scope: Task 3 of the deferred-features plan.
+- Behaviour: when a run finishes, the server waits up to 75 s for a run-list poll that arrives after
+  the finish, and shows a Windows toast only if none arrives. This gives exactly one notice whether a
+  tab is watching, the tab is in the background, or no tab is open. The 75 s replaces the plan's 15 s,
+  because Edge and Chrome slow a hidden tab's polling to about once a minute.
+- How the toast is shown: PowerShell, located through `GetSystemDirectoryW`, runs a fixed script. The
+  text reaches it only through environment variables. The child gets an allowlisted environment with
+  no provider keys. A 20 s timeout applies, and any failure is logged and never affects the run. On
+  other platforms nothing is launched.
+- Reviews: mx-precise and mx-adversary each found two Medium issues: provider keys in the child
+  process, global swaps in the tests that raced, a test that did not wait, and background tabs getting
+  a double notice. All four were fixed in one round. The re-review passed.
+- Probes exit 0: `adv2-env`, `adv2-race`, `adv2-tests-launch` (0 real launches), `adv2-injection`,
+  `adv2-child`, `p2-case-a-window`.
+- Not verified: the toast on real Windows; `GetSystemDirectoryW` at runtime; real hidden-tab
+  throttling; a notice pending while the app quits; managed-machine policy (Constrained Language Mode,
+  security alerts on PowerShell launches).
+
 ## 2026-11-07 — Phase 3 and branch end: identity, handoffs once, manifests once, workspace cache (branch `claude/system-design-remaining-calls-e06c23`)
 
 Scope: Tasks 7-10 (commits ec18373f..3976be83), the end batch 9b3215fa and the final batch 398ae209;

@@ -237,6 +237,21 @@ def hide_comments(lines: list[str], name: str) -> list[str]:
     return shown
 
 
+def hide_fenced(lines: list[str]) -> list[str]:
+    """The lines with each fenced code block, fence lines included, blanked, so no table or
+    heading inside one is read as such. A fence ends at the next section heading, as in
+    `hide_comments`. Line numbers are unchanged."""
+    shown, fenced = [], False
+    for line in lines:
+        found = heading_of(line)
+        fenced = fenced and not (found and found[0] == 2)
+        toggled = FENCE.match(line) is not None
+        if toggled:
+            fenced = not fenced
+        shown.append("" if fenced or toggled else line)
+    return shown
+
+
 def names_issuer(text: str, names: tuple[str, ...]) -> bool:
     """Whether any non-blank name occurs in `text` as whole words, ignoring case and spacing.
 

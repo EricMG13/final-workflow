@@ -675,8 +675,11 @@ def _numeric_observations(
 
 def require_issuer(run: Run, aliases: tuple[str, ...], module_id: str, lines: list[str]) -> None:
     """The handoff's title or Request section must name the run's issuer."""
-    declaration = lines[0] + "\n" + "\n".join(line for _, line in section(lines, "Request"))
-    if not names_issuer(declaration, (run.issuer_name, *aliases, run.issuer_id)):
+    names = (run.issuer_name, *aliases, run.issuer_id)
+    request = "\n".join(line for _, line in section(lines, "Request"))
+    # Each declaration is matched alone: joined, whitespace folding would let the title end and
+    # the Request start assemble one name ("Ford" + "Otosan").
+    if not any(names_issuer(declaration, names) for declaration in (lines[0], request)):
         raise ValueError(
             "markdown_issuer: handoff title or Request must identify the selected issuer: "
             + module_id

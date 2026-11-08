@@ -1237,3 +1237,48 @@ def test_a_rule_under_a_register_row_never_makes_the_row_a_heading(rule: bytes) 
     assert last["amount"] == "20192"  # the 2033 notes stay in the register: the hand key
     with pytest.raises(ValueError, match="model_table"):  # rows after the rule: a split
         annual_debt(LAST_NOTE, LAST_NOTE + rule)
+
+
+BRIDGE_TWINS = {
+    "spacing": b"| 9a | Total Company  EBITDA As Defined | 9,999 | 912 |\n",
+    "bold": b"| 9a | **Total Company EBITDA As Defined** | 9,999 | 912 |\n",
+    "colon": b"| 9a | Total Company EBITDA As Defined: | 9,999 | 912 |\n",
+}
+
+
+@pytest.mark.parametrize("twin", BRIDGE_TWINS.values(), ids=BRIDGE_TWINS)
+@pytest.mark.parametrize("after", [True, False], ids=["after", "before"])
+def test_a_repeated_bridge_ebitda_row_is_refused_whatever_its_spelling(
+    twin: bytes, after: bool
+) -> None:
+    edit = ROW_BRIDGE + twin if after else twin + ROW_BRIDGE
+    with pytest.raises(ValueError, match="model_row: expected one"):
+        edited_quarters(quarter=[(ROW_BRIDGE, edit)])
+
+
+def test_a_bold_bridge_ebitda_row_alone_is_the_row() -> None:
+    bold = ROW_BRIDGE.replace(
+        b"| Total Company EBITDA As Defined |", b"| **Total Company EBITDA As Defined** |"
+    )
+    ltm = edited_quarters(quarter=[(ROW_BRIDGE, bold)])[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] == "4322"  # 4,173 + 1,061 - 912, by hand
+
+
+def test_a_bridge_without_a_label_column_is_refused_by_name() -> None:
+    header = "| Source row | Label | 2024-10-01–2024-12-28 | 2023-10-01–2023-12-30 |"
+    text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()
+    at = text.index(BRIDGE)
+    block = text[at:]
+    block = block[: block.index(header) + len(header)]
+    unlabelled = block.replace("| Label |", "| Caption |")
+    with pytest.raises(ValueError, match="model_columns: the quarter bridge needs a Label column"):
+        edited_quarters(quarter=[(block.encode(), unlabelled.encode())])
+
+
+def test_a_repeated_quarter_subtotal_gives_the_annual_outcome() -> None:
+    annual_row = b"| Secured notes subtotal | carrying 10,892 | x |\n"
+    quarter_row = b"| 14a | Secured notes subtotal | 10,950 | (88) | (14) | 10,898 |\n"
+    annual = annual_debt(LAST_NOTE, LAST_NOTE + annual_row * 2)
+    quarter = quarter_debt((NOTES_2033, NOTES_2033 + quarter_row * 2))
+    assert (annual["amount"], annual["reason"]) == (None, "UNCLASSIFIED_ROW")
+    assert (quarter["amount"], quarter["reason"]) == (None, "UNCLASSIFIED_ROW")

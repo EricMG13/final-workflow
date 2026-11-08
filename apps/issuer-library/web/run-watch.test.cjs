@@ -15,7 +15,7 @@ async function page(t,{permission='granted',list=[]}={}){
   win.setInterval=(fn,ms)=>{timers.set(next,{fn,ms});return next++;};win.clearInterval=id=>{cleared.push(id);timers.delete(id);};
   win.Notification=class{static permission=permission;static requestPermission=async()=>permission;constructor(title,options){this.title=title;this.options=options;built.push(this);}};
   const state={list};
-  win.fetch=async url=>({ok:true,json:async()=>url==='/api/runs/list'?state.list:{}});
+  win.fetch=async url=>({ok:true,json:async()=>url.split('?')[0]==='/api/runs/list'?state.list:{}});
   win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
@@ -137,5 +137,13 @@ test('a notification click with a run draft open asks before leaving it',async t
     let reloaded=0,asked=0;p.win.reloadApp=()=>{reloaded++;};p.win.confirm=()=>{asked++;return answer;};
     p.built[0].onclick();
     assert.equal(asked,1,String(answer));assert.equal(reloaded,reloads,String(answer));assert.equal(p.win.location.hash,hash,String(answer));
+  }
+});
+test('the run list request says whether the tab can show the browser notice',async t=>{
+  for(const [permission,url] of [['granted','/api/runs/list'],['denied','/api/runs/list?notify=0'],['default','/api/runs/list?notify=0']]){
+    const p=await page(t,{permission,list:[job()]});
+    const urls=[];const real=p.win.fetch;p.win.fetch=async(u,o)=>{urls.push(u);return real(u,o);};
+    await p.watch();
+    assert.deepEqual(urls,[url],permission);
   }
 });

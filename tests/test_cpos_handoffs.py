@@ -684,6 +684,49 @@ def test_empty_or_invalid_retained_answer_refuses_without_calling_executor(
     assert len(list((tmp_path / "state").rglob("*.response.md"))) == 1
 
 
+def test_a_retained_pin_the_order_contradicts_is_refused_before_any_call(
+    tmp_path: Path,
+) -> None:
+    path = retained_job(tmp_path, ["CP-0", "CP-2"])
+    data = json.loads(path.read_bytes())
+    del data["retained_handoffs"]["CP-2"]["upstream"]["CP-1"]
+    path.write_text(json.dumps(data))
+
+    def no_execute(task: HandoffTask) -> bytes:
+        pytest.fail(f"{task.module_id} was called before a stale refusal the pins decide")
+
+    with pytest.raises(ValueError, match="cpos_retained_stale: CP-2"):
+        run_handoffs(path, tmp_path / "state", execute=no_execute, check=checked)
+
+
+def test_a_wrong_pin_of_a_replayed_module_is_refused_before_the_module_between_is_called(
+    tmp_path: Path,
+) -> None:
+    path = retained_job(tmp_path, ["CP-0", "CP-1A"])
+    data = json.loads(path.read_bytes())
+    data["retained_handoffs"]["CP-1A"]["upstream"]["CP-0"] = "0" * 64
+    path.write_text(json.dumps(data))
+
+    def no_execute(task: HandoffTask) -> bytes:
+        pytest.fail(f"{task.module_id} was called before the stale refusal the replay decides")
+
+    with pytest.raises(ValueError, match="cpos_retained_stale: CP-1A"):
+        run_handoffs(path, tmp_path / "state", execute=no_execute, check=checked)
+
+
+def test_every_pathway_resumes_in_the_fresh_order_for_every_kept_prefix() -> None:
+    from deploy_vii.contracts import PATHWAY_MODULES
+    from deploy_vii.registry import plan
+    from deploy_workflow.owners.cpos_launch import NOT_ANALYTICAL
+
+    for modules in PATHWAY_MODULES.values():
+        requested = tuple(m for m in modules if m not in NOT_ANALYTICAL)
+        fresh = plan(requested)
+        for kept in range(1, len(fresh) + 1):
+            pins = {m: fresh[:i] for i, m in enumerate(fresh[:kept])}
+            assert plan(requested, retained=pins) == fresh
+
+
 def test_replay_needs_no_duplicate_response_map_when_all_inputs_are_retained(
     tmp_path: Path,
 ) -> None:
@@ -1198,6 +1241,27 @@ def test_a_live_run_that_fails_logs_its_stop_reason(tmp_path, monkeypatch):
         )
     (event,) = read_events(tmp_path / "state" / EVENTS)
     assert (event["event"], event["reason"]) == ("stopped", "checker")
+
+
+def test_a_second_invocation_refused_as_busy_logs_no_stop(tmp_path, monkeypatch):
+    from deploy_workflow.model.adapter import LiveAdapter
+    from deploy_workflow.owners import cpos
+    from deploy_workflow.run_events import EVENTS, append_event, read_events
+
+    monkeypatch.setattr(LiveAdapter, "complete", lambda *a, **k: pytest.fail("called"))
+    state = tmp_path / "state"
+    state.mkdir()
+    with _single_writer(state):  # run A holds the folder and has logged its first module
+        append_event(state, "module_started", module="CP-0")
+        with pytest.raises(RunDirBusy):
+            cpos.run_live_handoffs(
+                live_job(tmp_path),
+                state,
+                ruling=ROOT / "docs/rulings/2026-11-05-live-loop-tests.md",
+                check=checked,
+                environ={},
+            )
+    assert [e["event"] for e in read_events(state / EVENTS)] == ["module_started"]
 
 
 def test_a_run_without_an_events_folder_writes_no_events(tmp_path):

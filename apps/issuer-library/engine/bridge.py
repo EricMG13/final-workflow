@@ -113,7 +113,7 @@ def _inside(path: Path, base: Path) -> bytes | None:
 
 def _record(response: Path, base: Path) -> tuple[bytes, Any, Any] | None:
     """A response with its verdict and request parsed, none when a file is not a plain one.
-    Raises ValueError for JSON that does not parse."""
+    Raises ValueError for JSON that does not parse and OSError for a file that cannot be read."""
     stem = response.name.removesuffix(".response.md")
     raw = _inside(response, base)
     verdict = _inside(response.with_name(f"{stem}.review.json"), base)
@@ -138,7 +138,7 @@ def _accepted_answers(run_folder: Path, model: tuple[str, str, str] | None) -> d
             continue
         try:
             record = _record(response, base)
-        except ValueError:
+        except (OSError, ValueError):  # unreadable or unparsable: named, never a failed review
             damaged.add(module)
             continue
         if record is None:

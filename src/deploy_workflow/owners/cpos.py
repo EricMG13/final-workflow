@@ -27,7 +27,7 @@ import hashlib
 import json
 import re
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
@@ -61,7 +61,7 @@ from deploy_workflow.owner_workflow import (
     verify_owner_run_receipt,
 )
 from deploy_workflow.run_events import append_event, stop_reason
-from deploy_workflow.run_pathway import _single_writer
+from deploy_workflow.run_pathway import RunDirBusy, _single_writer
 from deploy_workflow.run_scopes import PUBLIC_S1A_MODULES
 from deploy_workflow.workflow import _put
 
@@ -253,6 +253,28 @@ def _handoff(  # noqa: PLR0913 - existing signature
     raise ValueError(f"cpos_module_failed: {task.module_id}: {'; '.join(feedback)}")
 
 
+def _refuse_decided_stale(ordered: Sequence[str], specs: Mapping[str, RetainedHandoff]) -> None:
+    """Refuse, before any call, a retained module whose pinned upstream is not exactly the
+    modules placed before it: the pins alone decide that, so no call may precede the refusal."""
+    for position, module_id in enumerate(ordered):
+        spec = specs.get(module_id)
+        if spec is None:
+            continue
+        earlier = set(ordered[:position])
+        if set(spec.upstream) != earlier:
+            raise ValueError(f"cpos_retained_stale: {module_id}")
+
+
+def _refuse_pins_of_replayed(
+    specs: Mapping[str, RetainedHandoff], handoffs: Mapping[str, bytes]
+) -> None:
+    """Refuse a retained module whose pin of an already accepted module differs from those bytes.
+    Run before each dispatch, so no call precedes a refusal the replayed modules already decide."""
+    for module_id, spec in specs.items():
+        if any(m in handoffs and sha != _sha(handoffs[m]) for m, sha in spec.upstream.items()):
+            raise ValueError(f"cpos_retained_stale: {module_id}")
+
+
 def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrator; events is one more observer
     manifest: Path,
     directory: Path,
@@ -344,6 +366,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
     sources = _pinned_inputs(manifest.parent, request.sources)
     instructions = _pinned_inputs(manifest.parent, request.instructions)
     retained = _pinned_inputs(manifest.parent, request.retained_handoffs)
+    _refuse_decided_stale(ordered, request.retained_handoffs)
     source_hashes = {name: _sha(raw) for name, raw in sources.items()}
     for module_id, retained_spec in request.retained_handoffs.items():
         if retained_spec.source_hashes != source_hashes:
@@ -370,6 +393,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         handoffs: dict[str, bytes] = {}
         selected: dict[str, str] = {}
         for module_id in ordered:
+            _refuse_pins_of_replayed(request.retained_handoffs, handoffs)
             spec = request.retained_handoffs.get(module_id)
             if spec is not None and spec.upstream != {m: _sha(raw) for m, raw in handoffs.items()}:
                 raise ValueError(f"cpos_retained_stale: {module_id}")
@@ -562,7 +586,8 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
     except BaseException as stop:
         # Documented fail-open: a release failure must not mask the stop it follows; it is
         # recorded as a note on the propagating exception.
-        if isinstance(stop, Exception):
+        if isinstance(stop, Exception) and not isinstance(stop, RunDirBusy):
+            # A refused second invocation never held the folder; the running run owns its log.
             append_event(directory, "stopped", reason=stop_reason(stop))
         try:
             _release(adapter)

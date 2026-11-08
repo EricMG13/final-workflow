@@ -2015,3 +2015,218 @@ func TestRunEventsStopsAtTheReadLimit(t *testing.T) {
 		t.Fatalf("%d %s", code, raw)
 	}
 }
+
+// finishedFolder writes the intake folder of a run whose worker has written its final stopped
+// status, the state a tab poll sees before finishJob records the finish.
+func finishedFolder(t *testing.T, root, id string) string {
+	t.Helper()
+	folder := filepath.Join(root, "intake", id)
+	if err := os.MkdirAll(folder, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(folder, "status.json"), []byte(`{"state":"stopped","message":"synthetic"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return folder
+}
+
+// R2 and R4: a list poll counts for the native notice only when the tab can show the browser
+// notice, and a poll that served the run in a non-running state, before finishJob recorded the
+// finish, counts as that tab having seen it. A request without notify=0 is a tab that can notify.
+func TestOneNoticePerFinishedRun(t *testing.T) {
+	id := "web-" + strings.Repeat("d1", 16)
+	cases := []struct {
+		name  string
+		query string // the poll's query; "" is a poll that does not say it cannot notify
+		polls bool
+		want  int
+	}{
+		{"a notifying tab saw the final state before the finish was recorded", "", true, 0},
+		{"a tab without notice permission saw it, which gives the native notice", "?notify=0", true, 1},
+		{"no tab polled", "", false, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			app, root := testApp(t)
+			folder := finishedFolder(t, root, id)
+			clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+			app.now = clock.read
+			app.pause = func(d time.Duration) { clock.add(d) }
+			notices := 0
+			app.notifier = func(string, string) error { notices++; return nil }
+			app.activeJobs = map[string]bool{id: true} // the run's finishJob is pending
+			if c.polls {
+				if list := call(app, "GET", "/api/runs/list"+c.query, ""); list.Code != 200 {
+					t.Fatal(list.Code)
+				}
+			}
+			clock.add(time.Second) // teardown and Wait: the finish is recorded after the poll
+			app.finishJob(folder, id)
+			if notices != c.want {
+				t.Fatalf("%d native notices, want %d", notices, c.want)
+			}
+		})
+	}
+}
+
+// R4: a tab that cannot show the browser notice polls after the finish; the poll does not
+// suppress the native notice, while a notifying tab's poll does.
+func TestAPollFromATabThatCannotNotifyDoesNotCountAsWatching(t *testing.T) {
+	id := "web-" + strings.Repeat("d2", 16)
+	for query, want := range map[string]int{"": 0, "?notify=0": 1, "?notify=1": 0} {
+		t.Run("query "+query, func(t *testing.T) {
+			app, root := testApp(t)
+			folder := finishedFolder(t, root, id)
+			clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+			app.now = clock.read
+			notices := 0
+			app.notifier = func(string, string) error { notices++; return nil }
+			polled := false
+			app.pause = func(d time.Duration) {
+				clock.add(d)
+				if !polled { // the tab's poll lands while finishJob waits, after the finish
+					polled = true
+					call(app, "GET", "/api/runs/list"+query, "")
+				}
+			}
+			app.finishJob(folder, id)
+			if notices != want {
+				t.Fatalf("%d native notices, want %d", notices, want)
+			}
+		})
+	}
+}
+
+// R2 through a worker process: the tab polls between the worker's final status and the
+// finish being recorded, and sees the run stopped.
+func TestAPollBetweenFinalStatusAndFinishGivesNoNativeNotice(t *testing.T) {
+	python, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 needed")
+	}
+	app, root := testApp(t)
+	script := filepath.Join(t.TempDir(), "worker.py")
+	raw := `import json,sys,pathlib,time
+folder=pathlib.Path(sys.argv[2])
+job=json.loads((folder/'job.json').read_text())
+if sys.argv[1]=='review':
+ print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True,'cap_usd':job['cap_usd'],'max_turns':job['max_turns']}))
+else:
+ (folder/'status.json').write_text(json.dumps({'state':'stopped','message':'synthetic'}))
+ while (folder/'exit-gate').exists(): time.sleep(.02)
+`
+	if err = os.WriteFile(script, []byte(raw), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app.engine = Engine{Python: python, Script: script}
+	clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+	app.now = clock.read
+	app.pause = func(d time.Duration) { clock.add(d) }
+	var mu sync.Mutex
+	notices := 0
+	app.notifier = func(string, string) error { mu.Lock(); notices++; mu.Unlock(); return nil }
+	done := make(chan struct{})
+	app.onFinished = func(string) { close(done) }
+	var review map[string]any
+	_ = json.Unmarshal(reviewRequest(t, app, `["annual.txt"]`).Body.Bytes(), &review)
+	id := review["id"].(string)
+	folder := filepath.Join(root, "intake", id)
+	if err = os.WriteFile(filepath.Join(folder, "exit-gate"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
+		t.Fatal(start.Code)
+	}
+	for i := 0; ; i++ {
+		if b, _ := os.ReadFile(filepath.Join(folder, "status.json")); strings.Contains(string(b), `"stopped"`) {
+			break
+		}
+		if i > 200 {
+			t.Fatal("worker never wrote its final status")
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	call(app, "GET", "/api/runs/list", "")
+	_ = os.Remove(filepath.Join(folder, "exit-gate"))
+	select {
+	case <-done:
+	case <-time.After(15 * time.Second):
+		t.Fatal("finishJob did not return")
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if notices != 0 {
+		t.Fatalf("%d native notices, want 0", notices)
+	}
+}
+
+// R5: a log read only up to eventsLimit gives progress that says it is incomplete.
+func TestProgressOfACutLogIsMarkedIncomplete(t *testing.T) {
+	root := t.TempDir()
+	head := `{"at":"2026-11-07T10:00:00Z","event":"module_started","module":"CP-0"}` + "\n"
+	tail := `{"at":"2026-11-07T10:00:02Z","event":"module_accepted","module":"CP-0"}` + "\n" +
+		`{"at":"2026-11-07T10:00:05Z","event":"stopped","reason":"budget"}` + "\n"
+	writeEvents(t, root, eventsID, head+tail)
+	progress, ok := runProgress(root, eventsID)
+	if !ok || progress["incomplete"] != nil || progress["accepted"] != 1 {
+		t.Fatalf("whole log: %v %v", progress, ok)
+	}
+	saved := eventsLimit
+	eventsLimit = int64(len(head) + 10)
+	defer func() { eventsLimit = saved }()
+	progress, ok = runProgress(root, eventsID)
+	if !ok || progress["incomplete"] != true {
+		t.Fatalf("cut log progress %v (ok %v) carries no incomplete mark", progress, ok)
+	}
+}
+
+// A poll served a run whose finishJob is not pending (a failed start, written failed, that can be
+// started again with the same id) leaves no mark: the retried run's finish still gets its notice,
+// and the mark map holds only pending runs.
+func TestAPollOfAFailedStartLeavesNoMarkForTheRetry(t *testing.T) {
+	id := "web-" + strings.Repeat("d3", 16)
+	app, root := testApp(t)
+	folder := finishedFolder(t, root, id) // state stopped, standing for failed: not running, no finishJob pending
+	clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+	app.now = clock.read
+	app.pause = func(d time.Duration) { clock.add(d) }
+	notices := 0
+	app.notifier = func(string, string) error { notices++; return nil }
+	if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
+		t.Fatal(list.Code)
+	}
+	if len(app.sawFinish) != 0 {
+		t.Fatalf("marks %v for a run with no pending finish", app.sawFinish)
+	}
+	clock.add(time.Second)
+	app.activeJobs = map[string]bool{id: true} // the retry started
+	app.finishJob(folder, id)
+	if notices != 1 {
+		t.Fatalf("%d native notices, want 1", notices)
+	}
+}
+
+// A poll served the final state in the same clock tick as the finish, after the mark was taken,
+// still counts: the tab showed the browser notice, so no native one follows.
+func TestASameTickPollAfterTheMarkWasTakenCountsAsWatching(t *testing.T) {
+	id := "web-" + strings.Repeat("d4", 16)
+	app, root := testApp(t)
+	folder := finishedFolder(t, root, id)
+	clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+	app.now = clock.read
+	notices := 0
+	app.notifier = func(string, string) error { notices++; return nil }
+	app.activeJobs = map[string]bool{id: true}
+	polled := false
+	app.pause = func(d time.Duration) {
+		if !polled {
+			polled = true
+			call(app, "GET", "/api/runs/list", "") // the clock has not moved since finished.Store
+		}
+		clock.add(d)
+	}
+	app.finishJob(folder, id)
+	if notices != 0 {
+		t.Fatalf("%d native notices, want 0", notices)
+	}
+}

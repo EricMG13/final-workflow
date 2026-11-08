@@ -42,6 +42,8 @@ type Application struct {
 	storeCache storeCache
 	watched    atomic.Int64 // app.now().UnixNano() of the last GET /api/runs/list; zero when never
 	finished   atomic.Int64 // app.now().UnixNano() when the latest run finished; see tabWatching
+	sawMu      sync.Mutex
+	sawFinish  map[string]bool // run ids a notifying tab's poll served in a non-running state; see finishJob
 	now        func() time.Time
 	pause      func(time.Duration)            // how tabWatching waits between looks; tests move a fake clock
 	notifier   func(title, body string) error // shows the native run notice; a no-op in tests

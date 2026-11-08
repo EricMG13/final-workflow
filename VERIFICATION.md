@@ -10,6 +10,28 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Refactoring sweep of PRs #31-#43 (branch `claude/sweep-prepare-c802ee`)
+
+Scope: changed code in `e1a24112..0619a9be`, start `0619a9be`; macOS only; fakes and retained data, no provider call.
+- Fixed, each with a test that failed for its cause first: resume ran a retained prefix out of the fresh
+  order and paid for a call before a stale refusal (`registry.plan`, `owners/cpos.py`); a wrong pin of a
+  replayed module is refused before the next call; quarter bridge row matched like the annual operand and the
+  quarter register checks repeats first; one notice per finished run (a poll that saw the finish counts, a
+  tab that cannot notify does not, a failed-spawn retry keeps no stale mark); a cut event log's progress is
+  marked incomplete; a failed event append is cut back; an unreadable retained record is named in the review;
+  a refused second invocation logs no `stopped`.
+- Reviews: mx-precise per task, mx-adversary on Tasks 1 and 3 (one fix round each), mx-architect on the branch
+  (approve; confidence review and rewrite tournament included).
+- Gates on `3c48e208`, exit 0: `tools/quality_gate.py`; targeted pytest (12 files, 760 passed); `go vet` (darwin,
+  windows), gofmt, `go test -race`; `validate.py full`. Flow check: 1 fault each on `cpos-launch-live-002` and
+  `cpos-sol-medium-20261105` (= calibration). Answer keys and `runs/`, `data/`, `cases/`, `deliverables/` unchanged;
+  0 new suppressions; 590 changed lines.
+- Open: owner decisions R10-R13, R16; predating rows R14, R15, R17; Lows L2-L4 (a timing-dependent missed
+  notice, a refused quarter model on a repeated text row). Sweep files: `docs/sweeps/refactoring/` (contract, goal),
+  register and probes in `artifacts/sweeps/refactoring/` (ignored).
+Not verified: Windows/Edge (toast, truncate while the Go server reads the log, the rlimit test's skip); the
+browser walk (no Playwright); the weekly full suite; a paid resume.
+
 ## 2026-11-08 — Phase 6: verification record split (branch `claude/verification-archive`)
 
 Moved the sections dated before 2026-11-07, verbatim and in original order, to docs/VERIFICATION-ARCHIVE.md by `git mv`; 2026-11-07 entries stay here.

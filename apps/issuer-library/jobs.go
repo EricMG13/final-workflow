@@ -209,7 +209,11 @@ func runProgress(workspace, id string) (map[string]any, bool) {
 	folder := filepath.Join(workspace, "runs", id)
 	if record, err := readEventLog(workspace, id); err == nil {
 		if record.ok && len(record.events) > 0 {
-			return foldEvents(record.events), true
+			progress := foldEvents(record.events)
+			if record.cut {
+				progress["incomplete"] = true // the log passed eventsLimit: this is the state at the cut
+			}
+			return progress, true
 		} else if !record.ok {
 			log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
 		}
@@ -350,8 +354,13 @@ func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
-			app.watched.Store(app.now().UnixNano())
-			jsonResponse(w, recentJobs(workspace, 30))
+			jobs := recentJobs(workspace, 30)
+			// notify=0 is a tab that builds no browser notice (the watcher sends it when
+			// Notification.permission is not granted); its poll must not suppress the native one.
+			if r.URL.Query().Get("notify") != "0" {
+				app.tabServed(jobs)
+			}
+			jsonResponse(w, jobs)
 			return
 		}
 		id := r.URL.Query().Get("id")
@@ -806,6 +815,52 @@ func settleJob(folder string) {
 	}
 }
 
+// tabServed records a poll from a tab that can show the browser notice. A run it served in a
+// non-running state while its finishJob is still pending (it is in activeJobs) has been seen
+// finished by that tab, so finishJob need not notify natively (R2: the worker writes its final
+// status before finishJob records the finish). Only pending runs are marked, so a mark cannot
+// outlive its finishJob (a failed start that is retried keeps no stale mark) and the map holds
+// at most the active runs. The check and the mark happen under app.mu, which finishJob holds
+// while it takes the mark and leaves activeJobs, so a mark is either honoured or not made.
+// A non-running run served after its finishJob left activeJobs was seen finished too: the poll
+// then counts as after the finish even if the clock has not ticked since finished.Store.
+func (app *Application) tabServed(jobs []map[string]any) {
+	afterFinish := false
+	app.mu.RLock()
+	app.sawMu.Lock()
+	for _, job := range jobs {
+		id, _ := job["id"].(string)
+		if id == "" || job["state"] == "running" {
+			continue
+		}
+		if app.activeJobs[id] {
+			if app.sawFinish == nil {
+				app.sawFinish = map[string]bool{}
+			}
+			app.sawFinish[id] = true
+		} else {
+			afterFinish = true
+		}
+	}
+	app.sawMu.Unlock()
+	app.mu.RUnlock()
+	at := app.now().UnixNano()
+	if finished := app.finished.Load(); afterFinish && at <= finished {
+		at = finished + 1
+	}
+	app.watched.Store(at)
+}
+
+// tabSawFinish reports, and forgets, whether a notifying tab was served run id as finished. The
+// caller holds app.mu.
+func (app *Application) tabSawFinish(id string) bool {
+	app.sawMu.Lock()
+	defer app.sawMu.Unlock()
+	seen := app.sawFinish[id]
+	delete(app.sawFinish, id)
+	return seen
+}
+
 // finishJob settles a job whose worker has ended, ends its activity and refreshes the library.
 func (app *Application) finishJob(folder, id string) {
 	if app.onFinished != nil {
@@ -814,10 +869,11 @@ func (app *Application) finishJob(folder, id string) {
 	settleJob(folder)
 	app.finished.Store(app.now().UnixNano())
 	app.mu.Lock()
+	sawFinish := app.tabSawFinish(id)
 	delete(app.activeJobs, id)
 	app.mu.Unlock()
 	app.refresh()
-	if !app.tabWatching() {
+	if !sawFinish && !app.tabWatching() {
 		if title, body, ok := finishNotice(folder); ok {
 			if err := app.notifier(title, body); err != nil {
 				log.Printf("Run %s: native notice failed: %v", id, err)

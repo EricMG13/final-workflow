@@ -44,17 +44,48 @@ type Application struct {
 
 // storeCache holds the last workspace store output. mu is held while the store runs, so
 // concurrent requests share one run; it is never taken with app.mu or app.refreshing held, and
-// neither is taken while it is held, so the three cannot deadlock.
+// neither is taken while it is held, so the three cannot deadlock. state guards the entry and the
+// generation and is held only for a field read or write, so clear never waits for a run: it bumps
+// the generation, and a run that began before the bump does not store its body.
 type storeCache struct {
-	mu   sync.Mutex
-	key  string
-	body []byte
+	mu         sync.Mutex
+	state      sync.Mutex
+	generation uint64
+	key        string
+	body       []byte
 }
 
 func (cache *storeCache) clear() {
-	cache.mu.Lock()
+	cache.state.Lock()
+	cache.generation++
 	cache.key, cache.body = "", nil
-	cache.mu.Unlock()
+	cache.state.Unlock()
+}
+
+// current is the generation now; a run records it before it reads anything.
+func (cache *storeCache) current() uint64 {
+	cache.state.Lock()
+	defer cache.state.Unlock()
+	return cache.generation
+}
+
+// lookup returns the cached body for key, or nil when there is none.
+func (cache *storeCache) lookup(key string) []byte {
+	cache.state.Lock()
+	defer cache.state.Unlock()
+	if key == cache.key {
+		return cache.body
+	}
+	return nil
+}
+
+// store keeps body under key unless clear ran since generation was read.
+func (cache *storeCache) store(key string, body []byte, generation uint64) {
+	cache.state.Lock()
+	defer cache.state.Unlock()
+	if cache.generation == generation {
+		cache.key, cache.body = key, body
+	}
 }
 
 // discoverWorkspace is discover; swappable so tests can hold a discovery in progress. It is atomic
@@ -204,18 +235,19 @@ func (app *Application) serveWorkspace(w http.ResponseWriter) {
 func (app *Application) workspaceStore(workspace string, snapshot Catalogue, catalogue []byte) ([]byte, error) {
 	app.storeCache.mu.Lock()
 	defer app.storeCache.mu.Unlock()
+	generation := app.storeCache.current()
 	key, keyErr := workspaceFingerprint(workspace, snapshot, filepath.Dir(app.engine.Script))
 	if keyErr != nil {
 		log.Printf("Workspace fingerprint: %v; running the store uncached", keyErr)
-	} else if key == app.storeCache.key && app.storeCache.body != nil {
-		return app.storeCache.body, nil
+	} else if cached := app.storeCache.lookup(key); cached != nil {
+		return cached, nil
 	}
 	body, err := app.engine.library(workspace, catalogue)
 	if err != nil {
 		return nil, err
 	}
 	if keyErr == nil {
-		app.storeCache.key, app.storeCache.body = key, body
+		app.storeCache.store(key, body, generation)
 	}
 	return body, nil
 }

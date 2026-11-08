@@ -320,6 +320,7 @@ def test_issuer_name_or_alias_inside_another_word_is_refused(issuer, aliases, ti
         ((), "# CP-1B Ford Motor", "x"),
         ((), "# CP-1B Analysis", "Credit view of FORD,\nthe automaker."),
         (("AB",), "# CP-1B Analysis", "AB (the issuer) reported."),
+        (("Ford Otomotiv Sanayi",), "# CP-1B Analysis", "Analyse Ford Otomotiv\nSanayi A.S."),
     ],
 )
 def test_issuer_name_or_alias_as_whole_words_is_accepted(aliases, title, body):
@@ -452,6 +453,35 @@ def test_raw_table_titles_follow_the_nearest_heading_not_earlier_bold_prose():
         "current_synthesis: Calculations",
         "current_synthesis: Detail",
     ]
+
+
+FENCE_TABLE = "| M | FY |\n|---|---|\n| R | 1 |\n"
+
+
+def _tables_in(findings: str) -> list[str]:
+    raw = (
+        "# CP-2 TDG\n## Request\nTDG.\n## Sources\nNone.\n## Findings\n" + findings
+    ).encode() + b"## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
+    _, _, tables, _ = _literal_tables("current_synthesis", raw, hashlib.sha256(raw).hexdigest())
+    return [t.title for t in tables]
+
+
+@pytest.mark.parametrize("fence", ["```", "~~~"])
+def test_a_pipe_table_inside_a_fence_is_not_a_table_but_the_same_table_outside_is(fence):
+    assert _tables_in(f"{fence}\n{FENCE_TABLE}{fence}\n") == []
+    assert _tables_in(f"{fence}\n{fence}\n{FENCE_TABLE}") == ["current_synthesis: Findings"]
+
+
+def test_a_fence_left_open_ends_at_its_section_for_the_table_reader():
+    # The fence opened under Findings is never closed; "## Calculations" ends it, so the table
+    # written under Calculations is still a table and the one inside the fence is not.
+    raw = (
+        "# CP-2 TDG\n## Request\nTDG.\n## Sources\nNone.\n## Findings\n```\n"
+        + FENCE_TABLE
+        + "## Calculations\n| C | V |\n|---|---|\n| X | 3 |\n## Gaps\nNone.\n## Next module\nD.\n"
+    ).encode()
+    _, _, tables, _ = _literal_tables("current_synthesis", raw, hashlib.sha256(raw).hexdigest())
+    assert [t.title for t in tables] == ["current_synthesis: Calculations"]
 
 
 def test_wrapped_list_item_stays_whole_and_an_unclosed_fence_ends_at_its_section():

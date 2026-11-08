@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1591,5 +1592,54 @@ func TestReviewRefusesMoreTurnsThanTheLoopAllows(t *testing.T) {
 	}
 	if response := reviewRequestTurns(t, app, `["a.txt"]`, "64"); response.Code != 200 {
 		t.Fatalf("64 turns: %d %s", response.Code, response.Body.String())
+	}
+}
+
+// A Refresh must not wait behind a store run that is still going, and the body that run
+// produces (read before the refresh) must not be cached for later reads.
+func TestRefreshDoesNotWaitForARunningStoreAndItsBodyIsNotCached(t *testing.T) {
+	app, _ := testApp(t)
+	engine := fakeEngine(t)
+	folder := filepath.Dir(engine.Script)
+	release, starts := filepath.Join(folder, "release"), filepath.Join(folder, "starts")
+	script := `import json,sys,os,time
+with open(` + strconv.Quote(starts) + `,'a') as s: s.write('x')
+n=os.path.getsize(` + strconv.Quote(starts) + `)
+while not os.path.exists(` + strconv.Quote(release) + `): time.sleep(.02)
+print(json.dumps({'run':n}))
+`
+	if err := os.WriteFile(filepath.Join(folder, "store.py"), []byte(script), 0600); err != nil {
+		t.Fatal(err)
+	}
+	app.engine = engine
+	first := make(chan *httptest.ResponseRecorder, 1)
+	go func() { first <- call(app, "GET", "/api/workspace", "") }()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if info, err := os.Stat(starts); err == nil && info.Size() == 1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the store run never started")
+		}
+	}
+	refreshed := make(chan *httptest.ResponseRecorder, 1)
+	go func() { refreshed <- call(app, "POST", "/api/refresh", "{}") }()
+	select {
+	case response := <-refreshed:
+		if response.Code != 200 {
+			t.Fatalf("refresh: %d %s", response.Code, response.Body.String())
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("refresh waited for the running store")
+	}
+	if err := os.WriteFile(release, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if response := <-first; response.Code != 200 || strings.TrimSpace(response.Body.String()) != `{"run": 1}` {
+		t.Fatalf("first read: %d %s", response.Code, response.Body.String())
+	}
+	next := call(app, "GET", "/api/workspace", "")
+	if next.Code != 200 || strings.TrimSpace(next.Body.String()) != `{"run": 2}` {
+		t.Fatalf("the pre-refresh body was cached: %d %s", next.Code, next.Body.String())
 	}
 }

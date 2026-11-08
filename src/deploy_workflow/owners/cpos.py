@@ -265,6 +265,16 @@ def _refuse_decided_stale(ordered: Sequence[str], specs: Mapping[str, RetainedHa
             raise ValueError(f"cpos_retained_stale: {module_id}")
 
 
+def _refuse_pins_of_replayed(
+    specs: Mapping[str, RetainedHandoff], handoffs: Mapping[str, bytes]
+) -> None:
+    """Refuse a retained module whose pin of an already accepted module differs from those bytes.
+    Run before each dispatch, so no call precedes a refusal the replayed modules already decide."""
+    for module_id, spec in specs.items():
+        if any(m in handoffs and sha != _sha(handoffs[m]) for m, sha in spec.upstream.items()):
+            raise ValueError(f"cpos_retained_stale: {module_id}")
+
+
 def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrator; events is one more observer
     manifest: Path,
     directory: Path,
@@ -383,6 +393,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         handoffs: dict[str, bytes] = {}
         selected: dict[str, str] = {}
         for module_id in ordered:
+            _refuse_pins_of_replayed(request.retained_handoffs, handoffs)
             spec = request.retained_handoffs.get(module_id)
             if spec is not None and spec.upstream != {m: _sha(raw) for m, raw in handoffs.items()}:
                 raise ValueError(f"cpos_retained_stale: {module_id}")

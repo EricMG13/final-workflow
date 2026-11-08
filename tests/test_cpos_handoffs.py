@@ -699,6 +699,21 @@ def test_a_retained_pin_the_order_contradicts_is_refused_before_any_call(
         run_handoffs(path, tmp_path / "state", execute=no_execute, check=checked)
 
 
+def test_a_wrong_pin_of_a_replayed_module_is_refused_before_the_module_between_is_called(
+    tmp_path: Path,
+) -> None:
+    path = retained_job(tmp_path, ["CP-0", "CP-1A"])
+    data = json.loads(path.read_bytes())
+    data["retained_handoffs"]["CP-1A"]["upstream"]["CP-0"] = "0" * 64
+    path.write_text(json.dumps(data))
+
+    def no_execute(task: HandoffTask) -> bytes:
+        pytest.fail(f"{task.module_id} was called before the stale refusal the replay decides")
+
+    with pytest.raises(ValueError, match="cpos_retained_stale: CP-1A"):
+        run_handoffs(path, tmp_path / "state", execute=no_execute, check=checked)
+
+
 def test_every_pathway_resumes_in_the_fresh_order_for_every_kept_prefix() -> None:
     from deploy_vii.contracts import PATHWAY_MODULES
     from deploy_vii.registry import plan

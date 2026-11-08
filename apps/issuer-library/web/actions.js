@@ -35,6 +35,47 @@ function spendText(status){
   if(spent==='unknown')return 'Recorded spend could not be read; it may be above zero.';
   return p.cap_usd!=null&&p.held_usd!=null&&WORKFLOW_ACTIVE.includes(status.state)?`Recorded spend: USD ${spent} of a USD ${p.cap_usd} cap; the next call holds USD ${p.held_usd}`:`Recorded spend: USD ${spent}`;
 }
+// One line of a run's event log, in words.
+function eventText(event,titleOf){
+  const title=titleOf(event.module);
+  switch(event.event){
+    case 'module_started':return `Started ${title}`;
+    case 'turn':return `Turn ${event.turn} of ${event.max_turns} · spend USD ${event.spent_usd} of USD ${event.cap_usd}; this call holds USD ${event.held_usd}`;
+    case 'draft_rejected':return `Draft of ${title} rejected · ${event.writes_left} ${event.writes_left===1?'write':'writes'} left`;
+    case 'module_accepted':return `Accepted ${title}`;
+    case 'delivery_started':return 'Delivery started';
+    case 'delivered':return 'Report delivered';
+    case 'stopped':return STOP_COPY[event.reason]||`Stopped (${event.reason})`;
+    default:return String(event.event);
+  }
+}
+// Fills the Run activity section of an app run from its status and its event log. No retry: a
+// failed fetch is said on the page.
+async function loadRunActivity(section){
+  const id=section.dataset.run,hint=section.querySelector('.hint');
+  try{
+    const status=await appRequest(`/api/runs/status?id=${encodeURIComponent(id)}`),record=await appRequest(`/api/runs/events?id=${encodeURIComponent(id)}`);
+    const modules=Array.isArray(status.modules)?status.modules:[],details=Array.isArray(status.module_details)?status.module_details:[];
+    const titleOf=code=>details.find(item=>item?.id===code)?.title||code||'';
+    const head=stopText(status),desc=describeModule(status,modules,titleOf),events=Array.isArray(record.events)?record.events:[];
+    const parts=[textNode('p',desc?`${head} · ${desc}`:head),textNode('p',spendText(status))];
+    parts[0].className='activity-summary';
+    if(events.length){
+      const table=document.createElement('table');table.className='activity-log';
+      table.append(textNode('caption','Events (UTC)'));
+      const headRow=document.createElement('tr');headRow.append(textNode('th','Time'),textNode('th','Event'));
+      const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
+      const body=table.appendChild(document.createElement('tbody'));
+      for(const event of events){const row=document.createElement('tr');row.append(textNode('td',String(event.at||'').slice(11,19)),textNode('td',eventText(event,titleOf)));body.append(row);}
+      parts.push(table);
+    }else parts.push(textNode('p','No events were recorded for this run.')),parts[2].className='hint';
+    if(record.complete===false){const note=textNode('p','The record is incomplete: the log was cut or stopped mid-write.');note.className='caution';parts.push(note);}
+    hint.replaceWith(...parts);
+  }catch(error){
+    const note=textNode('p',`Could not load the run record. Details: ${error.message}`);note.className='caution';
+    hint.replaceWith(note);
+  }
+}
 // The app-wide run watcher: one list request at load, then every 5 s while a run is active. It sets
 // runMark (the title prefix) and the rail mark, and notifies when a run this page saw running finishes.
 let runMark='',titleBase='';

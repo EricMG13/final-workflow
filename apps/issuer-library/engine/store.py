@@ -925,8 +925,10 @@ REASON_PHRASES = {
     "PRIOR_PERIOD_MISSING": PRIOR_MISSING,
     "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
     "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
+    "WINDOW_MISSING": "the year-to-date or prior-year window is not in the handoffs",
 }
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+DEBT_TOTAL_NEEDED = "needs quarter-end total carrying debt, which the model does not derive"
 MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
 Q1_NOTE = "Q1 is the first quarter of the fiscal year, so it is also the year to date."
 CASHFLOW_NOTES = (
@@ -1338,6 +1340,18 @@ def fiscal_inputs(record: Any) -> Fiscal:
     return years
 
 
+def quarter_inputs(record: Any) -> dict[str, dict[str, Any]]:
+    """The record's derived quarter values by window text; absent is empty; validated here."""
+    quarters = record.get("quarters", {})
+    if not isinstance(quarters, dict):
+        raise TypeError("quarters is not a mapping of windows")
+    for held in quarters.values():
+        if not isinstance(held, dict):
+            raise TypeError("a quarter window is not a mapping")
+        checked_entries(held)
+    return quarters
+
+
 def span_days(start: str, end: str) -> int:
     return (datetime.date.fromisoformat(end) - datetime.date.fromisoformat(start)).days
 
@@ -1469,6 +1483,7 @@ class CashflowInputs(NamedTuple):
     tables: dict[str, Table | None]
     secured: SecuredDebt | None
     ends: dict[str, str]
+    quarters: dict[str, dict[str, Any]]
 
 
 class CellContext(NamedTuple):
@@ -1532,8 +1547,32 @@ def op_prefer(c: CellContext, key: str, fallback: Spec) -> Cell:
     return spec_cell(fallback, c)
 
 
+def quarter_held(c: CellContext, key: str) -> dict[str, Any] | None:
+    """The record's entry for the key in this quarter column's window (either dash), or None."""
+    column = c.column
+    if column["kind"] != "q" or column["start"] is None or column["end"] is None:
+        return None
+    for dash in ("\u2013", "-"):
+        window = c.inputs.quarters.get(f"{column['start']}{dash}{column['end']}")
+        if window is not None and key in window:
+            held: dict[str, Any] = window[key]
+            return held
+    return None
+
+
+def op_quarter(c: CellContext, key: str, fallback: Spec | None = None) -> Cell:
+    """The record's quarter value for this column's window, else the fallback, else a dash."""
+    held = quarter_held(c, key)
+    if held is not None:
+        return held_cell(held, c.kind)
+    return spec_cell(fallback, c) if fallback is not None else absent_cell()
+
+
 def op_needs_ltm(c: CellContext) -> Cell:
-    return unavailable_cell(LTM_NEEDED)
+    held = quarter_held(c, "ltm_adj_ebitda")
+    return unavailable_cell(
+        LTM_NEEDED if held is None or held["amount"] is None else DEBT_TOTAL_NEEDED
+    )
 
 
 def op_senior(c: CellContext) -> Cell:
@@ -1558,6 +1597,7 @@ CELL_OPS: dict[str, Callable[..., Cell]] = {
     "growth": op_growth,
     "margin": op_margin,
     "ltm": op_needs_ltm,
+    "quarter": op_quarter,
     "senior": op_senior,
     "prefer": op_prefer,
 }
@@ -1719,6 +1759,15 @@ TAIL_ROWS = (
         ("growth", "adj"),
     ),
     RowSpec(
+        "ltm-adj",
+        ADJUSTED,
+        "LTM Adj EBITDA (As Defined)",
+        "money",
+        ("quarter", "ltm_adj_ebitda"),
+        ("key", "issuer_as_defined"),
+        None,
+    ),
+    RowSpec(
         "interest",
         PROXY,
         "Cash interest",
@@ -1788,7 +1837,7 @@ TAIL_ROWS = (
         CREDIT,
         "Senior secured leverage (secured debt / Adj EBITDA)",
         "multiple",
-        ("ltm",),
+        ("quarter", "senior_secured_multiple", ("ltm",)),
         ("prefer", "senior_secured_multiple", ("senior",)),
         None,
     ),
@@ -1905,7 +1954,7 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
 
 def cashflow_of(
     forecast: tuple[Forecast, list[str]],
-    fiscal: Fiscal,
+    recorded: tuple[Fiscal, dict[str, dict[str, Any]]],
     statements: tuple[list[Table], list[Table]],
     handoff: str | None,
     budget: int,
@@ -1915,6 +1964,7 @@ def cashflow_of(
     Raises CashflowBudget, before computing any cell, when rows x columns passes `budget`.
     """
     cases, limits = forecast
+    fiscal, quarters = recorded
     annual, quarter = statements
     names = CASHFLOW_LABELS
     tables: dict[str, Table | None] = {
@@ -1926,7 +1976,7 @@ def cashflow_of(
         "adef": table_holding(annual, names["adjusted_ebitda"]),
     }
     ends = fiscal_year_ends(annual)
-    inputs = CashflowInputs(tables, secured_debt(annual), ends)
+    inputs = CashflowInputs(tables, secured_debt(annual), ends, quarters)
     income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
     capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
@@ -2001,7 +2051,9 @@ def read_cashflow(
     try:
         forecast = forecast_inputs(json.loads(files[stage].decode("utf-8")))
         stage = CASHFLOW_FILES[1]
-        fiscal = fiscal_inputs(json.loads(files[stage].decode("utf-8")))
+        record = json.loads(files[stage].decode("utf-8"))
+        fiscal = fiscal_inputs(record)
+        quarter_values = quarter_inputs(record)
         stage = CASHFLOW_FILES[2]
         annual = markdown_tables(files[stage].decode("utf-8"), stage)
         stage = CASHFLOW_FILES[3]
@@ -2012,7 +2064,8 @@ def read_cashflow(
         return None, ("file", stage)
     try:
         left = CASHFLOW_CELL_BUDGET if budget is None else budget
-        return cashflow_of(forecast, fiscal, (annual, quarter), handoff, left), None
+        recorded = (fiscal, quarter_values)
+        return cashflow_of(forecast, recorded, (annual, quarter), handoff, left), None
     except (CashflowLimit, CashflowBudget) as error:
         return None, ("limit", str(error))
     except CASHFLOW_ERRORS as error:

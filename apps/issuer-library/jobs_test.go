@@ -2054,6 +2054,7 @@ func TestOneNoticePerFinishedRun(t *testing.T) {
 			app.pause = func(d time.Duration) { clock.add(d) }
 			notices := 0
 			app.notifier = func(string, string) error { notices++; return nil }
+			app.activeJobs = map[string]bool{id: true} // the run's finishJob is pending
 			if c.polls {
 				if list := call(app, "GET", "/api/runs/list"+c.query, ""); list.Code != 200 {
 					t.Fatal(list.Code)
@@ -2176,5 +2177,56 @@ func TestProgressOfACutLogIsMarkedIncomplete(t *testing.T) {
 	progress, ok = runProgress(root, eventsID)
 	if !ok || progress["incomplete"] != true {
 		t.Fatalf("cut log progress %v (ok %v) carries no incomplete mark", progress, ok)
+	}
+}
+
+// A poll served a run whose finishJob is not pending (a failed start, written failed, that can be
+// started again with the same id) leaves no mark: the retried run's finish still gets its notice,
+// and the mark map holds only pending runs.
+func TestAPollOfAFailedStartLeavesNoMarkForTheRetry(t *testing.T) {
+	id := "web-" + strings.Repeat("d3", 16)
+	app, root := testApp(t)
+	folder := finishedFolder(t, root, id) // state stopped, standing for failed: not running, no finishJob pending
+	clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+	app.now = clock.read
+	app.pause = func(d time.Duration) { clock.add(d) }
+	notices := 0
+	app.notifier = func(string, string) error { notices++; return nil }
+	if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
+		t.Fatal(list.Code)
+	}
+	if len(app.sawFinish) != 0 {
+		t.Fatalf("marks %v for a run with no pending finish", app.sawFinish)
+	}
+	clock.add(time.Second)
+	app.activeJobs = map[string]bool{id: true} // the retry started
+	app.finishJob(folder, id)
+	if notices != 1 {
+		t.Fatalf("%d native notices, want 1", notices)
+	}
+}
+
+// A poll served the final state in the same clock tick as the finish, after the mark was taken,
+// still counts: the tab showed the browser notice, so no native one follows.
+func TestASameTickPollAfterTheMarkWasTakenCountsAsWatching(t *testing.T) {
+	id := "web-" + strings.Repeat("d4", 16)
+	app, root := testApp(t)
+	folder := finishedFolder(t, root, id)
+	clock := &fakeClock{now: time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)}
+	app.now = clock.read
+	notices := 0
+	app.notifier = func(string, string) error { notices++; return nil }
+	app.activeJobs = map[string]bool{id: true}
+	polled := false
+	app.pause = func(d time.Duration) {
+		if !polled {
+			polled = true
+			call(app, "GET", "/api/runs/list", "") // the clock has not moved since finished.Store
+		}
+		clock.add(d)
+	}
+	app.finishJob(folder, id)
+	if notices != 0 {
+		t.Fatalf("%d native notices, want 0", notices)
 	}
 }

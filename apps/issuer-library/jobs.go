@@ -816,26 +816,43 @@ func settleJob(folder string) {
 }
 
 // tabServed records a poll from a tab that can show the browser notice. A run it served in a
-// non-running state has been seen finished by that tab, so finishJob need not notify natively
-// (R2: the worker writes its final status before finishJob records the finish). The poll counts as
-// watching only after those marks, so every ordering against finishJob gives one notice: a mark
-// before finishJob takes it is honoured, a later one follows finished.Store and so makes
-// tabWatching true.
+// non-running state while its finishJob is still pending (it is in activeJobs) has been seen
+// finished by that tab, so finishJob need not notify natively (R2: the worker writes its final
+// status before finishJob records the finish). Only pending runs are marked, so a mark cannot
+// outlive its finishJob (a failed start that is retried keeps no stale mark) and the map holds
+// at most the active runs. The check and the mark happen under app.mu, which finishJob holds
+// while it takes the mark and leaves activeJobs, so a mark is either honoured or not made.
+// A non-running run served after its finishJob left activeJobs was seen finished too: the poll
+// then counts as after the finish even if the clock has not ticked since finished.Store.
 func (app *Application) tabServed(jobs []map[string]any) {
+	afterFinish := false
+	app.mu.RLock()
 	app.sawMu.Lock()
 	for _, job := range jobs {
-		if id, _ := job["id"].(string); id != "" && job["state"] != "running" {
+		id, _ := job["id"].(string)
+		if id == "" || job["state"] == "running" {
+			continue
+		}
+		if app.activeJobs[id] {
 			if app.sawFinish == nil {
 				app.sawFinish = map[string]bool{}
 			}
 			app.sawFinish[id] = true
+		} else {
+			afterFinish = true
 		}
 	}
 	app.sawMu.Unlock()
-	app.watched.Store(app.now().UnixNano())
+	app.mu.RUnlock()
+	at := app.now().UnixNano()
+	if finished := app.finished.Load(); afterFinish && at <= finished {
+		at = finished + 1
+	}
+	app.watched.Store(at)
 }
 
-// tabSawFinish reports, and forgets, whether a notifying tab was served run id as finished.
+// tabSawFinish reports, and forgets, whether a notifying tab was served run id as finished. The
+// caller holds app.mu.
 func (app *Application) tabSawFinish(id string) bool {
 	app.sawMu.Lock()
 	defer app.sawMu.Unlock()
@@ -851,8 +868,8 @@ func (app *Application) finishJob(folder, id string) {
 	}
 	settleJob(folder)
 	app.finished.Store(app.now().UnixNano())
-	sawFinish := app.tabSawFinish(id)
 	app.mu.Lock()
+	sawFinish := app.tabSawFinish(id)
 	delete(app.activeJobs, id)
 	app.mu.Unlock()
 	app.refresh()

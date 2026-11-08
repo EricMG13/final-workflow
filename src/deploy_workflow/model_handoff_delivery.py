@@ -108,7 +108,14 @@ DERIVED_KEYS = tuple(DERIVED_FORMULAS)
 DERIVED_UNITS = {
     "senior_secured_debt": "MILLIONS",
     "senior_secured_multiple": "MULTIPLE",
+    "ltm_adj_ebitda": "MILLIONS",
     **dict.fromkeys(DERIVED_KEYS[:4], "FRACTION"),
+}
+QUARTER_FORMULAS = {
+    "ltm_adj_ebitda": "fiscal-year Adj EBITDA As Defined + year-to-date window - prior-year window",
+    "senior_secured_debt": "Net carrying values of the securitization, the term loans and the "
+    "secured notes at the quarter-end register date",
+    "senior_secured_multiple": "senior_secured_debt / ltm_adj_ebitda",
 }
 FORMULAS = {
     "opex_magnitude": "selling_admin + income_statement_amortization",
@@ -144,6 +151,7 @@ LABELS = {
     "senior_secured_multiple": (
         "Senior secured leverage (secured carrying debt / Adj EBITDA As Defined)"
     ),
+    "ltm_adj_ebitda": "LTM Adj EBITDA As Defined at the quarter end",
 }
 
 
@@ -157,6 +165,16 @@ class ModelPublication(NamedTuple):
     files: dict[str, bytes]
 
 
+def _table_at(lines: list[str], anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
+    positions = [i for i, line in enumerate(lines) if line == anchor]
+    if len(positions) != 1:
+        raise ValueError(f"model_anchor: expected one {anchor}")
+    headers, rows = table([(i + 1, lines[i]) for i in range(positions[0] + 1, len(lines))])
+    if len(headers) != len(set(headers)):
+        raise ValueError("model_columns: selected source columns are ambiguous")
+    return headers, rows
+
+
 class _AnnualReader:
     def __init__(self, raw: bytes, spec: HandoffInput, layout: ModelDelivery) -> None:
         self.lines = physical_lines(raw.decode("utf-8"))
@@ -167,14 +185,7 @@ class _AnnualReader:
         return self.table_at(self.layout.anchors[name])
 
     def table_at(self, anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-        positions = [i for i, line in enumerate(self.lines) if line == anchor]
-        if len(positions) != 1:
-            raise ValueError(f"model_anchor: expected one {anchor}")
-        start = positions[0] + 1
-        headers, rows = table([(i + 1, self.lines[i]) for i in range(start, len(self.lines))])
-        if len(headers) != len(set(headers)):
-            raise ValueError("model_columns: selected source columns are ambiguous")
-        return headers, rows
+        return _table_at(self.lines, anchor)
 
     def validate(self) -> None:
         required = set(INPUT_KEYS + DEBT_KEYS + ADJUSTMENT_KEYS)
@@ -471,6 +482,176 @@ def _derived_cells(
             )
 
 
+# The quarter handoff: LTM Adj EBITDA and quarter-end senior secured leverage per window.
+ADJUSTED_EBITDA_LABEL = (
+    "Total Company EBITDA As Defined"  # store.CASHFLOW_LABELS["adjusted_ebitda"]
+)
+WINDOW_HEADER = re.compile(r"(\d{4}-\d{2}-\d{2})[\u2013-](\d{4}-\d{2}-\d{2})")
+QUARTER_DATE = re.compile(r"\b([A-Z][a-z]+) (\d{1,2}), (\d{4})\b", re.ASCII)
+FULL_MONTHS = tuple(
+    ("January", "February", "March", "April", "May", "June")
+    + ("July", "August", "September", "October", "November", "December")
+)
+YEAR_AGO_DAYS = range(365 - 7, 366 + 8)
+
+
+class _Window(NamedTuple):
+    text: str
+    start: date
+    end: date
+    column: int
+
+
+def _quarter_cell(number: int, cells: list[str], column: int, source: str = "quarter") -> Cell:
+    lexeme = cells[column]
+    if is_gap(lexeme):
+        return Cell(None, "NOT_STATED", note="Source missing/dash retained, never zero")
+    if not SOURCE_NUMBER.fullmatch(lexeme):
+        raise ValueError(f"model_number: unsupported source spelling {lexeme}")
+    value = Decimal(lexeme.replace(",", "").replace("(", "-").replace(")", ""))
+    return Cell(value, basis="REPORTED", sources=(SourceRef(source, f"line {number}", lexeme),))
+
+
+def _long_date(text: str) -> date | None:
+    found = QUARTER_DATE.search(text)
+    if found is None or found[1] not in FULL_MONTHS:
+        return None
+    try:
+        return date(int(found[3]), FULL_MONTHS.index(found[1]) + 1, int(found[2]))
+    except ValueError:
+        return None
+
+
+def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
+    """Quarter-end senior secured debt from the `Net` column, classified as the annual one is."""
+    headers, rows = _table_at(lines, anchor)
+    net = next((i for i, h in enumerate(headers) if h.startswith("Net")), None)
+    if net is None or "Label" not in headers:
+        raise ValueError("model_columns: the quarter register needs Label and Net columns")
+    when = _long_date(anchor)
+    if when is None:
+        return Cell(None, "NOT_SOURCED", note="Register date not readable")
+    if when != end:
+        return Cell(None, "REGISTER_DATE_DIFFERS", note=f"recorded at {when.isoformat()}")
+    parts: list[tuple[Cell, int]] = []
+    seen: set[str] = set()
+    repeated: str | None = None
+    unclassified: str | None = None
+    incomplete = False
+    for number, _, values in rows:
+        label = values[headers.index("Label")]
+        low = label.casefold()
+        if not label or low.startswith(("less:", "long-term debt")):
+            continue
+        amount = _quarter_cell(number, values, net)
+        unsecured = "subordinated" in low or "unsecured" in low
+        secured = not unsecured and (
+            "securitization" in low or low.startswith("term loans") or "secured notes" in low
+        )
+        if amount.value is not None and low in seen and repeated is None:
+            repeated = label[:LABEL_LIMIT]
+        seen.add(low)
+        if secured:
+            incomplete |= amount.value is None
+            parts.append((amount, 1))
+        elif amount.value is not None and not unsecured and unclassified is None:
+            unclassified = label[:LABEL_LIMIT]
+    if repeated is not None:
+        return Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{repeated}")
+    if unclassified is not None:
+        return Cell(None, "UNCLASSIFIED_ROW", note=unclassified)
+    if incomplete or not parts:
+        return Cell(None, "COMPONENT_MISSING", note="A required secured row has no Net value")
+    with localcontext(CONTEXT):
+        return calc(parts)
+
+
+def _annual_adjusted(lines: list[str], year: str) -> Cell:
+    """The fiscal year's As Defined total, read from the one annual table holding its row."""
+    holding = [i for i, line in enumerate(lines) if line.startswith(f"| {ADJUSTED_EBITDA_LABEL} |")]
+    if len(holding) != 1:
+        return Cell(
+            None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
+        )
+    top = holding[0]
+    while lines[top - 1].startswith("|"):
+        top -= 1
+    headers, rows = table([(i + 1, lines[i]) for i in range(top, len(lines))])
+    found = next(r for r in rows if r[2][0] == ADJUSTED_EBITDA_LABEL)
+    if year not in headers:
+        return Cell(None, "WINDOW_MISSING", note=f"{year} is not a column of that annual table")
+    return _quarter_cell(found[0], found[2], headers.index(year), "annual")
+
+
+def _ltm_cell(annual: Cell, this: Cell, prior: Cell) -> Cell:
+    """Fiscal year + this window - the same window a year earlier; no zero stands in."""
+    for operand, name in (
+        (annual, "fiscal-year Adj EBITDA As Defined"),
+        (this, "year-to-date window"),
+        (prior, "prior-year window"),
+    ):
+        if operand.value is None:
+            return Cell(None, "WINDOW_MISSING", note=f"{name} is missing")
+    with localcontext(CONTEXT):
+        return calc(((annual, 1), (this, 1), (prior, -1)))
+
+
+def _quarter_cells(
+    layout: ModelDelivery, annual: list[str], quarter: bytes, derived: DerivedRows
+) -> dict[_Window, dict[str, Cell]]:
+    """The LTM and quarter-end rows of every window that starts a fiscal year."""
+    lines = physical_lines(quarter.decode("utf-8"))
+    headers, rows = _table_at(lines, str(derived.quarter_bridge))
+    row = next((r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL), None)
+    if row is None:
+        raise ValueError(f"model_row: expected one {ADJUSTED_EBITDA_LABEL}")
+    windows = []
+    for column, header in enumerate(headers):
+        found = WINDOW_HEADER.fullmatch(header)
+        if found:
+            windows.append(
+                _Window(header, date.fromisoformat(found[1]), date.fromisoformat(found[2]), column)
+            )
+
+    def year_before(window: _Window) -> list[_Window]:
+        return [
+            w
+            for w in windows
+            if (window.start - w.start).days in YEAR_AGO_DAYS
+            and (window.end - w.end).days in YEAR_AGO_DAYS
+        ]
+
+    # A column that is another column's prior-year comparative is an operand only.
+    comparatives = {w for window in windows for w in year_before(window)}
+    result = {}
+    for window in windows:
+        year = next(
+            (
+                label
+                for label, dates in layout.periods.items()
+                if (window.start - dates.end_date).days == 1
+            ),
+            None,
+        )
+        if year is None or window in comparatives:
+            continue
+        priors = year_before(window)
+        prior = (
+            _quarter_cell(row[0], row[2], priors[0].column)
+            if len(priors) == 1
+            else Cell(None, "WINDOW_MISSING", note="prior-year window is missing")
+        )
+        this = _quarter_cell(row[0], row[2], window.column)
+        out = {"ltm_adj_ebitda": _ltm_cell(_annual_adjusted(annual, year), this, prior)}
+        if derived.quarter_debt_register is not None:
+            debt = _quarter_register(lines, derived.quarter_debt_register, window.end)
+            out["senior_secured_debt"] = debt
+            with localcontext(CONTEXT):
+                out["senior_secured_multiple"] = _ratio(((debt, 1),), ((out["ltm_adj_ebitda"], 1),))
+        result[window] = out
+    return result
+
+
 # The line under a table header, exactly as the reader applies it (unstripped).
 TABLE_SEPARATOR = re.compile(r"\|[ :|\-]+\|")
 
@@ -611,6 +792,62 @@ def _ratio_decimals(value: Decimal | None) -> int:
         while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
             places += 1
     return places
+
+
+def _entry(  # noqa: PLR0913 - one value entry, as the store reads it
+    key: str,
+    cell: Cell,
+    ratio_keys: tuple[str, ...],
+    formula: str | None,
+    period: str,
+    start: str | None,
+    end: str,
+) -> dict[str, object]:
+    return {
+        "amount": None if cell.value is None else str(cell.value),
+        "unit": _unit_of(key, ratio_keys),
+        "quantity_family": "dimensionless" if _pure(key, ratio_keys) else "monetary",
+        "currency": None if _pure(key, ratio_keys) else "USD",
+        "scale": "1" if _pure(key, ratio_keys) else "1000000",
+        "period": period,
+        "start_date": start,
+        "end_date": end,
+        "formula": formula,
+        "reason": cell.reason,
+        "note": cell.note,
+        "sources": [
+            {"source_id": s.source_id, "locator": s.source_locator, "cell_text": s.cell_text}
+            for s in cell.sources
+        ],
+    }
+
+
+def _quarter_entries(
+    layout: ModelDelivery,
+    inputs: Mapping[str, HandoffInput],
+    raw_inputs: Mapping[str, bytes],
+    reader: _AnnualReader,
+    ratio_keys: tuple[str, ...],
+) -> dict[str, dict[str, dict[str, object]]] | None:
+    """The `quarters` of calculation.json: only when the layout asks and a quarter is supplied."""
+    if layout.derived is None or not layout.derived.quarter_bridge or "quarter" not in inputs:
+        return None
+    windows = _quarter_cells(layout, reader.lines, raw_inputs["quarter"], layout.derived)
+    return {
+        window.text: {
+            key: _entry(
+                key,
+                cell,
+                ratio_keys,
+                QUARTER_FORMULAS.get(key),
+                window.text,
+                None if key == "senior_secured_debt" else window.start.isoformat(),
+                window.end.isoformat(),
+            )
+            for key, cell in row.items()
+        }
+        for window, row in windows.items()
+    }
 
 
 def _published_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
@@ -758,35 +995,22 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         )
     values = {
         period: {
-            key: {
-                "amount": None if cell.value is None else str(cell.value),
-                "unit": _unit_of(key, ratio_keys),
-                "quantity_family": "dimensionless" if _pure(key, ratio_keys) else "monetary",
-                "currency": None if _pure(key, ratio_keys) else "USD",
-                "scale": "1" if _pure(key, ratio_keys) else "1000000",
-                "period": period,
-                "start_date": (
-                    None
-                    if key in {"cash", "carrying_debt", "net_carrying_debt", "senior_secured_debt"}
-                    else layout.periods[period].start_date.isoformat()
-                ),
-                "end_date": layout.periods[period].end_date.isoformat(),
-                "formula": formulas.get(key),
-                "reason": cell.reason,
-                "note": cell.note,
-                "sources": [
-                    {
-                        "source_id": s.source_id,
-                        "locator": s.source_locator,
-                        "cell_text": s.cell_text,
-                    }
-                    for s in cell.sources
-                ],
-            }
+            key: _entry(
+                key,
+                cell,
+                ratio_keys,
+                formulas.get(key),
+                period,
+                None
+                if key in {"cash", "carrying_debt", "net_carrying_debt", "senior_secured_debt"}
+                else layout.periods[period].start_date.isoformat(),
+                layout.periods[period].end_date.isoformat(),
+            )
             for key, cell in row.items()
         }
         for period, row in cells.items()
     }
+    quarters = _quarter_entries(layout, inputs, raw_inputs, reader, ratio_keys)
     calculation = {
         "schema_version": "retained-handoff-model/1",
         "arithmetic_context": {"precision": CONTEXT.prec, "rounding": CONTEXT.rounding},
@@ -800,6 +1024,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         "annual_periods": list(cells),
         "formulas": formulas,
         "values": values,
+        **({"quarters": quarters} if quarters is not None else {}),
         "forecast_exact_file": "forecast_exact.json" if "forecast_exact" in inputs else None,
         "forecast_exact_sha256": inputs["forecast_exact"].sha256
         if "forecast_exact" in inputs

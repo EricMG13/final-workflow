@@ -737,3 +737,95 @@ def test_the_page_names_the_unclassified_row_and_the_ambient_context_is_ignored(
     expected = build_model(*args).files
     with localcontext(Context(prec=3, rounding="ROUND_CEILING")):
         assert build_model(*args).files == expected
+
+
+BRIDGE = "### Issuer segment EBITDA As Defined bridge"
+QUARTER_REGISTER = "### Debt — December 28, 2024"
+WINDOW = "2024-10-01–2024-12-28"
+ADVANCES = b"| 15 | Government refundable advances | 16 | \xe2\x80\x94 | \xe2\x80\x94 | 16 |\n"
+LEASES = b"| 16 | Finance lease obligations | 260 | \xe2\x80\x94 | \xe2\x80\x94 | 260 |\n"
+
+
+def quarter_build(register: bool = False, drop: tuple[bytes, ...] = ()):
+    """The CASE inputs asking for quarter rows; `drop` removes lines from a quarter copy."""
+    request, specs, raw = source_inputs()
+    if drop:
+        for line in drop:
+            assert line in raw["quarter"]
+            raw["quarter"] = raw["quarter"].replace(line, b"", 1)
+        specs["quarter"] = HandoffInput(
+            path="changed.md", sha256=sha256(raw["quarter"]).hexdigest()
+        )
+    rows = DerivedRows(
+        quarter_bridge=BRIDGE, quarter_debt_register=QUARTER_REGISTER if register else None
+    )
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    return json.loads(published.files["calculation.json"])["quarters"]
+
+
+def test_ltm_adj_ebitda_is_fy_plus_ytd_less_prior_ytd() -> None:
+    quarters = quarter_build()
+    assert list(quarters) == [WINDOW]
+    entry = quarters[WINDOW]["ltm_adj_ebitda"]
+    assert entry["amount"] == "4322"  # 4,173 + 1,061 - 912
+    assert entry["unit"] == "MILLIONS" and entry["currency"] == "USD"
+    assert (entry["period"], entry["start_date"], entry["end_date"]) == (
+        WINDOW,
+        "2024-10-01",
+        "2024-12-28",
+    )
+    assert entry["formula"] == (
+        "fiscal-year Adj EBITDA As Defined + year-to-date window - prior-year window"
+    )
+    assert [(s["source_id"], s["locator"], s["cell_text"]) for s in entry["sources"]] == [
+        ("annual", "line 350", "4,173"),
+        ("quarter", "line 351", "1,061"),
+        ("quarter", "line 351", "912"),
+    ]
+    assert "senior_secured_debt" not in quarters[WINDOW]
+
+
+def test_the_tdg_quarter_register_cannot_be_classified() -> None:
+    entries = quarter_build(register=True)[WINDOW]
+    for key in ("senior_secured_debt", "senior_secured_multiple"):
+        assert entries[key]["amount"] is None and entries[key]["reason"] == "UNCLASSIFIED_ROW"
+    assert entries["senior_secured_debt"]["note"] == "Government refundable advances"
+
+
+def test_a_classifiable_quarter_register_gives_quarter_end_leverage() -> None:
+    entries = quarter_build(register=True, drop=(ADVANCES, LEASES))[WINDOW]
+    # 649 + 8,645 + 2,079 + 2,728 + 1,438 + 986 + 2,181 + 1,486
+    assert entries["senior_secured_debt"]["amount"] == "20192"
+    assert entries["senior_secured_debt"]["start_date"] is None
+    assert entries["senior_secured_debt"]["end_date"] == "2024-12-28"
+    assert Decimal(entries["senior_secured_multiple"]["amount"]) == rounded(Fraction(20192, 4322))
+    assert entries["senior_secured_multiple"]["unit"] == "MULTIPLE"
+
+
+def test_a_repeated_quarter_register_label_gives_no_total() -> None:
+    request, specs, raw = source_inputs()
+    twin = b"| 4 | Term loans | 8,702 | (24) | (33) | 8,645 |\n"
+    assert twin in raw["quarter"]
+    raw["quarter"] = raw["quarter"].replace(twin, twin * 2, 1)
+    raw["quarter"] = raw["quarter"].replace(ADVANCES, b"").replace(LEASES, b"")
+    specs["quarter"] = HandoffInput(path="changed.md", sha256=sha256(raw["quarter"]).hexdigest())
+    rows = DerivedRows(quarter_bridge=BRIDGE, quarter_debt_register=QUARTER_REGISTER)
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    debt = json.loads(published.files["calculation.json"])["quarters"][WINDOW][
+        "senior_secured_debt"
+    ]
+    assert debt["amount"] is None and debt["reason"] == "UNCLASSIFIED_ROW"
+    assert debt["note"] == "repeated row label: Term loans"
+
+
+def test_quarters_are_absent_without_a_quarter_bridge_request() -> None:
+    assert "quarters" not in json.loads(build_model(*annual_only()).files["calculation.json"])
+    request, specs, raw = source_inputs()
+    published = build_model(request.run, specs, raw, request.model)
+    assert "quarters" not in json.loads(published.files["calculation.json"])
+    rows = DerivedRows(debt_register=REGISTER)
+    layout = request.model.model_copy(update={"derived": rows})
+    published = build_model(request.run, specs, raw, layout)
+    assert "quarters" not in json.loads(published.files["calculation.json"])

@@ -84,6 +84,8 @@ class DerivedRows(Contract):
     """Request to publish the grid's derived rows; the debt register is matched like anchors."""
 
     debt_register: str | None = None
+    quarter_bridge: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    quarter_debt_register: str | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class ModelDelivery(Contract):

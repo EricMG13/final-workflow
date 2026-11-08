@@ -56,6 +56,7 @@ from deploy_workflow.handoff_delivery import (
     physical_lines,
     plain,
     table,
+    table_row,
 )
 
 SCOPE = (
@@ -169,50 +170,81 @@ class ModelPublication(NamedTuple):
 class _NoTable(ValueError):
     """The anchor has no table before the next Markdown heading."""
 
+    def __init__(self, anchor: str) -> None:
+        self.note = f"no table under {anchor}"
+        super().__init__(f"model_table: {self.note}")
 
-ONE_LINE_COMMENT = re.compile(r"<!--.*-->")
+
+CODE_SPAN = re.compile(r"(`+).+?\1")
+FENCE_LINE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+HEADING_START = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
 
 
-def _refuse_interrupted(
-    shown: list[str], hidden_lines: list[bool], begin: int, end: int, anchor: str
-) -> None:
-    """Refuse a table that comment text interrupts: rows that follow only comments or blank lines
-    would otherwise be dropped without a word."""
-    hidden = False
-    for i in range(begin, end):
-        if shown[i].startswith("|"):
-            if hidden:
-                raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
-            return
-        if shown[i].strip() == "":
-            hidden |= hidden_lines[i]
-        elif ONE_LINE_COMMENT.fullmatch(shown[i].strip()):
-            hidden = True
+def _inline_comments(line: str) -> tuple[str, bool]:
+    """`line` without its complete HTML comments, and whether one is still open at its end.
+    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
+    kept = ""
+    while True:
+        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
+        opener = masked.find("<!--")
+        if opener < 0:
+            return kept + line, False
+        if masked.startswith(">", opener + 4):
+            end = opener + 5
+        elif masked.startswith("->", opener + 4):
+            end = opener + 6
+        elif (closer := masked.find("-->", opener + 4)) >= 0:
+            end = closer + 3
         else:
-            return
+            return kept + line[:opener], True
+        kept, line = kept + line[:opener], line[end:]
+
+
+def _shown(lines: list[str], source: str) -> list[str]:
+    """The lines as a Markdown viewer shows them: comments removed, fenced code blanked. Lines
+    are not removed, so numbers hold. A comment never closed would hide the rest: refused."""
+    shown, fenced, opened = [], False, False
+    for line in lines:
+        if opened:
+            end = line.find("-->")
+            text, opened = ("", True) if end < 0 else _inline_comments(line[end + 3 :])
+            shown.append(text)
+            continue
+        found = HEADING_START.match(line)
+        fenced = fenced and not (found and len(found[1]) == 2)
+        toggled = FENCE_LINE.match(line) is not None
+        fenced ^= toggled
+        if fenced or toggled:
+            shown.append("")
+            continue
+        text, opened = _inline_comments(line)
+        shown.append(text)
+    if opened:
+        raise ValueError(f"{source}: an HTML comment is never closed by -->")
+    return shown
 
 
 def _table_at(
     lines: list[str], anchor: str, source: str
 ) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
     """The table under `anchor` that begins before the next Markdown heading, read from the lines
-    as a Markdown viewer shows them (comments and fenced text hidden)."""
-    commented = hide_comments(lines, source)
-    shown = hide_fenced(commented)
+    as shown. If hiding changed any line from its header through the run of rows and hidden-text
+    lines that follows, rows may have been dropped: refused."""
+    shown = _shown(lines, source)
     positions = [i for i, line in enumerate(shown) if line == anchor]
     if len(positions) != 1:
         raise ValueError(f"model_anchor: expected one {anchor}")
     start = positions[0] + 1
-    end = next((i for i in range(start, len(shown)) if shown[i].startswith("#")), len(shown))
-    first = next((i for i in range(start, end) if shown[i].startswith("|")), None)
+    end = next((i for i in range(start, len(shown)) if HEADING_START.match(shown[i])), len(shown))
+    first = next((i for i in range(start, end) if table_row(shown[i]) is not None), None)
     if first is None:
-        raise _NoTable(f"no table under {anchor}")
+        raise _NoTable(anchor)
     last = first
-    while last + 1 < end and shown[last + 1].startswith("|"):
+    while last < end and (table_row(shown[last]) is not None or shown[last] != lines[last]):
         last += 1
-    hidden = [c.strip() == "" and r.strip() != "" for r, c in zip(lines, commented, strict=True)]
-    _refuse_interrupted(shown, hidden, last + 1, end, anchor)
-    headers, rows = table([(i + 1, shown[i]) for i in range(first, end)])
+    if any(shown[i] != lines[i] for i in range(first, last)):
+        raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
+    headers, rows = table([(i + 1, shown[i]) for i in range(first, last)])
     if len(headers) != len(set(headers)):
         raise ValueError("model_columns: selected source columns are ambiguous")
     return headers, rows
@@ -401,20 +433,24 @@ def _register_date(text: str) -> date | None:
         return None
 
 
-EMPHASIS = re.compile(r"(\*\*|__|\*|_)(.+)\1")
-SUBTOTAL_END = re.compile(r"[ ,]total$")
+MARKS = re.compile(r"[*_()]")
+TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?total\b.*|.*\b(?:sub)?total)")
+TOTAL_WORD = re.compile(r"\b(?:sub)?total\b")
 
 
 def _plain(label: str) -> str:
-    """A register row label as classified: trimmed, with whole-label emphasis removed."""
-    text = label.strip()
-    found = EMPHASIS.fullmatch(text)
-    return found[2].strip() if found else text
+    """A register row label as classified, the store's `plain_label` written again: emphasis marks
+    and parentheses removed, whitespace runs one space, trailing `:` and `.` stripped, folded."""
+    text = " ".join(MARKS.sub("", label).split())
+    return text.rstrip(":.").strip().casefold()
 
 
-def _is_subtotal(low: str) -> bool:
-    """A lower-case plain label that starts with total, holds subtotal or ends with ` total`."""
-    return low.startswith("total") or "subtotal" in low or SUBTOTAL_END.search(low) is not None
+def _total_kind(low: str) -> str | None:
+    """`edge` when the whole word total or subtotal starts or ends the plain label (a subtotal),
+    `inner` when it sits elsewhere (a row that cannot be classified), else None."""
+    if TOTAL_AT_EDGE.fullmatch(low):
+        return "edge"
+    return "inner" if TOTAL_WORD.search(low) else None
 
 
 def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
@@ -426,7 +462,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     try:
         headers, rows = reader.table_at(anchor)
     except _NoTable as error:
-        return _Register(None, Cell(None, "NOT_SOURCED", note=str(error)))
+        return _Register(None, Cell(None, "NOT_SOURCED", note=error.note))
     when = _register_date(headers[1])
     if when is None:
         return _Register(None, Cell(None, "NOT_SOURCED", note="Register date not readable"))
@@ -440,7 +476,8 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     unclassified: str | None = None
     for number, quote, values in rows:
         label = values[0]
-        low = _plain(label).casefold()
+        low = _plain(label)
+        kind = _total_kind(low)
         carrying = CARRYING.search(values[1]) if len(values[1]) <= CELL_LIMIT else None
         if low in seen and carrying is not None and repeated is None:
             repeated = label[:LABEL_LIMIT]
@@ -448,10 +485,12 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         if label in exact:
             continue  # a later row of a label is dropped, as the store does
         exact.add(label)
-        if _is_subtotal(low):
+        if kind == "edge":
             continue
         unsecured = "subordinated" in low or "unsecured" in low
-        secured = low in required or (SECURED_NOTES.search(low) and not unsecured)
+        secured = kind is None and (
+            low in required or (SECURED_NOTES.search(low) and not unsecured)
+        )
         if not secured:
             if carrying is not None and not unsecured and unclassified is None:
                 unclassified = label[:LABEL_LIMIT]
@@ -596,7 +635,7 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     try:
         headers, rows = _table_at(lines, anchor, "quarter")
     except _NoTable as error:
-        return Cell(None, "NOT_SOURCED", note=str(error))
+        return Cell(None, "NOT_SOURCED", note=error.note)
     return _quarter_register_rows(headers, rows, anchor, end)
 
 
@@ -620,13 +659,16 @@ def _quarter_register_rows(
     named: set[str] = set()
     for number, _, values in rows:
         label = values[headers.index("Label")]
-        low = _plain(label).casefold()
-        if not label or _is_subtotal(low) or low.startswith(("less:", "long-term debt")):
+        low = _plain(label)
+        kind = _total_kind(low)
+        if not label or kind == "edge" or low.startswith(("less:", "long-term debt")):
             continue
         amount = _quarter_cell(number, values, net)
         unsecured = "subordinated" in low or "unsecured" in low
-        secured = not unsecured and (
-            "securitization" in low or low.startswith("term loans") or "secured notes" in low
+        secured = (
+            not unsecured
+            and kind is None
+            and ("securitization" in low or low.startswith("term loans") or "secured notes" in low)
         )
         if amount.value is not None and low in seen and repeated is None:
             repeated = label[:LABEL_LIMIT]
@@ -651,20 +693,21 @@ def _quarter_register_rows(
 def _annual_adjusted(lines: list[str], year: str) -> Cell:
     """The fiscal year's As Defined total, read from the one annual table holding its row."""
     lines = hide_fenced(hide_comments(lines, "annual"))
+    wanted = _plain(ADJUSTED_EBITDA_LABEL)
     holding = [
         i
         for i, line in enumerate(lines)
-        if line.startswith("|") and line[1:].split("|")[0].strip() == ADJUSTED_EBITDA_LABEL
+        if (row := table_row(line)) is not None and _plain(row[1:].split("|")[0]) == wanted
     ]
     if len(holding) != 1:
         return Cell(
             None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
         )
     top = holding[0]
-    while top > 0 and lines[top - 1].startswith("|"):
+    while top > 0 and table_row(lines[top - 1]) is not None:
         top -= 1
     headers, rows = table([(i + 1, lines[i]) for i in range(top, len(lines))])
-    found = next(r for r in rows if r[2][0] == ADJUSTED_EBITDA_LABEL)
+    found = next(r for r in rows if _plain(r[2][0]) == wanted)
     if year not in headers:
         return Cell(None, "WINDOW_MISSING", note=f"{year} is not a column of that annual table")
     return _quarter_cell(found[0], found[2], headers.index(year), "annual")
@@ -731,6 +774,7 @@ def _quarter_cells(
         if not _is_full_year(layout, year):
             annual_cell = Cell(None, "WINDOW_MISSING", note=f"{year} is not a full year")
         priors = year_before(window)
+        ltm_start = None
         span = (window.end - priors[0].end).days if len(priors) == 1 else None
         if span is not None and not LTM_DAYS[0] <= span <= LTM_DAYS[1]:
             prior = Cell(
@@ -740,6 +784,7 @@ def _quarter_cells(
             )
         elif len(priors) == 1 and priors[0].start == dates.start_date:
             prior = _quarter_cell(row[0], row[2], priors[0].column)
+            ltm_start = priors[0].end + timedelta(days=1)
         else:
             why = (
                 "two prior-year windows match"
@@ -756,7 +801,6 @@ def _quarter_cells(
             out["senior_secured_debt"] = debt
             with localcontext(CONTEXT):
                 out["senior_secured_multiple"] = _ratio(((debt, 1),), ((out["ltm_adj_ebitda"], 1),))
-        ltm_start = priors[0].end + timedelta(days=1) if len(priors) == 1 else None
         result[window] = (out, ltm_start)
     return result
 

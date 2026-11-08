@@ -213,9 +213,16 @@ def comment_opener(line: str) -> int | None:
     after the last `-->`, anywhere in the line (a later nested one is inside the comment). Inline
     code spans are blanked first, as Markdown reads `<!--` inside them literally."""
     plain_text = re.sub(r"(`+).+?\1", lambda m: "x" * len(m[0]), line)
-    closed = plain_text.rfind("-->")
-    opener = plain_text.find("<!--", 0 if closed < 0 else closed + 3)
-    return None if opener < 0 else opener
+    position = 0
+    while (opener := plain_text.find("<!--", position)) >= 0:
+        tail = plain_text[opener + 4 :]
+        if tail.startswith((">", "->")):  # `<!-->` and `<!--->` are whole comments
+            position = opener + (5 if tail.startswith(">") else 6)
+        elif (closed := plain_text.find("-->", opener + 4)) >= 0:
+            position = closed + 3
+        else:
+            return opener
+    return None
 
 
 def hide_comments(lines: list[str], name: str) -> list[str]:
@@ -292,11 +299,22 @@ def section(
     return [(i + 1, lines[i]) for i in range(start + 1, end)]
 
 
+TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+
+
+def table_row(text: str) -> str | None:
+    """The row text of a line that starts with '|' after at most three spaces (four is code),
+    without trailing whitespace; None for any other line."""
+    found = TABLE_ROW.fullmatch(text)
+    return None if found is None else found[1]
+
+
 def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
     """Read the first contiguous pipe table in a named section, preserving cells."""
     selected = []
-    for line, text in rows:
-        if text.startswith("|"):
+    for line, line_text in rows:
+        text = table_row(line_text)
+        if text is not None:
             selected.append((line, text))
         elif selected:
             break

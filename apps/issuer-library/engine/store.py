@@ -1125,21 +1125,77 @@ def table_cells(line: str) -> list[str]:
     return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", inner)]
 
 
-EMPHASIS = re.compile(r"(\*\*|__|\*|_)(.+)\1")
-SUBTOTAL_END = re.compile(r"[ ,]total$")
+MARKS = re.compile(r"[*_()]")
+TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?total\b.*|.*\b(?:sub)?total)")
+TOTAL_WORD = re.compile(r"\b(?:sub)?total\b")
+TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+CODE_SPAN = re.compile(r"(`+).+?\1")
+FENCE_LINE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+HEADING_START = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
 
 
 def plain_label(label: str) -> str:
-    """A register row label as classified: trimmed, with whole-label emphasis removed."""
-    text = label.strip()
-    found = EMPHASIS.fullmatch(text)
-    return found[2].strip() if found else text
+    """A register row label as classified, delivery's `_plain` written again: emphasis marks and
+    parentheses removed, whitespace runs one space, trailing `:` and `.` stripped, casefolded."""
+    text = " ".join(MARKS.sub("", label).split())
+    return text.rstrip(":.").strip().casefold()
 
 
-def is_subtotal(low: str) -> bool:
-    """A lower-case plain label that starts with total, holds subtotal or ends with ` total`."""
-    prefix = CASHFLOW_LABELS["total_prefix"].casefold()
-    return low.startswith(prefix) or "subtotal" in low or SUBTOTAL_END.search(low) is not None
+def total_kind(low: str) -> str | None:
+    """`edge` when the whole word total or subtotal starts or ends the plain label (a subtotal),
+    `inner` when it sits elsewhere (a row that cannot be classified), else None."""
+    if TOTAL_AT_EDGE.fullmatch(low):
+        return "edge"
+    return "inner" if TOTAL_WORD.search(low) else None
+
+
+def table_row(line: str) -> str | None:
+    """The row text of a line that starts with '|' after at most three spaces (four is code),
+    without trailing whitespace; None for any other line."""
+    found = TABLE_ROW.fullmatch(line)
+    return None if found is None else found[1]
+
+
+def inline_comments(line: str) -> tuple[str, bool]:
+    """`line` without its complete HTML comments, and whether one is still open at its end.
+    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
+    kept = ""
+    while True:
+        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
+        opener = masked.find("<!--")
+        if opener < 0:
+            return kept + line, False
+        if masked.startswith(">", opener + 4):
+            end = opener + 5
+        elif masked.startswith("->", opener + 4):
+            end = opener + 6
+        elif (closer := masked.find("-->", opener + 4)) >= 0:
+            end = closer + 3
+        else:
+            return kept + line[:opener], True
+        kept, line = kept + line[:opener], line[end:]
+
+
+def shown_lines(lines: list[str]) -> list[str]:
+    """The lines as a Markdown viewer shows them (delivery's `_shown` written again): comments
+    removed, fenced code blanked, line numbers kept. A comment never closed hides the rest."""
+    shown, fenced, opened = [], False, False
+    for line in lines:
+        if opened:
+            end = line.find("-->")
+            text, opened = ("", True) if end < 0 else inline_comments(line[end + 3 :])
+            shown.append(text)
+            continue
+        found = HEADING_START.match(line)
+        fenced = fenced and not (found and len(found[1]) == 2)
+        toggled = FENCE_LINE.match(line) is not None
+        fenced ^= toggled
+        if fenced or toggled:
+            shown.append("")
+            continue
+        text, opened = inline_comments(line)
+        shown.append(text)
+    return shown
 
 
 def period_key(header: str) -> PeriodKey | None:
@@ -1176,10 +1232,10 @@ def markdown_table(lines: list[str], file: str) -> Table:
             # A later row of a label already seen is dropped by `rows`: that matters when it holds a
             # carrying value, not for a blank label or a note row.
             label = row[label_column]
-            dropped = plain_label(label).casefold() in folded and label != ""
+            dropped = plain_label(label) in folded and label != ""
             if dropped and repeated is None and holds_carrying_value(row):
                 repeated = label
-            folded.add(plain_label(label).casefold())
+            folded.add(plain_label(label))
             rows.setdefault(row[label_column], row)
     periods: dict[PeriodKey, int] = {}
     for index, name in enumerate(header):
@@ -1195,47 +1251,26 @@ def markdown_table(lines: list[str], file: str) -> Table:
     }
 
 
-def comment_follows(lines: list[str], at: int) -> bool:
-    """Whether only blank lines and at least one comment lie between line `at` and a '|' line:
-    hidden text that interrupts a table, whose later rows are then another table."""
-    seen = False
-    while at < len(lines):
-        text = lines[at].strip()
-        if text.startswith("<!--"):
-            seen = True
-            while "-->" not in lines[at] and at + 1 < len(lines):
-                at += 1
-        elif text:
-            return seen and text.startswith("|")
-        at += 1
-    return False
-
-
 def markdown_tables(text: str, file: str) -> list[Table]:
-    """The tables of a Markdown text, read line by line; `file` names it in a limit error.
-
-    A table is `interrupted` when a comment opens inside one of its rows or separates it from the
-    '|' lines that follow: its rows are then not all read as one table.
-    """
+    """The tables of a Markdown text as a viewer shows it, read line by line; `file` names it in a
+    limit error. A table runs from its header through the rows and hidden-text lines after it; it
+    is `interrupted` when hiding changed any line of that run, so its rows are not all read."""
     tables: list[Table] = []
-    lines = text.split("\n")
-    run: list[str] = []
-
-    def close(after: int) -> None:
-        table = markdown_table(run, file)
-        table["interrupted"] = comment_follows(lines, after) or any(
-            row.rfind("<!--") > row.rfind("-->") for row in run
-        )
+    raw = text.split("\n")
+    shown = shown_lines(raw)
+    at = 0
+    while at < len(raw):
+        if table_row(shown[at]) is None:
+            at += 1
+            continue
+        end = at
+        while end < len(raw) and (table_row(shown[end]) is not None or shown[end] != raw[end]):
+            end += 1
+        rows = [row for row in map(table_row, shown[at:end]) if row is not None]
+        table = markdown_table(rows, file)
+        table["interrupted"] = any(shown[i] != raw[i] for i in range(at, end))
         tables.append(table)
-
-    for number, line in enumerate(lines):
-        if line.lstrip().startswith("|"):
-            run.append(line)
-        elif run:
-            close(number)
-            run = []
-    if run:
-        close(len(lines))
+        at = end
     return tables
 
 
@@ -1286,7 +1321,7 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     names = CASHFLOW_LABELS
     anchor = names["secured_term_loans"].casefold()
     debt = next(
-        (t for t in tables if any(plain_label(label).casefold() == anchor for label in t["rows"])),
+        (t for t in tables if any(plain_label(label) == anchor for label in t["rows"])),
         None,
     )
     if debt is None or len(debt["header"]) < 2:
@@ -1299,11 +1334,14 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     total, incomplete, unclassified = decimal.Decimal(0), False, None
     named: set[str] = set()
     for label, row in debt["rows"].items():
-        low = plain_label(label).casefold()
-        if is_subtotal(low):
+        low = plain_label(label)
+        kind = total_kind(low)
+        if kind == "edge":
             continue
         unsecured = names["unsecured_notes"] in low or names["unsecured"] in low
-        secured = low in required or (secured_notes.search(low) and not unsecured)
+        secured = kind is None and (
+            low in required or (secured_notes.search(low) and not unsecured)
+        )
         carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
         if not secured:
             if carrying is not None and not unsecured and unclassified is None:

@@ -925,7 +925,7 @@ REASON_PHRASES = {
     "PRIOR_PERIOD_MISSING": PRIOR_MISSING,
     "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
     "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
-    "WINDOW_MISSING": "the year-to-date or prior-year window is not in the handoffs",
+    "WINDOW_MISSING": "last-twelve-months Adj EBITDA cannot be built from the handoffs",
 }
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
 DEBT_TOTAL_NEEDED = "needs quarter-end total carrying debt, which the model does not derive"
@@ -1075,10 +1075,11 @@ def held_cell(held: dict[str, Any], kind: str, negate: bool = False) -> Cell:
     """A calculation record's {amount, reason}; an amount of null is n.a. with its reason."""
     exact = held["amount"]
     if exact is None:
-        reason = held.get("reason")
-        return unavailable_cell(
-            REASON_PHRASES.get(reason, reason) if isinstance(reason, str) else None
-        )
+        reason, note = held.get("reason"), held.get("note")
+        words = REASON_PHRASES.get(reason, reason) if isinstance(reason, str) else None
+        if reason == "WINDOW_MISSING" and isinstance(note, str) and note:
+            words = f"{words}: {note[:LABEL_LIMIT]}"  # the cause the delivery recorded
+        return unavailable_cell(words)
     if negate:
         value = decimal.Decimal(exact).copy_negate()
         exact = "0" if value == 0 else str(value)

@@ -772,7 +772,7 @@ def test_ltm_adj_ebitda_is_fy_plus_ytd_less_prior_ytd() -> None:
     assert entry["unit"] == "MILLIONS" and entry["currency"] == "USD"
     assert (entry["period"], entry["start_date"], entry["end_date"]) == (
         WINDOW,
-        "2024-10-01",
+        "2023-12-31",  # the day after the prior-year window ends: the twelve months start here
         "2024-12-28",
     )
     assert entry["formula"] == (

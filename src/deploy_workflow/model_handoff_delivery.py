@@ -12,7 +12,7 @@ import html
 import json
 import re
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, localcontext
 from typing import NamedTuple
 
@@ -611,8 +611,9 @@ def _ltm_cell(annual: Cell, this: Cell, prior: Cell) -> Cell:
 
 def _quarter_cells(
     layout: ModelDelivery, annual: list[str], quarter: bytes, derived: DerivedRows
-) -> dict[_Window, dict[str, Cell]]:
-    """The LTM and quarter-end rows of every window that starts a fiscal year."""
+) -> dict[_Window, tuple[dict[str, Cell], date | None]]:
+    """The LTM and quarter-end rows of every window that starts a fiscal year, each with the
+    first day of its twelve months (the day after the prior-year window ends; None without one)."""
     lines = hide_fenced(hide_comments(physical_lines(quarter.decode("utf-8")), "quarter"))
     headers, rows = _table_at(lines, str(derived.quarter_bridge))
     found_rows = [r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL]
@@ -681,7 +682,8 @@ def _quarter_cells(
             out["senior_secured_debt"] = debt
             with localcontext(CONTEXT):
                 out["senior_secured_multiple"] = _ratio(((debt, 1),), ((out["ltm_adj_ebitda"], 1),))
-        result[window] = out
+        ltm_start = priors[0].end + timedelta(days=1) if len(priors) == 1 else None
+        result[window] = (out, ltm_start)
     return result
 
 
@@ -855,6 +857,13 @@ def _entry(  # noqa: PLR0913 - one value entry, as the store reads it
     }
 
 
+def _start_of(key: str, window: _Window, ltm_start: date | None) -> str | None:
+    """The start date of a quarter entry: the LTM's twelve months, else the window's own."""
+    if key == "ltm_adj_ebitda":
+        return None if ltm_start is None else ltm_start.isoformat()
+    return window.start.isoformat()
+
+
 def _quarter_entries(
     layout: ModelDelivery,
     inputs: Mapping[str, HandoffInput],
@@ -874,12 +883,12 @@ def _quarter_entries(
                 ratio_keys,
                 QUARTER_FORMULAS.get(key),
                 window.text,
-                None if key == "senior_secured_debt" else window.start.isoformat(),
+                None if key == "senior_secured_debt" else _start_of(key, window, ltm_start),
                 window.end.isoformat(),
             )
             for key, cell in row.items()
         }
-        for window, row in windows.items()
+        for window, (row, ltm_start) in windows.items()
     }
 
 

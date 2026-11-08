@@ -3003,9 +3003,25 @@ def test_a_recorded_ltm_without_a_recorded_leverage_says_the_debt_total_is_missi
     assert other["reason"] == LTM_NEEDED_TEXT
 
 
+def test_a_missing_window_reads_with_the_note_the_delivery_recorded(tmp_path):
+    note = "the LTM spans 373 days, outside 364-371"
+    record = quarter_record(
+        {
+            "2025-10-01–2025-12-31": {
+                "ltm_adj_ebitda": {"amount": None, "reason": "WINDOW_MISSING", "note": note}
+            }
+        }
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(record))
+    cell = row(cashflow, LTM_ROW)["cells"][2]
+    assert cell["reason"] == (
+        "last-twelve-months Adj EBITDA cannot be built from the handoffs: " + note
+    )
+
+
 def test_quarter_reasons_read_in_words(tmp_path):
     expected = {
-        "WINDOW_MISSING": "the year-to-date or prior-year window is not in the handoffs",
+        "WINDOW_MISSING": "last-twelve-months Adj EBITDA cannot be built from the handoffs",
         "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
         "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
         "COMPONENT_MISSING": "a component is not in the handoffs",

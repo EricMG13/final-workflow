@@ -1,0 +1,30 @@
+[
+  {
+    "name": "run metric provenance user",
+    "fixture": "synthetic",
+    "pointer": "/run/metrics/cash/provenance",
+    "value": "user",
+    "why": "user is an allowed metric provenance"
+  },
+  {
+    "name": "private_side false reads as absent",
+    "fixture": "retained-cp1",
+    "pointer": "/run/private_side",
+    "value": false,
+    "why": "false with no source reads as absent"
+  },
+  {
+    "name": "empty facilities reads as absent",
+    "fixture": "retained-cp1",
+    "pointer": "/run/facilities",
+    "value": [],
+    "why": "no facilities"
+  },
+  {
+    "name": "run metric provenance user",
+    "fixture": "retained-cp1",
+    "pointer": "/run/metrics/cash/provenance",
+    "value": "user",
+    "why": "user is an allowed metric provenance"
+  }
+]

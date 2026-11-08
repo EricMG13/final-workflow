@@ -645,7 +645,7 @@ def new_run(  # noqa: PLR0915, RUF100
         page.close()
         return
     note(
-        status.startswith("complete") and "Automated checks only" in status,
+        status.startswith("Complete: Report written.") and "Automated checks only" in status,
         f"{name}: fake-provider run finishes through the real bridge: {status[:70]}",
     )
     note("Recorded spend: USD" in page.inner_text("#run-spend"), f"{name}: spend is shown")

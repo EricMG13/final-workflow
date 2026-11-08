@@ -8,15 +8,17 @@ from __future__ import annotations
 import json
 import re
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pytest
 from pypdf.errors import DependencyError
 
+from deploy_vii.contracts import Run
 from deploy_workflow.context import RunContext, load_context
 from deploy_workflow.model.handoff import _pages
-from deploy_workflow.owners.cpos_launch import _html_page_rows
+from deploy_workflow.owners.cpos_launch import _html_page_rows, _layout
 from deploy_workflow.run_expectations import (
     EVIDENCE,
     FORECAST,
@@ -285,8 +287,32 @@ def guesses_of(scenario: dict[str, Any]) -> list[Guess]:
 
 
 def omitted_of(scenario: dict[str, Any]) -> list[str]:
-    # The key records each omitted report section as a run row (from _layout, observed offline).
-    return [r["section"] for r in scenario["expected"]["run"] if r["rule"] == "section-omitted"]
+    """The sections the launcher's own _layout omits for this pathway and modules."""
+    run = Run(
+        run_id="expectations-test",
+        issuer_id="issuer",
+        issuer_name="Issuer",
+        as_of=date(2026, 10, 31),
+        case_kind="public",
+        pathway=scenario["pathway"],
+        requested_modules=tuple(scenario["modules"]),
+    )
+    return list(_layout(run, tuple(scenario["modules"]), (), "test")[1])
+
+
+def test_key_run_rows_agree_with_the_launcher_layout() -> None:
+    """The key's section-omitted rows are a real check on _layout, not the test's input."""
+    for scenario in SCENARIOS:
+        keyed = [
+            r["section"] for r in scenario["expected"]["run"] if r["rule"] == "section-omitted"
+        ]
+        assert sorted(keyed) == sorted(omitted_of(scenario)), scenario["id"]
+
+
+def test_a_guessed_kind_with_underscores_reads_as_words() -> None:
+    scenario = next(s for s in SCENARIOS if s["id"] == "rule-cp4-final-offering-memorandum")
+    reason = next(i["reason"] for i in run_scenario(scenario) if i["id"].endswith("final-om"))
+    assert "Likely: offering memorandum (found 'offering_memorandum' on page 1)" in reason
 
 
 def run_scenario(scenario: dict[str, Any]) -> list[dict[str, Any]]:
@@ -350,6 +376,13 @@ def test_item_shape_ids_and_order_are_stable(scenario: dict[str, Any]) -> None:
             assert item["basis"] and item["reason"] and item["fix"]
         if item["inherited_from"]:
             assert item["id"] == f"{item['scope']}:from:{item['inherited_from'][0]}"
+
+
+def test_a_row_that_inherits_nothing_carries_an_empty_list() -> None:
+    scenario = next(s for s in SCENARIOS if s["id"] == "rf4-amendment-alone")
+    items = run_scenario(scenario)
+    assert any(i["inherited_from"] == [] for i in items)
+    assert all(isinstance(i["inherited_from"], list) for i in items)
 
 
 def test_chart_strip_row_has_its_exact_id_and_never_propagates() -> None:

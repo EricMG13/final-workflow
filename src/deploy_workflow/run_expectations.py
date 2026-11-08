@@ -257,6 +257,8 @@ ITEM_KEYS = frozenset(
 RUN = "run"
 PROPAGATING = ("will_refuse", "limited")  # Most severe first; gap and check never propagate.
 AGREEMENTS = ("credit_agreement", "indenture")
+# An offering memorandum, prospectus or earnings release alone counts as a financial document here:
+# the key needs this looser reading, and that case is unkeyed, so Task 5's back-test checks it.
 FINANCIAL_KINDS = ("financial_report", "earnings_release", "offering_memorandum", "prospectus")
 # Producer -> consumer degradation, as `deploy_vii.registry.edge_rule` returns it.
 Edges = dict[str, dict[str, str]]
@@ -271,7 +273,7 @@ class Item(TypedDict):
     basis: str
     evidence: Literal["per method", "observed offline", "observed live"]
     counted: bool
-    inherited_from: list[str] | None
+    inherited_from: list[str]  # [] on a row that inherits nothing
 
 
 def edges_for(ordered: Sequence[str]) -> Edges:
@@ -332,7 +334,7 @@ class Facts:
 
 
 def likely(guess: Guess | None) -> str:
-    return f" Likely: {guess.kind} ({guess.signal})." if guess else ""
+    return f" Likely: {guess.kind.replace('_', ' ')} ({guess.signal})." if guess else ""
 
 
 @dataclass(frozen=True)
@@ -407,9 +409,8 @@ RULES: tuple[Rule, ...] = (
         "CP-1",
         lambda f: f.context.run.reporting_currency != "USD",
         "limited",
-        "Reporting currency entered by user is not USD; the chart strip is US$m only, so its "
-        "money cells read 'Not supplied: reported in <unit>'. Chart strip is US$m only; no USD "
-        "labels invented.",
+        "Reporting currency entered by user is not USD. The chart strip is US$m only; no USD "
+        "labels invented, so its money cells read 'Not supplied: reported in <unit>'.",
         "No file needed; the report states the limit. Read chart values as unavailable.",
         "src/deploy_workflow/owners/cpos_launch.py _selector: 'An issuer reporting in another "
         "currency or scale writes `Not supplied: reported in <unit>` in monetary cells.'",
@@ -427,9 +428,11 @@ RULES: tuple[Rule, ...] = (
         "Peer source entered by user gives CP-1C no peer set from the context (none, or CP-DR "
         "public data without CP-DR in this run).",
         "Choose a peer list in Context, or add CP-DR.",
-        _SK + "cp-1c-peer-benchmark/SKILL.md line 212: web-scrape discovery 'auto-triggers when "
-        "no user peer list'; app runs supply issuer files only",
-        "per method",
+        "src/deploy_workflow/owners/cpos_launch.py: 'Run the complete selected method below on "
+        "this issuer's supplied sources'; the cp-1c method would web-discover peers when none are "
+        "listed (SKILL.md 212), which app runs cannot do; plan: Task 3 table. Provisional until "
+        "Checkpoint A",
+        "observed offline",
     ),
     Rule(
         "cp2-primary-no-cp1d",
@@ -459,8 +462,8 @@ RULES: tuple[Rule, ...] = (
         "CP-2H",
         lambda f: not f.context.ratings and f.kind("ratings") is None,
         "gap",
-        "No ratings in the context and no ratings file recognised; the method: Insufficient "
-        "Information applies.",
+        "No ratings in the context and no ratings file recognised; the method then marks the "
+        "module Insufficient Information (method: Insufficient Information).",
         "Enter the ratings in Context, or add a ratings file.",
         _SK + "cp-2h-ratings-migration-trigger/SKILL.md Canon Core 4: 'Missing/Blocked/mismatch"
         "->[Insufficient Information]+stop/no inference'",
@@ -551,7 +554,7 @@ RULES: tuple[Rule, ...] = (
         "CP-4",
         lambda f: f.legal != "none" and f.kind("amendment") is not None and not f.kind(*AGREEMENTS),
         "limited",
-        "Only an amendment is recognised, so the base agreement not recognised; the amendment "
+        "Only an amendment is recognised and the base agreement not recognised, so the amendment "
         "alone cannot show the covenants it changes.",
         "Add the base credit agreement or indenture.",
         _STEPS4 + " line 24: 'Identify completeness limitations: missing amendments, schedules, "
@@ -570,7 +573,7 @@ RULES: tuple[Rule, ...] = (
             and om.executed is not False
         ),
         "limited",
-        "Governing terms would rest on a final offering memorandum: a summary, not the "
+        "Governing terms would rest on a final offering memorandum, which is a summary, not the "
         "governing document.",
         "Add the executed agreement or indenture.",
         _STEPS4 + " line 343: 'Offering memorandum covenant description | Summary of key "
@@ -615,8 +618,8 @@ def _item(
         fix=words.fix,
         basis=words.basis,
         evidence=words.evidence,
-        counted=outcome not in ("information", "ready") and inherited is None,
-        inherited_from=inherited,
+        counted=outcome not in ("information", "ready") and not inherited,
+        inherited_from=inherited or [],
     )
 
 

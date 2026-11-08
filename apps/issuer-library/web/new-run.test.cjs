@@ -9,9 +9,9 @@ const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,is
 const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
 const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 31 March 2025 · ${ID}`;
 function reviewReply(ready){return{ok:true,id:ID,review_id:'b'.repeat(64),issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness',purpose:'Check issuer files'},{id:'CP-1',title:'Financial analysis',purpose:'Read financial statements'}],config:'sol-medium',provider:'openai',model:'gpt-6.1-sol',effort:'medium',cap_usd:'10.00',hold_usd:'1.86',max_turns:7,prices_as_of:'2026-11-01',provider_ready:ready,provider_key:'OPENAI_API_KEY',sources:[{path:'filings/annual.txt',sha256:'c'.repeat(64)}],ignored:['chart.png'],report_sections:['liquidity-runway'],omitted:['lme-chart'],scope:'User-launched run; analytical accuracy has not been independently reviewed.'};}
-async function page(t,{ready=true,startFails=false,resume=null,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
+async function page(t,{hash='#W-NewRun/run',ready=true,startFails=false,resume=null,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
   const errors=[],calls=[];let starts=0;const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
-  const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-NewRun/run',runScripts:'outside-only',virtualConsole});
+  const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/'+hash,runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};const timers=new Map(),started=[],cleared=[];let nextTimer=1;win.setInterval=fn=>{timers.set(nextTimer,fn);started.push(nextTimer);return nextTimer++;};win.clearInterval=id=>{cleared.push(id);timers.delete(id);};
   const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/resume':()=>resume||{...reviewReply(ready),id:ID2,resume_of:ID,retained_modules:['CP-0']},'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
   win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url.split('?')[0]];return{ok:true,json:async()=>body()};};
@@ -66,9 +66,10 @@ test('only an explicitly confirmed Start launches, once',async t=>{
   assert.equal(p.starts(),1);assert.equal(p.doc.getElementById('progress-step').hidden,false);
   assert.equal(p.doc.getElementById('run-identity').textContent,IDENTITY);
   assert.deepEqual(JSON.parse(p.calls.find(call=>call.url==='/api/runs/start').options.body),{id:ID,review_id:'b'.repeat(64),confirm:true});
-  assert.match(p.doc.getElementById('run-progress').textContent,/running: Working · Source readiness accepted \(1 of 2\)/);
+  assert.match(p.doc.getElementById('run-progress').textContent,/^Running · Source readiness accepted \(1 of 2\)$/);
   const bar=p.doc.getElementById('module-stages'),items=[...bar.querySelectorAll('li')];
-  assert.equal(bar.hidden,false);assert.deepEqual(items.map(li=>li.querySelector('strong').textContent),['Source readiness','Financial analysis']);
+  assert.equal(bar.hidden,false);assert.deepEqual(items.map(li=>li.querySelector('strong').textContent),['Source readiness','Financial analysis','Report delivery']);
+  assert.equal(items[2].dataset.status,'incomplete');assert.equal(items[2].querySelector('span:not(.step-marker)'),null);assert.equal(items[2].querySelector('img'),null);
   assert.equal(items[0].getAttribute('aria-current'),'step');assert.equal(items[1].hasAttribute('aria-current'),false);
   assert.equal(items[0].dataset.status,'complete');assert.equal(items[0].querySelector('span:not(.step-marker)').textContent,'Accepted');
   assert.equal(items[1].dataset.status,'incomplete');assert.equal(items[1].querySelector('span:not(.step-marker)'),null);
@@ -81,7 +82,7 @@ test('only an explicitly confirmed Start launches, once',async t=>{
 test('a module that has started is shown as running',async t=>{
   const p=await page(t,{status:{state:'running',message:'Working',progress:{module:'CP-1',step:'started',spent_usd:'0.42'},run_available:true}});
   p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
-  assert.match(p.doc.getElementById('run-progress').textContent,/running: Working · running Financial analysis \(2 of 2\)/);
+  assert.match(p.doc.getElementById('run-progress').textContent,/^Running · running Financial analysis \(2 of 2\)$/);
   const items=[...p.doc.querySelectorAll('#module-stages li')];
   assert.equal(items[1].hasAttribute('aria-current'),true);assert.equal(items[0].hasAttribute('aria-current'),false);
   const note=li=>li.querySelector('span:not(.step-marker)')?.textContent;
@@ -92,7 +93,7 @@ test('a module that has started is shown as running',async t=>{
 test('a stopped run does not claim its rejected module is still running',async t=>{
   const p=await page(t,{status:{state:'stopped',message:'CP-1 rejected.',progress:{module:'CP-1',step:'started',spent_usd:'0.42'},run_available:true,id:ID}});
   p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
-  assert.equal(p.doc.getElementById('run-progress').textContent.trim(),'stopped: CP-1 rejected. · stopped during Financial analysis (2 of 2)');
+  assert.equal(p.doc.getElementById('run-progress').textContent.trim(),'Stopped: CP-1 rejected. · stopped during Financial analysis (2 of 2)');
   const items=[...p.doc.querySelectorAll('#module-stages li')];
   assert.equal(items[1].getAttribute('aria-current'),'step');
   assert.equal(items[1].dataset.status,'current');assert.equal(items[1].hasAttribute('data-stopped'),true);
@@ -104,8 +105,10 @@ test('a stop in delivery marks no module stopped and keeps every module accepted
   p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
   assert.match(p.doc.getElementById('run-progress').textContent,/stopped while delivering the report/);
   const items=[...p.doc.querySelectorAll('#module-stages li')];
-  assert.deepEqual(items.map(li=>li.dataset.status),['complete','complete']);
-  assert.equal(items.some(li=>li.hasAttribute('data-stopped')),false);
+  assert.deepEqual(items.map(li=>li.dataset.status),['complete','complete','incomplete']);
+  assert.equal(items.slice(0,2).some(li=>li.hasAttribute('data-stopped')),false);
+  // the stop is the delivery step's: amber and worded, with no tick
+  assert.equal(items[2].hasAttribute('data-stopped'),true);assert.equal(items[2].querySelector('span:not(.step-marker)').textContent,'Stopped');assert.equal(items[2].querySelector('img'),null);
 });
 test('recent runs are a table, active first, and a row reopens its run',async t=>{
   const p=await page(t,{list:[ROW_DONE,ROW_RUNNING],status:{state:'running',message:'Working',progress:{module:'CP-1',step:'started',spent_usd:'0.10'},run_available:true}});
@@ -131,9 +134,9 @@ test('recent runs are a table, active first, and a row reopens its run',async t=
   assert.equal(p.doc.getElementById('progress-step').hidden,false);
   assert.equal(p.doc.getElementById('run-identity').textContent,IDENTITY);
   const bar=p.doc.getElementById('module-stages');
-  assert.equal(bar.hidden,false);assert.equal(bar.querySelectorAll('li').length,2);
+  assert.equal(bar.hidden,false);assert.equal(bar.querySelectorAll('li').length,3);
   assert.equal(bar.querySelectorAll('li')[1].getAttribute('aria-current'),'step');
-  assert.equal(p.doc.getElementById('run-progress').textContent,'running: Working · running Financial analysis (2 of 2)');
+  assert.equal(p.doc.getElementById('run-progress').textContent,'Running · running Financial analysis (2 of 2)');
 });
 test('a list refresh keeps the focused row',async t=>{
   const list=[{...ROW_RUNNING}];
@@ -163,7 +166,7 @@ test('a run without a saved review still lists and opens by id',async t=>{
   row.querySelector('button').click();await settle();
   assert.equal(p.doc.getElementById('run-identity').textContent,ID);
   assert.equal(p.doc.getElementById('module-stages').hidden,true);
-  assert.equal(p.doc.getElementById('run-progress').textContent,'stopped: Halted · stopped during CP-1');
+  assert.equal(p.doc.getElementById('run-progress').textContent,'Stopped: Halted · stopped during CP-1');
 });
 test('a missing provider key keeps Start unavailable and names the variable',async t=>{
   const p=await page(t,{ready:false});p.context();p.folder('N/annual.txt');await p.click('review-run');
@@ -183,7 +186,7 @@ test('a finished run offers its deliverables; a stopped one offers the run',asyn
     assert.equal(open.hidden,false,state);assert.equal(open.textContent,label);assert.equal(open.dataset.route,route);
     assert.match(p.doc.getElementById('run-spend').textContent,/USD 3.10/);assert.equal(p.doc.getElementById('another-run').hidden,false);
     const items=[...p.doc.querySelectorAll('#module-stages li')];
-    assert.equal(p.doc.getElementById('run-progress').textContent.trim(),`${state}: Done`);
+    assert.equal(p.doc.getElementById('run-progress').textContent.trim(),`${state==='complete'?'Complete':'Stopped'}: Done`);
     if(state==='complete')assert.equal(items.at(-1).hasAttribute('aria-current'),true);
     else assert.equal(items.some(li=>li.hasAttribute('aria-current')),false);
     for(const li of items){
@@ -225,7 +228,7 @@ test('a malformed row degrades to a dash and does not hide the others',async t=>
   p.win.__status={...ROW_RUNNING};
   rows[0].querySelector('button').click();await settle();
   assert.equal(p.doc.getElementById('module-stages').hidden,true);
-  assert.equal(p.doc.getElementById('run-progress').textContent,'running: Working · running CP-1');
+  assert.equal(p.doc.getElementById('run-progress').textContent,'Running · running CP-1');
 });
 test('a failed render is retried on the next refresh',async t=>{
   const list=[ROW_RUNNING];
@@ -347,4 +350,53 @@ test('the page list poll never speaks for a tab that can notify; only the watche
   const lists=p.calls.map(c=>c.url).filter(url=>url.split('?')[0]==='/api/runs/list');
   assert.ok(lists.length>0,'the page polled the run list');
   assert.deepEqual([...new Set(lists)],['/api/runs/list?notify=0']);
+});
+
+test('the Report delivery step is grey ahead, blue while delivering, ticked when delivered and amber when the stop was in delivery',async t=>{
+  const cases=[
+    ['ahead',{state:'running',message:'Working',progress:{module:'CP-1',step:'running'},run_available:true},'incomplete','',false,false],
+    ['delivering',{state:'running',message:'Working',progress:{step:'delivering',accepted:2},run_available:true},'current','Delivering',false,false],
+    ['delivered',{state:'complete',message:'Done',progress:{step:'delivered',accepted:2},run_available:true,id:ID},'complete','Delivered',true,false],
+    ['stopped',{state:'failed',message:'refused',progress:{module:'CP-1',step:'stopped',stopped_during:'delivering',accepted:2},run_available:true,id:ID},'incomplete','Stopped',false,true],
+  ];
+  for(const [name,status,expected,note,tick,stopped] of cases){
+    const p=await page(t,{status});p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
+    const items=[...p.doc.querySelectorAll('#module-stages li')],step=items.at(-1);
+    assert.equal(step.querySelector('strong').textContent,'Report delivery',name);
+    assert.equal(step.dataset.status,expected,name);
+    assert.equal(step.querySelector('span:not(.step-marker)')?.textContent??'',note,name);
+    assert.equal(!!step.querySelector('img'),tick,name);assert.equal(step.hasAttribute('data-stopped'),stopped,name);
+    // modules accepted before the stop keep their ticks; none is ticked for work that did not finish
+    if(name==='ahead')assert.deepEqual(items.slice(0,2).map(li=>li.dataset.status),['complete','current'],name);
+    else assert.deepEqual(items.slice(0,2).map(li=>li.dataset.status),['complete','complete'],name);
+    if(name!=='ahead')assert.equal(step.getAttribute('aria-current')==='step',name!=='ahead');
+  }
+});
+test('the strip Resume link opens that run\'s progress panel once and drops the query',async t=>{
+  const row={...ROW_RUNNING,state:'stopped',reason:'budget',message:'',progress:{module:'CP-1',step:'stopped',accepted:1,spent_usd:'0.42'}};
+  const p=await page(t,{hash:`#W-NewRun/run?resume=${ID}`,list:[row],status:{...row,run_available:true}});
+  await settle();
+  assert.equal(p.doc.getElementById('progress-step').hidden,false);
+  assert.equal(p.doc.getElementById('run-identity').textContent,IDENTITY);
+  assert.equal(p.doc.getElementById('resume-run').hidden,false,'the same resumable rule as the recent-runs click');
+  assert.equal(p.win.location.hash,'#W-NewRun/run');
+  // an unknown id says so and opens nothing
+  const q=await page(t,{hash:`#W-NewRun/run?resume=web-${'f'.repeat(32)}`,list:[row]});
+  await settle();
+  assert.equal(q.doc.getElementById('progress-step').hidden,true);
+  assert.match(q.doc.getElementById('new-run-message').textContent,/no longer in the recent list/);
+});
+test('the strip Resume link works while New run is already open',async t=>{
+  const row={...ROW_RUNNING,state:'failed',reason:'provider',message:'',progress:{module:'CP-1',step:'stopped',accepted:1}};
+  const p=await page(t,{list:[row],status:{...row,run_available:true}});
+  p.win.location.hash=`#W-NewRun/run?resume=${ID}`;await settle();await settle();
+  assert.equal(p.doc.getElementById('progress-step').hidden,false);assert.equal(p.win.location.hash,'#W-NewRun/run');
+});
+
+test('Fix 3: a stop after the last module was accepted, with progress step accepted, is the delivery step\'s Stopped',async t=>{
+  const status={state:'interrupted',message:'cut',progress:{module:'CP-1',step:'accepted',accepted:2},run_available:true,id:ID};
+  const p=await page(t,{status});p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
+  const items=[...p.doc.querySelectorAll('#module-stages li')],step=items.at(-1);
+  assert.deepEqual(items.slice(0,2).map(li=>li.dataset.status),['complete','complete']);
+  assert.equal(step.hasAttribute('data-stopped'),true);assert.equal(step.querySelector('span:not(.step-marker)').textContent,'Stopped');assert.equal(step.querySelector('img'),null);
 });

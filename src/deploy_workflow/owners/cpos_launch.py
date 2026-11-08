@@ -254,6 +254,7 @@ class Accepted:
     response: bytes
     request: Mapping[str, Any]
     model: tuple[str, str, str] | None
+    problem: str = ""  # Why this module's record cannot be replayed, when it cannot.
 
 
 @dataclass(frozen=True)
@@ -589,7 +590,11 @@ def _mismatch(
 ) -> str:
     """Why a stopped run's answer cannot stand for this run's module, or "" when it can."""
     if record is None:
-        return "the stopped run has no single, unchanged accepted answer for it"
+        return "the stopped run did not reach it"
+    if record.problem:
+        return record.problem
+    if record.model is None:
+        return "the stopped run's model setting could not be read"
     chosen = CONFIGS[now.config]
     asked = record.request
     upstream = {prior: _sha(kept[prior]) for prior in now.ordered[:position]}

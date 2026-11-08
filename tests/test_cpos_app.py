@@ -646,15 +646,44 @@ def test_a_changed_retained_handoff_is_refused_at_start(tmp_path, provider):
     assert not (Path(request["workspace"]) / "runs" / second.name).exists()
 
 
-def test_an_edited_copy_of_the_accepted_answer_is_not_offered_for_replay(tmp_path, provider):
-    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+def test_an_edited_copy_of_the_accepted_answer_neither_blocks_start_nor_is_replayed(
+    tmp_path, provider
+):
+    folder, run_dir, request, routes = stopped_after_the_first_module(tmp_path, provider)
     recorded = accepted_response(run_dir).read_bytes()
     (run_dir / "CP-0.md").write_bytes(recorded.replace(b"One item", b"Two items"))
+    second = resumed(folder, request)
+    approved = bridge.review(second)
+    assert approved["retained_modules"] == ["CP-0"]
+    bridge.write_json(second / "review.json", approved)
+    provider.answer = lambda context: answer(context, routes)
+    before = len(provider.calls)
+    bridge.start(second)
+    assert status_of(second)["state"] == "complete"
+    assert [m for m, _, _ in provider.calls[before:]] == list(COVENANT_MODULES[1:])
+    new_run = Path(request["workspace"]) / "runs" / second.name
+    assert (new_run / "retained" / "CP-0.md").read_bytes() == recorded
+
+
+@pytest.mark.parametrize("verdict", [b"{not json", b"[]"])
+def test_a_corrupt_verdict_is_not_offered_and_says_so(tmp_path, provider, verdict):
+    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    (fp,) = (run_dir / "requests" / "CP-0").iterdir()
+    (fp / "1.review.json").write_bytes(verdict)
     result = bridge.review(resumed(folder, request))
     assert result["retained_modules"] == []
     assert result["retained_note"] == (
-        "Retained work stops before Source readiness: the stopped run has no single, unchanged "
-        "accepted answer for it."
+        "Retained work stops before Source readiness: its record in the stopped run could not "
+        "be read."
+    )
+
+
+def test_a_module_the_stopped_run_never_reached_says_so(tmp_path, provider):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == ["CP-0"]
+    assert result["retained_note"] == (
+        "Retained work stops before Canonical data foundation: the stopped run did not reach it."
     )
 
 
@@ -698,6 +727,23 @@ def test_a_different_model_since_the_stop_ends_the_retained_work(tmp_path, provi
     result = bridge.review(resumed(folder, request))
     assert result["retained_modules"] == []
     assert result["retained_note"].endswith("the stopped run used a different model setting.")
+
+
+@pytest.mark.parametrize("raw", [None, b"{not json", b"[]"])
+def test_an_unreadable_model_setting_of_the_stopped_run_ends_the_retained_work(
+    tmp_path, provider, raw
+):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    if raw is None:
+        (folder / "review.json").unlink()
+    else:
+        (folder / "review.json").write_bytes(raw)
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"] == (
+        "Retained work stops before Source readiness: the stopped run's model setting could "
+        "not be read."
+    )
 
 
 def test_a_source_changed_inside_start_is_refused_before_any_call(tmp_path, provider, monkeypatch):

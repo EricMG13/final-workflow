@@ -111,52 +111,62 @@ def _inside(path: Path, base: Path) -> bytes | None:
     return path.read_bytes()
 
 
-def _accepted_answers(
-    run_folder: Path, model: tuple[str, str, str] | None, *, copies: bool
-) -> dict[str, Accepted]:
+def _record(response: Path, base: Path) -> tuple[bytes, Any, Any] | None:
+    """A response with its verdict and request parsed, none when a file is not a plain one.
+    Raises ValueError for JSON that does not parse."""
+    stem = response.name.removesuffix(".response.md")
+    raw = _inside(response, base)
+    verdict = _inside(response.with_name(f"{stem}.review.json"), base)
+    asked = _inside(response.with_name(f"{stem}.request.json"), base)
+    if raw is None or verdict is None or asked is None:
+        return None
+    return raw, json.loads(verdict), json.loads(asked)
+
+
+def _accepted_answers(run_folder: Path, model: tuple[str, str, str] | None) -> dict[str, Accepted]:
     """CP-OS's own record of what a stopped run accepted: for each module the one
     requests/<module>/<fingerprint>/<n>.response.md whose <n>.review.json has no issues and names
-    that response's hash, with the request it answered. A module with none, or with several
-    different ones, has no entry."""
+    that response's hash, with the request it answered. A module whose record cannot be read, or
+    has several different accepted answers, is entered with the reason it is not offered; the
+    app's saved <module>.md copy is never read."""
     base = run_folder.resolve()
     found: dict[str, list[Accepted]] = {}
+    damaged: set[str] = set()
     for response in sorted(run_folder.glob("requests/*/*/*.response.md")):
         module = response.parent.parent.name
         if not MODULE_DIR.fullmatch(module):
             continue
-        stem = response.name.removesuffix(".response.md")
-        raw = _inside(response, base)
-        verdict = _inside(response.with_name(f"{stem}.review.json"), base)
-        asked = _inside(response.with_name(f"{stem}.request.json"), base)
-        if raw is None or verdict is None or asked is None:
+        try:
+            record = _record(response, base)
+        except ValueError:
+            damaged.add(module)
             continue
-        review = json.loads(verdict)
-        if (
-            review.get("issues") != []
-            or review.get("response_sha256") != hashlib.sha256(raw).hexdigest()
+        if record is None:
+            continue
+        raw, review, asked = record
+        if not isinstance(review, dict) or not isinstance(asked, dict):
+            damaged.add(module)
+        elif (
+            review.get("issues") == []
+            and review.get("response_sha256") == hashlib.sha256(raw).hexdigest()
         ):
-            continue
-        found.setdefault(module, []).append(Accepted(raw, json.loads(asked), model))
-
-    def unchanged(module: str, record: Accepted) -> bool:
-        # The app's saved copy (<module>.md) is never replayed. At review, one that disagrees
-        # with the record, or is not a plain file, shows the folder was edited after the stop, so
-        # the module is not offered. Start reads only the record, which its review id covers.
-        copy = run_folder / f"{module}.md"
-        return not copies or (
-            not copy.is_symlink() and (not copy.exists() or _inside(copy, base) == record.response)
+            found.setdefault(module, []).append(Accepted(raw, asked, model))
+    answers: dict[str, Accepted] = {}
+    for module, records in found.items():
+        if len({item.response for item in records}) == 1:
+            answers[module] = records[0]
+        else:
+            answers[module] = Accepted(
+                b"", {}, model, "the stopped run holds more than one accepted answer for it"
+            )
+    for module in damaged:
+        answers[module] = Accepted(
+            b"", {}, model, "its record in the stopped run could not be read"
         )
-
-    return {
-        module: records[0]
-        for module, records in found.items()
-        if len({record.response for record in records}) == 1 and unchanged(module, records[0])
-    }
+    return answers
 
 
-def retained_of(
-    workspace: Path, job: dict[str, Any], *, copies: bool = False
-) -> dict[str, Accepted]:
+def retained_of(workspace: Path, job: dict[str, Any]) -> dict[str, Accepted]:
     """A stopped run's accepted answers, by module; none unless the job resumes a run. The review
     id covers what prepare keeps, so a changed record is stale at Start."""
     if job.get("resume_of") is None:
@@ -171,12 +181,12 @@ def retained_of(
     try:
         reviewed = json.loads((workspace / "intake" / stopped / "review.json").read_text())
         model = (reviewed["provider"], reviewed["model"], reviewed["effort"])
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError, KeyError, TypeError):
         pass  # No recorded model: prepare then keeps nothing and says so.
-    return _accepted_answers(folder, model, copies=copies)
+    return _accepted_answers(folder, model)
 
 
-def launch(job: dict[str, Any], directory: Path, out: Path, *, copies: bool = False) -> Prepared:
+def launch(job: dict[str, Any], directory: Path, out: Path) -> Prepared:
     """The launcher's own checks and plan. A refusal writes nothing."""
     try:
         cap = Decimal(job["cap_usd"])
@@ -193,7 +203,7 @@ def launch(job: dict[str, Any], directory: Path, out: Path, *, copies: bool = Fa
         config=job["config"],
         cap=cap,
         modules=job["modules"] or None,
-        retained=retained_of(Path(job["workspace"]).resolve(strict=True), job, copies=copies),
+        retained=retained_of(Path(job["workspace"]).resolve(strict=True), job),
     )
 
 
@@ -236,7 +246,7 @@ def review(directory: Path) -> dict[str, Any]:
     check_path_room(directory)
     # A scanner holding a file for a moment on Windows must not refuse the review.
     with tempfile.TemporaryDirectory(dir=directory, ignore_cleanup_errors=True) as preview:
-        prepared = launch(job, directory, Path(preview), copies=True)
+        prepared = launch(job, directory, Path(preview))
     request = prepared.plan
     revision = engine_revision()
     selected = CONFIGS[job["config"]]

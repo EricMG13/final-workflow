@@ -66,7 +66,7 @@ var stopReasonWords = map[string]string{
 func finishNotice(folder string) (title, body string, ok bool) {
 	var status struct {
 		State  string `json:"state"`
-		Reason string `json:"reason"`
+		Reason any    `json:"reason"` // tolerant: a reason that is not a string is dropped, not a reason to lose the notice
 	}
 	raw, err := os.ReadFile(filepath.Join(folder, "status.json"))
 	if err != nil || json.Unmarshal(raw, &status) != nil || status.State == "" || status.State == "running" {
@@ -83,7 +83,8 @@ func finishNotice(folder string) (title, body string, ok bool) {
 		text = review.Issuer + " run " + status.State
 	}
 	// A reason that only repeats the state word ("interrupted") adds nothing.
-	if words, known := stopReasonWords[status.Reason]; known && status.State != "complete" && words != status.State {
+	reason, _ := status.Reason.(string)
+	if words, known := stopReasonWords[reason]; known && status.State != "complete" && words != status.State {
 		text += ": " + words
 	}
 	return "Issuer Library", text, true

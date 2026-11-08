@@ -7,8 +7,8 @@ const line=start=>{const m=source.match(new RegExp(`^const ${start}.*$`,'m'));as
 const oneLine=name=>{const m=source.match(new RegExp(`^function ${name}\\(.*$`,'m'));assert.ok(m,name);return m[0];};
 function spendText(status){
   const elements={};
-  const context=vm.createContext({elements,$:id=>elements[id]??={hidden:false,textContent:'',dataset:{}},review:null});
-  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),line('STATE_WORD'),line('stateWord'),grab('nameModuleCodes',''),line('resumable'),oneLine('stopSentence'),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('showStatus','  ')].join('\n'),context);
+  const context=vm.createContext({elements,$:id=>elements[id]??={hidden:false,textContent:'',dataset:{},setAttribute(){},removeAttribute(){}},review:null});
+  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),line('STATE_WORD'),line('stateWord'),grab('nameModuleCodes',''),line('resumable'),line('DECIMAL'),oneLine('stopSentence'),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('showStatus','  ')].join('\n'),context);
   context.showStatus(status);
   return elements['run-spend'].textContent;
 }

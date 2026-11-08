@@ -207,6 +207,8 @@ test('a ruling stop is not resumable anywhere: the strip offers Activity only',a
   assert.deepEqual(parts(p).actions,[ACTIVITY]);
   assert.equal(p.win.eval("resumable({state:'failed',reason:'ruling'})"),false);
   assert.equal(p.win.eval("resumable({state:'failed',reason:'provider'})"),true);
+  for(const state of ['reviewed','complete','running','weird',undefined])assert.equal(p.win.eval(`resumable({state:${JSON.stringify(state)}})`),false,String(state));
+  for(const state of ['stopped','failed','interrupted'])assert.equal(p.win.eval(`resumable({state:'${state}'})`),true,state);
 });
 test('a complete run shows the grey strip with a tick and View reports only',async t=>{
   const p=await page(t,{list:[job({state:'complete'})]});

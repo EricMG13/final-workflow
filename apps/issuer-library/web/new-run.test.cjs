@@ -300,13 +300,13 @@ test('a status reply for a run the reader has left changes neither the screen no
   assert.ok(asked.slice(before).includes(OTHER),'B is still polled');
 });
 
-const ROW_STOPPED={id:ID,state:'stopped',reason:'budget',message:'CP-1 stopped.',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',cap_usd:'10.00',max_turns:32,modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'stopped',accepted:1,spent_usd:'4.00'}};
+const ROW_STOPPED={id:ID,state:'stopped',reason:'budget',message:'CP-1 stopped.',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',spent_usd:'4.00',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'stopped',accepted:1,turn:2,max_turns:32,spent_usd:'3.10',held_usd:'1.60',cap_usd:'10.00'}};
 async function openRow(p){
   await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
   p.doc.querySelector('#recent-jobs button.text-button').click();await settle();
 }
 const type=(p,value)=>{const field=p.doc.getElementById('resume-budget');field.value=value;field.dispatchEvent(new p.win.Event('input',{bubbles:true}));};
-const HINT=spent=>spent?`This cap applies to the resumed run's own model calls; the USD ${spent} already spent is not counted against it.`:"This cap applies to the resumed run's own model calls; spend already recorded is not counted against it.";
+const HINT=spent=>spent?`This cap applies to the resumed run's own model calls; the USD ${spent} recorded for the stopped run is not counted against it.`:"This cap applies to the resumed run's own model calls; spend recorded for the stopped run is not counted against it.";
 test('after a budget stop the cap starts at the previous cap and is not compared with the recorded spend',async t=>{
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
   await openRow(p);
@@ -323,12 +323,51 @@ test('after a budget stop the cap starts at the previous cap and is not compared
 });
 test('the hint says so when the recorded spend cannot be read',async t=>{
   for(const spent of ['unknown',undefined]){
-    const row={...ROW_STOPPED,spent_usd:spent,progress:{...ROW_STOPPED.progress,spent_usd:undefined}};
+    const row={...ROW_STOPPED,spent_usd:spent};
     const p=await page(t,{list:[row],status:row});
     await openRow(p);
     assert.equal(p.doc.getElementById('resume-hint').textContent,HINT(''),String(spent));
     assert.equal(p.doc.getElementById('resume-run').disabled,false);
   }
+});
+test('the cap starts at the stopped run\'s recorded cap, never at the draft budget; with none recorded it is empty',async t=>{
+  const row={...ROW_STOPPED,progress:{...ROW_STOPPED.progress,cap_usd:'25.00',max_turns:12}};
+  const p=await page(t,{list:[row],status:row});
+  p.doc.getElementById('run-budget').value='3.00';p.doc.getElementById('run-turns').value='40';
+  await openRow(p);
+  assert.equal(p.doc.getElementById('resume-budget').value,'25.00');
+  await p.click('resume-run');
+  assert.deepEqual(JSON.parse(p.calls.find(call=>call.url==='/api/runs/resume').options.body),{id:ID,cap_usd:'25.00',max_turns:12});
+  const bare={...ROW_STOPPED,progress:{module:'CP-1',step:'stopped',accepted:1}};
+  const q=await page(t,{list:[bare],status:bare});
+  q.doc.getElementById('run-budget').value='3.00';
+  await openRow(q);
+  assert.equal(q.doc.getElementById('resume-budget').value,'');
+  assert.equal(q.doc.getElementById('resume-run').disabled,true,'Review waits for a cap the analyst enters');
+  type(q,'7');assert.equal(q.doc.getElementById('resume-run').disabled,false);
+});
+test('reopening a stopped run after another run shows its field and hint again; the hint is outside the label',async t=>{
+  const other={...ROW_DONE};
+  const p=await page(t,{list:[ROW_STOPPED,other],status:ROW_STOPPED});
+  await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
+  const open=id=>[...p.doc.querySelectorAll('#recent-jobs tbody th button')].find(b=>b.title===id);
+  open(ID).click();await settle();
+  assert.equal(p.doc.getElementById('resume-hint').hidden,false);
+  assert.equal(p.doc.getElementById('resume-hint').closest('label'),null,'not part of the input\'s accessible name');
+  p.win.__status={...other};open(other.id).click();await settle();
+  assert.equal(p.doc.getElementById('resume-field').hidden,true);assert.equal(p.doc.getElementById('resume-hint').hidden,true);
+  p.win.__status=null;open(ID).click();await settle();
+  assert.equal(p.doc.getElementById('resume-field').hidden,false);assert.equal(p.doc.getElementById('resume-hint').hidden,false);
+  assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
+  assert.equal(p.doc.getElementById('resume-budget').getAttribute('aria-describedby'),'resume-hint');
+});
+test('a resume request while a run is in progress is said, and the query is dropped',async t=>{
+  const row={...ROW_STOPPED};
+  const p=await page(t,{list:[ROW_RUNNING,row],status:ROW_RUNNING});
+  await openRow(p);
+  p.win.location.hash=`#W-NewRun/run?resume=${ID}`;await settle();await settle();
+  assert.equal(p.doc.getElementById('new-run-message').textContent,'Another run is in progress. Resume this run after it finishes.');
+  assert.equal(p.win.location.hash,'#W-NewRun/run');
 });
 test('a stop for another reason starts at the previous cap with the same hint',async t=>{
   for(const reason of ['checker','provider','interrupted',undefined]){

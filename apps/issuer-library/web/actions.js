@@ -35,9 +35,9 @@ function stopText(status,hasDesc=false){
   const word=stateWord(status.state);
   return message&&!(hasDesc&&WORKFLOW_ACTIVE.includes(status.state))?`${word}: ${message}`:word;
 }
-// Whether a finished run can be reviewed again with its accepted work retained (New run's Resume).
+// Whether a finished run can be reviewed again with its accepted work retained (New run's Resume): the states jobs.go resumes.
 // A ruling or pause is not a stop that more budget or a retry can change, so it is never resumable.
-const resumable=status=>!WORKFLOW_ACTIVE.includes(status.state)&&status.state!=='complete'&&status.state!=='reviewed'&&status.reason!=='ruling';
+const resumable=status=>['stopped','failed','interrupted'].includes(status.state)&&status.reason!=='ruling';
 function describeModule(status,modules,nameOf){
   const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state);
   // A stop after every module was accepted happened in delivery, not in the last module.
@@ -79,19 +79,40 @@ function eventTime(at){
   const match=/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/.exec(String(at||''));
   return match?`${displayDate(match[1])} · ${match[2]} UTC`:'—';
 }
-// A run with no live record (404) is a retained record, the page's wording for runs not started from New run.
-function showRetainedRecord(section,id){
-  const ctx=contexts[id],parts=retainedRecordHtml(ctx);
+// The events table in its bordered card, shared by the live view and the retained one.
+function activityLog(events,titleOf){
+  const table=document.createElement('table');table.className='activity-log';
+  table.append(textNode('caption','Events (UTC)'));
+  const headRow=document.createElement('tr');headRow.append(textNode('th','Time'),textNode('th','Event'));
+  const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
+  const body=table.appendChild(document.createElement('tbody'));
+  for(const event of events){const row=document.createElement('tr');row.append(textNode('td',eventTime(event.at)),textNode('td',eventText(event,titleOf)));body.append(row);}
+  const card=document.createElement('div');card.className='table-scroll';card.tabIndex=0;card.append(table);
+  return card;
+}
+// A run with no live status (404) is a retained record, the page's wording for runs not started from New run. If its
+// event log still exists, the log and the last spend it recorded are shown; the "none recorded" sentence only when there is none.
+function showRetainedRecord(section,id,events){
+  const parts=retainedRecordHtml(contexts[id],events.length>0);
   section.insertAdjacentHTML('afterend',parts.head);
+  const head=section.nextElementSibling;
   section.remove();
+  if(events.length){
+    const spent=[...events].reverse().find(event=>event.spent_usd);
+    const extra=[];
+    if(spent)extra.push(textNode('p',`Last recorded spend: USD ${spent.spent_usd}`));
+    extra.push(activityLog(events,code=>code||''));
+    head.after(...extra);
+  }
   document.getElementById('content').insertAdjacentHTML('beforeend',parts.tail);
 }
 // Fills the Run activity section of an app run from its status and its event log. No retry: a
-// failed fetch is said on the page.
+// failed fetch is said on the page. A reply that lands after the reader left the page changes nothing.
 async function loadRunActivity(section){
   const id=section.dataset.run,hint=section.querySelector('.hint');
   try{
     const status=await appRequest(`/api/runs/status?id=${encodeURIComponent(id)}`),record=await appRequest(`/api/runs/events?id=${encodeURIComponent(id)}`);
+    if(!section.isConnected)return;
     const modules=Array.isArray(status.modules)?status.modules:[],details=Array.isArray(status.module_details)?status.module_details:[];
     const titleOf=code=>details.find(item=>item?.id===code)?.title||code||'';
     const desc=describeModule(status,modules,titleOf),head=stopText(status,!!desc),events=Array.isArray(record.events)?record.events:[];
@@ -102,20 +123,19 @@ async function loadRunActivity(section){
       resume.addEventListener('click',event=>{if(!mayDiscardDraft())event.preventDefault();});
       parts.push(resume);
     }
-    if(events.length){
-      const table=document.createElement('table');table.className='activity-log';
-      table.append(textNode('caption','Events (UTC)'));
-      const headRow=document.createElement('tr');headRow.append(textNode('th','Time'),textNode('th','Event'));
-      const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
-      const body=table.appendChild(document.createElement('tbody'));
-      for(const event of events){const row=document.createElement('tr');row.append(textNode('td',eventTime(event.at)),textNode('td',eventText(event,titleOf)));body.append(row);}
-      const card=document.createElement('div');card.className='table-scroll';card.tabIndex=0;card.append(table);
-      parts.push(card);
-    }else{const none=textNode('p','No events were recorded for this run.');none.className='hint';parts.push(none);}
+    if(events.length)parts.push(activityLog(events,titleOf));
+    else{const none=textNode('p','No events were recorded for this run.');none.className='hint';parts.push(none);}
     if(record.complete===false){const note=textNode('p','The record is incomplete: the log was cut or stopped mid-write.');note.className='caution';parts.push(note);}
     hint.replaceWith(...parts);
   }catch(error){
-    if(error.status===404){showRetainedRecord(section,id);return;}
+    if(!section.isConnected)return;
+    if(error.status===404){
+      let events=[];
+      try{const record=await appRequest(`/api/runs/events?id=${encodeURIComponent(id)}`);events=Array.isArray(record.events)?record.events:[];}
+      catch(inner){console.warn('Run activity: no event log for a run without a live status',inner);}
+      if(section.isConnected)showRetainedRecord(section,id,events);
+      return;
+    }
     const note=document.createElement('div'),detail=document.createElement('details');
     note.className='caution';detail.append(textNode('summary','Technical detail'),textNode('p',error.message));
     note.append(textNode('p','Could not load this run\'s live record. Reload the library to try again.'),detail);
@@ -297,8 +317,9 @@ function installNewRun(){
   // #W-NewRun/run?resume=<id> opens that run's panel once; the query is then dropped so a revisit does not reopen it.
   async function openRequested(){
     const id=new URLSearchParams(location.hash.split('?')[1]||'').get('resume');
-    if(!id||$('new-run').hidden||busy||running)return;
+    if(!id||$('new-run').hidden||busy)return;
     history.replaceState(null,'','#W-NewRun/run');
+    if(running){message('Another run is in progress. Resume this run after it finishes.');return;}
     try{const job=(await appRequest(runListUrl())).find(item=>item.id===id);if(job)openJob(job);else message('That run is no longer in the recent list.');}
     catch(error){message('Could not open that run. Details: '+error.message);}
   }
@@ -386,15 +407,18 @@ function installNewRun(){
     const canResume=resumable(status);
     $('resume-field').hidden=!canResume;$('resume-run').hidden=!canResume;
     const field=$('resume-budget');
-    // Set once per run, so a poll never overwrites what the reader typed.
-    if(canResume&&field.dataset.run!==review?.id){
-      field.dataset.run=review?.id;
-      const hint=$('resume-hint'),spent=status.spent_usd??status.progress?.spent_usd;
-      field.value=review?.cap_usd||$('run-budget').value;
-      hint.textContent=`This cap applies to the resumed run's own model calls; ${DECIMAL.test(String(spent))?`the USD ${spent} already spent`:'spend already recorded'} is not counted against it.`;
-      hint.hidden=false;field.setAttribute('aria-describedby','resume-hint');
+    const hint=$('resume-hint');
+    hint.hidden=!canResume;
+    if(!canResume)field.removeAttribute('aria-describedby');
+    else{
+      field.setAttribute('aria-describedby','resume-hint');
+      // The final spend status.json records; a progress figure is the spend before a call and is not the stopped run's total.
+      const spent=status.spent_usd;
+      hint.textContent=`This cap applies to the resumed run's own model calls; ${DECIMAL.test(String(spent))?`the USD ${spent} recorded for the stopped run`:'spend recorded for the stopped run'} is not counted against it.`;
     }
-    if(!canResume)$('resume-hint').hidden=true;
+    // Set once per run, so a poll never overwrites what the reader typed. The previous cap is the run's recorded one, never the
+    // draft's budget; with none recorded the field stays empty and Review waits for the analyst's amount.
+    if(canResume&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=status.progress?.cap_usd??review?.cap_usd??'';}
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
     $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});
@@ -488,7 +512,7 @@ function installNewRun(){
     if(busy||running||!review?.id)return;
     busy=true;controls();message('Checking the stopped run\'s inputs and retained work. No model call has been made…');
     try{
-      const result=await appRequest('/api/runs/resume',{id:review.id,cap_usd:$('resume-budget').value,max_turns:Number(review.max_turns)||Number($('run-turns').value)});
+      const result=await appRequest('/api/runs/resume',{id:review.id,cap_usd:$('resume-budget').value,max_turns:Number(review.max_turns)||Number(review.progress?.max_turns)||Number($('run-turns').value)});
       if(!result.ok){message(result.problems.join('\n'));return;}
       review=result;$('run-confirm').checked=false;
       reviewSummary(result);stage('review');

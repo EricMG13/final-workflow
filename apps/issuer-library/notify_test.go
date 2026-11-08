@@ -51,6 +51,8 @@ func TestFinishNoticeNamesTheStopReason(t *testing.T) {
 		{"no reason", `{"state":"stopped"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run stopped"},
 		{"unknown reason is not echoed", `{"state":"failed","reason":"sk-secret"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run failed"},
 		{"no issuer", `{"state":"stopped","reason":"budget"}`, "", "Run stopped: spending cap reached"},
+		{"non-string reason keeps the notice", `{"state":"stopped","reason":5}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run stopped"},
+		{"object reason keeps the notice", `{"state":"failed","reason":{"a":1}}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run failed"},
 		{"complete carries no reason", `{"state":"complete","reason":"budget"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run complete"},
 	}
 	for _, c := range cases {

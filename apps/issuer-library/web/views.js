@@ -560,8 +560,8 @@ function summaryView(context) {
   return `${summaryLead(lead)}${summaryCharts(available,context)}<div class="question-map">${questions.map(([title,items])=>`<section><h2>${esc(title)}</h2><div>${items.map(([id])=>summaryCard(id,context)).join('')}</div></section>`).join('')}</div>${built.length?`<section class="summary-deliverables"><h2>Deliverables from this run</h2>${built.map(r=>`<div class="deliverable"><a class="text-action" href="${routeHref('W-Reports',r.id,null,context)}">${esc(reportName(r))}${icon('arrow-right')}</a>${reportAcceptance(r).html}</div>`).join('')}</section>`:''}`;
 }
 // The retained-record wording for a run with no live record: the heading, and the note and link that follow the flow.
-function retainedRecordHtml(ctx) {
-  return {head:`<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div>`,tail:`<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`};
+function retainedRecordHtml(ctx,withRecord=false) {
+  return {head:`<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2>${withRecord?'':'<p>No live progress or cost recorded for this run.</p>'}</div>`,tail:`<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`};
 }
 function workspaceView(module,section) {
   const context=current?.context,ctx=contexts[context],available=ctx?contextModules(context):[];

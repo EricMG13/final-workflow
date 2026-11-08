@@ -15,12 +15,13 @@ const EVENTS=[
   {at:'2026-11-08T09:00:04Z',event:'delivery_started'},
   {at:'2026-11-08T09:00:05Z',event:'delivered'},
 ];
-async function page(t,{key=ID,run={status:status(),events:{events:EVENTS,complete:true}}}={}){
+async function page(t,{key=ID,gate=null,run={status:status(),events:{events:EVENTS,complete:true}}}={}){
   const errors=[],calls=[];const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#CP-OS/activity?c=${key}`,runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.focus=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};
   win.fetch=async url=>{
     calls.push(url);
+    if(gate&&url.startsWith('/api/runs/status')){await gate;return{ok:false,status:404,text:async()=>'404 page not found',json:async()=>({})};}
     const body=url.startsWith('/api/runs/status')?run.status:url.startsWith('/api/runs/events')?run.events:[];
     if(body instanceof Error)return{ok:false,status:body.httpStatus,text:async()=>body.message,json:async()=>({})};
     return{ok:true,json:async()=>body};
@@ -93,6 +94,30 @@ test('a 404 for the live record shows the retained-record view, never the raw 40
   assert.doesNotMatch(content,/404|page not found|Could not load/);
   assert.equal(p.doc.getElementById('run-activity'),null);
   assert.ok(p.doc.querySelector('.activity-flow'),'the flow stays');
+});
+test('a 404 status with a recorded event log shows the retained heading, the log and the last recorded spend',async t=>{
+  const events={events:[EVENTS[0],EVENTS[1],{at:'2026-11-08T09:10:00Z',event:'turn',module:'CP-0',turn:2,max_turns:24,spent_usd:'2.40',held_usd:'1.00',cap_usd:'10'}],complete:true};
+  const p=await page(t,{run:{status:httpError('404 page not found\n',404),events}});
+  const content=p.doc.getElementById('content').textContent;
+  assert.match(content,/Retained record · /);
+  assert.doesNotMatch(content,/No live progress or cost recorded/);
+  assert.equal(p.doc.querySelectorAll('.activity-log tbody tr').length,3);
+  assert.ok(p.doc.querySelector('#content .table-scroll .activity-log'));
+  assert.match(content,/Last recorded spend: USD 2\.40/);
+  assert.doesNotMatch(content,/404|page not found/);
+  const none=await page(t,{run:{status:httpError('404',404),events:{events:[],complete:true}}});
+  assert.match(none.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+  const lost=await page(t,{run:{status:httpError('404',404),events:httpError('boom',500)}});
+  assert.match(lost.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+});
+test('a 404 that lands after the reader left Run activity neither throws nor writes onto the new page',async t=>{
+  const rejections=[];const onRejection=error=>rejections.push(error);process.on('unhandledRejection',onRejection);t.after(()=>process.off('unhandledRejection',onRejection));
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const p=await page(t,{run:{status:null,events:{events:[],complete:true}},gate});
+  p.win.location.hash='#W-Library/cases';await settle();
+  release();await new Promise(resolve=>setTimeout(resolve,50));
+  assert.deepEqual(rejections,[]);
+  assert.doesNotMatch(p.doc.getElementById('content').textContent,/Live progress and spend are recorded only/);
 });
 test('a 404 on the events request alone is also the retained record',async t=>{
   const p=await page(t,{run:{status:status(),events:httpError('404 page not found',404)}});

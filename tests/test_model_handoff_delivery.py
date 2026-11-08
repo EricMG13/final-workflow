@@ -772,7 +772,7 @@ def test_ltm_adj_ebitda_is_fy_plus_ytd_less_prior_ytd() -> None:
     assert entry["unit"] == "MILLIONS" and entry["currency"] == "USD"
     assert (entry["period"], entry["start_date"], entry["end_date"]) == (
         WINDOW,
-        "2024-10-01",
+        "2023-12-31",  # the day after the prior-year window ends: the twelve months start here
         "2024-12-28",
     )
     assert entry["formula"] == (
@@ -839,6 +839,7 @@ SECURITIZATION_ROW = (
 NOTES_2033 = (
     "| 14 | 6.00% secured notes due 2033 (“2033 Secured Notes”) | 1,500 | (14) | — | 1,486 |\n"
 ).encode()
+LONG_TERM = b"| 19 | Long-term debt | 24,479 | (130) | (47) | 24,302 |\n"
 
 
 def edited_quarters(quarter=(), annual=(), register=False, periods=None):
@@ -993,3 +994,246 @@ def test_a_total_row_inside_an_html_comment_is_not_read() -> None:
     edits = [(row, visible), (title, draft + title)]
     ltm = edited_quarters(annual=edits)[WINDOW]["ltm_adj_ebitda"]
     assert ltm["amount"] is None
+
+
+# Register hardening: delivery and the store classify the same register rows alike.
+LAST_NOTE = (
+    b"| 6.00% secured notes due 2033 | Principal 1,500; carrying 1,486 |"
+    b" 6.00%; matures January 15, 2033 (PDF 46). |\n"
+)
+SUBTOTALS = (
+    (b"Secured notes subtotal", b"carrying 12,892"),
+    (b"Subtotal secured notes", b"carrying 12,892"),
+    (b"Secured notes, total", b"carrying 12,892"),
+    (b"Term loans, total", b"carrying 8,642"),
+    (b"**Total secured notes**", b"carrying 12,892"),
+)
+
+
+def annual_debt(before: bytes, after: bytes) -> dict[str, object]:
+    return derived_values(before, after)[1]["FY2024"]["senior_secured_debt"]
+
+
+def quarter_debt(*edits: tuple[bytes, bytes]) -> dict[str, object]:
+    cleaned = [(ADVANCES, b""), (LEASES, b""), *edits]
+    return edited_quarters(quarter=cleaned, register=True)[WINDOW]["senior_secured_debt"]
+
+
+@pytest.mark.parametrize(("label", "carrying"), SUBTOTALS)
+def test_a_subtotal_labelled_annual_register_row_is_not_summed(label: bytes, carrying: bytes):
+    extra = b"| " + label + b" | " + carrying + b" | Sum of the rows above. |\n"
+    # 486 + 8,642 + 2,077 + 2,727 + 1,438 + 984 + 2,180 + 1,486, by hand
+    assert annual_debt(LAST_NOTE, LAST_NOTE + extra)["amount"] == "20020"
+
+
+def test_an_emphasised_annual_register_label_is_read_by_its_words():
+    row = b"| Term loans aggregate | Principal 8,702; carrying 8,642"
+    bold = b"| **Term loans aggregate** | Principal 8,702; carrying 8,642"
+    assert annual_debt(row, bold)["amount"] == "20020"
+    assert (
+        annual_debt(row, row.replace(b"Term loans aggregate", b"_Term loans aggregate_"))["amount"]
+        == "20020"
+    )
+
+
+@pytest.mark.parametrize(
+    "label", [b"Secured notes subtotal", b"Subtotal secured notes", b"Secured notes, total"]
+)
+def test_a_subtotal_labelled_quarter_row_is_not_summed(label: bytes):
+    notes = b"| 14a | " + label + b" | 10,950 | (88) | (14) | 10,898 |\n"
+    terms = b"| 4a | Term loans, total | 8,702 | (24) | (33) | 8,645 |\n"
+    got = quarter_debt((NOTES_2033, NOTES_2033 + notes), (TERM_ROW, TERM_ROW + terms))
+    assert got["amount"] == "20192"  # 649 + 8,645 + 2,079 + 2,728 + 1,438 + 986 + 2,181 + 1,486
+
+
+def test_an_emphasised_quarter_register_label_is_read_by_its_words():
+    total = b"| 14a | **Total secured notes** | 10,950 | (88) | (14) | 10,898 |\n"
+    assert quarter_debt((NOTES_2033, NOTES_2033 + total))["amount"] == "20192"
+    assert (
+        quarter_debt((TERM_ROW, TERM_ROW.replace(b"| Term loans |", b"| **Term loans** |")))[
+            "amount"
+        ]
+        == "20192"
+    )
+
+
+QUARTER_ANCHOR = "### Debt — December 28, 2024\n".encode()
+ANNUAL_ANCHOR = "### T4.18 — Debt/facility register\n".encode()
+
+
+def test_a_register_anchor_without_its_own_table_reads_no_other_heading_s_table() -> None:
+    interposed = QUARTER_ANCHOR + b"### Another section\n"
+    got = quarter_debt((QUARTER_ANCHOR, interposed))
+    assert (got["reason"], got["amount"]) == ("NOT_SOURCED", None)
+    assert got["note"] == "no table under ### Debt — December 28, 2024"
+    got = annual_debt(ANNUAL_ANCHOR, ANNUAL_ANCHOR + b"\n### Another section\n")
+    assert (got["reason"], got["amount"]) == ("NOT_SOURCED", None)
+    assert got["note"] == "no table under ### T4.18 — Debt/facility register"
+
+
+ROW_13 = (
+    "| 13 | 6.625% secured notes due 2032 (“2032 Secured Notes”) | 2,200 | (19) | — | 2,181 |\n"
+)
+OLD_13 = "| 13 | 6.625% secured notes due 2032 | 2,200 | (19) | — | 2,180 |"
+HIDDEN_TEXT = {
+    "opens at row end": ROW_13[:-1] + "<!-- restated\n" + OLD_13 + "\n-->\n",
+    "own lines": ROW_13 + "<!-- restated\n" + OLD_13 + "\n-->\n",
+    "one line": ROW_13 + "<!-- reviewer note -->\n",
+}
+
+
+@pytest.mark.parametrize("case", HIDDEN_TEXT)
+def test_hidden_text_between_register_rows_is_refused_not_truncated(case: str) -> None:
+    edits = [(ADVANCES, b""), (LEASES, b""), (ROW_13.encode(), HIDDEN_TEXT[case].encode())]
+    with pytest.raises(ValueError, match="Debt .* December 28, 2024"):
+        edited_quarters(quarter=edits, register=True)
+
+
+def test_a_repeated_fiscal_year_ebitda_row_is_refused_whatever_its_spacing() -> None:
+    row = b"| Total Company EBITDA As Defined | 4,173 | 3,395 | 2,646 |"
+    spaced = b"|  Total Company EBITDA As Defined | 9,999 | 3,395 | 2,646 |\n" + row
+    ltm = edited_quarters(annual=[(row, spaced)])[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+
+
+# Fix round 1: one label rule, one hidden-text rule, one heading rule, one row rule.
+WRAPPED_TOTALS = (
+    b"***Total secured notes***",
+    b"**_Total secured notes_**",
+    b"__*Total secured notes*__",
+    b"Secured notes (total)",
+    b"Secured notes total:",
+    b"Secured notes, total.",
+    b"**Total** secured notes",
+    b"**Total secured notes**:",
+    b"Secured\xc2\xa0notes\xc2\xa0 total",
+)
+
+
+@pytest.mark.parametrize("label", WRAPPED_TOTALS)
+def test_a_subtotal_is_skipped_whatever_its_emphasis_or_punctuation(label: bytes) -> None:
+    annual = b"| " + label + b" | carrying 10,892 | Sum of the notes above. |\n"
+    assert annual_debt(LAST_NOTE, LAST_NOTE + annual)["amount"] == "20020"
+    quarter = b"| 14a | " + label + b" | 10,950 | (88) | (14) | 10,898 |\n"
+    assert quarter_debt((NOTES_2033, NOTES_2033 + quarter))["amount"] == "20192"
+
+
+def test_a_total_inside_a_label_is_unclassified_and_a_totalizer_is_not_a_total() -> None:
+    inner = b"| Secured total notes | carrying 50 | x |\n"
+    got = annual_debt(LAST_NOTE, LAST_NOTE + inner)
+    assert (got["amount"], got["reason"], got["note"]) == (
+        None,
+        "UNCLASSIFIED_ROW",
+        "Secured total notes",
+    )
+    quarter = b"| 14b | Secured total notes | 50 | \xe2\x80\x94 | \xe2\x80\x94 | 50 |\n"
+    assert quarter_debt((NOTES_2033, NOTES_2033 + quarter))["reason"] == "UNCLASSIFIED_ROW"
+    totalizer = b"| Totalizer secured notes due 2031 | carrying 50 | x |\n"
+    assert annual_debt(LAST_NOTE, LAST_NOTE + totalizer)["amount"] == "20070"  # 20020 + 50
+    quarter = b"| 14b | Totalizer secured notes | 50 | \xe2\x80\x94 | \xe2\x80\x94 | 50 |\n"
+    assert quarter_debt((NOTES_2033, NOTES_2033 + quarter))["amount"] == "20242"  # 20192 + 50
+
+
+@pytest.mark.parametrize("space", ["  ", " "])
+def test_labels_that_differ_only_in_inner_spacing_are_one_repeated_label(space: str) -> None:
+    twin = LAST_NOTE.replace(b"6.00% secured", ("6.00%" + space + "secured").encode())
+    got = annual_debt(LAST_NOTE, LAST_NOTE + twin)
+    assert (got["amount"], got["reason"]) == (None, "UNCLASSIFIED_ROW")
+    row = b"| Total Company EBITDA As Defined | 4,173 | 3,395 | 2,646 |"
+    spaced = row.replace(b"Company EBITDA", ("Company" + space + "EBITDA").encode())
+    ltm = edited_quarters(annual=[(row, spaced.replace(b"4,173", b"9,999") + b"\n" + row)])
+    assert ltm[WINDOW]["ltm_adj_ebitda"]["amount"] is None
+
+
+@pytest.mark.parametrize(
+    "shape", ["<!-->", "<!--->", "<!-- reviewer note -->", "<!-- reviewer note --> see PDF 46"]
+)
+def test_every_comment_shape_between_register_rows_is_refused(shape: str) -> None:
+    edits = [(ADVANCES, b""), (LEASES, b""), (NOTES_2033, NOTES_2033 + shape.encode() + b"\n")]
+    with pytest.raises(ValueError, match="model_table: .* December 28, 2024"):
+        edited_quarters(quarter=edits, register=True)
+    tail = LAST_NOTE + shape.encode() + b"\n"
+    with pytest.raises(ValueError, match=r"model_table: .* T4\.18"):
+        derived_values(LAST_NOTE, tail)
+
+
+def test_a_comment_opened_at_a_row_end_and_closed_after_the_table_is_refused() -> None:
+    opened = NOTES_2033[:-1] + b"<!-- restated\n"
+    edits = [(NOTES_2033, opened), (LONG_TERM, LONG_TERM + b"-->\n")]
+    with pytest.raises(ValueError, match="model_table"):
+        edited_quarters(quarter=[(ADVANCES, b""), (LEASES, b""), *edits], register=True)
+
+
+def test_a_commented_or_fenced_draft_register_above_the_real_one_is_not_read() -> None:
+    head = b"| Source row | Label | Gross USD m | Costs USD m | Discount USD m | Net USD m |\n"
+    draft = (
+        head
+        + b"|---|---|---|---|---|---|\n| 3 | Trade receivable securitization | 1 | 1 | 1 | 1 |\n"
+    )
+    anchor = QUARTER_ANCHOR + b"Original HTML table index 30;"
+    for wrap in ((b"<!--\n", b"-->\n\n"), (b"```\n", b"```\n\n")):
+        edit = QUARTER_ANCHOR + wrap[0] + draft + wrap[1] + b"Original HTML table index 30;"
+        assert quarter_debt((anchor, edit))["amount"] == "20192"
+
+
+def test_an_indented_heading_ends_the_search_and_hash_prose_does_not() -> None:
+    got = quarter_debt((QUARTER_ANCHOR, QUARTER_ANCHOR + b"   ### Another section\n"))
+    assert (got["reason"], got["amount"]) == ("NOT_SOURCED", None)
+    prose = QUARTER_ANCHOR + b"#1 lien first.\n\n"
+    assert quarter_debt((QUARTER_ANCHOR, prose))["amount"] == "20192"
+    got = annual_debt(ANNUAL_ANCHOR, ANNUAL_ANCHOR + b"#1 lien first.\n\n")
+    assert got["amount"] == "20020"
+
+
+def test_an_indented_or_space_padded_register_row_is_still_a_row() -> None:
+    assert annual_debt(LAST_NOTE, b"   " + LAST_NOTE)["amount"] == "20020"
+    assert annual_debt(LAST_NOTE, LAST_NOTE[:-1] + b"   \n")["amount"] == "20020"
+
+
+def test_the_ltm_start_and_the_missing_table_message_follow_the_accepted_window() -> None:
+    header = "| Source row | Label | 2024-10-01–2024-12-28 | 2023-10-01–2023-12-30 |"
+    text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()
+    block = text[text.index(BRIDGE) :]
+    block = block[: block.index(header) + len(header)]
+    edit = [(block.encode(), block.replace("2023-12-30", "2023-12-21").encode())]
+    ltm = edited_quarters(quarter=edit)[WINDOW]["ltm_adj_ebitda"]
+    assert ltm["amount"] is None and ltm["start_date"] is None
+
+
+SPLITS = (  # what follows the register's last row (Long-term debt); the 2033 notes moved there
+    b"\n<!-- note -->\n" + NOTES_2033,
+    b"\n<!-- a\n\nb -->\n" + NOTES_2033,
+    b"\n" + NOTES_2033,
+    b"\n" + NOTES_2033 + b"---\n",  # a rule under a row never makes it a heading
+    b"\t" + NOTES_2033,  # indented by a tab: not a row, but it holds a pipe
+    NOTES_2033[2:],  # without its leading pipe
+    b"<!-- note --> " + NOTES_2033,  # row text after a comment on the same line
+    b"<!--> " + NOTES_2033,
+    b"<!-- a\nb --> " + NOTES_2033,
+)
+
+
+@pytest.mark.parametrize("moved", SPLITS)
+def test_a_register_split_by_a_blank_line_or_hidden_text_is_refused(moved: bytes) -> None:
+    edits = [(ADVANCES, b""), (LEASES, b""), (NOTES_2033, b""), (LONG_TERM, LONG_TERM + moved)]
+    with pytest.raises(ValueError, match="model_table: the table under ### Debt"):
+        edited_quarters(quarter=edits, register=True)
+
+
+def test_a_plural_total_label_is_a_subtotal() -> None:
+    row = b"| Subtotals: secured notes | carrying 12,892 | x |\n"
+    assert annual_debt(LAST_NOTE, LAST_NOTE + row)["amount"] == "20020"
+
+
+@pytest.mark.parametrize("underline", [b"-", b"="])
+def test_a_setext_heading_ends_the_anchor_search(underline: bytes) -> None:
+    got = quarter_debt((QUARTER_ANCHOR, QUARTER_ANCHOR + b"Next\n" + underline * 9 + b"\n"))
+    assert (got["reason"], got["amount"]) == ("NOT_SOURCED", None)
+
+
+@pytest.mark.parametrize("rule", [b"---\n", b"===\n", b"-\n"])
+def test_a_rule_under_a_register_row_never_makes_the_row_a_heading(rule: bytes) -> None:
+    last = quarter_debt((NOTES_2033, b""), (LONG_TERM, LONG_TERM + NOTES_2033 + rule))
+    assert last["amount"] == "20192"  # the 2033 notes stay in the register: the hand key
+    with pytest.raises(ValueError, match="model_table"):  # rows after the rule: a split
+        annual_debt(LAST_NOTE, LAST_NOTE + rule)

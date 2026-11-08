@@ -2842,6 +2842,62 @@ def test_a_repeated_debt_label_that_drops_a_carrying_value_still_voids_it():
     assert found is not None and found[2] == "the debt register repeats a row label: Of which"
 
 
+def test_an_escaped_pipe_does_not_split_a_register_cell():
+    escaped = DEBT_ROWS.replace(
+        "Principal 1,100; carrying 1,000", r"Principal 1,100 \| carrying 1,000"
+    )
+    tables = store.markdown_tables("### Debt\n\n" + DEBT_HEAD + escaped, "annual.md")
+    found = store.secured_debt(tables)
+    assert found is not None and found[1] == 1620  # 120 + 1,000 + 500, by hand
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Secured notes subtotal",
+        "Subtotal secured notes",
+        "Secured notes, total",
+        "Term loans, total",
+        "**Total secured notes**",
+        "_Total secured notes_",
+    ],
+)
+def test_a_subtotal_labelled_register_row_is_not_summed(label):
+    found = secured_of(f"| {label} | carrying 600 | x |\n")
+    assert found is not None and found[1] == 1620 and found[2] is None
+
+
+def test_an_emphasised_register_label_is_classified_by_its_words():
+    found = secured_of("| **6.5% secured notes due 2031** | carrying 100 | x |\n")
+    assert found is not None and found[1] == 1720
+    found = secured_of("| **Term loans aggregate** | carrying 7 | x |\n")
+    assert found is not None and found[1] is None
+    assert found[2] == "the debt register repeats a row label: **Term loans aggregate**"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "<!-- reviewer note -->\n| 7% secured notes due 2033 | carrying 100 | x |\n",
+        (
+            "<!-- restated\n| 7% secured notes due 2033 | carrying 50 | x |\n-->\n"
+            "| 7% secured notes due 2034 | carrying 100 | x |\n"
+        ),
+        (
+            "| 7% secured notes due 2033 | carrying 50 | x |<!-- restated\n"
+            "| 7% secured notes due 2033 | carrying 1 | x |\n-->\n"
+            "| 7% secured notes due 2034 | carrying 100 | x |\n"
+        ),
+    ],
+)
+def test_a_register_interrupted_by_a_comment_gives_no_total_naming_its_table(extra):
+    found = secured_of(extra)
+    assert found is not None and found[1] is None
+    assert found[2] == (
+        "the debt register (Sep 30, 2024 amount / status) is interrupted by a comment"
+    )
+
+
 def test_the_budget_goes_first_to_a_model_a_run_lists_through_its_sources(tmp_path, monkeypatch):
     def record_issuer():
         manifest = {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}
@@ -3003,9 +3059,25 @@ def test_a_recorded_ltm_without_a_recorded_leverage_says_the_debt_total_is_missi
     assert other["reason"] == LTM_NEEDED_TEXT
 
 
+def test_a_missing_window_reads_with_the_note_the_delivery_recorded(tmp_path):
+    note = "the LTM spans 373 days, outside 364-371"
+    record = quarter_record(
+        {
+            "2025-10-01–2025-12-31": {
+                "ltm_adj_ebitda": {"amount": None, "reason": "WINDOW_MISSING", "note": note}
+            }
+        }
+    )
+    cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(record))
+    cell = row(cashflow, LTM_ROW)["cells"][2]
+    assert cell["reason"] == (
+        "last-twelve-months Adj EBITDA cannot be built from the handoffs: " + note
+    )
+
+
 def test_quarter_reasons_read_in_words(tmp_path):
     expected = {
-        "WINDOW_MISSING": "the year-to-date or prior-year window is not in the handoffs",
+        "WINDOW_MISSING": "last-twelve-months Adj EBITDA cannot be built from the handoffs",
         "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
         "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
         "COMPONENT_MISSING": "a component is not in the handoffs",
@@ -3035,3 +3107,114 @@ def test_a_malformed_quarters_entry_is_reported_like_a_malformed_value_entry(tmp
         )
         assert cashflow is None
         assert issues == ["deliverables/m-1: calculation.json is missing or unreadable"]
+
+
+# Fix round 1: the same label, hidden-text and row rules as delivery.
+@pytest.mark.parametrize(
+    "label",
+    [
+        "***Total secured notes***",
+        "**_Total secured notes_**",
+        "Secured notes (total)",
+        "Secured notes total:",
+        "Secured notes, total.",
+        "**Total** secured notes",
+        "Secured notes  total",
+    ],
+)
+def test_a_subtotal_is_skipped_whatever_its_emphasis_or_punctuation(label):
+    found = secured_of(f"| {label} | carrying 600 | x |\n")
+    assert found is not None and found[1] == 1620 and found[2] is None
+
+
+def test_a_total_inside_a_label_is_unclassified_and_a_totalizer_is_not_a_total():
+    found = secured_of("| Secured total notes | carrying 50 | x |\n")
+    assert found is not None and found[1] is None
+    assert found[2] == "the debt register has a row that cannot be classified: Secured total notes"
+    found = secured_of("| Totalizer secured notes due 2031 | carrying 50 | x |\n")
+    assert found is not None and found[1] == 1670  # 120 + 1,000 + 500 + 50
+
+
+@pytest.mark.parametrize("space", ["  ", " "])
+def test_labels_that_differ_only_in_inner_spacing_are_one_repeated_label(space):
+    found = secured_of(f"| 6%{space}secured notes due 2030 | carrying 5 | x |\n")
+    assert found is not None and found[1] is None
+    assert found[2].startswith("the debt register repeats a row label")
+
+
+def test_a_code_span_comment_marker_is_text_not_a_comment():
+    found = secured_of("| 7% secured notes due 2033 | carrying 100; tag `<!--` | x |\n")
+    assert found is not None and found[1] == 1720 and found[2] is None
+
+
+HIDDEN_HEAD = "| Instrument | Sep 30, 2024 amount / status | Note |\n|---|---|---|\n"
+HIDDEN_DRAFT = (
+    HIDDEN_HEAD + "| Trade receivable securitization | carrying 1 | x |\n"
+    "| Term loans aggregate | carrying 2 | x |\n"
+)
+
+
+@pytest.mark.parametrize("wrap", [("<!--\n", "-->\n"), ("```\n", "```\n")])
+def test_a_commented_or_fenced_draft_register_is_never_read(wrap):
+    tables = store.markdown_tables(
+        wrap[0] + HIDDEN_DRAFT + wrap[1] + "\n### Debt\n\n" + HIDDEN_HEAD + DEBT_ROWS, "annual.md"
+    )
+    found = store.secured_debt(tables)
+    assert found is not None and found[1] == 1620
+
+
+def test_a_row_indented_up_to_three_spaces_is_a_row_and_four_splits_the_table():
+    found = secured_of("   | 7% secured notes due 2033 | carrying 100 | x |\n")
+    assert found is not None and found[1] == 1720
+    found = secured_of("    | 7% secured notes due 2033 | carrying 100 | x |\n")
+    assert found is not None and found[1] is None  # code under the rows: a split, never a partial
+
+
+@pytest.mark.parametrize(
+    "gap",
+    ["\n<!-- note -->\n", "\n<!-- a\n\nb -->\n", "\n", "\t", "", "<!-- note --> ", "---\n"]
+    + ["<!-->\n", "<!--->\n", "<!-- note --> see PDF\n"],
+)
+def test_a_register_split_by_a_blank_line_or_hidden_text_gives_no_total(gap):
+    row = "| 7% secured notes due 2033 | carrying 100 | x |\n"
+    extra = {"\t": "\t" + row, "": row[1:]}.get(gap, gap + row)
+    found = secured_of(extra + "\nAmounts in USD millions.\n")  # text after it, as in a handoff
+    assert found is not None and found[1] is None
+    words = "interrupted by a comment" if "<!--" in gap else "split by a blank line or a comment"
+    assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
+
+
+def test_a_table_after_hidden_text_is_its_own_table_and_a_plural_total_is_a_subtotal():
+    text = (
+        "| Label | FY2024 | FY2023 |\n|---|---|---|\n| Total X | 4,300 | 3,900 |\n<!-- c -->\n"
+        "| Label | FY2023 | FY2022 |\n|---|---|---|\n| Gain on sale | 30 | 25 |\n"
+    )
+    table = store.table_holding(store.markdown_tables(text, "annual.md"), "Gain on sale")
+    assert store.table_cell(table, "Gain on sale", ("fy", "FY2024"))["exact"] is None  # absent
+    assert store.table_cell(table, "Gain on sale", ("fy", "FY2023"))["exact"] == "30"
+    assert secured_of("| Totals, secured notes | carrying 600 | x |\n")[1] == 1620
+
+
+COVENANTS = (  # an unrelated dated table, split, above the register
+    "### Covenants\n\n| Covenant | Sep 30, 2023 status | Note |\n|---|---|---|\n"
+    "| Leverage | 5.0x | ok |\n\n| Coverage | 2.0x | ok |\n\n### Debt\n\n" + DEBT_HEAD
+)
+SECURITIZATION, _, TERM_ON = DEBT_ROWS.partition("\n")  # the first row; the rest from Term loans
+NOTE_2033 = "| 7% secured notes due 2033 | carrying 100 | x |\n"
+SPLIT = "split by a blank line or a comment"
+
+
+@pytest.mark.parametrize(
+    ("rows", "words"),
+    [
+        (SECURITIZATION + "\n<!-- note -->\n" + TERM_ON, "interrupted by a comment"),
+        (SECURITIZATION + "\n\n" + TERM_ON, SPLIT),
+        (SECURITIZATION + "\n\n" + NOTE_2033 + TERM_ON, SPLIT),
+        (NOTE_2033 + "\n| Revolver | Sep 30, 2024: undrawn | x |\n" + DEBT_ROWS, SPLIT),
+    ],
+)
+def test_a_register_whose_term_loans_row_follows_its_split_names_the_split(rows, words):
+    found = store.secured_debt(store.markdown_tables(COVENANTS + rows, "annual.md"))
+    assert found is not None and (found[0].isoformat(), found[1]) == ("2024-09-30", None)
+    assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
+    assert store.secured_debt(store.markdown_tables(COVENANTS, "annual.md")) is None

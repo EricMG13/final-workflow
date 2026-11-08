@@ -12,7 +12,7 @@ import html
 import json
 import re
 from collections.abc import Mapping
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, localcontext
 from typing import NamedTuple
 
@@ -56,6 +56,7 @@ from deploy_workflow.handoff_delivery import (
     physical_lines,
     plain,
     table,
+    table_row,
 )
 
 SCOPE = (
@@ -166,11 +167,102 @@ class ModelPublication(NamedTuple):
     files: dict[str, bytes]
 
 
-def _table_at(lines: list[str], anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-    positions = [i for i, line in enumerate(lines) if line == anchor]
+class _NoTable(ValueError):
+    """The anchor has no table before the next Markdown heading."""
+
+    def __init__(self, anchor: str) -> None:
+        self.note = f"no table under {anchor}"
+        super().__init__(f"model_table: {self.note}")
+
+
+CODE_SPAN = re.compile(r"(`+).+?\1")
+FENCE_LINE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+HEADING_START = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
+
+
+def _inline_comments(line: str) -> tuple[str, bool]:
+    """`line` without its complete HTML comments, and whether one is still open at its end.
+    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
+    kept = ""
+    while True:
+        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
+        opener = masked.find("<!--")
+        if opener < 0:
+            return kept + line, False
+        if masked.startswith(">", opener + 4):
+            end = opener + 5
+        elif masked.startswith("->", opener + 4):
+            end = opener + 6
+        elif (closer := masked.find("-->", opener + 4)) >= 0:
+            end = closer + 3
+        else:
+            return kept + line[:opener], True
+        kept, line = kept + line[:opener], line[end:]
+
+
+def _shown(lines: list[str], source: str) -> list[str]:
+    """The lines as a Markdown viewer shows them: comments removed, fenced code blanked. Lines
+    are not removed, so numbers hold. A comment never closed would hide the rest: refused."""
+    shown, fenced, opened = [], False, False
+    for line in lines:
+        if opened:
+            end = line.find("-->")
+            text, opened = ("", True) if end < 0 else _inline_comments(line[end + 3 :])
+            shown.append(text)
+            continue
+        found = HEADING_START.match(line)
+        fenced = fenced and not (found and len(found[1]) == 2)
+        toggled = FENCE_LINE.match(line) is not None
+        fenced ^= toggled
+        if fenced or toggled:
+            shown.append("")
+            continue
+        text, opened = _inline_comments(line)
+        shown.append(text)
+    if opened:
+        raise ValueError(f"{source}: an HTML comment is never closed by -->")
+    return shown
+
+
+SEPARATOR = re.compile(r"[ \t]*(?=[^-]*-)(?=.*\|)[ \t:|-]+")
+SETEXT = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
+
+
+def _starts_section(shown: list[str], i: int) -> bool:
+    """An ATX heading line, or a text line that is not a table row, underlined by `=` or `-`."""
+    if HEADING_START.match(shown[i]):
+        return True
+    underlined = SETEXT.fullmatch("".join(shown[i + 1 : i + 2])) is not None
+    return underlined and bool(shown[i].strip()) and table_row(shown[i]) is None
+
+
+def _table_at(
+    lines: list[str], anchor: str, source: str
+) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
+    """The table under `anchor` that begins before the next heading, read as shown. Hidden text
+    among its rows, or `|` text outside code after them before the next `#` heading that starts
+    no table with its own separator row, means rows may be lost: refused (the store's rule)."""
+    shown = _shown(lines, source)
+    positions = [i for i, line in enumerate(shown) if line == anchor]
     if len(positions) != 1:
         raise ValueError(f"model_anchor: expected one {anchor}")
-    headers, rows = table([(i + 1, lines[i]) for i in range(positions[0] + 1, len(lines))])
+    start = positions[0] + 1
+    end = next((i for i in range(start, len(shown)) if _starts_section(shown, i)), len(shown))
+    first = next((i for i in range(start, end) if table_row(shown[i]) is not None), None)
+    if first is None:
+        raise _NoTable(anchor)
+    last = first + 1
+    while last < end and table_row(lines[last]) is not None:
+        last += 1
+    if any(shown[i] != lines[i] for i in range(first, last)):
+        raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
+    stop = next((i for i in range(last, len(shown)) if HEADING_START.match(shown[i])), len(shown))
+    more = next((i for i in range(last, stop) if "|" in CODE_SPAN.sub("", shown[i])), stop)
+    if more < stop and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2])):
+        raise ValueError(
+            f"model_table: the table under {anchor} is split by a blank line or hidden text"
+        )
+    headers, rows = table([(i + 1, shown[i]) for i in range(first, last)])
     if len(headers) != len(set(headers)):
         raise ValueError("model_columns: selected source columns are ambiguous")
     return headers, rows
@@ -186,7 +278,7 @@ class _AnnualReader:
         return self.table_at(self.layout.anchors[name])
 
     def table_at(self, anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-        return _table_at(self.lines, anchor)
+        return _table_at(self.lines, anchor, "annual")
 
     def validate(self) -> None:
         required = set(INPUT_KEYS + DEBT_KEYS + ADJUSTMENT_KEYS)
@@ -359,13 +451,36 @@ def _register_date(text: str) -> date | None:
         return None
 
 
+MARKS = re.compile(r"[*_()]")
+TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?totals?\b.*|.*\b(?:sub)?totals?)")
+TOTAL_WORD = re.compile(r"\b(?:sub)?totals?\b")
+
+
+def _plain(label: str) -> str:
+    """A register row label as classified, the store's `plain_label` written again: emphasis marks
+    and parentheses removed, whitespace runs one space, trailing `:` and `.` stripped, folded."""
+    text = " ".join(MARKS.sub("", label).split())
+    return text.rstrip(":.").strip().casefold()
+
+
+def _total_kind(low: str) -> str | None:
+    """`edge` when the whole word total or subtotal starts or ends the plain label (a subtotal),
+    `inner` when it sits elsewhere (a row that cannot be classified), else None."""
+    if TOTAL_AT_EDGE.fullmatch(low):
+        return "edge"
+    return "inner" if TOTAL_WORD.search(low) else None
+
+
 def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     """Sum the secured carrying values of the register under `anchor`, classified as the store does.
 
     Total rows are skipped. A row with a carrying value that is neither secured nor named
     unsecured gives no total (UNCLASSIFIED_ROW, noted with its label); so does a repeated label.
     """
-    headers, rows = reader.table_at(anchor)
+    try:
+        headers, rows = reader.table_at(anchor)
+    except _NoTable as error:
+        return _Register(None, Cell(None, "NOT_SOURCED", note=error.note))
     when = _register_date(headers[1])
     if when is None:
         return _Register(None, Cell(None, "NOT_SOURCED", note="Register date not readable"))
@@ -379,7 +494,8 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     unclassified: str | None = None
     for number, quote, values in rows:
         label = values[0]
-        low = label.casefold()
+        low = _plain(label)
+        kind = _total_kind(low)
         carrying = CARRYING.search(values[1]) if len(values[1]) <= CELL_LIMIT else None
         if low in seen and carrying is not None and repeated is None:
             repeated = label[:LABEL_LIMIT]
@@ -387,10 +503,12 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         if label in exact:
             continue  # a later row of a label is dropped, as the store does
         exact.add(label)
-        if low.startswith("total"):
+        if kind == "edge":
             continue
         unsecured = "subordinated" in low or "unsecured" in low
-        secured = low in required or (SECURED_NOTES.search(low) and not unsecured)
+        secured = kind is None and (
+            low in required or (SECURED_NOTES.search(low) and not unsecured)
+        )
         if not secured:
             if carrying is not None and not unsecured and unclassified is None:
                 unclassified = label[:LABEL_LIMIT]
@@ -532,7 +650,16 @@ def _kind_of(name: str, low: str) -> bool:
 
 def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     """Quarter-end senior secured debt from the `Net` column, classified as the annual one is."""
-    headers, rows = _table_at(lines, anchor)
+    try:
+        headers, rows = _table_at(lines, anchor, "quarter")
+    except _NoTable as error:
+        return Cell(None, "NOT_SOURCED", note=error.note)
+    return _quarter_register_rows(headers, rows, anchor, end)
+
+
+def _quarter_register_rows(
+    headers: list[str], rows: list[tuple[int, str, list[str]]], anchor: str, end: date
+) -> Cell:
     nets = [i for i, h in enumerate(headers) if h.startswith("Net")]
     if len(nets) != 1 or "Label" not in headers:
         raise ValueError("model_columns: the quarter register needs one Net and a Label column")
@@ -550,13 +677,16 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     named: set[str] = set()
     for number, _, values in rows:
         label = values[headers.index("Label")]
-        low = label.casefold()
-        if not label or low.startswith(("total", "less:", "long-term debt")):
+        low = _plain(label)
+        kind = _total_kind(low)
+        if not label or kind == "edge" or low.startswith(("less:", "long-term debt")):
             continue
         amount = _quarter_cell(number, values, net)
         unsecured = "subordinated" in low or "unsecured" in low
-        secured = not unsecured and (
-            "securitization" in low or low.startswith("term loans") or "secured notes" in low
+        secured = (
+            not unsecured
+            and kind is None
+            and ("securitization" in low or low.startswith("term loans") or "secured notes" in low)
         )
         if amount.value is not None and low in seen and repeated is None:
             repeated = label[:LABEL_LIMIT]
@@ -581,16 +711,21 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
 def _annual_adjusted(lines: list[str], year: str) -> Cell:
     """The fiscal year's As Defined total, read from the one annual table holding its row."""
     lines = hide_fenced(hide_comments(lines, "annual"))
-    holding = [i for i, line in enumerate(lines) if line.startswith(f"| {ADJUSTED_EBITDA_LABEL} |")]
+    wanted = _plain(ADJUSTED_EBITDA_LABEL)
+    holding = [
+        i
+        for i, line in enumerate(lines)
+        if (row := table_row(line)) is not None and _plain(row[1:].split("|")[0]) == wanted
+    ]
     if len(holding) != 1:
         return Cell(
             None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
         )
     top = holding[0]
-    while top > 0 and lines[top - 1].startswith("|"):
+    while top > 0 and table_row(lines[top - 1]) is not None:
         top -= 1
     headers, rows = table([(i + 1, lines[i]) for i in range(top, len(lines))])
-    found = next(r for r in rows if r[2][0] == ADJUSTED_EBITDA_LABEL)
+    found = next(r for r in rows if _plain(r[2][0]) == wanted)
     if year not in headers:
         return Cell(None, "WINDOW_MISSING", note=f"{year} is not a column of that annual table")
     return _quarter_cell(found[0], found[2], headers.index(year), "annual")
@@ -611,10 +746,11 @@ def _ltm_cell(annual: Cell, this: Cell, prior: Cell) -> Cell:
 
 def _quarter_cells(
     layout: ModelDelivery, annual: list[str], quarter: bytes, derived: DerivedRows
-) -> dict[_Window, dict[str, Cell]]:
-    """The LTM and quarter-end rows of every window that starts a fiscal year."""
-    lines = hide_fenced(hide_comments(physical_lines(quarter.decode("utf-8")), "quarter"))
-    headers, rows = _table_at(lines, str(derived.quarter_bridge))
+) -> dict[_Window, tuple[dict[str, Cell], date | None]]:
+    """The LTM and quarter-end rows of every window that starts a fiscal year, each with the
+    first day of its twelve months (the day after the prior-year window ends; None without one)."""
+    lines = physical_lines(quarter.decode("utf-8"))
+    headers, rows = _table_at(lines, str(derived.quarter_bridge), "quarter")
     found_rows = [r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL]
     if len(found_rows) != 1:
         raise ValueError(f"model_row: expected one {ADJUSTED_EBITDA_LABEL}")
@@ -656,6 +792,7 @@ def _quarter_cells(
         if not _is_full_year(layout, year):
             annual_cell = Cell(None, "WINDOW_MISSING", note=f"{year} is not a full year")
         priors = year_before(window)
+        ltm_start = None
         span = (window.end - priors[0].end).days if len(priors) == 1 else None
         if span is not None and not LTM_DAYS[0] <= span <= LTM_DAYS[1]:
             prior = Cell(
@@ -665,6 +802,7 @@ def _quarter_cells(
             )
         elif len(priors) == 1 and priors[0].start == dates.start_date:
             prior = _quarter_cell(row[0], row[2], priors[0].column)
+            ltm_start = priors[0].end + timedelta(days=1)
         else:
             why = (
                 "two prior-year windows match"
@@ -681,7 +819,7 @@ def _quarter_cells(
             out["senior_secured_debt"] = debt
             with localcontext(CONTEXT):
                 out["senior_secured_multiple"] = _ratio(((debt, 1),), ((out["ltm_adj_ebitda"], 1),))
-        result[window] = out
+        result[window] = (out, ltm_start)
     return result
 
 
@@ -855,6 +993,13 @@ def _entry(  # noqa: PLR0913 - one value entry, as the store reads it
     }
 
 
+def _start_of(key: str, window: _Window, ltm_start: date | None) -> str | None:
+    """The start date of a quarter entry: the LTM's twelve months, else the window's own."""
+    if key == "ltm_adj_ebitda":
+        return None if ltm_start is None else ltm_start.isoformat()
+    return window.start.isoformat()
+
+
 def _quarter_entries(
     layout: ModelDelivery,
     inputs: Mapping[str, HandoffInput],
@@ -874,12 +1019,12 @@ def _quarter_entries(
                 ratio_keys,
                 QUARTER_FORMULAS.get(key),
                 window.text,
-                None if key == "senior_secured_debt" else window.start.isoformat(),
+                None if key == "senior_secured_debt" else _start_of(key, window, ltm_start),
                 window.end.isoformat(),
             )
             for key, cell in row.items()
         }
-        for window, row in windows.items()
+        for window, (row, ltm_start) in windows.items()
     }
 
 

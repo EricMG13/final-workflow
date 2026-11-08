@@ -488,13 +488,13 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	}
 	defer root.Close()
 	for _, name := range []string{"intake", "runs", "deliverables"} {
-		if err = root.MkdirAll(name, 0700); err != nil {
+		if err = mkdirAllIn(root, name, 0700); err != nil {
 			http.Error(w, "The workspace is not writable", 400)
 			return
 		}
 	}
 	relative := "intake/" + job.ID
-	if err = root.MkdirAll(relative, 0700); err != nil {
+	if err = mkdirAllIn(root, relative, 0700); err != nil {
 		http.Error(w, "The workspace is not writable", 400)
 		return
 	}
@@ -523,7 +523,7 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		target := relative + "/sources/" + paths[i]
-		if err = root.MkdirAll(path.Dir(target), 0700); err != nil {
+		if err = mkdirAllIn(root, path.Dir(target), 0700); err != nil {
 			http.Error(w, "Could not retain source", 500)
 			return
 		}
@@ -706,7 +706,7 @@ func copyResumeInputs(workspace, from string, job NewJob) (int, error) {
 		if err != nil || !info.Mode().IsRegular() {
 			return 409, gone
 		}
-		if err = newRoot.MkdirAll(path.Dir(relative+"/"+name), 0700); err != nil {
+		if err = mkdirAllIn(newRoot, path.Dir(relative+"/"+name), 0700); err != nil {
 			return 500, errors.New("Could not copy the stopped run's inputs")
 		}
 		if err = copyInto(oldRoot, name, newRoot, relative+"/"+name); err != nil {
@@ -714,6 +714,37 @@ func copyResumeInputs(workspace, from string, job NewJob) (int, error) {
 		}
 	}
 	return 0, nil
+}
+
+// mkdirAllIn creates name and its missing parents inside root, as os.Root.MkdirAll does from
+// Go 1.25, so the module builds with Go 1.24. Each component is made through root, so none can
+// leave it; an existing directory is accepted and an existing non-directory is refused.
+func mkdirAllIn(root *os.Root, name string, perm fs.FileMode) error {
+	if !fs.ValidPath(name) {
+		return &fs.PathError{Op: "mkdir", Path: name, Err: fs.ErrInvalid}
+	}
+	if name == "." {
+		return nil
+	}
+	parts := strings.Split(name, "/")
+	for i := range parts {
+		dir := strings.Join(parts[:i+1], "/")
+		err := root.Mkdir(dir, perm)
+		if err == nil {
+			continue
+		}
+		if !errors.Is(err, fs.ErrExist) {
+			return err
+		}
+		info, err := root.Stat(dir)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return &fs.PathError{Op: "mkdir", Path: dir, Err: errors.New("not a directory")}
+		}
+	}
+	return nil
 }
 
 func copyInto(from *os.Root, name string, to *os.Root, target string) error {

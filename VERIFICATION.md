@@ -20,6 +20,19 @@ Scope: the Library screening screen (L2, L3 tests, L4 docs and Help), macOS only
 - Owner opened the app and accepted the Library screen on 2026-11-08 (Checkpoint L).
 Not verified: Windows/Edge rendering; real screen readers; the weekly full suite; the browser gate after the rebase.
 
+## 2026-11-08 — Issuer Library builds with Go 1.24 (branch `claude/intelligent-babbage-b0309i`)
+
+Scope: owner requirement that the app build with Go 1.24; Linux amd64, Go 1.24.7 with `GOTOOLCHAIN=local`.
+- `go.mod` 1.26.0 → 1.24.0. Only Go 1.25 additions were in use: `os.Root.MkdirAll` (4 calls in `jobs.go`),
+  replaced by `mkdirAllIn`, which makes each component through the root; `sync.WaitGroup.Go` (7 test calls),
+  replaced by the test helper `spawn`. README and the browser workflow's `GOTOOLCHAIN` now say 1.24.
+- `go vet ./...` clean; `gofmt -l` empty; `go test -race -count=1 ./...` ok (48 s), including new tests for
+  nested creation, existing directories, a file component, `..`/absolute/empty names and a symlink out of the root.
+- The rebuilt binary served the copied workspace: Library, Reports, a report, New run with the context form,
+  Run activity, Settings and a run Overview rendered with 0 console, page or HTTP faults (Chromium); an
+  offline review of TDG FY2024 returned the 8-module Credit Snapshot plan. No provider call.
+- Not verified: Windows build and Edge; packaging with `packaging/build.py`.
+
 ## 2026-11-08 — Issuer Library: Impeccable polish of the run lifecycle surfaces (branch `claude/app-sections-skill-use-d9996f`)
 
 Scope: New run progress, Run activity and the run strip, after the critique fixes below (start `b8a3d391`); macOS only; a synthetic

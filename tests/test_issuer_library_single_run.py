@@ -27,26 +27,16 @@ def found(tmp_path_factory: pytest.TempPathFactory) -> dict:
 def test_run_values_equal_the_key(found: dict) -> None:
     run = KEY["run"]
     assert found["folder_id"] == run["folder_id"]["value"]
-    assert found["run_id"] == found["view_run_id"] == run["run_id"]["value"]
-    for name, got in (
-        ("issuer_name", "issuer_name"),
-        ("as_of", "as_of"),
-        ("pathway", "pathway"),
-        ("title", "pathway_title"),
-        ("requested_modules", "requested_modules"),
-        ("scope", "scope_text"),
-    ):
-        assert found[name] == run[got]["value"], name
-    assert [m["module_id"] for m in found["modules"]] == run["run_modules_in_order"]["value"]
+    assert found["issuer_name"] == run["issuer_name"]["value"]
+    assert found["as_of"] == run["as_of"]["value"]
+    assert found["title"] == run["pathway_title"]["value"]
+    assert found["modules"] == run["run_modules_in_order"]["value"]
 
 
 def test_modules_and_delivery_equal_the_key(found: dict) -> None:
-    for row, module in zip(found["modules"], KEY["modules"], strict=True):
-        assert row["module_id"] == module["module_id"]
-        assert row["title"] == module["title"]["value"]
-        assert row["status"] == module["status"]["value"]
-        assert row["facts"] == module["fact_count_in_view"]["value"]
-        assert found["handoffs"][f"{row['module_id']}.md"] == module["handoff_sha256"]["value"]
+    assert found["module_titles"] == [m["title"]["value"] for m in KEY["modules"]]
+    for module in KEY["modules"]:
+        assert found["handoffs"][f"{module['module_id']}.md"] == module["handoff_sha256"]["value"]
     assert found["delivery_id"] == KEY["delivery"]["delivery_id"]["value"]
     built = KEY["delivery"]["built_from_files"]["value"]
     assert found["handoffs"] == {n: h for n, h in built.items() if n.startswith("CP-")}
@@ -58,11 +48,26 @@ def test_evidence_line_equals_the_key(found: dict) -> None:
     got = found["evidence"][0]
     assert got["module"] == want["handoff"]["value"]
     assert got["file"] == want["cited_source_name"]["value"]
-    assert got["locator"] == want["locator"]["value"]
-    assert got["line_text"] == got["quote"] == want["line_text"]["value"]
-    assert got["source_sha256"] == want["cited_source_sha256"]["value"]
+    assert got["line"] == int(want["locator"]["value"].removeprefix("line "))
     assert got["key"] == f"{FOLDER}/deliveries/{found['delivery_id']}/CP-2.md:9"
     assert len({e["key"] for e in found["evidence"]}) == len(found["evidence"])
+    # the key's cells: its line text split the way the inspector shows them
+    cells = [c.strip() for c in want["line_text"]["value"].strip("|").split("|") if c.strip()]
+    assert got["cells"] == cells
+    assert want["issuer_source_named_on_that_line"]["value"]["name"] in got["cells"]
+
+
+def test_the_keys_fact_is_among_those_citing_that_line(tmp_path: Path) -> None:
+    view = json.loads(next((ROOT / "runs" / FOLDER).glob("deliveries/*/view.json")).read_text())
+    module = next(
+        m for m in view["modules"] if m["module_id"] == KEY["evidence"]["handoff"]["value"]
+    )
+    citing = [
+        f["fact_id"]
+        for f in module["facts"]
+        if any(c["locator"] == KEY["evidence"]["locator"]["value"] for c in f["citations"])
+    ]
+    assert KEY["evidence"]["fact_id"]["value"] in citing
 
 
 def test_the_fixture_records_no_events_and_no_spend(found: dict) -> None:

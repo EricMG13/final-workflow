@@ -719,6 +719,8 @@ def single_run_walks(bc: Any, driver: Any, ws: Path, summary: dict[str, Any]) ->
             )
         finally:
             browser.close()
+    for line in bc.NOT_EXERCISABLE:  # R18 allows a skip only on the retained fixture, never here
+        bc.FAULTS.add("live", "missing", line)
     summary["real_workspace_walk"] = {
         "engines": list(bc.engine_options()),
         "repo_store_counts": bc.NOT_APPLICABLE,

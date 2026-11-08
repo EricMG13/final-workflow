@@ -208,3 +208,7 @@ test('the run strip uses the card radius, a wide supporting line and 24px action
   assert.match(rule('.strip-text'), /max-width:120ch/);
   assert.match(rule('.strip-actions a'), /min-height:24px/);
 });
+
+test('a run detail with a 64-character deliverable name wraps instead of widening the page', () => {
+  assert.match(screen, /\.artifact-list li\{[^}]*overflow-wrap:anywhere/);
+});

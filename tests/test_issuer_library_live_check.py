@@ -460,6 +460,7 @@ def _bc(calls: list) -> SimpleNamespace:
 
     return SimpleNamespace(
         NOT_APPLICABLE="not applicable: repo-store key",
+        FAULTS=SimpleNamespace(add=lambda *a, **k: None, items=[]),
         NOT_EXERCISABLE=["chromium: Run activity events: not exercisable on this fixture: x"],
         engine_options=lambda: {"chromium": {}, "firefox": {"executable_path": "f"}},
         SignedBrowser=lambda raw: SimpleNamespace(close=lambda: calls.append("closed")),
@@ -496,3 +497,20 @@ def test_an_incomplete_run_records_the_walk_as_not_run(tmp_path: Path) -> None:
     summary: dict = {"run_id": None}
     live_check.single_run_walks(_bc(calls), SimpleNamespace(), tmp_path, summary)
     assert calls == [] and summary["real_workspace_walk"] == "not run: the run did not complete"
+
+
+def test_a_walk_that_could_not_exercise_a_check_is_a_fault_outside_the_fixture(tmp_path) -> None:
+    calls: list = []
+    bc = _bc(calls)
+    faults: list = []
+    bc.FAULTS = SimpleNamespace(add=lambda *a, **k: faults.append(a), items=faults)
+    live_check.single_run_walks(
+        bc,
+        SimpleNamespace(
+            chromium=SimpleNamespace(launch=lambda **o: None),
+            firefox=SimpleNamespace(launch=lambda **o: None),
+        ),
+        tmp_path,
+        {"run_id": "web-1"},
+    )
+    assert faults and faults[0][1] == "missing" and "not exercisable" in faults[0][2]

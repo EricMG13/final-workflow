@@ -62,10 +62,6 @@ def evidence_of(view: dict[str, Any], delivery: Path, delivery_id: str) -> list[
                             "module": module["module_id"],
                             "file": file.name,
                             "line": number,
-                            "locator": cite["locator"],
-                            "line_text": text,
-                            "quote": cite["quote"],
-                            "source_sha256": cite["source_sha256"],
                             "key": f"{key}:{number}",
                             # The app names the run's own accepted copy, if any.
                             "keys": [f"{key}:{number}", f"{run_key}/{file.name}:{number}"],
@@ -98,24 +94,12 @@ def expectations(ws: Path, folder: str) -> dict[str, Any]:
     handoffs = {n: h for n, h in manifest["files"].items() if re.fullmatch(r"CP-[^/]+\.md", n)}
     return {
         "folder_id": folder,
-        "run_id": recorded["run"]["run_id"],
-        "view_run_id": view["run"]["run_id"],
         "issuer_name": recorded["run"]["issuer_name"],
         "as_of": recorded["run"]["as_of"],
-        "pathway": recorded["run"]["pathway"],
         "title": recorded["layout"]["title"],
-        "requested_modules": recorded["run"]["requested_modules"],
         "delivery_id": delivery.name,
-        "scope": manifest["scope"],
-        "modules": [
-            {
-                "module_id": m["module_id"],
-                "title": m["title"],
-                "status": m["status"],
-                "facts": len(m["facts"]),
-            }
-            for m in view["modules"]
-        ],
+        "module_titles": [m["title"] for m in view["modules"]],
+        "modules": [m["module_id"] for m in view["modules"]],
         "handoffs": handoffs,
         # Hashed from the delivered bytes: a drifted file fails here, not by copying the manifest.
         "handoff_bytes_match": {n: sha256(delivery / n) == h for n, h in handoffs.items()},

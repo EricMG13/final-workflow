@@ -13,10 +13,113 @@ Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md
 ## 2026-11-08 — Phase 6: verification record split (branch `claude/verification-archive`)
 
 Moved the sections dated before 2026-11-07, verbatim and in original order, to docs/VERIFICATION-ARCHIVE.md by `git mv`; 2026-11-07 entries stay here.
-Proof, run before this entry was added, exit 0: `diff <(git show origin/main:VERIFICATION.md | tail -n +10) <(cat <(tail -n +12 VERIFICATION.md) <(tail -n +5 docs/VERIFICATION-ARCHIVE.md))`.
-Line counts: VERIFICATION.md 256 (with this entry), docs/VERIFICATION-ARCHIVE.md 5655.
-This PR merges after #35-#42.
+Proof, exit 0: `diff <(git show HEAD^2:VERIFICATION.md | tail -n +10) <(cat <(tail -n +12 VERIFICATION.md | sed '1,8d') <(tail -n +5 docs/VERIFICATION-ARCHIVE.md))` on the merge with main after #35-#42 (HEAD^2 = that main; the `sed` drops this entry).
+Line counts: VERIFICATION.md 359 (with this entry), docs/VERIFICATION-ARCHIVE.md 5655.
+Merged after #35-#42; their entries stay in this file.
 Not verified: none beyond the gates.
+
+## 2026-11-08 — Phase 5: LTM Adj EBITDA and quarter-end leverage (branch `claude/model-ltm`)
+
+Scope: Tasks 9-10 and the end batch (da425880..853c9ee1), stacked on Phase 4; macOS only.
+Phase diff: 760 changed lines (cap 800). **Deterministic retained-data** check: TDG
+`runs/cpos-tdg-model-001` inputs and quarter handoff `runs/tdg-003`, no provider call.
+- Answer key (checked by hand before dispatch): LTM 4,173 + 1,061 − 912 = 4,322; quarter secured
+  20,192. The plan's "4.7x" is "4.67x" in the store's format (two places).
+- Controller live check (real app, retained data): classifiable model Q1 FY2025 LTM 4,322, senior
+  4.67x, FY2024 senior 4.80x; full TDG model Q1 FY2025 LTM 4,322, senior n.a. "the debt register has
+  a row that cannot be classified", total/net leverage "needs quarter-end total carrying debt, which
+  the model does not derive".
+- Reviews: Task 9 mx-precise + mx-adversary, one fix round (required secured rows, LTM span, Total
+  rows, one Net column, repeated bridge row, duplicate windows, operand reasons, hidden text),
+  re-review pass; Task 10 mx-precise approve; end batch (LTM span 364-371; senior fallback text);
+  phase mx-architect approve.
+- Gates: `validate.py full` exit 0; `tools/quality_gate.py` exit 0; pytest 265 passed.
+- Follow-ups on `claude/register-hardening` (owner asked to apply them): escaped pipes, subtotal and
+  emphasised labels, an anchor without its table, label spacing, hidden text inside a table, the
+  WINDOW_MISSING wording and the LTM start date.
+
+Not verified: Windows/Edge rendering; any issuer other than TDG; a non-Q1 year-to-date window with
+real data; in-app runs still publish no model (Decision 10); the weekly full suite.
+
+## 2026-11-08 — Phase 4: derived rows in calculation.json (branch `claude/model-derived-rows`)
+
+Scope: Tasks 7-8 (5139dc9f..60c101c7), the Low batch 33be4f6c and the end commit; macOS only.
+Phase diff against origin/main: 652 changed lines (cap 800). **Deterministic retained-data**
+check: TDG `runs/cpos-tdg-model-001` inputs, no provider call; not a live model run.
+- Answer-key correction: the plan said FY2024 senior secured debt 13,932 and 3.34x. The register's
+  8 secured rows (486+8642+2077+2727+1438+984+2180+1486) give 20,020 and 4.80x (20020/4173); the
+  store derives the same total.
+- Controller live check (real app, retained data): Forecast grid FY2024 revenue growth 20.58%, gross
+  margin 58.84%, Adj EBITDA margin 52.56%, Adj EBITDA growth 22.92%, senior secured leverage 4.80x;
+  FY2023 growth 21.29% / 28.31%; FY2022 growth n.a.; FY2022/23 senior n.a.
+- Reviews: Task 7 mx-precise approve; Task 8 mx-precise + mx-adversary, one fix round, re-review
+  approve; phase mx-architect approve (two Low, fixed in the end commit: register problems resolve
+  in the store's order, a negative divisor reads "a divisor is zero or negative").
+- Gates after the end commit: targeted pytest (241 passed) exit 0; `tools/quality_gate.py` exit 0;
+  `validate.py full` exit 0 (node 275, python 526, go, ruff).
+- Owner items (predate the change): an escaped `\|` in a register cell parses differently in the
+  store; subtotal rows such as "Secured notes subtotal" are counted by both readers; `op_prefer`
+  ignores a recorded unit (accepted, Decision 7).
+
+Not verified: Windows/Edge rendering of the new cells; a 52/53-week issuer other than the
+constructed periods; in-app runs still publish no model (Decision 10); the weekly full suite.
+
+## 2026-11-08 — Resume a stopped run (branches claude/resume-core, claude/resume-run)
+
+Scope: Tasks 4-6 of the deferred-features plan.
+- Resume creates a new reviewed job; only cap and max turns may change. A stopped run's accepted
+  modules are replayed without a call.
+- Replayed bytes come from CP-OS's accepted record, `requests/<m>/<fp>/<n>.response.md`, with an
+  issue-free review and a matching sha.
+- A module is kept only while its sources (context included), upstream, instructions and model
+  setting match and the current checker accepts it. The prefix ends at the first mismatch; the
+  review names the reason.
+- Resume copies only the job's listed regular files and never follows symlinks. Start recomputes the
+  review id from the plan it will run, before any call. The stopped run's folders are never written.
+- Reviews: mx-precise 1 Medium (sources the answer never saw); mx-adversary 3 Mediums (replay from
+  the app's copy; instructions and model not pinned; Start re-reading after the id matched);
+  re-review 1 Medium (an edited copy blocked Start). All fixed in 2 rounds.
+- Probes exit 0: adv3-instructions, adv3-start-toctou(-sources), adv3-resume-id, adv3-context,
+  adv3-stopped-run-untouched, p3-sources-changed, rr3-accepted-selection, rr3-start-record-window,
+  rr3-checker-at-review, rr3-corrupt-record, rr3-copy-edges.
+- Superseded by the design change: adv3-replay-bytes (the controller confirmed the replayed bytes
+  equal the model's accepted answer, not the edit), rr3-copy-start, adv3-go's whole-tree-copy case,
+  p3-copyfs-symlink.
+- Not verified: a real paid resume; the Go-to-Python engine path end to end (the Go tests use
+  fakeEngine); Windows.
+
+## 2026-11-08 — Native Windows notice (branch `claude/native-toast`)
+
+Scope: Task 3 of the deferred-features plan.
+- Behaviour: when a run finishes, the server waits up to 75 s for a run-list poll that arrives after
+  the finish, and shows a Windows toast only if none arrives. This gives exactly one notice whether a
+  tab is watching, the tab is in the background, or no tab is open. The 75 s replaces the plan's 15 s,
+  because Edge and Chrome slow a hidden tab's polling to about once a minute.
+- How the toast is shown: PowerShell, located through `GetSystemDirectoryW`, runs a fixed script. The
+  text reaches it only through environment variables. The child gets an allowlisted environment with
+  no provider keys. A 20 s timeout applies, and any failure is logged and never affects the run. On
+  other platforms nothing is launched.
+- Reviews: mx-precise and mx-adversary each found two Medium issues: provider keys in the child
+  process, global swaps in the tests that raced, a test that did not wait, and background tabs getting
+  a double notice. All four were fixed in one round. The re-review passed.
+- Probes exit 0: `adv2-env`, `adv2-race`, `adv2-tests-launch` (0 real launches), `adv2-injection`,
+  `adv2-child`, `p2-case-a-window`.
+- Not verified: the toast on real Windows; `GetSystemDirectoryW` at runtime; real hidden-tab
+  throttling; a notice pending while the app quits; managed-machine policy (Constrained Language Mode,
+  security alerts on PowerShell launches).
+
+## 2026-11-08 — Run activity page (branch `claude/run-activity`)
+
+Scope: Tasks 1-2 of `docs/superpowers/plans/2026-11-08-deferred-features.md`; macOS only, in-app browser pane.
+- Page: `GET /api/runs/events?id=` serves a run's `events.jsonl`; the Run activity page lists the events,
+  recorded spend and stop reason; a cut or oversize log shows its complete events and says the record is incomplete.
+- Review: mx-precise approved; probe `p1-events.sh` exits 0.
+- First paid live run, started by the owner on 2026-11-08: `web-625c3c5138d54dcbfb84b9bd963e48c3`, CP-0 + CP-1,
+  sol-medium gpt-6.1-sol, cap USD 10, hold USD 5.73. Each module had one rejected draft, was repaired and accepted;
+  the report was delivered; spend USD 0.58813770. Coverage entries: CP-0 18, CP-1 37; both modules recorded as
+  `live-provider`. The front line "Source readiness: confidence Medium; …" leads the report. The app showed `● 0/2`,
+  then `● 1/2` and the reload prompt. The Run activity page at this branch listed every event of that run.
+- Not verified: Windows Edge; the look of `.activity-log`; a real 4 MiB log.
 
 ## 2026-11-07 — Phase 3 and branch end: identity, handoffs once, manifests once, workspace cache (branch `claude/system-design-remaining-calls-e06c23`)
 

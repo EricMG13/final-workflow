@@ -80,6 +80,14 @@ class ModelRow(Contract):
     label: str
 
 
+class DerivedRows(Contract):
+    """Request to publish the grid's derived rows; the debt register is matched like anchors."""
+
+    debt_register: str | None = None
+    quarter_bridge: str | None = Field(default=None, exclude_if=lambda v: v is None)
+    quarter_debt_register: str | None = Field(default=None, exclude_if=lambda v: v is None)
+
+
 class ModelDelivery(Contract):
     """Explicit source selectors for the selected annual CP-1 publication method."""
 
@@ -88,6 +96,7 @@ class ModelDelivery(Contract):
     rows: dict[str, ModelRow]
     extra_handoffs: dict[str, HandoffInput] = Field(default_factory=dict)
     forecast_exact: HandoffInput | None = None
+    derived: DerivedRows | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class MarkdownRoute(Contract):
@@ -283,11 +292,22 @@ def section(
     return [(i + 1, lines[i]) for i in range(start + 1, end)]
 
 
+TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+
+
+def table_row(text: str) -> str | None:
+    """The row text of a line that starts with '|' after at most three spaces (four is code),
+    without trailing whitespace; None for any other line."""
+    found = TABLE_ROW.fullmatch(text)
+    return None if found is None else found[1]
+
+
 def table(rows: list[tuple[int, str]]) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
     """Read the first contiguous pipe table in a named section, preserving cells."""
     selected = []
-    for line, text in rows:
-        if text.startswith("|"):
+    for line, line_text in rows:
+        text = table_row(line_text)
+        if text is not None:
             selected.append((line, text))
         elif selected:
             break

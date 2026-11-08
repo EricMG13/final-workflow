@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import os
+import shutil
 import time
 from dataclasses import replace
 from decimal import Decimal
@@ -580,3 +581,208 @@ def test_a_budget_stop_reports_reason_budget(tmp_path, provider, monkeypatch):
     logged = [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines()]
     assert logged[-1]["event"] == "stopped" and logged[-1]["reason"] == "budget"
     assert (run_dir / f"{COVENANT_MODULES[0]}.md").is_file()
+
+
+def resumed(folder, value, **extra):
+    """Job B as `/api/runs/resume` stages it: A's context and sources under a new intake id."""
+    new = folder.parent / ("web-" + "b" * 32)
+    shutil.copytree(folder / "sources", new / "sources")
+    shutil.copy(folder / "context.json", new / "context.json")
+    bridge.write_json(
+        new / "job.json", {**value, "id": new.name, "resume_of": folder.name, **extra}
+    )
+    return new
+
+
+def stopped_after_the_first_module(tmp_path, provider):
+    folder, run_dir = started(tmp_path, provider)
+    request = json.loads((folder / "job.json").read_text())
+    routes = bridge.launch(request, folder, tmp_path / "preview").layout.routes
+    first = COVENANT_MODULES[0]
+    provider.answer = lambda context: (
+        answer(context, routes) if context["module_id"] == first else "# Not a handoff"
+    )
+    bridge.start(folder)
+    assert status_of(folder)["state"] == "stopped"
+    return folder, run_dir, request, routes
+
+
+def test_a_resume_replays_accepted_handoffs_and_calls_only_the_rest(tmp_path, provider):
+    folder, _, request, routes = stopped_after_the_first_module(tmp_path, provider)
+    before = len(provider.calls)
+    second = resumed(folder, request, cap_usd="50")
+    result = bridge.review(second)
+    assert result["resume_of"] == folder.name and result["retained_modules"] == ["CP-0"]
+    bridge.write_json(second / "review.json", result)
+    provider.answer = lambda context: answer(context, routes)
+    bridge.start(second)
+    called = [module for module, _, _ in provider.calls[before:]]
+    assert called == list(COVENANT_MODULES[1:])
+    assert status_of(second)["state"] == "complete"
+    new_run = Path(request["workspace"]) / "runs" / second.name
+    record = next(new_run.glob("delivery-*.json"))
+    assert json.loads(record.read_text())["module_execution"]["CP-0"] == "retained-response-replay"
+
+
+def accepted_response(run_dir, module="CP-0"):
+    """CP-OS's record of the accepted answer: the response whose review has no issues."""
+    (path,) = run_dir.glob(f"requests/{module}/*/1.response.md")
+    return path
+
+
+def test_a_changed_retained_handoff_is_refused_at_start(tmp_path, provider):
+    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    second = resumed(folder, request)
+    approved = bridge.review(second)
+    assert approved["retained_modules"] == ["CP-0"]
+    bridge.write_json(second / "review.json", approved)
+    with accepted_response(run_dir).open("ab") as stream:
+        stream.write(b"\n")
+    before = len(provider.calls)
+    with pytest.raises(ValueError, match="review is stale"):
+        bridge.start(second)
+    assert len(provider.calls) == before
+    assert not (second / "start-authorization.md").exists()
+    assert not (Path(request["workspace"]) / "runs" / second.name).exists()
+
+
+def test_an_edited_copy_of_the_accepted_answer_neither_blocks_start_nor_is_replayed(
+    tmp_path, provider
+):
+    folder, run_dir, request, routes = stopped_after_the_first_module(tmp_path, provider)
+    recorded = accepted_response(run_dir).read_bytes()
+    (run_dir / "CP-0.md").write_bytes(recorded.replace(b"One item", b"Two items"))
+    second = resumed(folder, request)
+    approved = bridge.review(second)
+    assert approved["retained_modules"] == ["CP-0"]
+    bridge.write_json(second / "review.json", approved)
+    provider.answer = lambda context: answer(context, routes)
+    before = len(provider.calls)
+    bridge.start(second)
+    assert status_of(second)["state"] == "complete"
+    assert [m for m, _, _ in provider.calls[before:]] == list(COVENANT_MODULES[1:])
+    new_run = Path(request["workspace"]) / "runs" / second.name
+    assert (new_run / "retained" / "CP-0.md").read_bytes() == recorded
+
+
+@pytest.mark.parametrize("verdict", [b"{not json", b"[]"])
+def test_a_corrupt_verdict_is_not_offered_and_says_so(tmp_path, provider, verdict):
+    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    (fp,) = (run_dir / "requests" / "CP-0").iterdir()
+    (fp / "1.review.json").write_bytes(verdict)
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"] == (
+        "Retained work stops before Source readiness: its record in the stopped run could not "
+        "be read."
+    )
+
+
+def test_a_module_the_stopped_run_never_reached_says_so(tmp_path, provider):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == ["CP-0"]
+    assert result["retained_note"] == (
+        "Retained work stops before Canonical data foundation: the stopped run did not reach it."
+    )
+
+
+def test_a_source_added_after_the_stop_ends_the_retained_work_and_says_why(tmp_path, provider):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    (folder / "sources" / "late.txt").write_text("Debt was 900 after the stop.")
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"] == (
+        "Retained work stops before Source readiness: its sources or context changed since the "
+        "stopped run."
+    )
+
+
+def test_a_changed_context_ends_the_retained_work(tmp_path, provider):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    context = json.loads((folder / "context.json").read_text())
+    context["run"]["reporting_currency"] = "EUR"
+    (folder / "context.json").write_text(json.dumps(context))
+    assert bridge.review(resumed(folder, request))["retained_modules"] == []
+
+
+def test_a_method_change_since_the_stop_ends_the_retained_work(tmp_path, provider, monkeypatch):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    original = test_cpos_launch.cpos_launch._instructions
+    monkeypatch.setattr(
+        test_cpos_launch.cpos_launch,
+        "_instructions",
+        lambda run, module, routes: original(run, module, routes) + b"\nMethod revision 2.\n",
+    )
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"].endswith("its instructions changed since the stopped run.")
+
+
+def test_a_different_model_since_the_stop_ends_the_retained_work(tmp_path, provider):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    reviewed = json.loads((folder / "review.json").read_text())
+    reviewed["model"] = "another-model"
+    (folder / "review.json").write_text(json.dumps(reviewed))
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"].endswith("the stopped run used a different model setting.")
+
+
+@pytest.mark.parametrize("raw", [None, b"{not json", b"[]"])
+def test_an_unreadable_model_setting_of_the_stopped_run_ends_the_retained_work(
+    tmp_path, provider, raw
+):
+    folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    if raw is None:
+        (folder / "review.json").unlink()
+    else:
+        (folder / "review.json").write_bytes(raw)
+    result = bridge.review(resumed(folder, request))
+    assert result["retained_modules"] == []
+    assert result["retained_note"] == (
+        "Retained work stops before Source readiness: the stopped run's model setting could "
+        "not be read."
+    )
+
+
+def test_a_source_changed_inside_start_is_refused_before_any_call(tmp_path, provider, monkeypatch):
+    folder, _ = started(tmp_path, provider)
+    calls = []
+    real = bridge.read_job
+
+    def edit_after_the_check(directory):
+        calls.append(directory)
+        result = real(directory)
+        if len(calls) == 2:
+            (folder / "sources" / "annual.txt").write_text("Net sales were 900.")
+        return result
+
+    monkeypatch.setattr(bridge, "read_job", edit_after_the_check)
+    with pytest.raises(ValueError, match="review is stale"):
+        bridge.start(folder)
+    assert provider.calls == [] and not (folder / "start-authorization.md").exists()
+
+
+@pytest.mark.parametrize("bad", ["../intake/web-" + "a" * 32, "web-" + "A" * 32, "tdg-003", 7])
+def test_a_malformed_resume_of_is_refused(tmp_path, bad):
+    folder, _ = job(tmp_path, resume_of=bad)
+    with pytest.raises(ValueError, match="resume_of"):
+        bridge.review(folder)
+
+
+def test_a_resume_with_nothing_accepted_retains_nothing(tmp_path, provider):
+    folder, _ = started(tmp_path, provider)
+    provider.answer = lambda context: "# Not a handoff"
+    bridge.start(folder)
+    request = json.loads((folder / "job.json").read_text())
+    result = bridge.review(resumed(folder, request))
+    assert result["ok"] and result["retained_modules"] == []
+
+
+def test_a_resume_whose_run_folder_is_gone_is_refused(tmp_path, provider):
+    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    second = resumed(folder, request)
+    shutil.rmtree(run_dir)
+    with pytest.raises(ValueError, match="has no retained work in the workspace"):
+        bridge.review(second)

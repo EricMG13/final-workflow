@@ -143,6 +143,15 @@ CHART_PREFIX = "Chart data: "
 CHART_LAST_COLUMNS = ["Reporting unit", "Basis and limitation"]
 
 
+def physical_lines(text: str) -> list[str]:
+    """The text's lines split on newlines only (`\\r\\n` and a lone `\\r` count as one), as
+    delivery's `physical_lines` does, so a "line N" citation is the line a reader opens."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines[-1]:
+        lines.pop()
+    return lines
+
+
 def parse_source(text):
     """Keep every nonblank body line in one typed block with its source locator."""
     lines = text.splitlines()
@@ -919,9 +928,19 @@ PRIOR_MISSING = "prior-year period not in the handoffs"
 COMPONENT_MISSING = "a component is not in the handoffs"
 REASON_PHRASES = {
     "NOT_SOURCED": "not reported in the source",
+    "NOT_STATED": COMPONENT_MISSING,
+    "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero or negative",
     "COMPONENT_MISSING": COMPONENT_MISSING,
+    "PRIOR_PERIOD_MISSING": PRIOR_MISSING,
+    "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
+    "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
+    "WINDOW_MISSING": "last-twelve-months Adj EBITDA cannot be built from the handoffs",
 }
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+DEBT_TOTAL_NEEDED = "needs quarter-end total carrying debt, which the model does not derive"
+DEBT_SENIOR_NEEDED = (
+    "needs quarter-end senior secured carrying debt, which the model does not derive"
+)
 MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
 Q1_NOTE = "Q1 is the first quarter of the fiscal year, so it is also the year to date."
 CASHFLOW_NOTES = (
@@ -980,6 +999,7 @@ class Table(TypedDict):
     rows: dict[str, list[str]]
     periods: dict[PeriodKey, int]
     repeated: str | None
+    interrupted: str | None
 
 
 class Column(TypedDict):
@@ -1065,10 +1085,11 @@ def held_cell(held: dict[str, Any], kind: str, negate: bool = False) -> Cell:
     """A calculation record's {amount, reason}; an amount of null is n.a. with its reason."""
     exact = held["amount"]
     if exact is None:
-        reason = held.get("reason")
-        return unavailable_cell(
-            REASON_PHRASES.get(reason, reason) if isinstance(reason, str) else None
-        )
+        reason, note = held.get("reason"), held.get("note")
+        words = REASON_PHRASES.get(reason, reason) if isinstance(reason, str) else None
+        if reason == "WINDOW_MISSING" and isinstance(note, str) and note:
+            words = f"{words}: {note[:LABEL_LIMIT]}"  # the cause the delivery recorded
+        return unavailable_cell(words)
     if negate:
         value = decimal.Decimal(exact).copy_negate()
         exact = "0" if value == 0 else str(value)
@@ -1108,7 +1129,83 @@ def source_cell(text: str, kind: str) -> Cell:
 
 
 def table_cells(line: str) -> list[str]:
-    return [cell.strip() for cell in line.strip().removeprefix("|").removesuffix("|").split("|")]
+    """The cells of a table row; an escaped pipe (backslash, pipe) is text inside a cell."""
+    inner = line.strip().removeprefix("|").removesuffix("|")
+    return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", inner)]
+
+
+MARKS = re.compile(r"[*_()]")
+TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?totals?\b.*|.*\b(?:sub)?totals?)")
+TOTAL_WORD = re.compile(r"\b(?:sub)?totals?\b")
+SEPARATOR = re.compile(r"[ \t]*(?=[^-]*-)(?=.*\|)[ \t:|-]+")
+TABLE_ROW = re.compile(r" {0,3}(\|.*?)\s*")
+CODE_SPAN = re.compile(r"(`+).+?\1")
+FENCE_LINE = re.compile(r"[ \t]*(?:`{3,}|~{3,})")
+HEADING_START = re.compile(r" {0,3}(#{1,6})(?:[ \t]|$)")
+
+
+def plain_label(label: str) -> str:
+    """A register row label as classified, delivery's `_plain` written again: emphasis marks and
+    parentheses removed, whitespace runs one space, trailing `:` and `.` stripped, casefolded."""
+    text = " ".join(MARKS.sub("", label).split())
+    return text.rstrip(":.").strip().casefold()
+
+
+def total_kind(low: str) -> str | None:
+    """`edge` when the whole word total or subtotal starts or ends the plain label (a subtotal),
+    `inner` when it sits elsewhere (a row that cannot be classified), else None."""
+    if TOTAL_AT_EDGE.fullmatch(low):
+        return "edge"
+    return "inner" if TOTAL_WORD.search(low) else None
+
+
+def table_row(line: str) -> str | None:
+    """The row text of a line that starts with '|' after at most three spaces (four is code),
+    without trailing whitespace; None for any other line."""
+    found = TABLE_ROW.fullmatch(line)
+    return None if found is None else found[1]
+
+
+def inline_comments(line: str) -> tuple[str, bool]:
+    """`line` without its complete HTML comments, and whether one is still open at its end.
+    Code spans are blanked before looking for `<!--`; `<!-->` and `<!--->` are whole comments."""
+    kept = ""
+    while True:
+        masked = CODE_SPAN.sub(lambda m: "x" * len(m[0]), line)
+        opener = masked.find("<!--")
+        if opener < 0:
+            return kept + line, False
+        if masked.startswith(">", opener + 4):
+            end = opener + 5
+        elif masked.startswith("->", opener + 4):
+            end = opener + 6
+        elif (closer := masked.find("-->", opener + 4)) >= 0:
+            end = closer + 3
+        else:
+            return kept + line[:opener], True
+        kept, line = kept + line[:opener], line[end:]
+
+
+def shown_lines(lines: list[str]) -> list[str]:
+    """The lines as a Markdown viewer shows them (delivery's `_shown` written again): comments
+    removed, fenced code blanked, line numbers kept. A comment never closed hides the rest."""
+    shown, fenced, opened = [], False, False
+    for line in lines:
+        if opened:
+            end = line.find("-->")
+            text, opened = ("", True) if end < 0 else inline_comments(line[end + 3 :])
+            shown.append(text)
+            continue
+        found = HEADING_START.match(line)
+        fenced = fenced and not (found and len(found[1]) == 2)
+        toggled = FENCE_LINE.match(line) is not None
+        fenced ^= toggled
+        if fenced or toggled:
+            shown.append("")
+            continue
+        text, opened = inline_comments(line)
+        shown.append(text)
+    return shown
 
 
 def period_key(header: str) -> PeriodKey | None:
@@ -1145,31 +1242,56 @@ def markdown_table(lines: list[str], file: str) -> Table:
             # A later row of a label already seen is dropped by `rows`: that matters when it holds a
             # carrying value, not for a blank label or a note row.
             label = row[label_column]
-            dropped = label.casefold() in folded and label != ""
+            dropped = plain_label(label) in folded and label != ""
             if dropped and repeated is None and holds_carrying_value(row):
                 repeated = label
-            folded.add(label.casefold())
+            folded.add(plain_label(label))
             rows.setdefault(row[label_column], row)
     periods: dict[PeriodKey, int] = {}
     for index, name in enumerate(header):
         key = period_key(name)
         if key is not None:
             periods.setdefault(key, index)
-    return {"header": header, "rows": rows, "periods": periods, "repeated": repeated}
+    return {
+        "header": header,
+        "rows": rows,
+        "periods": periods,
+        "repeated": repeated,
+        "interrupted": None,
+    }
 
 
 def markdown_tables(text: str, file: str) -> list[Table]:
-    """The tables of a Markdown text, read line by line; `file` names it in a limit error."""
+    """The tables of a Markdown text as a viewer shows it; `file` names it in a limit error. A table
+    is its header and raw rows; `interrupted` when hiding changed one or '|' text outside code
+    follows before the next `#` heading without its own separator row (delivery's rule). Rows after
+    a split table are never merged: they read under its header, with no period and its problem."""
     tables: list[Table] = []
-    run: list[str] = []
-    for line in text.split("\n"):
-        if line.lstrip().startswith("|"):
-            run.append(line)
-        elif run:
-            tables.append(markdown_table(run, file))
-            run = []
-    if run:
-        tables.append(markdown_table(run, file))
+    raw = physical_lines(text)
+    shown = shown_lines(raw)
+    at, head, problem = 0, "", None  # the header and problem of a split table
+    while at < len(raw):
+        if table_row(shown[at]) is None:
+            at += 1
+            continue
+        end = at + 1
+        while end < len(raw) and table_row(raw[end]) is not None:
+            end += 1
+        rows = [row for row in map(table_row, shown[at:end]) if row is not None]
+        follows = problem is not None and not SEPARATOR.fullmatch("".join(shown[at + 1 : at + 2]))
+        table = markdown_table([head, *rows] if follows else rows, file)
+        stop = next((i for i in range(end, len(raw)) if HEADING_START.match(shown[i])), len(raw))
+        more = next((i for i in range(end, stop) if "|" in CODE_SPAN.sub("", shown[i])), stop)
+        split = more < stop and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2]))
+        if any(shown[i] != raw[i] for i in range(at, more + 1 if split else end)):
+            table["interrupted"] = "interrupted by a comment"
+        elif split:
+            table["interrupted"] = "split by a blank line or a comment"
+        if follows:
+            table["periods"], table["interrupted"] = {}, problem
+        head, problem = head if follows else rows[0], table["interrupted"] if split else None
+        tables.append(table)
+        at = end
     return tables
 
 
@@ -1219,7 +1341,9 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     """
     names = CASHFLOW_LABELS
     anchor = names["secured_term_loans"].casefold()
-    debt = next((t for t in tables if any(label.casefold() == anchor for label in t["rows"])), None)
+    debt = next(
+        (t for t in tables if any(plain_label(label) == anchor for label in t["rows"])), None
+    )
     if debt is None or len(debt["header"]) < 2:
         return None
     when = register_date(debt["header"][1])
@@ -1230,11 +1354,14 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     total, incomplete, unclassified = decimal.Decimal(0), False, None
     named: set[str] = set()
     for label, row in debt["rows"].items():
-        low = label.casefold()
-        if low.startswith(names["total_prefix"].casefold()):
+        low = plain_label(label)
+        kind = total_kind(low)
+        if kind == "edge":
             continue
         unsecured = names["unsecured_notes"] in low or names["unsecured"] in low
-        secured = low in required or (secured_notes.search(low) and not unsecured)
+        secured = kind is None and (
+            low in required or (secured_notes.search(low) and not unsecured)
+        )
         carrying = CARRYING.search(row[1]) if len(row) > 1 and len(row[1]) <= 4000 else None
         if not secured:
             if carrying is not None and not unsecured and unclassified is None:
@@ -1245,6 +1372,12 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
             continue
         total += decimal.Decimal(carrying.group(1).replace(",", ""))
         named.add(low)
+    if debt["interrupted"] is not None:
+        return (
+            when,
+            None,
+            f"the debt register ({debt['header'][1][:LABEL_LIMIT]}) is {debt['interrupted']}",
+        )
     if debt["repeated"] is not None:
         return (
             when,
@@ -1331,6 +1464,18 @@ def fiscal_inputs(record: Any) -> Fiscal:
         checked_entries(values)
         years.append((label, values))
     return years
+
+
+def quarter_inputs(record: Any) -> dict[str, dict[str, Any]]:
+    """The record's derived quarter values by window text; absent is empty; validated here."""
+    quarters = record.get("quarters", {})
+    if not isinstance(quarters, dict):
+        raise TypeError("quarters is not a mapping of windows")
+    for held in quarters.values():
+        if not isinstance(held, dict):
+            raise TypeError("a quarter window is not a mapping")
+        checked_entries(held)
+    return quarters
 
 
 def span_days(start: str, end: str) -> int:
@@ -1464,6 +1609,7 @@ class CashflowInputs(NamedTuple):
     tables: dict[str, Table | None]
     secured: SecuredDebt | None
     ends: dict[str, str]
+    quarters: dict[str, dict[str, Any]]
 
 
 class CellContext(NamedTuple):
@@ -1519,8 +1665,38 @@ def op_margin(c: CellContext, source: RowKey) -> Cell:
     return derive("percent", [c.grid[source][c.at], c.grid["revenue"][c.at]], lambda a, b: a / b)
 
 
-def op_needs_ltm(c: CellContext) -> Cell:
-    return unavailable_cell(LTM_NEEDED)
+def op_prefer(c: CellContext, key: str, fallback: Spec) -> Cell:
+    """The calculation record's own value for the key when it holds one, else the derivation."""
+    record = c.column["record"]
+    if record is not None and key in record:
+        return held_cell(record[key], c.kind)
+    return spec_cell(fallback, c)
+
+
+def quarter_held(c: CellContext, key: str) -> dict[str, Any] | None:
+    """The record's entry for the key in this quarter column's window (either dash), or None."""
+    column = c.column
+    if column["kind"] != "q" or column["start"] is None or column["end"] is None:
+        return None
+    for dash in ("\u2013", "-"):
+        window = c.inputs.quarters.get(f"{column['start']}{dash}{column['end']}")
+        if window is not None and key in window:
+            held: dict[str, Any] = window[key]
+            return held
+    return None
+
+
+def op_quarter(c: CellContext, key: str, fallback: Spec | None = None) -> Cell:
+    """The record's quarter value for this column's window, else the fallback, else a dash."""
+    held = quarter_held(c, key)
+    if held is not None:
+        return held_cell(held, c.kind)
+    return spec_cell(fallback, c) if fallback is not None else absent_cell()
+
+
+def op_needs_ltm(c: CellContext, debt_needed: str = DEBT_TOTAL_NEEDED) -> Cell:
+    held = quarter_held(c, "ltm_adj_ebitda")
+    return unavailable_cell(LTM_NEEDED if held is None or held["amount"] is None else debt_needed)
 
 
 def op_senior(c: CellContext) -> Cell:
@@ -1545,7 +1721,9 @@ CELL_OPS: dict[str, Callable[..., Cell]] = {
     "growth": op_growth,
     "margin": op_margin,
     "ltm": op_needs_ltm,
+    "quarter": op_quarter,
     "senior": op_senior,
+    "prefer": op_prefer,
 }
 
 
@@ -1585,7 +1763,13 @@ HEAD_ROWS = (
         ("key", "revenue"),
     ),
     RowSpec(
-        "revenue-growth", "Revenue", "Revenue YoY growth", "percent", *every(("growth", "revenue"))
+        "revenue-growth",
+        "Revenue",
+        "Revenue YoY growth",
+        "percent",
+        ("growth", "revenue"),
+        ("prefer", "revenue_growth", ("growth", "revenue")),
+        ("growth", "revenue"),
     ),
     RowSpec(
         "cogs",
@@ -1605,7 +1789,15 @@ HEAD_ROWS = (
         ("key", "gross_profit"),
         None,
     ),
-    RowSpec("gp-margin", INCOME, "Gross profit margin", "percent", *every(("margin", "gp"))),
+    RowSpec(
+        "gp-margin",
+        INCOME,
+        "Gross profit margin",
+        "percent",
+        ("margin", "gp"),
+        ("prefer", "gross_margin", ("margin", "gp")),
+        ("margin", "gp"),
+    ),
     RowSpec(
         "opex",
         INCOME,
@@ -1672,8 +1864,33 @@ TAIL_ROWS = (
         ("key", "issuer_as_defined"),
         ("key", "ebitda"),
     ),
-    RowSpec("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
-    RowSpec("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
+    RowSpec(
+        "adj-margin",
+        ADJUSTED,
+        "Adj EBITDA margin",
+        "percent",
+        ("margin", "adj"),
+        ("prefer", "adj_ebitda_margin", ("margin", "adj")),
+        ("margin", "adj"),
+    ),
+    RowSpec(
+        "adj-growth",
+        ADJUSTED,
+        "Adj EBITDA YoY growth",
+        "percent",
+        ("growth", "adj"),
+        ("prefer", "adj_ebitda_growth", ("growth", "adj")),
+        ("growth", "adj"),
+    ),
+    RowSpec(
+        "ltm-adj",
+        ADJUSTED,
+        "LTM Adj EBITDA (As Defined)",
+        "money",
+        ("quarter", "ltm_adj_ebitda"),
+        ("key", "issuer_as_defined"),
+        None,
+    ),
     RowSpec(
         "interest",
         PROXY,
@@ -1744,8 +1961,8 @@ TAIL_ROWS = (
         CREDIT,
         "Senior secured leverage (secured debt / Adj EBITDA)",
         "multiple",
-        ("ltm",),
-        ("senior",),
+        ("quarter", "senior_secured_multiple", ("ltm", DEBT_SENIOR_NEEDED)),
+        ("prefer", "senior_secured_multiple", ("senior",)),
         None,
     ),
     RowSpec(
@@ -1861,7 +2078,7 @@ def cashflow_rows(tables: dict[str, Table | None]) -> list[RowSpec]:
 
 def cashflow_of(
     forecast: tuple[Forecast, list[str]],
-    fiscal: Fiscal,
+    recorded: tuple[Fiscal, dict[str, dict[str, Any]]],
     statements: tuple[list[Table], list[Table]],
     handoff: str | None,
     budget: int,
@@ -1871,6 +2088,7 @@ def cashflow_of(
     Raises CashflowBudget, before computing any cell, when rows x columns passes `budget`.
     """
     cases, limits = forecast
+    fiscal, quarters = recorded
     annual, quarter = statements
     names = CASHFLOW_LABELS
     tables: dict[str, Table | None] = {
@@ -1882,7 +2100,7 @@ def cashflow_of(
         "adef": table_holding(annual, names["adjusted_ebitda"]),
     }
     ends = fiscal_year_ends(annual)
-    inputs = CashflowInputs(tables, secured_debt(annual), ends)
+    inputs = CashflowInputs(tables, secured_debt(annual), ends, quarters)
     income = tables["income"]
     periods = sorted({key[1:] for key in income["periods"] if key[0] == "q"}) if income else []
     capped(periods, "quarter columns", QUARTER_COLUMN_LIMIT, CASHFLOW_FILES[3])
@@ -1957,7 +2175,9 @@ def read_cashflow(
     try:
         forecast = forecast_inputs(json.loads(files[stage].decode("utf-8")))
         stage = CASHFLOW_FILES[1]
-        fiscal = fiscal_inputs(json.loads(files[stage].decode("utf-8")))
+        record = json.loads(files[stage].decode("utf-8"))
+        fiscal = fiscal_inputs(record)
+        quarter_values = quarter_inputs(record)
         stage = CASHFLOW_FILES[2]
         annual = markdown_tables(files[stage].decode("utf-8"), stage)
         stage = CASHFLOW_FILES[3]
@@ -1968,7 +2188,8 @@ def read_cashflow(
         return None, ("file", stage)
     try:
         left = CASHFLOW_CELL_BUDGET if budget is None else budget
-        return cashflow_of(forecast, fiscal, (annual, quarter), handoff, left), None
+        recorded = (fiscal, quarter_values)
+        return cashflow_of(forecast, recorded, (annual, quarter), handoff, left), None
     except (CashflowLimit, CashflowBudget) as error:
         return None, ("limit", str(error))
     except CASHFLOW_ERRORS as error:

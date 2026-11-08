@@ -143,6 +143,15 @@ CHART_PREFIX = "Chart data: "
 CHART_LAST_COLUMNS = ["Reporting unit", "Basis and limitation"]
 
 
+def physical_lines(text: str) -> list[str]:
+    """The text's lines split on newlines only (`\\r\\n` and a lone `\\r` count as one), as
+    delivery's `physical_lines` does, so a "line N" citation is the line a reader opens."""
+    lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
+    if not lines[-1]:
+        lines.pop()
+    return lines
+
+
 def parse_source(text):
     """Keep every nonblank body line in one typed block with its source locator."""
     lines = text.splitlines()
@@ -1258,7 +1267,7 @@ def markdown_tables(text: str, file: str) -> list[Table]:
     follows before the next `#` heading without its own separator row (delivery's rule). Rows after
     a split table are never merged: they read under its header, with no period and its problem."""
     tables: list[Table] = []
-    raw = text.split("\n")
+    raw = physical_lines(text)
     shown = shown_lines(raw)
     at, head, problem = 0, "", None  # the header and problem of a split table
     while at < len(raw):

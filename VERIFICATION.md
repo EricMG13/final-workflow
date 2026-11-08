@@ -27,7 +27,7 @@ Scope: changed code in `e1a24112..0619a9be`, start `0619a9be`; macOS only; fakes
   `cpos-sol-medium-20261105` (= calibration). Answer keys and `runs/`, `data/`, `cases/`, `deliverables/` unchanged;
   0 new suppressions; 590 changed lines.
 - Open: owner decisions R10-R13, R16; predating rows R14, R15, R17; Lows L2-L4 (a timing-dependent missed
-  notice, a refused quarter model on a repeated text row). Sweep files: `docs/sweeps/refactoring/` (untracked),
+  notice, a refused quarter model on a repeated text row). Sweep files: `docs/sweeps/refactoring/` (contract, goal),
   register and probes in `artifacts/sweeps/refactoring/` (ignored).
 Not verified: Windows/Edge (toast, truncate while the Go server reads the log, the rlimit test's skip); the
 browser walk (no Playwright); the weekly full suite; a paid resume.

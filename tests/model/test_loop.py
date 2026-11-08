@@ -36,7 +36,7 @@ from deploy_workflow import owner_workflow as owner_module
 from deploy_workflow.model import adapter as adapter_module
 from deploy_workflow.model import loop as loop_module
 from deploy_workflow.model.adapter import AdapterReply, recorded_adapter
-from deploy_workflow.model.budget import Budget, RunStopped
+from deploy_workflow.model.budget import Budget, RunStopped, read_reservation_snapshot
 from deploy_workflow.model.loop import (
     RepairPrompt,
     StepStopped,
@@ -439,6 +439,23 @@ def test_a_failing_turn_redaction_dispatches_nothing_and_still_settles(
     (record,) = rig.records()
     assert record["error_class"] == "BadTurn" and record["cost_status"] == "computed"
     assert Decimal(record["settled_usd"]) == Decimal("0.004") and record["tool_calls"] == []
+
+
+def test_a_failing_pricing_settles_the_hold_unknown_and_records_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    assert _stop(rig).reason == "UnknownCharge"
+    (marker,) = read_reservation_snapshot(tmp_path / "store")
+    assert marker.status is not None  # settled, not left held
+    (record,) = rig.records()
+    assert record["cost_status"] == "unknown" and record["settled_usd"] is None
+    assert "ArithmeticError" in record["error"]
+    assert rig.budget.spent == Decimal(record["reserved_usd"]) > 0
 
 
 # ---------------------------------------------------------------- repair (F2)

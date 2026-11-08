@@ -496,8 +496,8 @@ def reader_fields(sections):
 
 
 def sections_of(text: str) -> list[dict[str, Any]]:
-    """parse_source with typed: the one place its missing annotations are acknowledged."""
-    sections: list[dict[str, Any]] = parse_source(text)  # type: ignore[no-untyped-call]
+    """parse_source, typed as a list of section dicts."""
+    sections: list[dict[str, Any]] = parse_source(text)
     return sections
 
 

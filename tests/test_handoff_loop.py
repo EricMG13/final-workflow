@@ -393,3 +393,45 @@ def test_a_turn_event_that_cannot_be_written_neither_holds_budget_nor_stops_the_
     Budget(Decimal(10), tmp_path / "live").reserve(
         "call-next", Decimal("0.01"), config_id="sol-medium"
     )
+
+
+def _boom(*_a, **_k):
+    raise ArithmeticError("injected post-send fault")
+
+
+@pytest.mark.parametrize("broken", ["redacted_turn", "price_usage"])
+def test_a_post_reply_fault_settles_the_hold_as_unknown_and_records_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, broken: str
+) -> None:
+    """R15: redaction or pricing raising after a paid send must not leave the hold unsettled."""
+    import json
+
+    from deploy_workflow.model import handoff as handoff_module
+    from deploy_workflow.model.budget import read_reservation_snapshot
+
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    monkeypatch.setattr(handoff_module, broken, _boom)
+    with pytest.raises(RuntimeError, match="cpos_live_stopped"):
+        loop(task())
+    (marker,) = read_reservation_snapshot(tmp_path)
+    assert marker.status is not None  # settled, not left held
+    assert loop.budget.spent == marker.usd > 0  # the whole hold counts, never zero
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert row["cost_status"] == "unknown" and row["settled_usd"] is None
+    assert "ArithmeticError" in row["error"] or "injected" in row["error"]
+
+
+def test_a_redactor_that_fails_on_an_adapter_error_still_settles_unknown(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model.budget import read_reservation_snapshot
+
+    adapter = Adapter(RuntimeError("socket gone"))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    monkeypatch.setattr(loop.redactor, "exception", _boom)
+    with pytest.raises(RuntimeError, match="cpos_live_stopped"):
+        loop(task())
+    (marker,) = read_reservation_snapshot(tmp_path)
+    assert marker.status is not None
+    assert loop.budget.spent == marker.usd > 0

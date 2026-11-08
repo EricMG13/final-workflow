@@ -18,6 +18,7 @@ from collections.abc import Callable
 from dataclasses import asdict
 from datetime import UTC, datetime
 from decimal import Decimal, DecimalException, localcontext
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -36,8 +37,8 @@ from deploy_vii.model.metrics import _ratio
 from deploy_vii.registry import modules
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, OverrunStop
-from deploy_workflow.model.loop import redacted_request, redacted_turn
-from deploy_workflow.model.pricing import price_of, price_usage, request_reservation_usd
+from deploy_workflow.model.loop import _caught, redacted_request, redacted_turn
+from deploy_workflow.model.pricing import Priced, price_of, price_usage, request_reservation_usd
 from deploy_workflow.model.record import CallLog, CallRecord, arguments_sha256
 from deploy_workflow.model.redact import Redactor
 from deploy_workflow.model.reply_classes import ADAPTER_ERROR
@@ -61,6 +62,7 @@ Check = Callable[["HandoffTask", bytes], tuple[str, ...]]
 MAX_PAGES_PER_READ = 8
 MAX_HITS = 20
 MAX_WRITES = 3
+REDACTION_FAILED = "redaction failed; the failure detail is withheld"
 # The budget hold counts a request's bytes as tokens and refuses above 1,050,000 for gpt-6.1-sol, so
 # a module that read whole filings could not continue. Reads stop well short of that, which leaves
 # room for drafts and repairs in the history and stays under the long-context price.
@@ -508,6 +510,31 @@ class HandoffExecutor:
                 )
         raise RuntimeError(f"cpos_live_not_accepted: {task.module_id} not accepted within bounds")
 
+    def _fault_text(self, failure: BaseException | str) -> str:
+        """Redacted text of a failure. A redactor that itself fails yields a fixed message (the
+        redactor's own failure is not itself recorded): a raise here would leave a paid call
+        unsettled."""
+        text, broken = _caught(
+            lambda: (
+                self.redactor.text(failure)
+                if isinstance(failure, str)
+                else self.redactor.exception(failure)
+            )
+        )
+        return REDACTION_FAILED if broken is not None or text is None else text
+
+    def _receive(self, reply: AdapterReply) -> tuple[Turn | None, Usage | None, Priced | None]:
+        """Redact the returned turn, then price what it used."""
+        turn = None if reply.turn is None else redacted_turn(self.redactor, reply.turn)
+        usage = turn.usage if turn is not None else reply.usage
+        priced = price_usage(
+            self.adapter.config_id,
+            usage or Usage(),
+            reply.billed_usd,
+            offline=self.adapter.ruling is None,
+        )
+        return turn, usage, priced
+
     def _turn(
         self, task: HandoffTask, folder: Path, digest: str, index: int, request: TurnRequest
     ) -> Turn:
@@ -544,19 +571,23 @@ class HandoffExecutor:
                 None,
                 started,
                 time.time(),
-                message=self.redactor.exception(exc),
+                message=self._fault_text(exc),
             )
-        turn = None if reply.turn is None else redacted_turn(self.redactor, reply.turn)
-        usage = turn.usage if turn is not None else reply.usage
-        priced = price_usage(
-            self.adapter.config_id,
-            usage or Usage(),
-            reply.billed_usd,
-            offline=self.adapter.ruling is None,
-        )
-        actual = Decimal(0) if reply.kind in {"not_sent", "sent_known"} else priced.usd
-        if reply.kind == "sent_unknown":
+        received, failure = _caught(partial(self._receive, reply))
+        fault: str | None = None
+        if received is None:
+            # The reply may be paid for but cannot be redacted or priced: unusable, charge unknown.
+            turn, usage, priced = None, reply.usage, None
+            fault = f"{type(failure).__name__}: {self._fault_text(failure or '')}"
+        else:
+            turn, usage, priced = received
+        if reply.kind in {"not_sent", "sent_known"}:
+            actual: Decimal | None = Decimal(0)
+        elif priced is None or reply.kind == "sent_unknown":
             actual = None
+        else:
+            actual = priced.usd
+        fault_class = reply.error_class if reply.kind != "ok" else "BadTurn"  # as loop.py
         overrun = False
         try:
             if reply.kind == "not_sent":
@@ -600,7 +631,7 @@ class HandoffExecutor:
                 reserved_usd=reserved,
                 settled_usd=actual,
                 cost_status="unknown"
-                if actual is None
+                if actual is None or priced is None
                 else (
                     "computed" if reply.kind in {"not_sent", "sent_known"} else priced.cost_status
                 ),
@@ -616,8 +647,8 @@ class HandoffExecutor:
                     for c in turn.tool_calls
                 ],
                 submit_sha256=None,
-                error_class=reply.error_class,
-                error=reply.message,
+                error_class=reply.error_class if fault is None else fault_class,
+                error=reply.message if fault is None else fault,
             )
         )
         if reply.raw is not None:
@@ -635,7 +666,7 @@ class HandoffExecutor:
                     "kind": reply.kind,
                     "turn": None if turn is None else turn_to_json(turn),
                     "error_class": reply.error_class,
-                    "error": self.redactor.text(reply.message or ""),
+                    "error": self._fault_text(fault or reply.message or ""),
                     "reservation_id": call_id,
                 }
             ).encode(),
@@ -643,5 +674,6 @@ class HandoffExecutor:
         if reply.kind != "ok" or turn is None or actual is None or overrun:
             raise RuntimeError(
                 f"cpos_live_stopped: {reply.kind}; charge={actual}; overrun={overrun}"
+                + ("" if fault is None else f"; unusable reply: {fault}")
             )
         return turn

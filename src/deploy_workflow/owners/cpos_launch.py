@@ -391,6 +391,45 @@ def chart_issues(text: str, route: MarkdownRoute) -> tuple[str, ...]:
     return tuple(issues)
 
 
+# The lines the report states above the call, front-most first: the Reader summary's first table
+# (instructed by READER_SECTION_RULES) of each module that is in the run, and CP-6's instructed
+# `Final Action Bias:` paragraph. Nothing is read that no instruction asks the module to write.
+FRONT_TITLES = {
+    "CP-6": "Committee decision",
+    "CP-5": "Evidence validation",
+    "CP-2": "Fundamental credit",
+    "CP-0": "Source readiness",
+}
+READER_SUMMARY_HEADER = "Bottom line | Confidence | Main limitation"
+
+
+def _front_routes(ordered: tuple[str, ...]) -> tuple[MarkdownRoute, ...]:
+    routes = [
+        MarkdownRoute(
+            module_id=module_id,
+            heading="Reader summary",
+            kind="table",
+            block_id="front",
+            table_header=READER_SUMMARY_HEADER,
+            label=title,
+        )
+        for module_id, title in FRONT_TITLES.items()
+        if module_id in ordered
+    ]
+    if "CP-6" in ordered:
+        routes.append(
+            MarkdownRoute(
+                module_id="CP-6",
+                heading="Action Bias Determination",
+                kind="prose",
+                block_id="front",
+                prefix="Final Action Bias:",
+                label="Committee action bias",
+            )
+        )
+    return tuple(routes)
+
+
 def _layout(
     run: Run, ordered: tuple[str, ...], aliases: tuple[str, ...], config: str
 ) -> tuple[MarkdownLayout, tuple[str, ...]]:
@@ -432,6 +471,7 @@ def _layout(
         scope=scope,
         title=f"{run.issuer_name} — {preset.title}",
         issuer_aliases=aliases,
+        front=_front_routes(ordered),
     )
     return layout, tuple(omitted)
 
@@ -612,6 +652,7 @@ def checker(layout: MarkdownLayout) -> Check:
                     update={
                         "blocks": tuple(dict.fromkeys(r.block_id for r in routes)),
                         "routes": routes,
+                        "front": tuple(r for r in layout.front if r.module_id == task.module_id),
                     }
                 )
                 with tempfile.TemporaryDirectory() as temporary:

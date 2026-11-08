@@ -300,6 +300,8 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         )
     ):
         raise ValueError("cpos_live_binding: executor must share this run's cap, state and checker")
+    if request.execution == "live-provider" and request.layout is None:
+        raise ValueError("cpos_layout: a live-provider run needs a delivery layout")
     if request.layout is None and (
         request.run.pathway != "credit_snapshot"
         or request.run.case_kind != "public"
@@ -329,6 +331,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
                 and not (r.module_id == "CP-MODEL" and request.model is not None)
                 for r in request.layout.routes
             )
+            or any(r.module_id not in selected_modules for r in request.layout.front)
         ):
             raise ValueError(
                 "cpos_layout: route selected modules to unique blocks of the requested pathway"
@@ -404,6 +407,9 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
                 for m in (ordered if request.layout is not None else ("CP-1", "CP-1A", "CP-2"))
             },
             layout=request.layout,
+            module_execution=_module_execution(ordered, retained, request)
+            if request.layout is not None
+            else None,
             model=None
             if request.model is None
             else request.model.model_copy(
@@ -455,10 +461,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
             + "; not full pathway/native acceptance",
             "provider_cap_usd": str(request.provider_cap_usd) if live else 0,
             "modules": selected,
-            "module_execution": {
-                m: "retained-response-replay" if m in retained else request.execution
-                for m in ordered
-            },
+            "module_execution": _module_execution(ordered, retained, request),
             "cp_model_published": request.model is not None,
             "delivery_manifest_sha256": manifest_id,
             "report_sha256": _sha(report.read_bytes()),
@@ -468,6 +471,13 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
         if events is not None:
             append_event(events, "delivered")
         return report
+
+
+def _module_execution(
+    ordered: tuple[str, ...], retained: Mapping[str, object], request: HandoffPlan
+) -> dict[str, Literal["host-session", "retained-response-replay", "synthetic", "live-provider"]]:
+    """How each module was produced: a retained handoff is a replay whatever the run's mode."""
+    return {m: "retained-response-replay" if m in retained else request.execution for m in ordered}
 
 
 def live_adapter_for(

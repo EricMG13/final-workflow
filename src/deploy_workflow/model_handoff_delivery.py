@@ -287,6 +287,10 @@ def _annual_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
     return result
 
 
+# The line under a table header, exactly as the reader applies it (unstripped).
+TABLE_SEPARATOR = re.compile(r"\|[ :|\-]+\|")
+
+
 def _literal_tables(
     key: str, raw: bytes, digest: str
 ) -> tuple[Source, list[Fact], list[ReportTable], list[Binding]]:
@@ -322,7 +326,7 @@ def _literal_tables(
         if not (
             lines[i].startswith("|")
             and i + 1 < len(lines)
-            and re.fullmatch(r"\|[ :|\-]+\|", lines[i + 1])
+            and TABLE_SEPARATOR.fullmatch(lines[i + 1])
         ):
             i += 1
             continue

@@ -16,6 +16,7 @@ from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Context, Decimal
 from pathlib import Path
+from typing import Any
 
 from deploy_vii.bindings import Binding, BindingMap, validate_bindings
 from deploy_vii.contracts import (
@@ -183,10 +184,63 @@ def _prose_labels(groups: list[_ProseGroup]) -> list[str]:
     return labels
 
 
+def gap_limitations(raw: str) -> tuple[str, ...]:
+    """One limitation per data row of each Gaps pipe table (cells joined by `; `) and one per
+    blank-line-separated Gaps paragraph, in handoff order. HTML comments are hidden first and
+    `###` lines only separate groups. A bare `None.` states no gap and is not carried. No Gaps
+    section gives `()`; the handoff's own text is copied, nothing is added."""
+    lines = hide_comments(physical_lines(raw), "gaps")
+    if not any(line in ("## Gaps", "### Gaps") for line in lines):
+        return ()
+    found: list[str] = []
+    paragraph: list[str] = []
+    in_table = 0  # Pipe lines seen in the current table: the first two are header and separator.
+    fenced = False  # Fenced code in a Gaps section is not a gap statement.
+
+    def close() -> None:
+        text = plain(" ".join(paragraph))
+        if text and text.rstrip(".").casefold() != "none":
+            found.append(text)
+        paragraph.clear()
+
+    for _, text in section(lines, "Gaps"):
+        stripped = text.strip()
+        if FENCE.match(text):
+            close()
+            fenced = not fenced
+            in_table = 0
+            continue
+        if fenced:
+            continue
+        if stripped.startswith("|"):
+            close()
+            in_table += 1
+            if in_table > 2:
+                body = stripped[1:-1] if stripped.endswith("|") else stripped[1:]
+                cells = [c.strip().replace(r"\|", "|") for c in re.split(r"(?<!\\)\|", body)]
+                if any(plain(c) for c in cells):
+                    found.append(plain("; ".join(cells)))
+            continue
+        in_table = 0
+        if not stripped or heading_of(stripped) is not None:
+            close()
+        else:
+            paragraph.append(stripped)
+    close()
+    return tuple(found)
+
+
 def literal_module(
     module_id: str, raw: bytes
 ) -> tuple[ModuleView, Source, dict[str, tuple[str, str]]]:
     """Retain tables and wrapped prose with exact physical-line citations."""
+    return _literal_view(module_id, raw)[:3]
+
+
+def _literal_view(
+    module_id: str, raw: bytes
+) -> tuple[ModuleView, Source, dict[str, tuple[str, str]], dict[str, int]]:
+    """`literal_module` plus the line of the heading that owns each table and prose entry."""
     from deploy_workflow.model_handoff_delivery import _literal_tables
 
     digest = hashlib.sha256(raw).hexdigest()
@@ -206,6 +260,7 @@ def literal_module(
             update={"title": heading + " — " + (table.row_header or "Table")}
         )
         metadata[table.table_id] = (heading, "table")
+    owner_line = dict(section_of)
     groups = _prose_groups(lines, _table_lines(tables, facts))
     section_prose: dict[int, list[str]] = {}
     for group in groups:
@@ -261,6 +316,7 @@ def literal_module(
             )
         )
         metadata[table_id] = (heading, "prose")
+        owner_line[table_id] = group.line
     descriptor = next(m for m in modules() if m.module_id == module_id)
     return (
         ModuleView(
@@ -276,10 +332,12 @@ def literal_module(
                     "Literal checked analytical handoff, not native contract acceptance; "
                     "source qualifications and gaps remain."
                 ),
+                *gap_limitations(raw.decode("utf-8")),
             ),
         ),
         source,
         metadata,
+        owner_line,
     )
 
 
@@ -654,7 +712,183 @@ def _registers(
     return slots
 
 
-def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C901 40 at base)
+EXECUTION_WORDS = {
+    "live-provider": (
+        "Produced by a live model run and accepted by the CP-OS check; "
+        "not native contract acceptance."
+    ),
+    "retained-response-replay": "Replayed from a retained response; no new model call was made.",
+    "host-session": "Produced in a host session and accepted by the CP-OS check.",
+    "synthetic": "Synthetic test content, not issuer analysis.",
+}
+NOT_STATED = "not stated in the handoff"
+
+
+def _front_table(
+    route: MarkdownRoute, module: ModuleView, meta: dict[str, tuple[str, str]]
+) -> tuple[str, str, str] | None:
+    """(sentence, line, entry id) of the first data row of the table with the routed header."""
+    table = next(
+        (
+            t
+            for t in module.tables
+            if meta[t.table_id] == (route.heading, "table")
+            and " | ".join([t.row_header or "", *(c.label for c in t.columns)])
+            == route.table_header
+            and t.rows
+        ),
+        None,
+    )
+    if table is None:
+        return None
+    facts = {f.fact_id: f for f in module.facts}
+    row = table.rows[0]
+    cells = [
+        f"{column.label.lower()}{':' if index else ''} {facts[fid].text or NOT_STATED}"
+        for index, (column, fid) in enumerate(zip(table.columns, row.fact_ids, strict=True))
+    ]
+    number = facts[row.fact_ids[0]].citations[0].locator.split()[-1]
+    return "; ".join(cells), number, table.table_id
+
+
+def _front_prose(
+    route: MarkdownRoute, module: ModuleView, meta: dict[str, tuple[str, str]]
+) -> tuple[str, str, str] | None:
+    """(paragraph, line, entry id) of the first paragraph of the section opening with the prefix."""
+    fact = next(
+        (
+            f
+            for f in module.facts
+            if _names_section(meta.get(f.table_id), route.heading)
+            and (route.prefix is None or _opens_with(f.text, route.prefix))
+        ),
+        None,
+    )
+    if fact is None:
+        return None
+    return fact.text or NOT_STATED, fact.citations[0].locator.split()[-1], fact.table_id
+
+
+def front_lines(
+    routes: tuple[MarkdownRoute, ...],
+    module_views: list[ModuleView],
+    metadata: dict[str, dict[str, tuple[str, str]]],
+) -> tuple[list[str], set[tuple[str, str]]]:
+    """One cited sentence per front route and the (module, entry id) each was read from. No match
+    gives `not stated in the handoff` (a blank cell too, never zero). A table route reads the first
+    data row of the table with the routed header (`<column> <cell>`, then `<column>: <cell>`); a
+    prose route the first paragraph opening with the prefix, without the label."""
+    lines: list[str] = []
+    sources: set[tuple[str, str]] = set()
+    for route in routes:
+        module = next((m for m in module_views if m.module_id == route.module_id), None)
+        if module is None:
+            raise ValueError(f"markdown_front: {route.module_id} is not a supplied module")
+        label = route.label or route.heading
+        meta = metadata[module.module_id]
+        got = (_front_table if route.kind == "table" else _front_prose)(route, module, meta)
+        if got is None:
+            lines.append(f"{label}: {NOT_STATED}")
+        else:
+            text, number, entry = got
+            shown = text if route.kind == "prose" else f"{label}: {text}"
+            lines.append(f"{shown} ({module.module_id} line {number})")
+            sources.add((module.module_id, entry))
+    return lines, sources
+
+
+def coverage_record(
+    module_views: list[ModuleView],
+    metadata: dict[str, dict[str, tuple[str, str]]],
+    owner_lines: dict[str, dict[str, int]],
+    entries: dict[str, list[Binding]],
+    source_of: dict[tuple[str, str], str],
+) -> dict[str, Any]:
+    """Where each handoff table and prose section went: every block its rows were bound to, in
+    binding order (`evidence` for rows no route took). A chart route binds a typed copy of its
+    table; `source_of` maps the copy's id back to the source table. CP-MODEL is derived from
+    CP-1/CP-2 and has no handoff lines, so it is not in the record."""
+    modules: dict[str, list[dict[str, Any]]] = {}
+    for module in (m for m in module_views if m.module_id in owner_lines):
+        lines = owner_lines[module.module_id]
+        modules[module.module_id] = [
+            {
+                "id": t.table_id,
+                "heading": metadata[module.module_id][t.table_id][0],
+                "kind": metadata[module.module_id][t.table_id][1],
+                "line": lines[t.table_id],
+                "blocks": list(
+                    dict.fromkeys(
+                        b.block_id
+                        for b in entries[module.module_id]
+                        if source_of.get((module.module_id, b.fact_coord.table_id or ""))
+                        == t.table_id
+                        or b.fact_coord.table_id == t.table_id
+                    )
+                ),
+            }
+            for t in module.tables
+            if t.table_id in lines  # a typed chart table repeats its source table's section
+        ]
+    return {"schema": "delivery-coverage/1", "modules": modules}
+
+
+def _headings_with_content(raw: str, name: str) -> list[tuple[int, str, bool, bool]]:
+    """Each heading line of level two or deeper (outside fences and comments) with content before
+    the next heading of any level, as (line, text, has non-table content, has table lines). A
+    line inside a fence is content; a pipe line followed by a separator line, as the reader reads
+    them, is a table."""
+    found: dict[int, tuple[str, bool, bool]] = {}
+    current: tuple[int, str] | None = None
+    fenced = False
+    run: list[str] = []
+    from deploy_workflow.model_handoff_delivery import TABLE_SEPARATOR
+
+    def flush() -> None:
+        nonlocal run
+        if current is not None and run:
+            is_table = any(TABLE_SEPARATOR.fullmatch(nxt) for nxt in run[1:])
+            text, prose, tabular = found.get(current[0], (current[1], False, False))
+            found[current[0]] = (text, prose or not is_table, tabular or is_table)
+        run = []
+
+    for number, line in enumerate(hide_comments(physical_lines(raw), name), 1):
+        head = heading_of(line)
+        if fenced and head and head[0] == 2:
+            fenced = False
+        if not fenced and line.startswith("|"):
+            run.append(line)
+            continue
+        flush()
+        if FENCE.match(line):
+            fenced = not fenced
+        elif not fenced and head:
+            current = (number, head[1]) if head[0] >= 2 else None
+            continue
+        elif not line.strip() or (not fenced and line.startswith("<!--")):
+            continue
+        if current is not None:
+            text, _, tabular = found.get(current[0], (current[1], False, False))
+            found[current[0]] = (text, True, tabular)
+    flush()
+    return [(n, t, p, b) for n, (t, p, b) in found.items()]
+
+
+def check_coverage(raw_by_module: dict[str, str], record: dict[str, Any]) -> None:
+    """Refuse a delivery in which a handoff section with content lacks a prose entry (for its
+    non-table content) or a table entry (for its tables) at its heading line."""
+    for module_id, raw in raw_by_module.items():
+        presented = {(e["line"], e["kind"]) for e in record["modules"].get(module_id, [])}
+        for number, heading, prose, tabular in _headings_with_content(raw, module_id):
+            for kind, needed in (("prose", prose), ("table", tabular)):
+                if needed and (number, kind) not in presented:
+                    raise ValueError(
+                        f"delivery_coverage: {module_id} line {number} {heading} "
+                        f"is not presented ({kind})"
+                    )
+
+
+def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity
     request: DeliveryRequest, base: Path
 ) -> dict[str, bytes]:
     """Select literal source sections into the existing requested pathway design."""
@@ -700,12 +934,24 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
     sources = []
     metadata = {}
     files = {}
+    owner_lines: dict[str, dict[str, int]] = {}
     for module_id, spec in request.handoffs.items():
         raw = (base / spec.path).read_bytes()
         if hashlib.sha256(raw).hexdigest() != spec.sha256:
             raise ValueError(f"Changed handoff: {module_id}")
         require_issuer(request.run, layout.issuer_aliases, module_id, physical_lines(raw.decode()))
-        module, source, meta = literal_module(module_id, raw)
+        module, source, meta, owner_lines[module_id] = _literal_view(module_id, raw)
+        if request.module_execution is not None:
+            if module_id not in request.module_execution:
+                raise ValueError(f"module_execution: no execution named for {module_id}")
+            module = module.model_copy(
+                update={
+                    "limitations": (
+                        EXECUTION_WORDS[request.module_execution[module_id]],
+                        *module.limitations,
+                    )
+                }
+            )
         module_views.append(module)
         sources.append(source)
         metadata[module_id] = meta
@@ -736,6 +982,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
         metadata["CP-MODEL"] = {t.table_id: (t.title, "table") for t in publication.module.tables}
     entries: dict[str, list[Binding]] = {m.module_id: [] for m in module_views}
     used: set[tuple[str, str]] = set()
+    source_of: dict[tuple[str, str], str] = {}  # typed chart copy -> its source table
     yield_charts: dict[str, tuple[str, tuple[str, ...], tuple[_ChartPoint, ...]]] = {}
     strip_charts: dict[
         str, dict[str, tuple[str, str, str, tuple[str, ...], tuple[_ChartPoint, ...]]]
@@ -775,6 +1022,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
             if module.module_id != "CP-MODEL":
                 module_views[module_views.index(module)] = updated
                 typed = updated.tables[-1]
+                source_of[(module.module_id, typed.table_id)] = table.table_id
                 metadata[module.module_id][typed.table_id] = (route.heading, "chart")
                 entries[module.module_id].append(
                     Binding(
@@ -799,6 +1047,7 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
             updated, series, points = _yield_observations(module, table, request.run.as_of)
             module_views[module_views.index(module)] = updated
             typed = updated.tables[-1]
+            source_of[(module.module_id, typed.table_id)] = table.table_id
             metadata[module.module_id][typed.table_id] = (route.heading, "chart")
             entries[module.module_id].append(
                 Binding(
@@ -1029,6 +1278,14 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
     anchor = '<div id="call-root"></div>'
     if rendered.count(anchor) != 1:
         raise ValueError("Existing renderer scope-banner location changed")
+    front_text, front_sources = front_lines(layout.front, module_views, metadata)
+    record_of = coverage_record(module_views, metadata, owner_lines, entries, source_of)
+    for module_id, listed in record_of["modules"].items():  # `front` goes last in blocks
+        for entry in listed:
+            if (module_id, entry["id"]) in front_sources:
+                entry["blocks"].append("front")
+    check_coverage({m: files[m + ".md"].decode() for m in owner_lines}, record_of)
+    files["coverage.json"] = (json.dumps(record_of, indent=2) + "\n").encode()
     files.update(
         {
             "view.json": view.model_dump_json(indent=2).encode(),
@@ -1038,6 +1295,13 @@ def markdown_files(  # noqa: C901, PLR0912, PLR0915 - pre-existing complexity (C
                 '<section id="delivery-scope-banner" class="banner" role="note">'
                 + html.escape(layout.scope)
                 + "</section>"
+                + (
+                    '<section id="delivery-limits" role="note"><ul>'
+                    + "".join(f"<li>{html.escape(line)}</li>" for line in front_text)
+                    + "</ul></section>"
+                    if front_text
+                    else ""
+                )
                 + (
                     '<nav aria-label="Published deliverables">'
                     '<a href="model.html">HTML Model and charts</a> · '

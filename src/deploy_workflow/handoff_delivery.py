@@ -143,6 +143,9 @@ class MarkdownLayout(Contract):
     title: Annotated[str, Field(pattern=r"\S")] | None = None
     question: Annotated[str, Field(pattern=r"\S")] | None = None
     issuer_aliases: tuple[Annotated[str, Field(pattern=r"\S")], ...] = ()
+    # Lines the report states above the call (kind "table" or "prose"); their `block_id` is not
+    # a report block.
+    front: tuple[MarkdownRoute, ...] = Field(default=(), exclude_if=lambda v: not v)
 
 
 class DeliveryRequest(Contract):
@@ -150,6 +153,10 @@ class DeliveryRequest(Contract):
     handoffs: dict[str, HandoffInput]
     model: ModelDelivery | None = None
     layout: MarkdownLayout | None = None
+    module_execution: (
+        dict[str, Literal["host-session", "retained-response-replay", "synthetic", "live-provider"]]
+        | None
+    ) = Field(default=None, exclude_if=lambda v: v is None)
 
 
 SOURCE_NUMBER = re.compile(

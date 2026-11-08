@@ -13,7 +13,13 @@ import pytest
 from deploy_vii.contracts import Run
 from deploy_vii.report_view import ReportView
 from deploy_workflow.handoff_delivery import DeliveryRequest
-from deploy_workflow.markdown_delivery import literal_module, markdown_files, require_issuer
+from deploy_workflow.markdown_delivery import (
+    check_coverage,
+    gap_limitations,
+    literal_module,
+    markdown_files,
+    require_issuer,
+)
 from deploy_workflow.model_handoff_delivery import _literal_tables
 
 TAIL = "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"
@@ -30,9 +36,15 @@ def handoff(request: str, findings: str, tail: str = TAIL) -> str:
     )
 
 
-def deliver(tmp_path: Path, text: str, routes: list[dict]) -> dict:
+def deliver(
+    tmp_path: Path,
+    text: str,
+    routes: list[dict],
+    module: str = "CP-1B",
+    execution: str | None = None,
+) -> dict:
     raw = text.encode()
-    path = tmp_path / "CP-1B.md"
+    path = tmp_path / (module + ".md")
     path.write_bytes(raw)
     request = DeliveryRequest.model_validate_json(
         json.dumps(
@@ -44,18 +56,22 @@ def deliver(tmp_path: Path, text: str, routes: list[dict]) -> dict:
                     "as_of": "2024-12-28",
                     "case_kind": "public",
                     "pathway": "earnings_update",
-                    "requested_modules": ["CP-1B"],
+                    "requested_modules": [module],
                 },
                 "handoffs": {
-                    "CP-1B": {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
+                    module: {"path": str(path), "sha256": hashlib.sha256(raw).hexdigest()}
                 },
                 "layout": {
                     "blocks": ["headline-results"],
                     "routes": [
-                        {"module_id": "CP-1B", "block_id": "headline-results", **r} for r in routes
+                        {"module_id": module, "block_id": "headline-results", **r}
+                        for r in routes
+                        if r.get("block_id") != "front"
                     ],
                     "scope": "synthetic regression",
+                    "front": [r for r in routes if r.get("block_id") == "front"],
                 },
+                **({} if execution is None else {"module_execution": {module: execution}}),
             }
         )
     )
@@ -469,3 +485,295 @@ def test_a_wrapped_item_line_opening_with_a_year_or_parenthesised_number_is_not_
         ("2) Second", [11]),
         ("- nested", [12]),
     ]
+
+
+FIXED = (
+    "Literal checked analytical handoff, not native contract acceptance; "
+    "source qualifications and gaps remain."
+)
+
+
+def gaps_of(gaps: str) -> tuple[str, ...]:
+    tail = "## Calculations\nNone.\n## Gaps\n" + gaps + "## Next module\nDelivery.\n"
+    view = literal_module("CP-1B", handoff("Scope.", "### F\n" + TABLE, tail).encode())[0]
+    assert view.limitations[0] == FIXED
+    return view.limitations[1:]
+
+
+def test_each_gap_row_and_paragraph_becomes_a_module_limitation():
+    gaps = (
+        "| ID | Item | Status |\n|---|---|---|\n"
+        "| G1 | Revolver availability | Not supplied |\n"
+        "| G2 | Lease detail | Not supplied |\n\n"
+        "Market inputs were not supplied.\n"
+    )
+    assert gaps_of(gaps) == (
+        "G1; Revolver availability; Not supplied",
+        "G2; Lease detail; Not supplied",
+        "Market inputs were not supplied.",
+    )
+
+
+def test_prose_gaps_comments_and_subheadings():
+    gaps = (
+        "<!-- hidden gap\n| X | Y |\n|---|---|\n| H | hidden |\n-->\n"
+        "### Assurance limits\nThe audit opinion was\nnot supplied.\n\n"
+        "### Data\n| A | B |\n|---|---|\n| **Cash** | `n/a` |\n\n"
+        "Second paragraph.\n"
+    )
+    assert gaps_of(gaps) == (
+        "The audit opinion was not supplied.",
+        "Cash; n/a",
+        "Second paragraph.",
+    )
+
+
+def test_a_handoff_without_gaps_keeps_only_the_fixed_limitation():
+    # literal_module needs the six headings, so a handoff with no Gaps section is read directly.
+    raw = "# CP-1B X\n## Request\nScope.\n## Findings\nText.\n"
+    assert gap_limitations(raw) == ()
+    assert gaps_of("None.\n") == ()
+
+
+def test_a_fenced_block_in_gaps_yields_no_limitation():
+    gaps = "Before.\n```\nNot a gap.\n| X | Y |\n|---|---|\n| H | hidden |\n```\nAfter.\n"
+    assert gaps_of(gaps) == ("Before.", "After.")
+
+
+def test_a_table_row_with_empty_cells_yields_no_limitation():
+    # The handoff reader refuses such a row elsewhere; gap_limitations is called on its own too.
+    raw = "## Gaps\n| ID | Item |\n|---|---|\n| | |\n|  |\n| G1 | Lease detail |\n"
+    assert gap_limitations(raw) == ("G1; Lease detail",)
+
+
+COVERED = (
+    "# CP-1B TransDigm Group Incorporated\n"  # 1
+    "## Request\nScope.\n"  # 2-3
+    "## Sources\nNone.\n"  # 4-5
+    "## Findings\n"  # 6: no content of its own
+    "### Financials\nAmounts in USD millions.\n\n"  # 7-9
+    "| Metric | FY2023 | FY2024 |\n|---|---:|---:|\n| Revenue | 1,000.5 | 1,200.0 |\n\n"  # 10-13
+    "### Notes\nMargin held.\n"  # 14-15
+    "## Calculations\nNone.\n## Gaps\nNone.\n## Next module\nDelivery.\n"  # 16-21
+)
+
+
+def coverage_of(files: dict) -> dict:
+    return json.loads(files["coverage.json"])
+
+
+def test_every_heading_with_content_is_in_the_coverage_record(tmp_path):
+    files = deliver(tmp_path, COVERED, [ROUTE])["files"]
+    entries = coverage_of(files)["modules"]["CP-1B"]
+    assert sorted(e["line"] for e in entries) == [2, 4, 7, 7, 14, 16, 18, 20]
+    assert coverage_of(files)["schema"] == "delivery-coverage/1"
+    assert "coverage.json" in json.loads(files["delivery.json"])["files"]
+
+
+def test_routed_sections_name_their_block_and_the_rest_name_evidence(tmp_path):
+    entries = coverage_of(deliver(tmp_path, COVERED, [ROUTE])["files"])["modules"]["CP-1B"]
+    seen = {(e["line"], e["kind"]): (e["heading"], e["blocks"]) for e in entries}
+    assert seen[(7, "table")] == ("Financials", ["headline-results"])
+    assert seen[(7, "prose")] == ("Financials", ["evidence"])
+    assert seen[(14, "prose")] == ("Notes", ["evidence"])
+    assert seen[(2, "prose")] == ("Request", ["evidence"])
+
+
+def drop_prose_group(monkeypatch, heading: str) -> None:
+    from deploy_workflow import markdown_delivery as md
+
+    real = md._prose_groups
+    monkeypatch.setattr(
+        md, "_prose_groups", lambda lines, t: [g for g in real(lines, t) if g.heading != heading]
+    )
+
+
+def test_a_dropped_section_fails_the_build(tmp_path, monkeypatch):
+    drop_prose_group(monkeypatch, "Notes")
+    with pytest.raises(
+        ValueError, match=r"delivery_coverage: CP-1B line 14 Notes is not presented"
+    ):
+        deliver(tmp_path, COVERED, [ROUTE])
+
+
+def test_check_coverage_ignores_fenced_commented_and_empty_headings():
+    raw = (
+        "# T\n## A\n<!-- c -->\n### B\n"  # 1-4: A and B have no content
+        "## C\n```\n### inside\n```\n"  # 5-8: C has content; the fenced heading is code
+        "## D\n| x |\n"  # 9-10
+    )
+    with pytest.raises(ValueError, match="M line 9 D is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 5, "kind": "prose"}]}})
+    check_coverage(
+        {"M": raw}, {"modules": {"M": [{"line": 5, "kind": "prose"}, {"line": 9, "kind": "prose"}]}}
+    )
+
+
+RECOVERY = Path(__file__).parent.parent / (
+    "runs/cpos-sol-remaining-20261105/recovery/execution/"
+    "delivery-94f5c089fa806476746a0df4d861ed406930b92f8208246f18d0cc08c2ebddca.json"
+)
+
+
+@pytest.mark.skipif(not RECOVERY.exists(), reason="retained recovery run is not checked out")
+def test_recovery_handoffs_are_fully_covered():
+    request = DeliveryRequest.model_validate_json(RECOVERY.read_text())
+    files = markdown_files(request, RECOVERY.parent)  # builds in memory; nothing is written
+    modules = coverage_of(files)["modules"]
+    assert set(modules) == set(request.handoffs)
+    assert all(modules[m] for m in modules)
+
+
+def test_a_section_routed_in_part_names_every_block_its_rows_reach(tmp_path):
+    two = COVERED.replace(
+        "### Notes\nMargin held.\n", "### Notes\nMargin held.\n\nLeverage fell.\n"
+    )
+    route = {"heading": "Notes", "kind": "prose", "prefix": "Margin"}
+    entries = coverage_of(deliver(tmp_path, two, [route])["files"])["modules"]["CP-1B"]
+    notes = next(e for e in entries if e["heading"] == "Notes")
+    assert notes["blocks"] == ["headline-results", "evidence"]
+
+
+def test_a_dropped_prose_group_is_refused_though_a_table_shares_its_heading(tmp_path, monkeypatch):
+    drop_prose_group(monkeypatch, "Financials")
+    with pytest.raises(ValueError, match=r"CP-1B line 7 Financials is not presented"):
+        deliver(tmp_path, COVERED, [ROUTE])
+
+
+def test_a_table_entry_does_not_present_a_heading_with_only_a_table_dropped():
+    raw = "## A\nText.\n| x | y |\n|---|---|\n| 1 | 2 |\n"
+    with pytest.raises(ValueError, match="M line 1 A is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})
+    check_coverage(
+        {"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}, {"line": 1, "kind": "table"}]}}
+    )
+
+
+def test_content_under_a_level_four_heading_is_checked():
+    raw = "## A\n#### Deep\nText.\n"
+    with pytest.raises(ValueError, match="M line 2 Deep is not presented"):
+        check_coverage({"M": raw}, {"modules": {"M": []}})
+
+
+@pytest.mark.parametrize(
+    "findings",
+    [
+        "### F\n| Metric | FY2023 |\n|---|---\n| Revenue | 1 |\n",
+        "### F\n| Metric | FY2023 |\n|\t---\t|\t---\t|\n| Revenue | 1 |\n",
+        "### F\n| Metric | FY2023 |\n|---|---| \n| Revenue | 1 |\n",
+    ],
+)
+def test_pipe_lines_the_reader_does_not_take_as_a_table_are_prose_not_a_missing_table(
+    tmp_path, findings
+):
+    # Expected from the reader's rule (separator `|[ :|-]+|`, unstripped): no table in any case.
+    deliver(tmp_path, handoff("Scope.", findings), [{"heading": "Request", "kind": "prose"}])
+
+
+def test_a_stray_pipe_line_before_a_real_table_still_finds_the_table():
+    raw = "## A\n| stray\n| x | y |\n|---|---|\n| 1 | 2 |\n"
+    with pytest.raises(ValueError, match=r"M line 1 A is not presented \(table\)"):
+        check_coverage({"M": raw}, {"modules": {"M": [{"line": 1, "kind": "prose"}]}})
+
+
+# Handoff lines: Reader summary heading 7, its first data row 10, Action Bias heading 16, 17.
+CP6_FINDINGS = (
+    "### Reader summary\n| Bottom line | Confidence | Main limitation |\n|---|---|---|\n"
+    "| Hold the position. | Moderate | Quarter data unaudited. |\n\n"
+    "| Finding | Creditor impact | Confidence |\n|---|---|---|\n| Leverage | Higher | Low |\n\n"
+    "### Action Bias Determination\n"
+    "Final Action Bias: Watchlist. Spreads do not pay for the risk.\n\n"
+    "### Financials\n" + TABLE
+)
+ACTION_BIAS = {"kind": "prose", "prefix": "Final Action Bias:"}
+TABLE_FRONT = {"kind": "table", "table_header": "Bottom line | Confidence | Main limitation"}
+FRONT = [
+    {"module_id": "CP-6", "block_id": "front", "label": label, "heading": heading, **rest}
+    for label, heading, rest in (
+        ("Committee decision", "Reader summary", TABLE_FRONT),
+        ("Committee action bias", "Action Bias Determination", ACTION_BIAS),
+    )
+]
+
+
+def deliver_cp6(tmp_path: Path, text: str, front: list[dict], execution: str | None = None):
+    return deliver(tmp_path, text, [ROUTE, *front], "CP-6", execution)["files"]
+
+
+def cp6_text(findings: str = CP6_FINDINGS) -> str:
+    return handoff("Scope.", findings).replace("# CP-1B", "# CP-6")
+
+
+def test_front_routes_put_the_cited_line_above_the_call(tmp_path):
+    files = deliver_cp6(tmp_path, cp6_text(), FRONT)
+    html_text = files["report.html"].decode()
+    assert 'id="delivery-limits"' in html_text
+    assert (
+        "Committee decision: confidence Moderate; main limitation: Quarter data unaudited. "
+        "(CP-6 line 10)"
+    ) in html_text
+    assert (
+        "<li>Final Action Bias: Watchlist. Spreads do not pay for the risk. (CP-6 line 17)</li>"
+    ) in html_text
+    assert html_text.index('id="delivery-limits"') < html_text.index('id="call-root"')
+    coverage = json.loads(files["coverage.json"])["modules"]["CP-6"]
+    fronted = {(e["kind"], e["line"]) for e in coverage if "front" in e["blocks"]}
+    assert fronted == {("table", 7), ("prose", 16)}
+
+
+def test_a_front_route_with_no_match_says_not_stated(tmp_path):
+    text = cp6_text(CP6_FINDINGS.replace("Final Action Bias:", "Bias:"))
+    html_text = deliver_cp6(tmp_path, text, FRONT)["report.html"].decode()
+    assert "Committee action bias: not stated in the handoff" in html_text
+    assert "<li>Committee decision: confidence Moderate;" in html_text
+
+
+def test_front_text_is_escaped(tmp_path):
+    text = cp6_text(CP6_FINDINGS.replace("Quarter data unaudited.", "A <b>&</b> B."))
+    html_text = deliver_cp6(tmp_path, text, FRONT)["report.html"].decode()
+    assert "main limitation: A &lt;b&gt;&amp;&lt;/b&gt; B. (CP-6 line 10)" in html_text
+
+
+LIVE_WORDS = (
+    "Produced by a live model run and accepted by the CP-OS check; not native contract acceptance."
+)
+
+
+@pytest.mark.parametrize(
+    ("execution", "sentence"),
+    [
+        ("live-provider", LIVE_WORDS),
+        (
+            "retained-response-replay",
+            "Replayed from a retained response; no new model call was made.",
+        ),
+        ("host-session", "Produced in a host session and accepted by the CP-OS check."),
+        ("synthetic", "Synthetic test content, not issuer analysis."),
+        (None, FIXED),  # no execution given: the fixed limitation stays first, no front section
+    ],
+)
+def test_live_execution_reaches_each_module_limitation(tmp_path, execution, sentence):
+    files = deliver_cp6(tmp_path, cp6_text(), [], execution)
+    module = json.loads(files["view.json"])["modules"][0]
+    assert module["limitations"][0] == sentence
+    assert module["status"] == "candidate"
+    assert "delivery-limits" not in files["report.html"].decode()
+
+
+RETAINED_LAYOUT_MANIFESTS = [
+    "runs/cpos-sol-medium-20261105/delivery-a2b23229572f1704c8b932bf2fbe41b76b5e3614fed7577d56b6f44f2cbc4053.json",
+    "runs/cpos-launch-cp2-reader-001/delivery-593bc6819bec6be2624a19fef19f4702fe424c88c2a5fb916b0ac8375f461fca.json",
+    "runs/cpos-launch-live-002/delivery-1b851b108d950efee6a7638c8754ebcd8531aa2635fcef1b892bdb0e52d80814.json",
+    "runs/cpos-sol-remaining-20261105/recovery/execution/delivery-94f5c089fa806476746a0df4d861ed406930b92f8208246f18d0cc08c2ebddca.json",
+    "runs/cpos-tdg-fresh-001/execution/delivery-5e88643b42cb134a0ac0d826f0841215f817d7db79a4a2d3abdab150efb6b272.json",
+    "runs/cpos-tdg-fresh-001/execution/delivery-98ceb8fec71b78d4288cc7ad8c8ffff72c1a50bce4aa42999ca72682edbe09f1.json",
+    "runs/web-04cd5a5d02ea7d1dea714a8a6632cd21/delivery-81e5fda8cf24771b8979b3da4cd6d51b60e4804133383e0b3b8f102b93821cae.json",
+]
+
+
+@pytest.mark.parametrize("name", RETAINED_LAYOUT_MANIFESTS)
+def test_existing_layout_manifests_serialise_unchanged(name):
+    # The seven of 24 retained layout manifests that round-tripped at a06406a2; the rest were
+    # written by older schemas. New optional fields must not alter these bytes.
+    raw = (Path(__file__).resolve().parent.parent / name).read_bytes()
+    assert DeliveryRequest.model_validate_json(raw).model_dump_json(indent=2).encode() == raw

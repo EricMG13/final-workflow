@@ -192,7 +192,9 @@ test('hostile record text is rendered as text; no markup, handler or script link
   const detail=p.detail();
   for(const shown of [bad,quote,'Unavailable'])assert.ok(detail.includes(shown),shown);
   assert.equal(p.d.querySelectorAll('.artifact-list li').length,3);
-  assert.equal(p.d.querySelectorAll('.artifact-list li span').length>=1,true,'the unavailable artifact is text, not a link');
+  const gone=[...p.d.querySelectorAll('.artifact-list li')].filter(li=>text(li).includes('Unavailable'));
+  assert.equal(gone.length,1);
+  assert.equal(gone[0].querySelector('a'),null,'the unavailable artifact is text, not a link');
   p.d.querySelector('[data-library-select="plain-1"]').click();
   check();
   assert.ok(p.detail().includes('No final deliverable has been indexed'),'a run with no artifact and a script handoff link offers no link');

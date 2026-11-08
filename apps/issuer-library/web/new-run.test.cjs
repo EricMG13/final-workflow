@@ -14,7 +14,7 @@ async function page(t,{ready=true,startFails=false,resume=null,list=[],status={s
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-NewRun/run',runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};const timers=new Map(),started=[],cleared=[];let nextTimer=1;win.setInterval=fn=>{timers.set(nextTimer,fn);started.push(nextTimer);return nextTimer++;};win.clearInterval=id=>{cleared.push(id);timers.delete(id);};
   const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/resume':()=>resume||{...reviewReply(ready),id:ID2,resume_of:ID,retained_modules:['CP-0']},'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
-  win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url];return{ok:true,json:async()=>body()};};
+  win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url.split('?')[0]];return{ok:true,json:async()=>body()};};
   const current=status;status=()=>win.__status||current;
   win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
@@ -254,7 +254,7 @@ test('polling stops while New run is hidden and resumes on return',async t=>{
 test('a failed list fetch is retried and its error does not stick',async t=>{
   const p=await page(t,{list:[ROW_RUNNING]});
   const real=p.win.fetch;let fail=true;
-  p.win.fetch=async(url,options)=>{if(url==='/api/runs/list'&&fail){fail=false;throw new Error('offline');}return real(url,options);};
+  p.win.fetch=async(url,options)=>{if(url.split('?')[0]==='/api/runs/list'&&fail){fail=false;throw new Error('offline');}return real(url,options);};
   await p.tick();
   assert.match(p.doc.getElementById('recent-jobs').textContent,/^Could not load/);
   await p.tick();

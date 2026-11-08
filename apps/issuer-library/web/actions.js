@@ -98,8 +98,11 @@ function showRunMark(job){
   if(rail){rail.hidden=!job;rail.textContent=view.symbol;rail.setAttribute('aria-label',view.label);}
   applyTitle();
 }
+const canNotify=()=>typeof Notification!=='undefined'&&Notification.permission==='granted';
+// A tab that cannot build the browser notice says so, so the server still shows the native one.
+const runListUrl=()=>canNotify()?'/api/runs/list':'/api/runs/list?notify=0';
 function notifyFinished(job){
-  if(typeof Notification==='undefined'||Notification.permission!=='granted')return;
+  if(!canNotify())return;
   const note=new Notification('Issuer Library',{body:job.state==='complete'?`${job.issuer||'The'} run complete`:stopSentence(job)||job.message||`Run ${job.state}`,tag:job.id});
   note.onclick=()=>{window.focus();if(mayDiscardDraft()){location.hash=runTarget(job);reloadApp();}};
 }
@@ -107,7 +110,7 @@ async function watchRuns(){
   if(runWatch.busy)return;
   runWatch.busy=true;
   try{
-    const jobs=await appRequest('/api/runs/list'),active=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
+    const jobs=await appRequest(runListUrl()),active=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
     for(const job of jobs){
       if(runWatch.states.get(job.id)==='running'&&job.state!=='running'){runWatch.finished=job.id;notifyFinished(job);}
       runWatch.states.set(job.id,job.state);
@@ -148,7 +151,7 @@ function installNewRun(){
   async function recent(){
     if(listing)return;listing=true;
     try{
-      const jobs=await appRequest('/api/runs/list');
+      const jobs=await appRequest(runListUrl());
       const key=JSON.stringify(jobs);if(key===lastRows){controls();return;}
       if(!jobs.length){const link=textNode('a','Issuer library');link.href='#W-Library/cases';$('recent-jobs').replaceChildren('No runs started from this app are recorded in this workspace yet. Earlier runs are in the ',link,'.');lastRows=key;activeListed=false;controls();return;}
       const active=job=>WORKFLOW_ACTIVE.includes(job.state);

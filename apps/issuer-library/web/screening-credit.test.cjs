@@ -49,7 +49,8 @@ for (const item of load('sort-cases.json')) {
 const issuerCase = load('issuer-case-cases.json');
 for (const item of issuerCase.cases) {
   test(`issuer case folding: ${item.name}`, () => {
-    const got = context.logic.screened(issuerCase.runs, item.filters);
+    const runs = issuerCase.runs.filter(run => !item.only || item.only.includes(run.id));
+    const got = context.logic.screened(runs, item.filters);
     assert.deepEqual(ids(got.map(e => e.run)).sort(), [...item.expected_ids].sort());
     assert.deepEqual(got.filter(e => e.notScreened).map(e => e.run.id).sort(), [...item.expected_not_screened].sort());
   });

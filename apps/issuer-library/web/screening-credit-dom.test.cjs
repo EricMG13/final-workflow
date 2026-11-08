@@ -243,3 +243,9 @@ test('issuers differing only in case are one nav entry and one issuer in the cou
   assert.deepEqual(sorted(p.ids()),sorted(key.runs.filter(r=>r.issuer.toLowerCase()==='tdg').map(r=>r.id)));
   assert.equal(p.d.querySelector('#library-nav .nav-choice.active [data-x]'),null);
 });
+
+test('an address issuer matching a recorded issuer in another case still filters',t=>{
+  const key=fixture('issuer-case-cases.json'),p=page(t,'W-Library/cases?issuer=tdg&runs=any',{real:key.runs,sources:{}});
+  assert.deepEqual(sorted(p.ids()),sorted(key.runs.filter(r=>r.issuer.toLowerCase()==='tdg').map(r=>r.id)));
+  assert.match(p.w.location.hash,/issuer=tdg/,'stored as given');
+});

@@ -366,7 +366,7 @@ function readLibraryHash() {
     else if(key==='dir'){if(value==='asc'||value==='desc')libraryState.direction=value;}
     else if(!Object.hasOwn(LIBRARY_DEFAULTS,key))continue;
     else if(key==='search'){if(value.length<=200)libraryFilters.search=value;}
-    else if(Object.hasOwn(choices,key)){if(choices[key].some(([option])=>option===value))libraryFilters[key]=value;}
+    else if(Object.hasOwn(choices,key)){if(choices[key].some(([option])=>option===value||key==='issuer'&&LibraryLogic.issuerKey(option)===LibraryLogic.issuerKey(value)))libraryFilters[key]=value;}
     else if(libraryNumber(value))libraryFilters[key]=value;
   }
   return before!==JSON.stringify([libraryFilters,libraryState]);

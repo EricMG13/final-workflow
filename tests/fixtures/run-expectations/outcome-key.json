@@ -1,6 +1,6 @@
 {
  "schema": "outcome-key/1",
- "note": "synthetic scenarios; hand-written. Outcomes are per scope; every requested module not listed under expected.modules is Ready. Counted = counted for acceptance (Will refuse, Gap, Limited, Check); Information and inherited rows are not counted. Row fields: rule (short id), outcome, counted, optional detail, section, inherited (true) and inherited_from (the direct producers whose effective outcome is non-Ready, in module order; compare as a set). Assumptions the plan leaves open, applied consistently: (1) only Will refuse and Limited propagate; Gap and Check never do; (2) propagation is transitive through effective outcomes (a consumer inherits from each direct producer's effective outcome), one inherited row per consumer; (3) 'CP-1 chart strip' is its own scope and does not propagate; (4) one section-omitted row per omitted report section, from _layout observed offline at write time (omitted: credit_snapshot what-changed; earnings_update company-profile, portfolio-fit, what-changed; relative_value yield-against-maturity, what-changed; covenant_refinancing none; distressed_restructuring liquidity-runway, portfolio-fit, what-changed; portfolio_decision what-changed). Module lists are the launcher's ordered lists: PATHWAY_MODULES minus CP-MODEL and CP-8, ordered by deploy_vii.registry.plan. Clean scenarios declare legal documents executed (with an executed agreement) only where CP-4 is in the pathway, give peers (user_list) where CP-1C is, ratings where CP-2H is, an observed quote where CP-3 or CP-3D is, and a portfolio workbook with a portfolio file for portfolio_decision. Wording of Will refuse and Run-without is open (A-live); the Portfolio Decision workbook-false Gap row is not keyed because its scope (module or pathway) is open.",
+ "note": "synthetic scenarios; hand-written. Outcomes are per scope; every requested module not listed under expected.modules is Ready. Counted = counted for acceptance (Will refuse, Gap, Limited, Check); Information and inherited rows are not counted. Row fields: rule (short id), outcome, counted, optional detail, section, inherited (true) and inherited_from (the direct producers whose effective outcome is non-Ready, in module order; compare as a set). Assumptions the plan leaves open, applied consistently: (1) only Will refuse and Limited propagate; Gap and Check never do; (2) propagation is transitive through effective outcomes (a consumer inherits from each direct producer's effective outcome), one inherited row per consumer; (3) the CP-1 chart-strip row (id CP-1:chart-strip-usd, propagates false) does not propagate; (4) one section-omitted row per omitted report section, from _layout observed offline at write time (omitted: credit_snapshot what-changed; earnings_update company-profile, portfolio-fit, what-changed; relative_value yield-against-maturity, what-changed; covenant_refinancing none; distressed_restructuring liquidity-runway, portfolio-fit, what-changed; portfolio_decision what-changed). Module lists are the launcher's ordered lists: PATHWAY_MODULES minus CP-MODEL and CP-8, ordered by deploy_vii.registry.plan. Clean scenarios declare legal documents executed (with an executed agreement) only where CP-4 is in the pathway, give peers (user_list) where CP-1C is, ratings where CP-2H is, an observed quote where CP-3 or CP-3D is, and a portfolio workbook with a portfolio file for portfolio_decision. Wording of Will refuse and Run-without is open (A-live). Portfolio workbook declared false: Gap on CP-6 (scenario rule-portfolio-workbook-false; justification in its note).",
  "scenarios": [
   {
    "id": "rf1-draft-declared",
@@ -372,12 +372,14 @@
    "expected": {
     "run": [],
     "modules": {
-     "CP-1 chart strip": [
+     "CP-1": [
       {
-       "rule": "cp1-chart-strip-non-usd",
+       "rule": "chart-strip-usd",
        "outcome": "Limited",
        "counted": true,
-       "detail": "charts are US$m only; no USD labels invented"
+       "id": "CP-1:chart-strip-usd",
+       "propagates": false,
+       "detail": "chart strip is US$m only; no USD labels invented"
       }
      ],
      "CP-2D": [
@@ -414,7 +416,7 @@
     "counted_total": 2,
     "without": []
    },
-   "note": "'CP-1 chart strip' is a separate scope from CP-1 and is assumed not to propagate to consumers (see report). Declared USD labels must not be invented."
+   "note": "The CP-1 row is the chart strip only (id CP-1:chart-strip-usd, propagates false): it does not propagate to CP-1's consumers (coordinator ruling). Declared USD labels must not be invented."
   },
   {
    "id": "rf6-investment-grade",
@@ -956,6 +958,68 @@
     "without": []
    },
    "note": "No financial report, earnings release or offering document with financial pages recognised: CP-1 Check and the run-level Check."
+  },
+  {
+   "id": "rule-portfolio-workbook-false",
+   "focus": "rule",
+   "origin": "synthetic",
+   "pathway": "portfolio_decision",
+   "run_type": "secondary",
+   "modules": [
+    "CP-0",
+    "CP-1",
+    "CP-1A",
+    "CP-2",
+    "CP-3",
+    "CP-5",
+    "CP-6"
+   ],
+   "context": {
+    "issue_classification": "high_yield",
+    "reporting_currency": "USD",
+    "legal_documents": "none",
+    "management_bridge": false,
+    "portfolio_workbook": false,
+    "prior_case": false,
+    "peer_source": "none",
+    "quotes": [
+     {
+      "kind": "observed"
+     }
+    ],
+    "talk": false,
+    "ratings": 0,
+    "deal_terms": 0
+   },
+   "documents": [
+    {
+     "name": "annual-report-10-K.pdf",
+     "kind": "financial_report",
+     "executed": null
+    }
+   ],
+   "expected": {
+    "run": [
+     {
+      "rule": "section-omitted",
+      "outcome": "Information",
+      "counted": false,
+      "section": "what-changed"
+     }
+    ],
+    "modules": {
+     "CP-6": [
+      {
+       "rule": "portfolio-workbook-false",
+       "outcome": "Gap",
+       "counted": true
+      }
+     ]
+    },
+    "counted_total": 1,
+    "without": []
+   },
+   "note": "Scope CP-6 (coordinator ruling: the module whose method reads the workbook). Justification: docs/reuse/selected-methods/skills/cp-6-ic-debate-challenge/SKILL.md line 343, 'REF_CP-6A_Portfolio_Debate_Inputs.xlsx is the live consolidated portfolio reference' (CP-6 absorbs CP-6A; METHODS maps CP-6 to that SKILL.md; CP-5 and CP-3 methods name no workbook). Gap does not propagate."
   },
   {
    "id": "rule-cp4-final-offering-memorandum",

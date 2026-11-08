@@ -39,6 +39,7 @@ if sys.argv[1]=='review':
  print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True,'cap_usd':job['cap_usd'],'max_turns':job['max_turns'],'resume_of':job.get('resume_of')}))
 else:
  with (folder/'synthetic-starts.txt').open('a') as stream: stream.write('one\n')
+ while (folder/'hold').exists(): time.sleep(.02)
  time.sleep(.15)
  (folder/'status.json').write_text(json.dumps({'state':'stopped','message':'Synthetic worker seam only; no provider called.'}))
 `
@@ -1843,5 +1844,174 @@ func TestResumeRefusesAListedSourceThatIsNowALink(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(filepath.Join(root, "intake")); len(entries) != 1 {
 		t.Fatalf("a refused resume left %d intake folders", len(entries))
+	}
+}
+
+// fakeClock is a settable clock for one app, safe for the goroutines that read it.
+type fakeClock struct {
+	mu  sync.Mutex
+	now time.Time
+}
+
+func (c *fakeClock) read() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.now }
+func (c *fakeClock) add(d time.Duration) {
+	c.mu.Lock()
+	c.now = c.now.Add(d)
+	c.mu.Unlock()
+}
+
+func TestAFinishedRunNotifiesNativelyOnlyWhenNoTabWatches(t *testing.T) {
+	origin := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name      string
+		pollFirst bool // a list request before the finish (a tab that was open and then closed)
+		pollAfter bool // a list request while finishJob waits (a throttled hidden tab)
+		want      int
+	}{
+		{"A poll after the finish gives no native notice", true, true, 0},
+		{"No poll at all gives one native notice", false, false, 1},
+		{"A poll only before the finish gives one native notice", true, false, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			app, root := testApp(t)
+			app.engine = fakeEngine(t)
+			clock := &fakeClock{now: origin}
+			app.now = clock.read
+			var mu sync.Mutex
+			var calls [][2]string
+			app.notifier = func(title, body string) error {
+				mu.Lock()
+				defer mu.Unlock()
+				calls = append(calls, [2]string{title, body})
+				return nil
+			}
+			pauses := 0
+			app.pause = func(d time.Duration) {
+				pauses++ // only the finishJob goroutine calls pause
+				if c.pollAfter && pauses == 3 {
+					clock.add(d)
+					call(app, "GET", "/api/runs/list", "")
+					return
+				}
+				clock.add(d)
+			}
+			done := make(chan struct{})
+			app.onFinished = func(string) { close(done) }
+			var review map[string]any
+			_ = json.Unmarshal(reviewRequest(t, app, `["annual.txt"]`).Body.Bytes(), &review)
+			id := review["id"].(string)
+			hold := filepath.Join(root, "intake", id, "hold")
+			if err := os.WriteFile(hold, nil, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
+				t.Fatal(start.Code)
+			}
+			if c.pollFirst {
+				if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
+					t.Fatal(list.Code)
+				}
+			}
+			clock.add(time.Second) // time passes between that poll and the finish
+			if err := os.Remove(hold); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("finishJob did not return")
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(calls) != c.want {
+				t.Fatalf("%d native notices, want %d: %v", len(calls), c.want, calls)
+			}
+			if c.want == 1 && calls[0] != [2]string{"Issuer Library", "Run stopped"} {
+				t.Fatalf("notice %v", calls[0])
+			}
+		})
+	}
+}
+
+const activityLines = `{"at":"2026-11-08T09:00:00Z","event":"module_started","module":"CP-0"}
+{"at":"2026-11-08T09:00:01Z","event":"turn","module":"CP-0","turn":1,"max_turns":24,"spent_usd":"0.00","held_usd":"5.73","cap_usd":"10"}
+{"at":"2026-11-08T09:00:02Z","event":"draft_rejected","module":"CP-0","writes_left":2}
+{"at":"2026-11-08T09:00:03Z","event":"module_accepted","module":"CP-0"}
+{"at":"2026-11-08T09:00:04Z","event":"delivery_started"}
+{"at":"2026-11-08T09:00:05Z","event":"delivered"}
+`
+
+type eventsBody struct {
+	Events   []map[string]any `json:"events"`
+	Complete bool             `json:"complete"`
+}
+
+func getEvents(t *testing.T, app *Application) (int, eventsBody, string) {
+	t.Helper()
+	response := call(app, "GET", "/api/runs/events?id="+eventsID, "")
+	var body eventsBody
+	if response.Code == 200 {
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return response.Code, body, response.Body.String()
+}
+
+func TestRunEventsEndpointListsEveryEventWithItsFields(t *testing.T) {
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || len(body.Events) != 6 || !body.Complete {
+		t.Fatalf("%d %s", code, raw)
+	}
+	if body.Events[0]["at"] != "2026-11-08T09:00:00Z" || body.Events[0]["event"] != "module_started" {
+		t.Fatalf("first event: %v", body.Events[0])
+	}
+	if body.Events[1]["held_usd"] != "5.73" || body.Events[1]["turn"] != float64(1) || body.Events[1]["max_turns"] != float64(24) {
+		t.Fatalf("turn event: %v", body.Events[1])
+	}
+	if body.Events[2]["writes_left"] != float64(2) {
+		t.Fatalf("rejected event: %v", body.Events[2])
+	}
+	if body.Events[5]["event"] != "delivered" {
+		t.Fatalf("last event: %v", body.Events[5])
+	}
+}
+
+func TestRunEventsEndpointDropsATruncatedLastLine(t *testing.T) {
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines[:strings.LastIndex(strings.TrimSuffix(activityLines, "\n"), "\n")+1]+`{"event":"tur`)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || len(body.Events) != 5 || body.Complete {
+		t.Fatalf("%d %s", code, raw)
+	}
+}
+
+func TestRunEventsEndpointWithoutALogIsAnEmptyList(t *testing.T) {
+	app, root := testApp(t)
+	if code, _, _ := getEvents(t, app); code != 404 {
+		t.Fatalf("neither file: %d", code)
+	}
+	writeJob(t, root, eventsID, "running", time.Now())
+	code, _, raw := getEvents(t, app)
+	if code != 200 || strings.TrimSpace(raw) != `{"events":[],"complete":true}` {
+		t.Fatalf("%d %s", code, raw)
+	}
+}
+
+func TestRunEventsStopsAtTheReadLimit(t *testing.T) {
+	saved := eventsLimit
+	eventsLimit = 300
+	t.Cleanup(func() { eventsLimit = saved })
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || body.Complete || len(body.Events) == 0 || len(body.Events) >= 6 {
+		t.Fatalf("%d %s", code, raw)
 	}
 }

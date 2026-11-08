@@ -241,7 +241,7 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
 
 ## Development and reproducible packaging
 
-Build requires Go 1.26.0 to 1.26.5 and Python 3.13. Windows runtime dependencies are bundled.
+Build requires Go 1.24 (or newer) and Python 3.13. Windows runtime dependencies are bundled.
 Tests that use jsdom need Node.js 26.12.1 or lower.
 
 ### Run from source

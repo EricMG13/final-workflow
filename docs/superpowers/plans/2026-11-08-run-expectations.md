@@ -78,7 +78,7 @@ asks the coordinator first; the change lands here before it lands in code.
                   "signal": "found 'CREDIT AGREEMENT' on page 1", "executed": null, "period_end": null}],
    "expectations": [{"id": "CP-4:legal-none", "scope": "CP-4", "outcome": "will_refuse",
                      "reason": "…", "fix": "…", "basis": "…", "evidence": "per method",
-                     "counted": true, "inherited_from": null}],
+                     "counted": true, "inherited_from": []}],
    "counted": ["CP-4:legal-none"],
    "without": {"CP-4": ["CP-4", "CP-6"]}}
   ```
@@ -87,6 +87,7 @@ asks the coordinator first; the change lands here before it lands in code.
     Will refuse, Gap, Limited, Check, Information, Ready).
   - `id` is `<scope>:<rule key>`, `scope` a module id or `run`; an inherited row is
     `<consumer>:from:<producer>`. Ids are stable for the same inputs, so review and Start agree.
+    An inherited row is one per consumer: its id is `<consumer>:from:<first producer in module order>` and `inherited_from` lists every producer whose outcome propagates to it.
   - `evidence`: `per method`, `observed offline`, `observed live`.
 - The Start request gains `accept_limitations` (boolean). `start-authorization.md` keeps its lines
   and adds `accepted: <ids, comma-separated>` (or `accepted: none`), using the review's `counted`.

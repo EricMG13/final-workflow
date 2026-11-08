@@ -292,3 +292,16 @@ has an issue. These are the fixes it can print:
 
 Keep real portfolio files out of Git. They belong in your environment's pack root, not in this
 repository.
+
+## Run context form (`context-form.html`, `context.json`, schema `context/1`)
+
+The form writes `context.json`; `src/deploy_workflow/context.py` reads it, and the form's `build()` is the
+normative rule set. New optional fields, each omitted from the file when empty (so older files load
+and re-save unchanged; a file that uses one needs this version or later):
+
+- `identity.issue_classification`: `investment_grade` or `high_yield`. The form requires a choice
+  (nothing preselected); the reader accepts a file without it.
+- `deal_terms[].coupon_pct`, `margin_bps` (plain non-negative numbers, no sign or unit) and `maturity`
+  (`YYYY-MM-DD`). Facility rows are allowed on every run type and required (at least one) for Primary only.
+  Tenor and price talk are shown for Primary only; the form writes them blank on other run types.
+- `attachments.legal_documents` has no preselected choice in the form (`executed`, `draft` or `none`).

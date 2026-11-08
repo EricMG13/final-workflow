@@ -19,7 +19,6 @@ Json = dict[str, Any]
 _NUMBER = re.compile(r"-?\d[\d,]*(\.\d+)?")
 _KEY = re.compile(r'^("(?:[^"\\]|\\.)*"):\s*(.*)$')
 _TERM_FIELDS = (
-    ("size_m", ""),
     ("tenor_years", "years"),
     ("talk_spread_bps_low", "bps"),
     ("talk_spread_bps_high", "bps"),
@@ -49,6 +48,7 @@ _TABLES = {
         (("cash", "Cash"), ("undrawn", "Undrawn committed facilities")),
     ),
 }
+_HEADINGS = {f"### Chart data: {t[0]}": k for k, t in _TABLES.items()}
 _BASIS_USER = "Entered by the user in the run context"
 
 
@@ -71,9 +71,10 @@ class _Row(NamedTuple):
 
 
 class _Delivery(NamedTuple):
-    folder: str
+    folder: Path
     doc: _Doc
     files: dict[str, str]
+    report: _Doc | None
 
 
 def _doc(root: Path, rel: str) -> _Doc:
@@ -130,25 +131,27 @@ def _key_paths(lines: list[str]) -> dict[tuple[Any, ...], list[int]]:
         top = stack[-1] if stack else None
         if text in ("}", "]"):
             stack.pop()
-        elif text == "{":
-            index = top[2] if top else None
-            if top:
-                top[2] += 1
-            stack.append([index, False, 0])
-        elif top and top[1]:
-            top[2] += 1  # a scalar array element
-        elif match := _KEY.match(text):
-            key = json.loads(match[1])
-            path = tuple(f[0] for f in stack if f[0] is not None) + (key,)
+            continue
+        match = None if top and top[1] else _KEY.match(text)
+        if match:
+            part, opener = json.loads(match[1]), match[2]
+            path = tuple(f[0] for f in stack if f[0] is not None) + (part,)
             found.setdefault(path, []).append(number)
-            if match[2] in ("{", "["):
-                stack.append([key, match[2] == "[", 0])
+        else:
+            part, opener = None, text
+            if top and top[1]:  # an array element: its index is its path component
+                part, top[2] = top[2], top[2] + 1
+        if opener in ("{", "["):
+            stack.append([part, opener == "[", 0])
     return found
 
 
+def _only[T](items: list[T]) -> T | None:
+    return items[0] if len(items) == 1 else None
+
+
 def _line_of(doc: _Doc, *path: Any) -> int | None:
-    found = _key_paths(doc.lines).get(path, [])
-    return found[0] if len(found) == 1 else None
+    return _only(_key_paths(doc.lines).get(path, []))
 
 
 class _Sink:
@@ -167,10 +170,10 @@ class _Sink:
         return key
 
     def ctx(self, key: str, *path: Any) -> str | None:
-        found = self._paths.get(path, [])
-        return self.pin(key, self._context, found[0] if len(found) == 1 else None)
+        return self.pin(key, self._context, _only(self._paths.get(path, [])))
 
     def evidence(self, items: list[_Item]) -> list[str]:
+        """Pin every item and return the keys; no evidence at all if any cannot be pinned."""
         if not items or any(doc is None or line is None for _, doc, line in items):
             return []
         return [str(self.pin(key, doc, line)) for key, doc, line in items if doc]
@@ -187,8 +190,7 @@ def _chart_rows(doc: _Doc) -> dict[str, list[_Row]]:
     for number, line in enumerate(doc.lines, 1):
         text = line.strip()
         if text.startswith("#"):
-            names = {f"### Chart data: {t[0]}": k for k, t in _TABLES.items()}
-            current, header = names.get(text, ""), None
+            current, header = _HEADINGS.get(text, ""), None
             if current:
                 tables[current] = []
         elif current and text.startswith("|"):
@@ -217,9 +219,11 @@ def _row_metrics(table: str, row: _Row) -> Json:
 def _chart_metrics(doc: _Doc | None, as_of: str, period: str, sink: _Sink) -> Json:
     metrics: Json = {}
     for table, rows in (_chart_rows(doc) if doc else {}).items():
-        row = _chosen_row(rows, as_of, period, table != "cp1_liquidity" and period[:3] != "fy-")
-        found = _row_metrics(table, row) if row and doc else {}
-        if found and doc and row and sink.pin(table, doc, row.line):
+        interim = not period.startswith("fy-") and table != "cp1_liquidity"
+        row = _chosen_row(rows, as_of, period, interim)
+        found = _row_metrics(table, row) if doc and row else {}
+        if found and doc and row:
+            sink.pin(table, doc, row.line)
             metrics |= found
     return metrics
 
@@ -239,7 +243,7 @@ def _facility(fid: str, deals: list[Json], quotes: list[Json], sink: _Sink, cur:
     terms: Json = {}
     for i, deal in enumerate(deals):
         if deal.get("facility_id") == fid:
-            fields = (("size_m", f"{deal.get('currency') or cur} m"), *_TERM_FIELDS[1:])
+            fields = (("size_m", f"{deal.get('currency') or cur} m"), *_TERM_FIELDS)
             terms = _user_terms(sink, deal, fields, f"ctx_term_{i}", ("deal_terms", i))
             break
     shown = [
@@ -260,22 +264,17 @@ def _facilities(ctx: Json, sink: _Sink, currency: str) -> list[Json]:
 
 
 def _ratings(ctx: Json, sink: _Sink) -> list[Json]:
-    out = []
-    for i, rating in enumerate(_rows(ctx, "ratings", "context")):
-        source = (
-            sink.ctx(f"ctx_rating_{i}", "ratings", i, "rating") if rating.get("rating") else None
-        )
-        if source:
-            out.append(
-                {
-                    "label": rating["rating"],
-                    "date": rating.get("as_of", ""),
-                    "agency": rating.get("agency", ""),
-                    "scope": rating.get("scope", ""),
-                    "source": source,
-                }
-            )
-    return out
+    return [
+        {
+            "label": r["rating"],
+            "date": r.get("as_of", ""),
+            "agency": r.get("agency", ""),
+            "scope": r.get("scope", ""),
+            "source": src,
+        }
+        for i, r in enumerate(_rows(ctx, "ratings", "context"))
+        if r.get("rating") and (src := sink.ctx(f"ctx_rating_{i}", "ratings", i, "rating"))
+    ]
 
 
 def _gaps(expectations: Json, published: bool) -> list[str]:
@@ -306,93 +305,71 @@ def _deliveries(root: Path, base: str) -> list[_Delivery]:
     for path in sorted((root / base / "deliveries").glob("*/delivery.json")):
         doc, data = _load(root, path.relative_to(root).as_posix())
         files = _need(data, "files", dict, doc.rel)
-        out.append(_Delivery(path.parent.name, doc, files))
+        out.append(_Delivery(path.parent, doc, files, _doc_if(path.parent, "report.html")))
     return out
 
 
 def _chosen(deliveries: list[_Delivery], receipt_sha: str | None) -> _Delivery | None:
     if receipt_sha is None:
         return deliveries[0] if len(deliveries) == 1 else None
-    hits = [d for d in deliveries if d.files.get("report.html") == receipt_sha]
-    return hits[0] if len(hits) == 1 else None
+    return _only([d for d in deliveries if d.files.get("report.html") == receipt_sha])
 
 
 def _requirement(rid: str, stage: str, evidence: list[str]) -> Json:
     return {"id": rid, "stage": stage, "done": bool(evidence), "evidence": evidence}
 
 
-def _downstream(
-    sink: _Sink, root: Path, base: str, chosen: _Delivery, handoffs: dict[str, _Doc | None]
-) -> list[str]:
+def _downstream(chosen: _Delivery | None, handoffs: dict[str, _Doc | None]) -> list[_Item]:
     items: list[_Item] = []
     for module, handoff in handoffs.items():
-        copy = _doc_if(root, f"{base}/deliveries/{chosen.folder}/{module}.md")
-        stated = chosen.files.get(f"{module}.md")
-        ok = handoff and copy and stated == handoff.sha == copy.sha
+        if chosen is None:
+            break
+        copy = _doc_if(chosen.folder, f"{module}.md")
+        ok = handoff and copy and chosen.files.get(f"{module}.md") == handoff.sha == copy.sha
         line = _line_of(chosen.doc, "files", f"{module}.md") if ok else None
         items.append((f"delivery_{module}", chosen.doc, line))
-    return sink.evidence(items)
+    return items
 
 
-class _Run(NamedTuple):
-    root: Path
-    base: str
-    handoffs: dict[str, _Doc | None]
-    workflow: tuple[_Doc, Json]
-    receipt: tuple[_Doc, Json] | None
-    chosen: _Delivery | None
-
-
-def _report(run: _Run) -> _Doc | None:
-    if run.chosen is None:
-        return None
-    return _doc_if(run.root, f"{run.base}/deliveries/{run.chosen.folder}/report.html")
-
-
-def _checklist(run: _Run, run_id: str, sink: _Sink) -> Json:
-    wf_doc, wf_data = run.workflow
-    first = next(iter(wf_data["sources"]), None)
-    wf_line = _line_of(wf_doc, "sources", first, "sha256") if first else None
-    reqs = [
-        _requirement(
-            "sources", "sources", sink.evidence([("wf_source_0", wf_doc, wf_line)] if first else [])
-        )
-    ]
-    for module, handoff in run.handoffs.items():
-        step: list[_Item] = [(f"handoff_{module}", handoff, 1)] if handoff else []
-        reqs.append(_requirement(f"analysis-{module}", "analysis", sink.evidence(step)))
-    report, receipt = _report(run), run.receipt
+def _requirements(
+    sink: _Sink,
+    sources: list[str],
+    handoffs: dict[str, _Doc | None],
+    receipt: tuple[_Doc, Json] | None,
+    chosen: _Delivery | None,
+) -> list[Json]:
+    reqs = [_requirement("sources", "sources", sources)]
+    for module, handoff in handoffs.items():
+        found: list[_Item] = [(f"handoff_{module}", handoff, 1)] if handoff else []
+        reqs.append(_requirement(f"analysis-{module}", "analysis", sink.evidence(found)))
+    report = chosen.report if chosen else None
     verified = receipt and report and receipt[1]["report_sha256"] == report.sha
-    found: list[_Item] = (
+    found = (
         [("receipt_report", receipt[0], _line_of(receipt[0], "report_sha256"))]
-        if receipt and verified
+        if verified and receipt
         else []
     )
     reqs.append(_requirement("verification", "verification", sink.evidence(found)))
-    chosen = run.chosen
-    down = (
-        _downstream(sink, run.root, run.base, chosen, run.handoffs)
-        if chosen and run.handoffs
-        else []
+    reqs.append(
+        _requirement("downstream", "downstream", sink.evidence(_downstream(chosen, handoffs)))
     )
-    reqs.append(_requirement("downstream", "downstream", down))
     shipped = chosen and report and chosen.files.get("report.html") == report.sha
     found = (
         [("delivery_report", chosen.doc, _line_of(chosen.doc, "files", "report.html"))]
-        if chosen and shipped
+        if shipped and chosen
         else []
     )
     reqs.append(_requirement("delivery", "delivery", sink.evidence(found)))
-    return {"scope": f"App run {run_id}: requested modules and delivery", "requirements": reqs}
+    return reqs
 
 
 def _identity(ctx: Json, sink: _Sink, run: Json) -> Json:
     ident = _need(ctx, "identity", dict, "context")
     name = _need(ident, "issuer_name", str, "context identity")
-    out: Json = {"issuer": _need(ident, "issuer_id", str, "context identity")}
     source = sink.ctx("ctx_identity", "identity", "issuer_name")
     if source is None:
         raise ManifestError("context: issuer_name is not on exactly one line")
+    out: Json = {"issuer": _need(ident, "issuer_id", str, "context identity")}
     out |= {"name": name, "identity_source": source}
     sector = ident.get("sector") or ""
     source = sink.ctx("ctx_sector", "identity", "sector") if sector else None
@@ -409,13 +386,6 @@ def _identity(ctx: Json, sink: _Sink, run: Json) -> Json:
     return out
 
 
-def _handoff_path(handoffs: dict[str, _Doc | None]) -> str | None:
-    cp1 = handoffs.get("CP-1")
-    first = next((d for d in handoffs.values() if d), None)
-    doc = cp1 or first
-    return doc.rel if doc else None
-
-
 def build(workspace: Path, run_id: str) -> Json:
     """Return the `issuer-library-run/1` manifest of `runs/<run_id>/`; raise `ManifestError`."""
     if not run_id or run_id in (".", "..") or Path(run_id).name != run_id:
@@ -428,29 +398,34 @@ def build(workspace: Path, run_id: str) -> Json:
     for key in ("pathway", "as_of", "current_period", "reporting_currency", "case_kind"):
         _need(ctx_run, key, str, "context run")
     modules = _need(_need(wf, "run", dict, "workflow"), "requested_modules", list, "workflow")
-    _need(wf, "sources", dict, "workflow")
+    first = next(iter(_need(wf, "sources", dict, "workflow")), None)
     receipt = _receipt(workspace, base)
     chosen = _chosen(_deliveries(workspace, base), receipt[1]["report_sha256"] if receipt else None)
     handoffs = {m: _doc_if(workspace, f"{base}/{m}.md") for m in modules}
+    cp1 = _doc_if(workspace, f"{base}/CP-1.md")
     sink = _Sink(ctx_doc, ctx_run["as_of"])
-    workflow = ctx_run["pathway"].replace("_", " ").capitalize()
     period, as_of = ctx_run["current_period"], ctx_run["as_of"]
+    text = ctx_run["pathway"].replace("_", " ")
+    workflow = text[:1].upper() + text[1:]
     run: Json = {"id": run_id} | _identity(ctx, sink, ctx_run)
     run |= {"workflow": workflow, "title": f"{workflow} as of {as_of}", "date": as_of}
     run |= {"period": period, "period_kind": "Annual" if period.startswith("fy-") else "Interim"}
     run["currency"] = ctx_run["reporting_currency"]
     run["summary"] = receipt[1]["scope"] if receipt else "No completion receipt for this run."
-    if handoff := _handoff_path(handoffs):
-        run["handoff"] = handoff
+    if handoff := cp1 or next((d for d in handoffs.values() if d), None):
+        run["handoff"] = handoff.rel
     published = bool(receipt and receipt[1].get("cp_model_published") is True)
     run |= {"gaps": _gaps(expectations, published), "artifacts": []}
-    run |= {
-        "ratings": _ratings(ctx, sink),
-        "facilities": _facilities(ctx, sink, ctx_run["reporting_currency"]),
+    run["ratings"] = _ratings(ctx, sink)
+    run["facilities"] = _facilities(ctx, sink, ctx_run["reporting_currency"])
+    run["metrics"] = _chart_metrics(cp1, as_of, period, sink)
+    line = _line_of(wf_doc, "sources", first, "sha256") if first else None
+    sources = sink.evidence([("wf_source_0", wf_doc, line)] if first else [])
+    scope = f"App run {run_id}: requested modules and delivery"
+    checklist = {
+        "scope": scope,
+        "requirements": _requirements(sink, sources, handoffs, receipt, chosen),
     }
-    run["metrics"] = _chart_metrics(handoffs.get("CP-1"), as_of, period, sink)
-    state = _Run(workspace, base, handoffs, (wf_doc, wf), receipt, chosen)
-    checklist = _checklist(state, run_id, sink)
     return {"schema": SCHEMA, "run": run, "sources": sink.sources, "checklist": checklist}
 
 

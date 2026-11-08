@@ -1061,13 +1061,16 @@ func TestWriterKeyIsAdmittedWithItsChecklist(t *testing.T) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			root := t.TempDir()
 			base := filepath.Join(dir, "workspace")
-			_ = filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+			err := filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
 				if err == nil && !d.IsDir() {
 					rel, _ := filepath.Rel(base, p)
 					copyFile(t, p, root, filepath.ToSlash(rel))
 				}
 				return err
 			})
+			if err != nil {
+				t.Fatal(err)
+			}
 			var plan []struct{ From, To string }
 			if raw, err := os.ReadFile(filepath.Join(dir, "copy.json")); err == nil {
 				if err := json.Unmarshal(raw, &plan); err != nil {
@@ -1114,8 +1117,12 @@ func TestWriterKeyIsAdmittedWithItsChecklist(t *testing.T) {
 						t.Fatal(gap)
 					}
 				}
-				if run.Checkpoints == nil || run.Checkpoints.Done != done || run.Checkpoints.Total != len(key.Checklist.Requirements) {
-					t.Fatalf("checkpoints %v, want %d/%d", run.Checkpoints, done, len(key.Checklist.Requirements))
+				total := len(key.Checklist.Requirements)
+				if run.Checkpoints == nil || run.Checkpoints.Done != done || run.Checkpoints.Total != total {
+					t.Fatalf("checkpoints %v, want %d/%d", run.Checkpoints, done, total)
+				}
+				if run.Completion == nil || *run.Completion != done*100/total {
+					t.Fatalf("completion %v, want %d", run.Completion, done*100/total)
 				}
 				return
 			}

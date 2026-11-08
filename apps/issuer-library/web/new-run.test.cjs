@@ -4,16 +4,16 @@ const {JSDOM,VirtualConsole}=require(process.env.ISSUER_LIBRARY_JSDOM||'jsdom');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const context=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../../cases/context/research-minimal.json'),'utf8'));
 const settle=()=>new Promise(resolve=>setTimeout(resolve,10));
-const ID='web-'+'a'.repeat(32);
+const ID='web-'+'a'.repeat(32),ID2='web-'+'c'.repeat(32);
 const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'started',spent_usd:'0.10'}};
 const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
 const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 31 March 2025 · ${ID}`;
 function reviewReply(ready){return{ok:true,id:ID,review_id:'b'.repeat(64),issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness',purpose:'Check issuer files'},{id:'CP-1',title:'Financial analysis',purpose:'Read financial statements'}],config:'sol-medium',provider:'openai',model:'gpt-6.1-sol',effort:'medium',cap_usd:'10.00',hold_usd:'1.86',max_turns:7,prices_as_of:'2026-11-01',provider_ready:ready,provider_key:'OPENAI_API_KEY',sources:[{path:'filings/annual.txt',sha256:'c'.repeat(64)}],ignored:['chart.png'],report_sections:['liquidity-runway'],omitted:['lme-chart'],scope:'User-launched run; analytical accuracy has not been independently reviewed.'};}
-async function page(t,{ready=true,startFails=false,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
+async function page(t,{ready=true,startFails=false,resume=null,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
   const errors=[],calls=[];let starts=0;const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-NewRun/run',runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};const timers=new Map(),started=[],cleared=[];let nextTimer=1;win.setInterval=fn=>{timers.set(nextTimer,fn);started.push(nextTimer);return nextTimer++;};win.clearInterval=id=>{cleared.push(id);timers.delete(id);};
-  const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
+  const replies={'/api/runs/list':()=>list,'/api/runs/review':()=>reviewReply(ready),'/api/runs/resume':()=>resume||{...reviewReply(ready),id:ID2,resume_of:ID,retained_modules:['CP-0']},'/api/runs/start':()=>{starts++;if(startFails)throw new Error('lost');return{state:'running',id:ID};}};
   win.fetch=async(url,options)=>{calls.push({url,options});const body=url.startsWith('/api/runs/status')?()=>status():replies[url];return{ok:true,json:async()=>body()};};
   const current=status;status=()=>win.__status||current;
   win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
@@ -284,4 +284,59 @@ test('a status reply for a run the reader has left changes neither the screen no
   const before=asked.length;
   await p.tick();
   assert.ok(asked.slice(before).includes(OTHER),'B is still polled');
+});
+
+const ROW_STOPPED={id:ID,state:'stopped',reason:'budget',message:'CP-1 stopped.',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',cap_usd:'10.00',max_turns:32,modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'stopped',accepted:1,spent_usd:'4.00'}};
+async function openRow(p){
+  await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
+  p.doc.querySelector('#recent-jobs button.text-button').click();await settle();
+}
+test('a stopped run offers a resume that goes through review and confirmation',async t=>{
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
+  await openRow(p);
+  const budget=p.doc.getElementById('resume-budget');
+  assert.equal(p.doc.getElementById('resume-run').hidden,false);assert.equal(budget.value,'10.00');
+  budget.value='12.50';await p.click('resume-run');
+  const posted=p.calls.filter(call=>call.url==='/api/runs/resume');
+  assert.equal(posted.length,1);
+  assert.deepEqual(JSON.parse(posted[0].options.body),{id:ID,cap_usd:'12.50',max_turns:32});
+  assert.equal(p.doc.getElementById('review-step').hidden,false);
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. Retained without a new model call: Source readiness.`));
+  assert.equal(p.starts(),0);assert.equal(p.doc.getElementById('start-run').disabled,true);
+  p.confirm();assert.equal(p.doc.getElementById('start-run').disabled,false);
+  await p.click('start-run');
+  assert.equal(p.starts(),1);
+  const start=JSON.parse(p.calls.find(call=>call.url==='/api/runs/start').options.body);
+  assert.deepEqual(start,{id:ID2,review_id:'b'.repeat(64),confirm:true});
+});
+test('a complete or running run offers no resume',async t=>{
+  for(const row of [{...ROW_STOPPED,state:'complete'},{...ROW_RUNNING}]){
+    const p=await page(t,{list:[row],status:row});
+    await openRow(p);
+    assert.equal(p.doc.getElementById('resume-run').hidden,true);assert.equal(p.doc.getElementById('resume-field').hidden,true);
+  }
+});
+test('a resume with nothing accepted says every module runs again',async t=>{
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:[]}});
+  await openRow(p);await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. No module of it was accepted; every module runs again.`));
+});
+test('a refused resume shows its problems and stays on progress',async t=>{
+  const refusal="The stopped run's inputs are no longer in the workspace";
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{ok:false,problems:[refusal]}});
+  await openRow(p);await p.click('resume-run');
+  assert.equal(p.doc.getElementById('new-run-message').textContent,refusal);
+  assert.equal(p.doc.getElementById('progress-step').hidden,false);assert.equal(p.doc.getElementById('review-step').hidden,true);
+});
+test('a resume that stops its retained work early says why',async t=>{
+  const note='Retained work stops before Financial analysis: its instructions changed since the stopped run.';
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:['CP-0'],retained_note:note}});
+  await openRow(p);await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. Retained without a new model call: Source readiness. ${note}`));
+});
+test('a resume that keeps nothing says why and that every module runs again',async t=>{
+  const note='Retained work stops before Source readiness: its sources or context changed since the stopped run.';
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:[],retained_note:note}});
+  await openRow(p);await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. ${note} Every module runs again.`));
 });

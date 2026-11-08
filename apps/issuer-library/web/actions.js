@@ -35,6 +35,47 @@ function spendText(status){
   if(spent==='unknown')return 'Recorded spend could not be read; it may be above zero.';
   return p.cap_usd!=null&&p.held_usd!=null&&WORKFLOW_ACTIVE.includes(status.state)?`Recorded spend: USD ${spent} of a USD ${p.cap_usd} cap; the next call holds USD ${p.held_usd}`:`Recorded spend: USD ${spent}`;
 }
+// One line of a run's event log, in words.
+function eventText(event,titleOf){
+  const title=titleOf(event.module);
+  switch(event.event){
+    case 'module_started':return `Started ${title}`;
+    case 'turn':return `Turn ${event.turn} of ${event.max_turns} · spend USD ${event.spent_usd} of USD ${event.cap_usd}; this call holds USD ${event.held_usd}`;
+    case 'draft_rejected':return `Draft of ${title} rejected · ${event.writes_left} ${event.writes_left===1?'write':'writes'} left`;
+    case 'module_accepted':return `Accepted ${title}`;
+    case 'delivery_started':return 'Delivery started';
+    case 'delivered':return 'Report delivered';
+    case 'stopped':return STOP_COPY[event.reason]||`Stopped (${event.reason})`;
+    default:return String(event.event);
+  }
+}
+// Fills the Run activity section of an app run from its status and its event log. No retry: a
+// failed fetch is said on the page.
+async function loadRunActivity(section){
+  const id=section.dataset.run,hint=section.querySelector('.hint');
+  try{
+    const status=await appRequest(`/api/runs/status?id=${encodeURIComponent(id)}`),record=await appRequest(`/api/runs/events?id=${encodeURIComponent(id)}`);
+    const modules=Array.isArray(status.modules)?status.modules:[],details=Array.isArray(status.module_details)?status.module_details:[];
+    const titleOf=code=>details.find(item=>item?.id===code)?.title||code||'';
+    const head=stopText(status),desc=describeModule(status,modules,titleOf),events=Array.isArray(record.events)?record.events:[];
+    const parts=[textNode('p',desc?`${head} · ${desc}`:head),textNode('p',spendText(status))];
+    parts[0].className='activity-summary';
+    if(events.length){
+      const table=document.createElement('table');table.className='activity-log';
+      table.append(textNode('caption','Events (UTC)'));
+      const headRow=document.createElement('tr');headRow.append(textNode('th','Time'),textNode('th','Event'));
+      const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
+      const body=table.appendChild(document.createElement('tbody'));
+      for(const event of events){const row=document.createElement('tr');row.append(textNode('td',String(event.at||'').slice(11,19)),textNode('td',eventText(event,titleOf)));body.append(row);}
+      parts.push(table);
+    }else parts.push(textNode('p','No events were recorded for this run.')),parts[2].className='hint';
+    if(record.complete===false){const note=textNode('p','The record is incomplete: the log was cut or stopped mid-write.');note.className='caution';parts.push(note);}
+    hint.replaceWith(...parts);
+  }catch(error){
+    const note=textNode('p',`Could not load the run record. Details: ${error.message}`);note.className='caution';
+    hint.replaceWith(note);
+  }
+}
 // The app-wide run watcher: one list request at load, then every 5 s while a run is active. It sets
 // runMark (the title prefix) and the rail mark, and notifies when a run this page saw running finishes.
 let runMark='',titleBase='';
@@ -97,6 +138,7 @@ function installNewRun(){
     $('review-run').disabled=busy||running;
     $('start-run').disabled=busy||running||!review?.provider_ready||!$('run-confirm').checked;
     $('revise-run').disabled=busy||running;
+    $('resume-run').disabled=busy||running;
     $('run-sources').disabled=busy||running;
     const wanted=(running||activeListed)&&!$('new-run').hidden;
     if(wanted&&!watch)watch=setInterval(poll,2000);
@@ -168,6 +210,12 @@ function installNewRun(){
     $('run-spend').textContent=spendText(status);
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
+    // A run that ended without a report can be reviewed again with its accepted work retained.
+    const resumable=finished&&status.state!=='complete'&&status.state!=='reviewed';
+    $('resume-field').hidden=!resumable;$('resume-run').hidden=!resumable;
+    const field=$('resume-budget');
+    // Set once per run, so a poll never overwrites what the reader typed.
+    if(resumable&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=review?.cap_usd||$('run-budget').value;}
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
     $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});
@@ -179,10 +227,19 @@ function installNewRun(){
     for(const [label,value] of [['Workflow',workflowTitle(result.pathway)],['As of',displayDate(result.as_of)],['Model',`${result.provider} ${result.model} · ${result.effort}`],['Maximum spend',`USD ${result.cap_usd}`],['Held per call',`USD ${result.hold_usd}`],['Max turns per module',String(result.max_turns)]])summary.append(textNode('dt',label),textNode('dd',value));
     const readiness=textNode('p',result.provider_ready?'Model provider configured. Review the scope and budget before starting.':`Cannot start · ${result.provider_key} is not set in the launching environment. Set it, restart the app and review again.`);
     readiness.className=result.provider_ready?'matrix-note':'caution';
+    let resumed=null;
+    if(result.resume_of){
+      const kept=Array.isArray(result.retained_modules)?result.retained_modules:[];
+      const named=kept.map(id=>result.module_details.find(item=>item.id===id)?.title||id);
+      const why=typeof result.retained_note==='string'?result.retained_note:'';
+      const head=kept.length?`Resumes run ${result.resume_of}. Retained without a new model call: ${named.join(', ')}.`:why?`Resumes run ${result.resume_of}.`:`Resumes run ${result.resume_of}. No module of it was accepted; every module runs again.`;
+      resumed=textNode('p',[head,why,kept.length||!why?'':'Every module runs again.'].filter(Boolean).join(' '));
+      resumed.className='matrix-note';
+    }
     const modules=list('ol',result.modules.map(id=>{const detail=result.module_details.find(item=>item.id===id),item=textNode('li',detail?.title||id);item.title=detail?`${id}: ${detail.purpose}`:id;return item;}));
     modules.className='review-modules';
     const ignored=result.ignored.length?result.ignored:['None'];
-    $('run-review').replaceChildren(textNode('h3',result.issuer),summary,readiness,textNode('h4','Modules to run, in order'),modules,
+    $('run-review').replaceChildren(textNode('h3',result.issuer),summary,readiness,...(resumed?[resumed]:[]),textNode('h4','Modules to run, in order'),modules,
       details(`Source files · ${result.sources.length} chosen, ${result.ignored.length} ignored`,[list('ul',result.sources.map(source=>textNode('li',`${source.path} · SHA-256 ${source.sha256}`))),textNode('h4','Ignored: no module can read these'),list('ul',ignored.map(name=>textNode('li',name)))]),
       details(`Report · ${result.report_sections.length} sections, ${result.omitted.length} not produced`,[textNode('h4','Sections this run fills'),list('ul',result.report_sections.map(name=>textNode('li',name))),textNode('h4','Sections it does not produce'),list('ul',(result.omitted.length?result.omitted:['None']).map(name=>textNode('li',name)))]),
       details('Scope and limitations',[textNode('p',result.scope),textNode('p',`The spend ceiling applies to this run folder. Each call holds up to the amount shown while in flight; this is not an estimate of total cost. Prices dated ${displayDate(result.prices_as_of)}.`)]));
@@ -245,6 +302,17 @@ function installNewRun(){
       review=result;$('run-confirm').checked=false;
       reviewSummary(result);stage('review');
     }catch(error){message('Could not prepare the run review. Check the inputs and choose Validate and review run again. Details: '+error.message);}
+    finally{busy=false;controls();}
+  });
+  $('resume-run').addEventListener('click',async()=>{
+    if(busy||running||!review?.id)return;
+    busy=true;controls();message('Checking the stopped run\'s inputs and retained work. No model call has been made…');
+    try{
+      const result=await appRequest('/api/runs/resume',{id:review.id,cap_usd:$('resume-budget').value,max_turns:Number(review.max_turns)||Number($('run-turns').value)});
+      if(!result.ok){message(result.problems.join('\n'));return;}
+      review=result;$('run-confirm').checked=false;
+      reviewSummary(result);stage('review');
+    }catch(error){message('Could not prepare the resumed run. Details: '+error.message);}
     finally{busy=false;controls();}
   });
   $('start-run').addEventListener('click',async()=>{

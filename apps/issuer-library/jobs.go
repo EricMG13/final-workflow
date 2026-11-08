@@ -18,6 +18,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -109,6 +110,8 @@ type NewJob struct {
 	Modules   []string         `json:"modules"`
 	MaxTurns  int              `json:"max_turns"`
 	Sources   []UploadedSource `json:"sources"`
+	// ResumeOf names the stopped job whose accepted handoffs this job replays.
+	ResumeOf string `json:"resume_of,omitempty"`
 }
 type JobStatus struct {
 	State   string `json:"state"`
@@ -130,7 +133,7 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	if raw, err := os.ReadFile(filepath.Join(workspace, "intake", id, "review.json")); err == nil {
 		var review map[string]any
 		if json.Unmarshal(raw, &review) == nil {
-			for _, key := range []string{"issuer", "pathway", "as_of", "modules", "module_details"} {
+			for _, key := range []string{"issuer", "pathway", "as_of", "modules", "module_details", "resume_of", "retained_modules"} {
 				if value, present := review[key]; present {
 					status[key] = value
 				}
@@ -146,19 +149,55 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	return status, true
 }
 
-// eventsLimit bounds how much of a run's event log is read.
-const eventsLimit = 4 << 20
+// eventsLimit bounds how much of a run's event log is read; a variable so tests can shorten it.
+var eventsLimit int64 = 4 << 20
 
 // runEvent is one line of runs/<id>/events.jsonl, written by the CP-OS loop. Amounts are the
 // decimal strings it wrote.
 type runEvent struct {
-	Event    string `json:"event"`
-	Module   string `json:"module"`
-	Turn     int    `json:"turn"`
-	MaxTurns int    `json:"max_turns"`
-	SpentUSD string `json:"spent_usd"`
-	HeldUSD  string `json:"held_usd"`
-	CapUSD   string `json:"cap_usd"`
+	At         string `json:"at,omitempty"`
+	Event      string `json:"event"`
+	Module     string `json:"module,omitempty"`
+	Turn       int    `json:"turn,omitempty"`
+	MaxTurns   int    `json:"max_turns,omitempty"`
+	SpentUSD   string `json:"spent_usd,omitempty"`
+	HeldUSD    string `json:"held_usd,omitempty"`
+	CapUSD     string `json:"cap_usd,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	WritesLeft *int   `json:"writes_left,omitempty"`
+}
+
+// eventLog is a run's event log as read: ok is false when an earlier line is unreadable
+// (events holds those before it), dropped when the last line was dropped as a write in
+// flight, limited when the read limit was reached.
+type eventLog struct {
+	events           []runEvent
+	ok, dropped, cut bool
+}
+
+func readEventLog(workspace, id string) (eventLog, error) {
+	file, err := os.Open(filepath.Join(workspace, "runs", id, "events.jsonl"))
+	if err != nil {
+		return eventLog{}, err
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, eventsLimit))
+	if err != nil {
+		return eventLog{}, err
+	}
+	events, ok, dropped := parseEvents(raw)
+	return eventLog{events, ok, dropped, int64(len(raw)) >= eventsLimit}, nil
+}
+
+// readRunEvents lists a run's events. complete is false when the read limit was reached, the
+// last line was dropped, or an earlier line is unreadable. A missing log is
+// (nil, true, fs.ErrNotExist).
+func readRunEvents(workspace, id string) (events []runEvent, complete bool, err error) {
+	record, err := readEventLog(workspace, id)
+	if err != nil {
+		return nil, errors.Is(err, fs.ErrNotExist), err
+	}
+	return record.events, record.ok && !record.dropped && !record.cut, nil
 }
 
 // runProgress folds a run's event log into the progress shown for it. A retained run has
@@ -168,15 +207,11 @@ type runEvent struct {
 // A log with no events yet has no progress either.
 func runProgress(workspace, id string) (map[string]any, bool) {
 	folder := filepath.Join(workspace, "runs", id)
-	if file, err := os.Open(filepath.Join(folder, "events.jsonl")); err == nil {
-		raw, readErr := io.ReadAll(io.LimitReader(file, eventsLimit))
-		file.Close()
-		if readErr == nil {
-			if events, ok := parseEvents(raw); ok && len(events) > 0 {
-				return foldEvents(events), true
-			} else if !ok {
-				log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
-			}
+	if record, err := readEventLog(workspace, id); err == nil {
+		if record.ok && len(record.events) > 0 {
+			return foldEvents(record.events), true
+		} else if !record.ok {
+			log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
 		}
 	}
 	raw, err := os.ReadFile(filepath.Join(folder, "progress.json"))
@@ -190,23 +225,22 @@ func runProgress(workspace, id string) (map[string]any, bool) {
 	return value, true
 }
 
-func parseEvents(raw []byte) ([]runEvent, bool) {
+func parseEvents(raw []byte) (events []runEvent, ok, dropped bool) {
 	lines := bytes.Split(raw, []byte("\n"))
 	if len(lines[len(lines)-1]) == 0 {
 		lines = lines[:len(lines)-1]
 	}
-	var events []runEvent
 	for number, line := range lines {
 		var event runEvent
 		if err := json.Unmarshal(line, &event); err != nil {
 			if number == len(lines)-1 {
-				break
+				return events, true, true
 			}
-			return nil, false
+			return events, false, false
 		}
 		events = append(events, event)
 	}
-	return events, true
+	return events, true, false
 }
 
 func foldEvents(events []runEvent) map[string]any {
@@ -288,18 +322,45 @@ func recentJobs(workspace string, limit int) []map[string]any {
 	return recent
 }
 
+// serveRunEvents answers GET /api/runs/events: the run's events, [] when it has no log yet,
+// 404 when it has neither a log nor a status.json (the rule of /api/runs/status).
+func serveRunEvents(w http.ResponseWriter, r *http.Request, workspace, id string) {
+	events, complete, err := readRunEvents(workspace, id)
+	if errors.Is(err, fs.ErrNotExist) {
+		if _, statErr := os.Stat(filepath.Join(workspace, "intake", id, "status.json")); statErr != nil {
+			http.NotFound(w, r)
+			return
+		}
+	} else if err != nil {
+		http.Error(w, "Run events are unreadable", 500)
+		return
+	}
+	if events == nil {
+		events = []runEvent{}
+	}
+	jsonResponse(w, struct {
+		Events   []runEvent `json:"events"`
+		Complete bool       `json:"complete"`
+	}{events, complete})
+}
+
 func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		app.mu.RLock()
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
+			app.watched.Store(app.now().UnixNano())
 			jsonResponse(w, recentJobs(workspace, 30))
 			return
 		}
 		id := r.URL.Query().Get("id")
 		if !jobID.MatchString(id) {
 			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path == "/api/runs/events" {
+			serveRunEvents(w, r, workspace, id)
 			return
 		}
 		status, ok := jobView(workspace, id)
@@ -324,6 +385,10 @@ func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.URL.Path == "/api/runs/review" {
 		app.reviewRun(w, r)
+		return
+	}
+	if r.URL.Path == "/api/runs/resume" {
+		app.resumeRun(w, r)
 		return
 	}
 	if r.URL.Path == "/api/runs/start" {
@@ -381,22 +446,11 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Could not create run identity", 500)
 		return
 	}
-	// The review writes into this workspace until it ends, however it ends (refusal, error, the
-	// review bound, a client that went away), so a workspace switch is refused until then.
-	app.mu.Lock()
-	if app.quitting {
-		app.mu.Unlock()
-		http.Error(w, libraryQuitting, 503)
+	workspace, leave, ok := app.enterReview(w)
+	if !ok {
 		return
 	}
-	app.reviews++
-	workspace := app.config.Workspace
-	app.mu.Unlock()
-	defer func() {
-		app.mu.Lock()
-		app.reviews--
-		app.mu.Unlock()
-	}()
+	defer leave()
 	job := NewJob{ID: "web-" + hex.EncodeToString(nonce), Workspace: workspace, Config: r.FormValue("config"), Cap: r.FormValue("cap_usd"), Modules: modules, MaxTurns: maxTurns, Sources: []UploadedSource{}}
 	root, err := os.OpenRoot(workspace)
 	if err != nil {
@@ -471,9 +525,33 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 		}
 		job.Sources = append(job.Sources, UploadedSource{Path: paths[i], SHA256: hex.EncodeToString(hash.Sum(nil))})
 	}
-	if err = saveJSON(filepath.Join(folder, "job.json"), job); err != nil {
+	valid = app.reviewJob(w, folder, job)
+}
+
+// enterReview counts a review in flight. The review writes into the workspace until it ends,
+// however it ends (refusal, error, the review bound, a client that went away), so a workspace
+// switch is refused until leave runs. It answers 503 and returns false while the app is quitting.
+func (app *Application) enterReview(w http.ResponseWriter) (workspace string, leave func(), ok bool) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	if app.quitting {
+		http.Error(w, libraryQuitting, 503)
+		return "", nil, false
+	}
+	app.reviews++
+	return app.config.Workspace, func() {
+		app.mu.Lock()
+		app.reviews--
+		app.mu.Unlock()
+	}, true
+}
+
+// reviewJob saves the job, has the engine review it offline and, when it is ok, retains the
+// review and marks the job reviewed. It reports whether the job folder is to be kept.
+func (app *Application) reviewJob(w http.ResponseWriter, folder string, job NewJob) bool {
+	if err := saveJSON(filepath.Join(folder, "job.json"), job); err != nil {
 		http.Error(w, "Could not save run request", 500)
-		return
+		return false
 	}
 	// The server's write deadline (set when the request headers were read) is far shorter than a
 	// review may take, and the browser needs this response for the review_id. Give this one
@@ -483,28 +561,147 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	result, err := app.engine.review(folder)
 	if err != nil {
 		http.Error(w, err.Error(), 503)
-		return
+		return false
 	}
 	var review struct {
 		OK bool `json:"ok"`
 	}
 	if json.Unmarshal(result, &review) != nil {
 		http.Error(w, "Invalid validation response", 500)
-		return
+		return false
 	}
 	if review.OK {
 		if err = saveJSON(filepath.Join(folder, "review.json"), result); err != nil {
 			http.Error(w, "Could not retain review", 500)
-			return
+			return false
 		}
 		if err = saveJSON(filepath.Join(folder, "status.json"), JobStatus{State: "reviewed", Message: "Reviewed; no model call has been made.", ID: job.ID}); err != nil {
 			http.Error(w, "Could not retain run status", 500)
-			return
+			return false
 		}
-		valid = true
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(result)
+	return review.OK
+}
+
+// resumable are the states of a run that has ended without a report.
+var resumable = []string{"stopped", "failed", "interrupted"}
+
+const inputsGone = "The stopped run's inputs are no longer in the workspace"
+
+// resumeRun reviews a copy of a stopped run's inputs as a new job that replays the stopped run's
+// accepted handoffs. The stopped run's folders are only read. It never starts a worker: Start
+// stays the only path to a provider.
+func (app *Application) resumeRun(w http.ResponseWriter, r *http.Request) {
+	var request struct {
+		ID       string `json:"id"`
+		Cap      string `json:"cap_usd"`
+		MaxTurns int    `json:"max_turns"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8192))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil || !jobID.MatchString(request.ID) || request.Cap == "" || request.MaxTurns < 1 || request.MaxTurns > 64 {
+		http.Error(w, "Choose a stopped run, a maximum spend and 1–64 turns", 400)
+		return
+	}
+	workspace, leave, ok := app.enterReview(w)
+	if !ok {
+		return
+	}
+	defer leave()
+	old := filepath.Join(workspace, "intake", request.ID)
+	var status JobStatus
+	raw, err := os.ReadFile(filepath.Join(old, "status.json"))
+	if err != nil || json.Unmarshal(raw, &status) != nil || !slices.Contains(resumable, status.State) {
+		http.Error(w, "Only a stopped, failed or interrupted run can be resumed", 409)
+		return
+	}
+	var job NewJob
+	raw, err = os.ReadFile(filepath.Join(old, "job.json"))
+	if err != nil || json.Unmarshal(raw, &job) != nil {
+		http.Error(w, inputsGone, 409)
+		return
+	}
+	nonce := make([]byte, 16)
+	if _, err = rand.Read(nonce); err != nil {
+		http.Error(w, "Could not create run identity", 500)
+		return
+	}
+	// Only the spend cap and the turn bound may differ: the retained handoffs were checked against
+	// this context, these sources, config and modules.
+	job.ID, job.Workspace, job.Cap, job.MaxTurns, job.ResumeOf = "web-"+hex.EncodeToString(nonce), workspace, request.Cap, request.MaxTurns, request.ID
+	folder := filepath.Join(workspace, "intake", job.ID)
+	valid := false
+	defer func() {
+		if !valid {
+			_ = os.RemoveAll(folder)
+		}
+	}()
+	if status, err := copyResumeInputs(workspace, request.ID, job); err != nil {
+		http.Error(w, err.Error(), status)
+		return
+	}
+	valid = app.reviewJob(w, folder, job)
+}
+
+// copyResumeInputs copies the stopped run's context and exactly the source files its job lists
+// into the new job's folder. Only regular files are read, through roots that refuse links out of
+// them; a listed file that is missing, linked or not a regular file refuses the resume. The
+// stopped run's folders are never written.
+func copyResumeInputs(workspace, from string, job NewJob) (int, error) {
+	gone := errors.New(inputsGone)
+	oldRoot, err := os.OpenRoot(filepath.Join(workspace, "intake", from))
+	if err != nil {
+		return 409, gone
+	}
+	defer oldRoot.Close()
+	newRoot, err := os.OpenRoot(workspace)
+	if err != nil {
+		return 400, errors.New("Choose an available workspace folder first")
+	}
+	defer newRoot.Close()
+	relative := "intake/" + job.ID
+	if err = newRoot.Mkdir(relative, 0700); err != nil {
+		return 400, errors.New("The workspace is not writable")
+	}
+	names := []string{"context.json"}
+	for _, source := range job.Sources {
+		if !validSourcePath(source.Path) {
+			return 409, gone
+		}
+		names = append(names, "sources/"+source.Path)
+	}
+	for _, name := range names {
+		info, err := oldRoot.Lstat(name)
+		if err != nil || !info.Mode().IsRegular() {
+			return 409, gone
+		}
+		if err = newRoot.MkdirAll(path.Dir(relative+"/"+name), 0700); err != nil {
+			return 500, errors.New("Could not copy the stopped run's inputs")
+		}
+		if err = copyInto(oldRoot, name, newRoot, relative+"/"+name); err != nil {
+			return 500, errors.New("Could not copy the stopped run's inputs")
+		}
+	}
+	return 0, nil
+}
+
+func copyInto(from *os.Root, name string, to *os.Root, target string) error {
+	source, err := from.Open(name)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+	destination, err := to.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(destination, source)
+	if closeErr := destination.Close(); err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func (app *Application) startRun(w http.ResponseWriter, r *http.Request) {
@@ -611,11 +808,22 @@ func settleJob(folder string) {
 
 // finishJob settles a job whose worker has ended, ends its activity and refreshes the library.
 func (app *Application) finishJob(folder, id string) {
+	if app.onFinished != nil {
+		defer app.onFinished(id)
+	}
 	settleJob(folder)
+	app.finished.Store(app.now().UnixNano())
 	app.mu.Lock()
 	delete(app.activeJobs, id)
 	app.mu.Unlock()
 	app.refresh()
+	if !app.tabWatching() {
+		if title, body, ok := finishNotice(folder); ok {
+			if err := app.notifier(title, body); err != nil {
+				log.Printf("Run %s: native notice failed: %v", id, err)
+			}
+		}
+	}
 }
 
 // adoptJobsLocked settles the jobs an earlier instance of the app left running in workspace. A

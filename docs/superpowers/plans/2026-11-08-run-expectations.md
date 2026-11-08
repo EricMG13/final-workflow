@@ -9,8 +9,9 @@ context they supplied, why, and what would improve it, and require them to accep
 limitations. Users should not discover a forgotten file or a weaker module outcome only after a
 paid run, so re-runs fall. The user also states the issue classification, investment grade or
 high yield, in the context's issuer identity section, and the expectations use it. Readers who
-only want reports can then find them in the Issuer Library by credit information (classification,
-rating, leverage, interest cover, currency, run completeness), not just by sector and workflow.
+only want reports can then find them in the Issuer Library by credit and market information
+(classification, rating, leverage, interest cover, currency, run completeness, coupon, margin,
+yield, tenor), not just by sector and workflow.
 
 **Architecture:** One offline rule set in Python, inside the CP-OS launcher's existing review.
 `prepare()` already reads every source's pages. It now also guesses each file's document kind
@@ -19,10 +20,10 @@ the context (including the issue classification) and the module dependencies. Th
 both in the review. The app shows them first on the Review step. Start requires a separate
 acceptance whenever anything is below Ready. The acceptance and the expectations are written into
 the run folder before any provider call. No new orchestration layer, no model call, no change to
-what modules conclude. The workspace reader (`engine/store.py`) then gathers per-run credit facts
-from what is already written: the run's context, CP-1's fixed chart tables, the run folder and its
-`expectations.json`. The library filters on those values and links each one to its evidence; it
-never calculates a figure.
+what modules conclude. The workspace reader (`engine/store.py`) then gathers per-run credit and
+market facts from what is already written: the user's context as entered, CP-1's fixed chart
+tables, the run folder and its `expectations.json`. The library filters on those values and links
+each module figure to its evidence; it never calculates a figure.
 
 **Tech Stack:** Python 3.13 (stdlib, pydantic), Go, plain browser JavaScript; jsdom test-only.
 
@@ -41,36 +42,42 @@ never calculates a figure.
 | `startRun` accepts only `{id, review_id, confirm}` (`jobs.go:716-751`) | Add `accept_limitations`; required only when the review lists any limitation |
 | The context has no investment-grade/high-yield field (`context.py:92-103`) | Add `identity.issue_classification`: `investment_grade` or `high_yield`, chosen in the issuer identity section |
 | The selected methods are written for high-yield and leveraged-loan issuers (e.g. `cp-2d…/SKILL.md:161`, `cp-2g…/SKILL.md:181`, `cp-3…/SKILL.md:361`, `CP-4_RUNBOOK.md:15`, `cp-6…/SKILL.md:176`); none branches on investment grade | The classification changes expectations, not analysis: for an investment-grade issuer, each module whose method is framed for high yield shows `Limited` with that reason. Adapting methods for investment grade is a separate methodology decision (`METHODOLOGY-REVIEW.md`), out of scope |
-| 35 saved context files in `cases/` and the pinned owner-oracle contexts (`cases/PINS.json`) have no such field; `Contract` forbids unknown keys and requires declared ones | Required in the form (no preselected default, so nobody is silently misclassified); optional in the reader, where `""` means **not stated**. Schema stays `context/1`; existing fixtures and pins are not edited |
-| Library filters are sector, workflow, as-of year, content and module, plus search (`views.js:328-341`); none is credit information | Add a **Credit** filter group and credit columns; keep the existing filters under **More filters** |
-| `store.py` already parses CP-1's fixed chart tables (`Chart data: leverage`, `interest cover`, `liquidity`, `debt maturities`) with period, unit and basis (`store.py:463-478`) | Leverage, interest cover and liquidity filters read those values exactly as written, latest period; no recalculation |
-| Only 2 of 44 retained runs hold the fixed leverage table; older handoffs use varying headers | Older runs show **Not recorded**; no guessing from old tables. Each filter shows its coverage ("recorded for 2 of 44 runs") |
-| No handoff has a parsed ratings table; CP-2H runs only in Distressed & Restructuring | Ratings come from the run's context (user-entered, dated, labelled so). A fixed CP-2H register table is a later plan |
-| `store.py` imports only the standard library so a page load does not pay for the engine (`jobs.go:56-57`) | Read the context fields it needs with a small stdlib parser, reached through `workflow.json`'s `context` source and checked against its sha256; a test proves it agrees with `load_context` on every case fixture |
-| An issuer's runs span years (e.g. Berkshire 2008-2017) | Credit filters apply to each issuer's **latest run** by default, with "Any run" as an option, so an old figure never qualifies an issuer silently |
-| Amounts carry a currency and unit; ratios do not | Ratio filters work across currencies. Amount filters (liquidity) require choosing one currency first. No FX conversion |
+| Facility rows hold instrument, currency, size, tenor, talk spread (margin), OID, floor; quotes hold bid, ask, price, yield, spread, kind, date (`context.py:106-133`); nothing holds a coupon | Add optional `deal_terms[].coupon_pct` (percent; fixed-rate notes) to the form's facility row and the reader |
+| 35 saved context files in `cases/` and the pinned owner-oracle contexts (`cases/PINS.json`) have neither new field; `Contract` forbids unknown keys and requires declared ones | Classification is required in the form (no preselected default, so nobody is silently misclassified); coupon is optional. Both are optional in the reader, where `""` means **not stated**. Schema stays `context/1`; existing fixtures and pins are not edited |
+| User-entered values (classification, ratings, facility terms, quotes, coupon) are the user's data | Used exactly as entered, in expectations and the library. Not re-derived from documents, not cross-checked, reconciled or corrected: an entry error is the user's to fix in the context |
+| Library filters are sector, workflow, as-of year, content and module, plus search (`views.js:328-341`); none is credit or market information | Add **Credit** and **Market** filter groups and credit columns; keep the existing filters under **More filters** |
+| `store.py` already parses CP-1's fixed chart tables (`Chart data: leverage`, `interest cover`, `liquidity`, `debt maturities`) with period, unit and basis (`store.py:463-478`) | Leverage, interest cover and liquidity filters read those module values exactly as written, latest period; no recalculation |
+| Only 2 of 44 retained runs hold the fixed leverage table; older handoffs use varying headers | Older runs show **Not recorded** for module figures; no guessing from old tables. Each filter shows its coverage ("recorded for 2 of 44 runs") |
+| `store.py` imports only the standard library so a page load does not pay for the engine (`jobs.go:56-57`) | Read the context JSON the run recorded (its path is in `workflow.json`) as it is; `load_context` already validated it at review. Unreadable gives Not recorded |
+| A run can hold several facilities and several quotes | Facility filters match only when one facility meets all of them. A quote belongs to the facility with the same Facility ID as entered; otherwise it is listed on its own. The latest-dated quote per facility is the one filtered |
+| Talk is a low-high range; quoted spread is a different quantity from new-issue margin | Margin talk and quoted spread are separate filters. A range filter matches when the entered range overlaps it; a single value is a range of one. No midpoint is calculated |
+| An issuer's runs span years (e.g. Berkshire 2008-2017) | Credit and market filters apply to each issuer's **latest run** by default, with "Any run" as an option, so an old figure never qualifies an issuer silently |
+| Amounts carry a currency and unit; ratios, percentages and bps do not | Ratio, percentage and bps filters work across currencies. Amount filters (liquidity, facility size) require choosing one currency first. No FX conversion |
 
 **Outcomes, worst first:** `Will refuse` (the module's handoff is expected to be rejected or blocked) ·
 `Gap` (a section will state the input as not supplied) · `Limited` (runs with reduced confidence or
-scope) · `Check` (no file was recognised as the needed kind, or two inputs disagree; fine if the user
-knows why) · `Ready`. A module inherits `Limited: depends on <title>` from a required producer that
-is worse than Ready (edges from `registry.plan()` data). Items about the whole run, such as the
-issue classification, are listed under **This run** above the modules.
+scope) · `Check` (no file was recognised as the needed kind; fine if the user knows it is there) ·
+`Ready`. A module inherits `Limited: depends on <title>` from a required producer that is worse
+than Ready (edges from `registry.plan()` data). Items about the whole run, such as report sections
+this pathway does not produce, are listed under **This run** above the modules.
 
 **Wording rule:** every expectation reads as a forecast: "Expected from your files and context. CP-0
 confirms during the run; the model may still find less." A guessed kind is shown as "Likely: credit
-agreement (found 'CREDIT AGREEMENT' on page 1)", never as fact.
+agreement (found 'CREDIT AGREEMENT' on page 1)", never as fact. User-entered values are labelled
+"entered by user" with their date where one was given.
 
 **Rejected:** blocking Start for a missing file (users may knowingly accept gaps); a model call to
 classify files (paid execution must stay a separate explicit action); a second checker beside
 CP-OS (`AGENTS.md`: no competing orchestration layer); a new schema version or a required reader
 field (saved files and pinned fixtures must load unchanged); inferring the classification from
-ratings without asking (ratings are optional and may be split or stale).
+ratings; checking user entries against each other or against the filings (user-derived issues are
+the user's to resolve); parsing documents or handoffs for values the user already supplies.
 
 **Out of scope (later plans):** files-first run check with pathway ratings, phased context stages,
 context prefill from filings, post-run expected-versus-actual reporting in Run activity,
-investment-grade variants of the methods, a fixed ratings register table written by CP-2H,
-credit metrics for runs that predate the fixed chart tables, saved named filter views.
+investment-grade variants of the methods, credit metrics for runs that predate the fixed chart
+tables, facility rows for run types other than Primary (the form shows Deal terms only for
+Primary), saved named filter views.
 
 ## Global Constraints
 
@@ -78,11 +85,12 @@ credit metrics for runs that predate the fixed chart tables, saved named filter 
 - `runs/`, `deliverables/`, `data/public-corpus/`, `cases/` fixtures and predecessor repositories
   are read, never written.
 - Expected values (document-kind key, rating-scale table, high-yield-framed method list, rule
-  outcomes) are hand-written and committed before the code they check, by someone other than the
-  code's author.
-- Missing is never zero. "Not supplied" and "not stated" stay visible. No new score or aggregate.
-  A missing or not-meaningful figure never satisfies a numeric filter.
-- The library reads values modules wrote; it never calculates, converts currency or rescales units.
+  outcomes, library values) are hand-written and committed before the code they check, by someone
+  other than the code's author.
+- Missing is never zero. "Not supplied", "not stated" and "Not recorded" stay visible. No new score
+  or aggregate. A missing or not-meaningful figure never satisfies a numeric filter.
+- The library reads values modules wrote and values users entered; it never calculates, converts
+  currency, rescales units, or checks, reconciles or corrects user entries.
 - Excel stays input-only. No new dependency.
 - Branch `claude/intelligent-babbage-b0309i`. Commit per task; push at each checkpoint. No PR unless
   the owner asks.
@@ -99,8 +107,8 @@ credit metrics for runs that predate the fixed chart tables, saved named filter 
 | **Checkpoint C** (after Task 11) | `validate.py full`, then `validate.py browser` | Exit 0; owner accepts the Library screen |
 
 Before each checkpoint: confidence-review (doubts, causes, adversarial cases, fixes) and
-rewrite-tournament in post-edit mode on `guess_kind`, `expectations`, the rating-scale check,
-the Review renderer, the credit-facts reader and `filterLibrary`.
+rewrite-tournament in post-edit mode on `guess_kind`, `expectations`, the Review renderer, the
+credit-facts reader, the facility matcher and `filterLibrary`.
 
 **Stop rules:** a failing gate stops the next task. Two failed fix rounds on one defect go to the
 owner with both outcomes. Never loosen a test to pass.
@@ -115,26 +123,27 @@ owner with both outcomes. Never loosen a test to pass.
 4. **Non-USD issuer (Erste):** CP-2D `Limited` for non-USD facilities; no USD labels invented (Task 3).
 5. **Investment-grade issuer on Credit Snapshot:** each module with a high-yield-framed method shows
    `Limited` with that reason; a high-yield issuer on the same files shows none of these (Task 3).
-6. **Ratings disagree with the choice:** context ratings all BBB+ with high yield selected → `Check`;
-   split ratings (BBB- and Ba1) → no flag (Task 3).
-7. **An older context.json without the field:** loads in the reader as not stated (`Check` under This
-   run); loads in the form with the choice empty and the Issuer step marked to fix (Tasks 1, 3).
-8. **Hostile file names or context text:** rendered as inert text on the Review step (Task 7).
-9. **Stale acceptance:** inputs changed after acceptance; Start refuses and asks for a new review (Task 6).
-10. **Missing is not a pass:** "Net leverage below 4x" excludes runs with no figure or "n.m."
-    and says how many it hid; it never treats them as 0x (Task 10).
-11. **Old figure, newer run:** an issuer whose latest run has no figure does not match on an older
+6. **An older context.json without the new fields:** loads in the reader with classification and
+   coupon not stated; loads in the form with the classification empty and the Issuer step marked
+   to fix (Task 1).
+7. **Hostile file names or context text:** rendered as inert text on the Review step and in the
+   library (Tasks 7, 10).
+8. **Stale acceptance:** inputs changed after acceptance; Start refuses and asks for a new review (Task 6).
+9. **Missing is not a pass:** "Net leverage below 4x" excludes runs with no figure or "n.m."
+   and says how many it hid; it never treats them as 0x (Task 10).
+10. **Old figure, newer run:** an issuer whose latest run has no figure does not match on an older
     run's figure unless "Any run" is chosen (Task 10).
-12. **Mixed currencies:** a liquidity filter in USD never shows a EUR issuer's amount (Task 10).
-13. **Tampered context:** a context whose bytes no longer match `workflow.json`'s sha256 gives
-    Not recorded and an entry in Settings issues, not its values (Task 9).
-14. **Split ratings:** BBB- and Ba1 match "Lowest rating: Ba1/BB+ or worse" and show both agencies (Task 10).
+11. **Mixed currencies:** a liquidity or facility-size filter in USD never shows a EUR amount (Task 10).
+12. **Split ratings:** BBB- and Ba1 match "Lowest rating BB+/Ba1 or below" and show both agencies (Task 10).
+13. **Two facilities:** a term loan (margin talk 350, 7 years) and notes (coupon 8%, 5 years) do not
+    match "coupon at least 7% and tenor at least 7 years" (Task 10).
+14. **Talk range:** talk 325-375 matches "margin talk 350-400" and not "margin talk above 400" (Task 10).
 
 ---
 
-## Phase 1: context field and rule set (offline)
+## Phase 1: context fields and rule set (offline)
 
-### Task 1: Issue classification in the context
+### Task 1: Issue classification and coupon in the context
 
 **Files:** modify `docs/templates/context-form.html`, `docs/templates/README.md`,
 `apps/issuer-library/web/context-embed.js`, `src/deploy_workflow/context.py`,
@@ -145,16 +154,20 @@ owner with both outcomes. Never loosen a test to pass.
       option preselected. Cards: **Investment grade** ("Rated BBB-/Baa3 or above, or managed as
       investment grade") and **High yield** ("Below investment grade, including leveraged loans").
       Help line: "The workflow's methods are written for high-yield and leveraged-loan issuers."
-- [ ] `build()` emits `identity.issue_classification`; `fill()` reads it, leaving the choice empty
-      (and the Issuer step marked to fix) when an older file lacks it; review summary and panel
-      show it, the panel adding the investment-grade limitation.
-- [ ] Embed: the choice stays visible in the Issuer section; it is not moved into "Additional issuer
-      details" (the embed currently moves every identity fieldset there).
-- [ ] Reader: `Identity.issue_classification: Literal["", "investment_grade", "high_yield"] = ""`;
-      any other value refused, naming the path.
-- [ ] Tests: older file loads as `""`; each valid value round-trips; invalid value refused; the
-      existing form-output and parity tests cover the new field; the field is visible in the embed;
-      `cases/PINS.json` unchanged.
+- [ ] Form: a "Coupon (%)" field on each facility row, optional, with help "Percent; fixed-rate
+      notes. Leave blank for floating-rate loans."
+- [ ] `build()` emits `identity.issue_classification` and `deal_terms[].coupon_pct`; `fill()` reads
+      them, leaving the classification empty (and the Issuer step marked to fix) when an older file
+      lacks it; review summary and panel show the classification, the panel adding the
+      investment-grade limitation.
+- [ ] Embed: the classification stays visible in the Issuer section; it is not moved into
+      "Additional issuer details" (the embed currently moves every identity fieldset there).
+- [ ] Reader: `Identity.issue_classification: Literal["", "investment_grade", "high_yield"] = ""`
+      and `DealTerm.coupon_pct: str = ""` (a plain non-negative number, as the form's other
+      percentages); any other value refused, naming the path.
+- [ ] Tests: older file loads with both `""`; each valid value round-trips; invalid values refused;
+      the existing form-output and parity tests cover the new fields; the classification is
+      visible in the embed; `cases/PINS.json` unchanged.
 
 ### Task 2: Document-kind guess
 
@@ -177,22 +190,17 @@ owner with both outcomes. Never loosen a test to pass.
 ### Task 3: Rules and expected outcomes
 
 **Files:** modify `src/deploy_workflow/run_expectations.py`, `tests/test_run_expectations.py`;
-create `tests/fixtures/run-expectations/rating-scale.json`, `tests/fixtures/run-expectations/hy-framed-methods.json`.
+create `tests/fixtures/run-expectations/hy-framed-methods.json`.
 
-- [ ] Hand-write first: the rating scale (S&P and Fitch `BBB-` and above, Moody's `Baa3` and above
-      are investment grade; outlook and watch ignored; agency "Other" or an unreadable rating is not
-      counted) and the list of modules whose method files in `METHODS` are framed for high yield,
-      read from the text each module is actually sent (found so far: CP-2D, CP-2E, CP-2G, CP-3,
-      CP-4, CP-6; confirm against `METHODS`).
+- [ ] Hand-write first: the list of modules whose method files in `METHODS` are framed for high
+      yield, read from the text each module is actually sent (found so far: CP-2D, CP-2E, CP-2G,
+      CP-3, CP-4, CP-6; confirm against `METHODS`).
 - [ ] `Rule(scope, condition, outcome, reason, fix_file, fix_context, basis, evidence)`; one table;
       `scope` is a module or `run`.
 - [ ] Initial rules, each verified against its method/owner text before it is written:
 
 | Scope | When | Outcome |
 |---|---|---|
-| Run | Issue classification not stated (older context file) | Check |
-| Run | Context ratings all investment grade but high yield selected, or all below but investment grade selected | Check |
-| Run | Distressed & Restructuring with investment grade | Check |
 | Each high-yield-framed module | Investment grade selected | Limited |
 | CP-1 | No file likely financial report | Check (all modules depend on it) |
 | CP-1B | Earnings run and statements for only one period recognised | Limited |
@@ -206,11 +214,12 @@ create `tests/fixtures/run-expectations/rating-scale.json`, `tests/fixtures/run-
 | CP-4 | No credit agreement or indenture | Gap |
 | CP-4 | Drafts only | Will refuse |
 | Portfolio pathway | No portfolio workbook | Gap |
-| Any | Report section omitted by this pathway (`prepared.omitted`) | Gap |
+| Run | Report section omitted by this pathway (`prepared.omitted`) | Gap |
 
 - [ ] `expectations(ordered, guesses, context, edges) -> tuple[Expectation]`; run-level items first,
-      then modules in `ordered`; dependency inheritance as in Decisions.
-- [ ] Tests: hand-written expected outcomes for Review Focus 2-7 and one clean case per pathway for
+      then modules in `ordered`; dependency inheritance as in Decisions. Context values are read
+      as entered; no rule compares one user entry with another.
+- [ ] Tests: hand-written expected outcomes for Review Focus 2-5 and one clean case per pathway for
       each classification, each labelled synthetic.
 
 ### Task 4: Launcher and bridge carry the expectations
@@ -231,7 +240,7 @@ create `tests/fixtures/run-expectations/rating-scale.json`, `tests/fixtures/run-
 
 - [ ] For each of the 21 retained runs with `workflow.json`, compute expectations from its pinned
       sources and context, read-only, and compare with what its accepted handoffs actually state.
-      Their contexts predate the field, so the classification rules are reported as not testable.
+      Their contexts predate the classification, so its rule is reported as not testable.
 - [ ] Report per rule: agreed, disagreed, not testable. Label it "deterministic retained-data
       report", with issuer and date per run; never call it live proof.
 - [ ] Fix or relabel every disagreeing rule (`evidence: per method only`) before Phase 2.
@@ -275,63 +284,83 @@ create `tests/fixtures/run-expectations/rating-scale.json`, `tests/fixtures/run-
 - [ ] Describe the classification, expected outcomes as forecasts, and what acceptance records.
 - [ ] Run Checkpoint B gates; record results with their actual scope.
 
-## Phase 3: credit filters in the Issuer Library
+## Phase 3: credit and market filters in the Issuer Library
 
 **Library layout.** One table, one row per issuer showing its latest run, expandable to all runs
 as today. Columns: Issuer · Classification · Lowest rating · Net leverage · Interest cover ·
-Currency · As of · Completeness · Report. Each figure shows its period ("4.2x · FY2025") and opens
-the evidence inspector on the handoff line it came from. Columns sort; Not recorded sorts last.
-"Open report" is the row's main action, for readers who only want the report.
+Currency · As of · Completeness · Facilities · Report. Module figures show their period
+("4.2x · FY2025") and open the evidence inspector on the handoff line they came from. Columns sort;
+Not recorded sorts last. "Open report" is the row's main action, for readers who only want the
+report.
+
+**Facilities.** The Facilities cell ("2 facilities") expands to a sub-table, values as entered and
+labelled "entered by user": Facility ID · Instrument · Currency · Size (m) · Tenor · Coupon ·
+Margin talk · OID talk · Floor · Latest quote (price, yield, spread, kind, date, provider).
+Quotes whose Facility ID matches no facility are listed beneath it on their own.
 
 **Filters.**
 
 | Group | Filter | Control | Source |
 |---|---|---|---|
 | Credit | Classification | Investment grade · High yield · Not stated | Context |
-| Credit | Lowest rating | At or above / at or below a notch, on the shared rating scale | Context ratings |
+| Credit | Lowest rating | At or above / at or below a notch, on the rating scale | Context ratings |
 | Credit | Net leverage, total leverage | Min / max (x) | CP-1 `Chart data: leverage` |
 | Credit | Interest cover | Min / max (x) | CP-1 `Chart data: interest cover` |
 | Credit | Liquidity (cash + undrawn) | Min / max, after choosing a currency | CP-1 `Chart data: liquidity` |
+| Market | Instrument | Recorded instruments | Context facility rows |
+| Market | Coupon (%) | Min / max | Context facility rows |
+| Market | Margin talk (bps) | Min / max; overlaps the entered low-high range | Context facility rows |
+| Market | OID talk, floor (%), tenor (years) | Min / max | Context facility rows |
+| Market | Facility size | Min / max, after choosing a currency | Context facility rows |
+| Market | Quoted price, yield (%), spread (bps) | Min / max, latest-dated quote per facility | Context quotes |
+| Market | Quote kind | Observed · Indicative talk | Context quotes |
 | Coverage | Currency | Recorded reporting currencies | Context |
 | Coverage | Completeness | Report written · with accepted limitations · stopped · partial | Run folder, `expectations.json` |
 | Coverage | As of | Year (existing) | `workflow.json` |
 | Coverage | Runs | Latest run per issuer (default) · Any run | — |
 | More filters | Sector, workflow, content, module | Existing controls | Existing |
 
-Each numeric filter shows coverage and what it hid: "Net leverage recorded for 2 of 44 runs ·
-12 without a figure hidden · Show them". Active filters stay chips, and the whole filter state
-is kept in the URL hash so a view can be bookmarked or shared.
+Each numeric filter shows coverage and what it hid: "Coupon recorded for 3 of 44 runs · 12 without
+a figure hidden · Show them". Facility filters apply to one facility at a time. Active filters stay
+chips, and the whole filter state is kept in the URL hash so a view can be bookmarked or shared.
 
-### Task 9: Credit facts in the workspace reader
+### Task 9: Credit and market facts in the workspace reader
 
 **Files:** modify `apps/issuer-library/engine/store.py`; create
-`tests/fixtures/library-credit/expected.json` and a focused test beside the existing store tests;
-update `apps/issuer-library/designs/fake_engine/store.py`.
+`tests/fixtures/library-credit/expected.json`, `tests/fixtures/library-credit/rating-scale.json` and
+a focused test beside the existing store tests; update `apps/issuer-library/designs/fake_engine/store.py`.
 
 - [ ] Hand-write expected values first, from named handoff lines in the two retained runs with
-      fixed chart tables, plus synthetic runs labelled synthetic.
+      fixed chart tables, plus synthetic runs (contexts with facilities, quotes and ratings)
+      labelled synthetic. Hand-write the rating scale: S&P and Fitch `AAA`…`D`, Moody's `Aaa`…`C`,
+      notch-aligned across agencies; outlook and watch ignored.
 - [ ] Per run, a `credit` record: `classification`, `currency`, `ratings` (agency, rating, outlook,
-      as-of, "entered by user"), `metrics` (each: exact text, number, period, unit, output id, line,
-      or a state `not_recorded` / `not_meaningful` with its reason), `completeness` (requested and
-      accepted module counts, report written, run state, accepted-limitation count).
-- [ ] Context read through `workflow.json`'s `context` source, inside the workspace, links refused,
-      sha256 checked; any problem gives Not recorded plus a Settings issue.
-- [ ] Latest-period column only; "n.m.", negatives in brackets, dashes and units parsed per the
-      chart table's own `Reporting unit`; anything else is `not_meaningful`, never a number.
-- [ ] Tests: hand-written values; stdlib context parse agrees with `load_context` on every
-      `cases/` context fixture; rating scale equals Task 3's table; Review Focus 13.
+      as-of, notch where the entered rating is on the scale), `metrics` (each: exact text, number,
+      period, unit, output id, line, or a state `not_recorded` / `not_meaningful` with its reason),
+      `completeness` (requested and accepted module counts, report written, run state,
+      accepted-limitation count).
+- [ ] Per run, a `facilities` list from the context's facility rows (with coupon) and quotes, values
+      as entered, each quote attached by Facility ID as entered, unattached quotes kept separately.
+- [ ] Context read as the run recorded it (path from `workflow.json`), plain JSON, no re-validation;
+      unreadable gives Not recorded and a Settings issue. A rating not on the scale is shown as
+      entered and not counted by the rating filter.
+- [ ] Module figures: latest-period column only; "n.m.", negatives in brackets, dashes and units
+      read per the chart table's own `Reporting unit`; anything else is `not_meaningful`, never a number.
+- [ ] Tests: hand-written values; two-facility run; unattached quote; older run without context.
 
-### Task 10: Library columns and credit filters
+### Task 10: Library columns, facilities and filters
 
 **Files:** modify `apps/issuer-library/web/views.js`, `apps/issuer-library/web/screen.js`,
 `apps/issuer-library/web/screen.css`, `apps/issuer-library/web/library-workspace.test.cjs`,
 `apps/issuer-library/web/screens.test.cjs`.
 
-- [ ] Columns, sorting and evidence links as in the layout above; Not recorded in grey, never 0.
-- [ ] `filterLibrary` gains the Credit and Coverage filters; latest-run scope by default; coverage
-      and hidden counts; chips and URL hash state.
-- [ ] Tests: hand-written expected matches on the jsdom fixture for Review Focus 10-12 and 14;
-      keyboard and screen-reader labels on every control; narrow-screen layout.
+- [ ] Columns, sorting, facility sub-table and evidence links as in the layout above; Not recorded
+      in grey, never 0.
+- [ ] `filterLibrary` gains the Credit, Market and Coverage filters; facility filters matched within
+      one facility; range overlap for talk; latest-run scope by default; coverage and hidden counts;
+      chips and URL hash state.
+- [ ] All text set through `textContent`. Tests: hand-written expected matches on the jsdom fixture
+      for Review Focus 9-14; keyboard and screen-reader labels on every control; narrow-screen layout.
 
 ### Task 11: Help, README and checkpoint C
 
@@ -339,18 +368,19 @@ update `apps/issuer-library/designs/fake_engine/store.py`.
 `VERIFICATION.md`.
 
 - [ ] Explain where each figure comes from, that missing figures never match, the latest-run
-      default, and that ratings are as entered by the user with their date.
+      default, and that ratings and market data are shown as the user entered them.
 - [ ] Run Checkpoint C gates; record results with their actual scope.
 
 ## Done when
 
-- The issuer identity section requires investment grade or high yield, and older context files
-  still load.
+- The issuer identity section requires investment grade or high yield, facility rows take an
+  optional coupon, and older context files still load.
 - The Review step lists an expected outcome for the run and for every module, with reason and fix,
   including the investment-grade limitations.
 - Start cannot be pressed past listed limitations without the separate acceptance.
 - Every started run folder holds `expectations.json` with what was expected and accepted.
 - The back-test report states rule agreement on retained runs, labelled as retained-data evidence.
 - The library filters by classification, lowest rating, leverage, interest cover, liquidity,
-  currency and completeness; every figure links to its handoff line, and missing figures are
-  visible and never match a numeric filter.
+  currency, completeness, coupon, margin talk, quoted price, yield and spread, tenor and facility
+  size; module figures link to their handoff line, user-entered values show as entered, and
+  missing values are visible and never match a numeric filter.

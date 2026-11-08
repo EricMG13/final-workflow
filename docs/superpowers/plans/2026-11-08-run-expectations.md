@@ -51,6 +51,73 @@ after C3 passes, so unproven method instructions never reach the beta.
 | A launcher run's delivery bundle must hold `report.html`, `view.json`, `report-view.json` and `delivery.json`, plus byte-identical copies of each handoff. When the HTML Model is published it adds `model.html`, `model-view.json`, `model-report-view.json` and `calculation.json` (`owners/cpos.py:648-691`). App runs drop CP-MODEL, and the retained web run records `cp_model_published: false` | Live checks require the report bundle. On app runs the HTML Model and `calculation.json` are recorded as **not published**, which is a known beta limitation; it is not a failure. Publishing them from app runs is an owner decision outside these UX changes |
 | `designs/browser_check.py` already walks the library, reports, every section, deliveries and settings, fitted screens, chart style, the data-flow check and New run, and records every console, page, HTTP and exception fault in `faults.json`. `designs/flow_check.py` traces hashes and numbers from sources to handoffs, deliveries and the report | Every live run is followed by the browser walk over a workspace holding it, plus `flow_check`. Each phase extends the walk for its own screens; no new test tool |
 
+## Shared names (2026-11-08)
+
+Plans 2, 3 and 4 build on separate branches against these names. A worker who needs to change one
+asks the coordinator first; the change lands here before it lands in code.
+
+**Context fields** (Plan 2 Task 1; `context/1`, no new schema version):
+
+| Field | Values | Notes |
+|---|---|---|
+| `identity.issue_classification` | `""`, `investment_grade`, `high_yield` | `""` = not stated; omitted on dump, so older files stay byte-identical |
+| `deal_terms[]` (the form's Facilities) | existing `DealTerm` rows | Allowed on every run type; at least one row required on Primary only |
+| `deal_terms[].coupon_pct`, `.margin_bps`, `.maturity` | plain non-negative numbers; `maturity` a date; `""` = not supplied | Optional, omitted on dump when `""` |
+| `quotes[]` | existing `Quote` rows: `facility_id`, `kind` (`observed`, `indicative_talk`), `bid`, `ask`, `price`, `yield_pct`, `spread_bps`, `as_of`, `provider` | Unchanged; joined to a facility by `facility_id` |
+| `attachments.legal_documents` | `executed`, `draft`, `none` | Unchanged in the reader; the form drops its preselected default |
+| `run.run_type`, `run.case_kind`, `ratings[]` | unchanged | Private side means `run.case_kind == "private"` |
+
+**Expectations and the Start receipt** (Plan 2 Tasks 3, 4 and 6):
+- `review()` adds `issue_classification`, `documents`, `expectations`, `counted` and `without`.
+  `runs/<id>/expectations.json` is a copy of exactly those five keys plus `review_id`, taken from
+  the approved review, never recomputed:
+
+  ```json
+  {"review_id": "…", "issue_classification": "high_yield",
+   "documents": [{"source": "<pinned source id>", "kind": "credit_agreement",
+                  "signal": "found 'CREDIT AGREEMENT' on page 1", "executed": null, "period_end": null}],
+   "expectations": [{"id": "CP-4:legal-none", "scope": "CP-4", "outcome": "will_refuse",
+                     "reason": "…", "fix": "…", "basis": "…", "evidence": "per method",
+                     "counted": true, "inherited_from": null}],
+   "counted": ["CP-4:legal-none"],
+   "without": {"CP-4": ["CP-4", "CP-6"]}}
+  ```
+
+  - `outcome`: `will_refuse`, `gap`, `limited`, `check`, `information`, `ready` (shown as
+    Will refuse, Gap, Limited, Check, Information, Ready).
+  - `id` is `<scope>:<rule key>`, `scope` a module id or `run`; an inherited row is
+    `<consumer>:from:<producer>`. Ids are stable for the same inputs, so review and Start agree.
+  - `evidence`: `per method`, `observed offline`, `observed live`.
+- The Start request gains `accept_limitations` (boolean). `start-authorization.md` keeps its lines
+  and adds `accepted: <ids, comma-separated>` (or `accepted: none`), using the review's `counted`.
+- The context snapshot is `runs/<id>/context.json`, byte-identical to the reviewed context (its
+  sha256 equals the `context` source pin). Plan 4 pins identity, ratings and facilities to its lines.
+- `expectations.json`, `context.json` and the receipt carry one `review_id` and exist before the
+  first provider call.
+
+**Run type and legal-documents declaration in the launcher** (Plan 2 Task 4; used by Plan 3):
+- `prepare` reads `settings.run.run_type` and `settings.attachments.legal_documents` and passes them
+  as keywords: `_instructions(run, module, routes, *, run_type, legal_documents)`. `Run` is unchanged.
+- `checker(layout)` keeps its signature. Plan 3 gives `_layout` the same two keywords and marks
+  Provisional scope (Primary, or `legal_documents == "draft"`) and Primary pro forma tables with
+  their own routes, so the checker learns scope from `layout.routes`.
+
+**`library.json` additions** (`issuer-library-run/1`; Plan 4 Task 12, admitted under the existing
+rule: an exact value in its pinned quote):
+- `run.classification`: `investment_grade` or `high_yield`, absent when not stated, with
+  `run.classification_source` naming its context-snapshot line.
+- `run.private_side`: `true` only when `case_kind` is `private`, with `run.private_side_source`;
+  absent otherwise.
+- `run.facilities`: `[{"facility_id": "…", "terms": {<DealTerm field>: Metric}, "quotes":
+  [{"kind": "observed", "terms": {<Quote field>: Metric}}]}]`. Term keys are the context field
+  names above; each Metric (`value`, `unit`, `period`, `basis`, `source`) has `provenance: "user"`.
+- Metric `provenance` adds `user` to `cited`, `calculated`, `synthetic`.
+- `run.metrics` keys: `leverage`, `net_leverage`, `coverage`, `cash`, `undrawn` (CP-1 chart rows,
+  provenance `calculated`) and, on Primary runs, `leverage_pro_forma` and `leverage_as_marketed`,
+  read from CP-2's `### Pro forma leverage` rows `Pro forma, excluding unrealised add-backs` and
+  `As marketed` (Plan 3 Task 11 writes these labels).
+- `run.gaps`: the reasons of the accepted `counted` items, plus "HTML Model not published by app runs".
+
 **Out of scope (later plans):** files-first run check with pathway ratings, phased context stages,
 context prefill from filings, post-run expected-versus-actual in Run activity, investment-grade
 variants of the methods, credit metrics for runs that predate the fixed tables, pro forma interest

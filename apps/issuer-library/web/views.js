@@ -469,7 +469,9 @@ function libraryRows() {
   const unscreened=f.runs==='any'?0:LibraryLogic.filterRuns(shadows,{...f,runs:'any'}).length-entries.length; // rows Any run would add under these filters
   return {runs,rows,skipped,coverage,unscreened,hidden:libraryState.hidden};
 }
-const libraryCount=({runs,rows,hidden})=>hidden?`${plural(rows.length,'run')} hidden by ${COVERAGE_NAMES[hidden]} · not matching these filters`:`${rows.length} of ${plural(runs.length,'run')} · ${plural(new Set(rows.map(r=>r.issuer)).size,'issuer')}`;
+// Runs grouped by issuer, case-insensitively, in order of first appearance.
+const issuerGroups=runs=>[...runs.reduce((m,r)=>m.set(LibraryLogic.issuerKey(r.issuer),[...(m.get(LibraryLogic.issuerKey(r.issuer))||[]),r]),new Map()).values()];
+const libraryCount=({runs,rows,hidden})=>hidden?`${plural(rows.length,'run')} hidden by ${COVERAGE_NAMES[hidden]} · not matching these filters`:`${rows.length} of ${plural(runs.length,'run')} · ${plural(issuerGroups(rows).length,'issuer')}`;
 function libraryCoverage({runs,coverage,unscreened}) {
   const lines=Object.entries(coverage).map(([group,{recorded,hidden}])=>`<p data-library-coverage="${group}">${esc(`${COVERAGE_NAMES[group]} recorded for ${recorded} of ${plural(runs.length,'run')}`)}${hidden?` · ${hidden} hidden · <button class="tertiary-action" type="button" data-library-hidden="${group}">Show them</button>`:''}</p>`);
   if(unscreened)lines.push(`<p>${esc(`${plural(unscreened,'run')} not screened by the Latest run rule · choose Any run to show them`)}</p>`);
@@ -502,11 +504,11 @@ function libraryResults({runs,rows,skipped,hidden}) {
   return `${heading}<div class="table-scroll" role="region" aria-label="Issuer runs table; scroll horizontally for all columns" tabindex="0"><table class="library-table"><caption class="sr-only">Issuer runs, credit metrics, completeness and report availability</caption><thead><tr>${head}</tr></thead><tbody>${rows.map(r=>libraryRow(r,r.id===libraryState.selected,skipped.has(r.id))).join('')}</tbody></table></div><p class="hint">Dates refer to evidence, not execution. Ratios keep their original definitions.</p>`;
 }
 function libraryNav() {
-  const runs=catalogueRuns(),f=libraryFilters,reports=runs.filter(LibraryLogic.hasReport).length,issuers=[...new Set(runs.map(r=>r.issuer))];
+  const runs=catalogueRuns(),f=libraryFilters,reports=runs.filter(LibraryLogic.hasReport).length,issuers=issuerGroups(runs);
   const choice=(attrs,active,label,count,mark='')=>`<button type="button" class="nav-choice${active?' active':''}" ${attrs} aria-pressed="${active}">${mark}<span>${esc(label)}</span><span class="count">${count}</span></button>`;
-  return `${choice('data-library-nav="all"',!f.issuer&&!f.availability,'All runs',runs.length)}${choice('data-library-nav="reports"',f.availability==='report',`Reports available`,reports)}<p class="eyebrow">Issuers · ${issuers.length}</p>${issuers.map(id=>{
-    const mine=runs.filter(r=>r.issuer===id),names=new Set(mine.map(r=>r.name));
-    return choice(`data-library-issuer="${esc(id)}" aria-label="${esc(`Filter ${names.size===1?mine[0].name:id}`)}"`,f.issuer===id,names.size===1?mine[0].name:id,mine.length,`<span class="monogram">${esc(id.slice(0,3))}</span>`);
+  return `${choice('data-library-nav="all"',!f.issuer&&!f.availability,'All runs',runs.length)}${choice('data-library-nav="reports"',f.availability==='report',`Reports available`,reports)}<p class="eyebrow">Issuers · ${issuers.length}</p>${issuers.map(mine=>{
+    const id=mine[0].issuer,names=new Set(mine.map(r=>r.name));
+    return choice(`data-library-issuer="${esc(id)}" aria-label="${esc(`Filter ${names.size===1?mine[0].name:id}`)}"`,LibraryLogic.issuerKey(f.issuer)===LibraryLogic.issuerKey(id),names.size===1?mine[0].name:id,mine.length,`<span class="monogram">${esc(id.slice(0,3))}</span>`);
   }).join('')}`;
 }
 function librarySources(run) {
@@ -546,7 +548,7 @@ function libraryDetail({rows}) {
 // Options of every select the screen sends to LibraryLogic, as [value, text]. The Library query accepts only these values.
 function libraryChoices() {
   const runs=catalogueRuns(),values=pick=>[...new Set(runs.flatMap(pick).filter(Boolean))].sort().map(v=>[v,v]);
-  return {sector:values(r=>r.sector),workflow:values(r=>r.workflow),issuer:values(r=>r.issuer),basis:values(r=>r.metrics.leverage?.basis),period:values(r=>r.period_kind),currency:values(r=>r.currency),limitation:values(r=>r.gaps||[]),
+  return {sector:values(r=>r.sector),workflow:values(r=>r.workflow),issuer:issuerGroups(runs).map(g=>g[0].issuer).filter(Boolean).sort().map(v=>[v,v]),basis:values(r=>r.metrics.leverage?.basis),period:values(r=>r.period_kind),currency:values(r=>r.currency),limitation:values(r=>r.gaps||[]),
     completion:[['75','75% or above'],['50','50% or above'],['100','100% complete'],['unassessed','Not assessed']],availability:[['report','Report available'],['handoff','No report available']],
     runs:[['latest','Latest run per issuer'],['any','Any run']],classification:[...Object.entries(CLASSIFICATIONS),['not_stated','Not stated']],
     ratingBelow:LibraryLogic.scale.map(r=>[r,r.replace('/',' / ')]),ratingAbove:LibraryLogic.scale.map(r=>[r,r.replace('/',' / ')]),ratingScope:[['issuer','Issuer ratings'],['any','Any rating']]};

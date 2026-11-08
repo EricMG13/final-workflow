@@ -399,7 +399,7 @@ function libraryClick(target) {
     const {libraryNav:kind,libraryIssuer:issuer}=nav.dataset;
     if(kind==='all')resetLibrary();
     else if(kind==='reports')Object.assign(libraryFilters,{issuer:'',availability:'report'});
-    else libraryFilters.issuer=libraryFilters.issuer===issuer?'':issuer;
+    else libraryFilters.issuer=LibraryLogic.issuerKey(libraryFilters.issuer)===LibraryLogic.issuerKey(issuer)?'':issuer;
     updateLibrary(true);
     [...$('library-nav').querySelectorAll('button')].find(b=>b.dataset.libraryNav===kind&&b.dataset.libraryIssuer===issuer).focus();
   } else if(hide) {

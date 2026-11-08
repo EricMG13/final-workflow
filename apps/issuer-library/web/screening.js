@@ -86,13 +86,15 @@ const LibraryLogic = (() => {
     price: facilityGroup('price'), yield: facilityGroup('yield'),
     limitation: {on: f => !!f.limitation, recorded: run => (run.gaps || []).length > 0, pass: (run, f) => (run.gaps || []).includes(f.limitation)}
   };
+  // Issuers differing only in ASCII case are one issuer; shown text stays as recorded.
+  const issuerKey = issuer => String(issuer || '').toLowerCase();
   const activeGroups = filters => Object.keys(GROUPS).filter(name => GROUPS[name].on(filters));
   function commonPass(run, filters) {
     const search = (filters.search || '').trim().toLocaleLowerCase();
     const haystack = [run.name, run.issuer, run.id, run.title, run.sector, run.workflow].join(' ').toLocaleLowerCase();
     if (search && !haystack.includes(search)) return false;
     for (const [key, field] of [['sector','sector'],['workflow','workflow'],['issuer','issuer'],['period','period_kind']]) {
-      if (filters[key] && run[field] !== filters[key]) return false;
+      if (filters[key] && (key === 'issuer' ? issuerKey(run.issuer) !== issuerKey(filters.issuer) : run[field] !== filters[key])) return false;
     }
     if (filters.availability === 'report' && !hasReport(run)) return false;
     if (filters.availability === 'handoff' && hasReport(run)) return false;
@@ -104,7 +106,7 @@ const LibraryLogic = (() => {
   function latestStatus(runs, filters) {
     const status = new Map(runs.map(run => [run, {notScreened: false}]));
     if (filters.runs === 'any') return status;
-    const groupOf = run => run.issuer === 'Unclassified' ? 'row:' + run.id : 'issuer:' + run.issuer;
+    const groupOf = run => run.issuer === 'Unclassified' ? 'row:' + run.id : 'issuer:' + issuerKey(run.issuer);
     const dateOf = run => run.date || '';
     const latestDate = new Map();
     for (const run of runs.filter(hasReport)) {
@@ -156,5 +158,5 @@ const LibraryLogic = (() => {
       return (direction === 'desc' ? -difference : difference) || left.id.localeCompare(right.id);
     });
   }
-  return {numberOf, hasReport, filterRuns, sortRuns, screened, coverage, hiddenBy, ratingPlace, lowestRating, scale: SCALE};
+  return {issuerKey, numberOf, hasReport, filterRuns, sortRuns, screened, coverage, hiddenBy, ratingPlace, lowestRating, scale: SCALE};
 })();

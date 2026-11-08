@@ -230,3 +230,16 @@ test('the Private-side detail row appears only for a private-side run',t=>{
   p.d.querySelector('[data-library-select="brackenfell-hy-001"]').click();assert.ok(p.detail().includes('Private-side · Yes'));
   p.d.querySelector('[data-library-select="dunmore-001"]').click();assert.ok(!p.detail().includes('Private-side'));
 });
+
+test('issuers differing only in case are one nav entry and one issuer in the count',t=>{
+  const key=fixture('issuer-case-cases.json'),p=page(t,'W-Library/cases',{real:key.runs,sources:{}});
+  p.set('library-runs','any');
+  const entries=[...p.d.querySelectorAll('#library-nav [data-library-issuer]')];
+  assert.deepEqual(entries.map(b=>({label:text(b.querySelector('span:not(.monogram):not(.count)')),count:Number(text(b.querySelector('.count')))})),key.nav.issuers.map(({label,count})=>({label,count})));
+  assert.deepEqual(entries.map(b=>text(b.querySelector('.monogram'))),key.nav.issuers.map(i=>i.monogram_from.slice(0,3)));
+  assert.match(text(p.d.getElementById('library-count')),new RegExp(`· ${key.nav.count_line_issuers} issuers$`));
+  entries[0].click();
+  assert.equal(entries[0].dataset.libraryIssuer,'TDG');
+  assert.deepEqual(sorted(p.ids()),sorted(key.runs.filter(r=>r.issuer.toLowerCase()==='tdg').map(r=>r.id)));
+  assert.equal(p.d.querySelector('#library-nav .nav-choice.active [data-x]'),null);
+});

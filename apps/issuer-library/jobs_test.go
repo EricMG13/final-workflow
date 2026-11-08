@@ -543,11 +543,14 @@ func TestOtherEndpointsKeepTheServerWriteTimeout(t *testing.T) {
 	app, _ := testApp(t)
 	app.engine = slowReviewEngine(t, "1.5")
 	// The first call answers at once (control); later calls take 1.5 s.
+	// Each run appends a byte under runs/, as a live run would, so the next read is a cache miss
+	// and runs the store again (a retry after the cut would otherwise be served the cached output).
 	store := `import sys,time,pathlib
 sys.stdin.read()
 mark=pathlib.Path(__file__).with_name('called')
 if mark.exists(): time.sleep(1.5)
 mark.write_text('1')
+with (pathlib.Path(sys.argv[1])/'runs'/'case-a'/'timeout-probe.md').open('a') as stream: stream.write('x')
 print('{}')
 `
 	if err := os.WriteFile(filepath.Join(filepath.Dir(app.engine.Script), "store.py"), []byte(store), 0600); err != nil {
@@ -1517,8 +1520,12 @@ func TestRunProgressFoldsEvents(t *testing.T) {
 		t.Fatalf("after delivery start: %v", got)
 	}
 	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"stopped","reason":"budget"}`+"\n")
-	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["turn"] != 2 {
+	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["turn"] != 2 || got["stopped_during"] != "running" {
 		t.Fatalf("after stop: %v", got)
+	}
+	writeEvents(t, root, eventsID, eventLines+`{"at":"x","event":"module_accepted","module":"CP-1"}`+"\n"+`{"at":"x","event":"delivery_started"}`+"\n"+`{"at":"x","event":"stopped","reason":"other"}`+"\n")
+	if got, _ := runProgress(root, eventsID); got["step"] != "stopped" || got["stopped_during"] != "delivering" || got["accepted"] != 2 {
+		t.Fatalf("stop in delivery: %v", got)
 	}
 	writeEvents(t, root, eventsID, `{"at":"x","event":"module_started","module":"CP-0"}`+"\n")
 	if got, _ := runProgress(root, eventsID); got["step"] != "started" || got["accepted"] != 0 {

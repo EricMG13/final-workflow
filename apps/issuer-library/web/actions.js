@@ -11,12 +11,14 @@ const workflowTitle=value=>String(value).replace(/_/g,' ').replace(/\b[a-z]/g,le
 const STATE_BADGE={running:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
 const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
 // Why a run stopped, in words a reader can act on. The redacted message follows the sentence.
-const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap. Retained work is kept; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
+const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
 function stopSentence(status){return WORKFLOW_ACTIVE.includes(status.state)||status.state==='complete'?'':STOP_COPY[status.reason]||'';}
 function stopText(status){const sentence=stopSentence(status);return sentence?(status.message?`${sentence} ${status.message}`:sentence):`${status.state}: ${status.message||''}`;}
 function describeModule(status,modules,nameOf){
   const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state);
-  if(p.step==='delivering')return 'delivering the report';
+  // A stop after every module was accepted happened in delivery, not in the last module.
+  if(p.step==='delivering')return active?'delivering the report':'stopped while delivering the report';
+  if(p.step==='stopped'&&(p.stopped_during==='delivering'||(modules.length>0&&p.accepted>=modules.length)))return 'stopped while delivering the report';
   if(p.step==='delivered')return 'report delivered';
   if(!moduleId)return '';
   const index=modules.indexOf(moduleId),where=index>=0?` (${index+1} of ${modules.length})`:'',turn=p.turn&&p.max_turns?`, turn ${p.turn} of ${p.max_turns}`:'';
@@ -144,8 +146,9 @@ function installNewRun(){
     bar.hidden=!modules.length;
     if(modules.length){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
+      const deliveryStop=step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length);
       bar.replaceChildren(...modules.map((id,i)=>{
-        const isComplete=runComplete||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
+        const isComplete=runComplete||deliveryStop||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
         const li=document.createElement('li');li.dataset.status=isComplete?'complete':isCurrent?'current':'incomplete';li.title=id;
         if(isStopped)li.setAttribute('data-stopped','');
         const marker=document.createElement('span');marker.className='step-marker';marker.setAttribute('aria-hidden','true');

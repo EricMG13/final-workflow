@@ -7,8 +7,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -52,7 +54,6 @@ func (engine Engine) command(ctx context.Context, operation, folder string) *exe
 
 // library parses the workspace's handoffs for the app; the catalogue names what to show.
 // store.py imports only the standard library, so a page load does not pay for the engine.
-// ponytail: parsed on each page load; add a cache if a workspace makes this slow.
 func (engine Engine) library(workspace string, catalogue []byte) ([]byte, error) {
 	if _, err := os.Stat(engine.Python); err != nil {
 		return nil, fmt.Errorf("CP-OS runtime is unavailable; use the complete application package")
@@ -214,6 +215,9 @@ func foldEvents(events []runEvent) map[string]any {
 		"module_accepted": "accepted", "delivery_started": "delivering", "delivered": "delivered", "stopped": "stopped"}
 	for _, event := range events {
 		if step, known := steps[event.Event]; known {
+			if step == "stopped" {
+				progress["stopped_during"] = progress["step"] // the step the stop interrupted
+			}
 			progress["step"] = step
 		}
 		switch event.Event {
@@ -657,4 +661,71 @@ func (app *Application) watchWorker(folder, id string) {
 		}
 	}
 	app.finishJob(folder, id)
+}
+
+// workspaceFingerprint names the inputs of one store run: the catalogue without its build time,
+// and size and mtime (never contents) of every regular file under workspace/runs and
+// workspace/deliverables, the only workspace trees store.py reads, plus store.py, catalog.json
+// and the visualisation catalogue. A missing file is recorded as missing, not as an error.
+// ponytail: one entry keyed on size and mtime; an edit that keeps both is missed until Refresh. Hash the files if that happens.
+func workspaceFingerprint(workspace string, catalogue Catalogue, engineDir string) (string, error) {
+	catalogue.BuiltAt = ""
+	raw, err := json.Marshal(catalogue)
+	if err != nil {
+		return "", err
+	}
+	var lines []string
+	describe := func(label, name string) error {
+		info, err := os.Lstat(name)
+		if errors.Is(err, fs.ErrNotExist) {
+			lines = append(lines, label+"\tmissing")
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		lines = append(lines, fmt.Sprintf("%s\t%d\t%d", label, info.Size(), info.ModTime().UnixNano()))
+		return nil
+	}
+	for _, tree := range []string{"runs", "deliverables"} {
+		err = filepath.WalkDir(filepath.Join(workspace, tree), func(name string, entry fs.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				if name == filepath.Join(workspace, tree) && errors.Is(walkErr, fs.ErrNotExist) {
+					return nil
+				}
+				return walkErr
+			}
+			if !entry.Type().IsRegular() {
+				return nil
+			}
+			relative, err := filepath.Rel(workspace, name)
+			if err != nil {
+				return err
+			}
+			return describe(filepath.ToSlash(relative), name)
+		})
+		if err != nil {
+			return "", err
+		}
+	}
+	engineFiles := map[string]string{
+		"engine/store.py":     filepath.Join(engineDir, "store.py"),
+		"engine/catalog.json": filepath.Join(engineDir, "catalog.json"),
+	}
+	// store.py's REPO: the engine folder itself when packaged (it has src), else the checkout root.
+	repo := filepath.Join(engineDir, "..", "..", "..")
+	if info, statErr := os.Stat(filepath.Join(engineDir, "src")); statErr == nil && info.IsDir() {
+		repo = engineDir
+	}
+	engineFiles["docs/visualisations/catalogue.csv"] = filepath.Join(repo, "docs", "visualisations", "catalogue.csv")
+	for label, name := range engineFiles {
+		if err = describe(label, name); err != nil {
+			return "", err
+		}
+	}
+	sort.Strings(lines)
+	hash := sha256.New()
+	hash.Write(raw)
+	hash.Write([]byte("\n" + strings.Join(lines, "\n")))
+	return hex.EncodeToString(hash.Sum(nil)), nil
 }

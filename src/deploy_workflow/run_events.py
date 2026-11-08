@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from deploy_workflow.model.adapter import LivePauseInForce
-from deploy_workflow.model.budget import BudgetExhausted, RunStopped
+from deploy_workflow.model.budget import BudgetExhausted, OverrunStop, RunStopped
 
 EVENTS = "events.jsonl"
 
@@ -57,8 +57,10 @@ def read_events(path: Path, limit: int = 4 * 1024 * 1024) -> list[dict[str, Any]
 def stop_reason(error: BaseException) -> str:
     """Fixed reason a live run stopped: budget, checker, provider, interrupted, ruling or other."""
     message = str(error)
-    if isinstance(error, BudgetExhausted | RunStopped):
-        return "budget"
+    if isinstance(error, RunStopped | BudgetExhausted):
+        # Only a cap or an overrun is a spending stop; any other RunStopped (an unknown charge)
+        # is the provider's, and the cap was not what stopped the run.
+        return "budget" if isinstance(error, BudgetExhausted | OverrunStop) else "provider"
     if message.startswith("cpos_live_stopped"):
         return "budget" if "overrun=True" in message else "provider"
     if message.startswith(

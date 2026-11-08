@@ -110,3 +110,14 @@ def test_two_changed_files_with_one_module_name_are_typed_one_by_one(tmp_path: P
     assert result.files == ["a/builder/build.py", "b/builder/build.py"]
     seen = {(f.path, f.line, f.tool, f.code) for f in result.findings}
     assert seen == {("b/builder/build.py", 1, "mypy", "assignment")}, result.findings
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="git and tool paths are POSIX here")
+def test_gate_flags_a_stale_noqa_for_a_gate_only_code(tmp_path: Path) -> None:
+    root = _repo(tmp_path, BASE)
+    (root / "new.py").write_text(
+        "def few(a: int) -> int:  # noqa: PLR0913\n    return a\n", encoding="utf-8"
+    )
+    result = gate.run_gate(root, "HEAD")
+    seen = {(f.path, f.line, f.tool, f.code) for f in result.findings}
+    assert ("new.py", 1, "ruff", "RUF100") in seen, result.findings

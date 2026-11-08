@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -784,5 +785,123 @@ func TestWorkspaceSwitchDuringARefreshKeepsTheNewWorkspace(t *testing.T) {
 	}
 	if response := call(app, "GET", "/files/runs/case-a/CP-0.md", ""); response.Code != 404 {
 		t.Fatalf("old workspace file still admitted: %d", response.Code)
+	}
+}
+
+// countingEngine is fakeEngine whose store script appends one line to the returned counter file
+// per run, and fails while failFile exists.
+func countingEngine(t *testing.T) (Engine, string, string) {
+	t.Helper()
+	engine := fakeEngine(t)
+	counter := filepath.Join(t.TempDir(), "store-runs.txt")
+	failFile := filepath.Join(t.TempDir(), "fail")
+	script := fmt.Sprintf(`import json,sys,os,time
+with open(%q,'a') as s: s.write('run\n')
+time.sleep(.2)
+if os.path.exists(%q): sys.exit(3)
+print(json.dumps({'ok':True}))
+`, counter, failFile)
+	if err := os.WriteFile(filepath.Join(filepath.Dir(engine.Script), "store.py"), []byte(script), 0600); err != nil {
+		t.Fatal(err)
+	}
+	return engine, counter, failFile
+}
+
+func storeRuns(t *testing.T, counter string) int {
+	t.Helper()
+	raw, err := os.ReadFile(counter)
+	if os.IsNotExist(err) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return strings.Count(string(raw), "run\n")
+}
+
+func TestWorkspaceStoreRunsOnceUntilAFileChanges(t *testing.T) {
+	app, root := testApp(t)
+	var counter string
+	app.engine, counter, _ = countingEngine(t)
+	for range 2 {
+		if r := call(app, "GET", "/api/workspace", ""); r.Code != 200 {
+			t.Fatalf("workspace: %d", r.Code)
+		}
+	}
+	if n := storeRuns(t, counter); n != 1 {
+		t.Fatalf("two reads ran the store %d times, want 1", n)
+	}
+	put(t, root, "runs/case-a/extra-note.md", []byte("a longer file than before"))
+	call(app, "GET", "/api/workspace", "")
+	if n := storeRuns(t, counter); n != 2 {
+		t.Fatalf("after a file change the store ran %d times, want 2", n)
+	}
+}
+
+func TestCatalogueRebuildAloneDoesNotRerunTheStore(t *testing.T) {
+	app, _ := testApp(t)
+	var counter string
+	app.engine, counter, _ = countingEngine(t)
+	call(app, "GET", "/api/workspace", "")
+	app.mu.Lock()
+	app.catalogue.BuiltAt = "2001-01-01T00:00:00Z"
+	app.mu.Unlock()
+	call(app, "GET", "/api/workspace", "")
+	app.refresh()
+	call(app, "GET", "/api/workspace", "")
+	if n := storeRuns(t, counter); n != 1 {
+		t.Fatalf("a rebuild that changed only BuiltAt ran the store %d times, want 1", n)
+	}
+}
+
+func TestConcurrentWorkspaceReadsShareOneStore(t *testing.T) {
+	app, _ := testApp(t)
+	var counter string
+	app.engine, counter, _ = countingEngine(t)
+	var group sync.WaitGroup
+	for range 8 {
+		group.Go(func() {
+			if r := call(app, "GET", "/api/workspace", ""); r.Code != 200 {
+				t.Errorf("workspace: %d", r.Code)
+			}
+		})
+	}
+	group.Wait()
+	if n := storeRuns(t, counter); n != 1 {
+		t.Fatalf("8 parallel reads ran the store %d times, want 1", n)
+	}
+}
+
+func TestRefreshClearsTheWorkspaceCache(t *testing.T) {
+	app, _ := testApp(t)
+	var counter string
+	app.engine, counter, _ = countingEngine(t)
+	call(app, "GET", "/api/workspace", "")
+	call(app, "POST", "/api/refresh", "{}")
+	call(app, "GET", "/api/workspace", "")
+	if n := storeRuns(t, counter); n != 2 {
+		t.Fatalf("a read after /api/refresh ran the store %d times in total, want 2", n)
+	}
+}
+
+func TestAFailedStoreIsNotCached(t *testing.T) {
+	app, _ := testApp(t)
+	var counter, failFile string
+	app.engine, counter, failFile = countingEngine(t)
+	if err := os.WriteFile(failFile, nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if r := call(app, "GET", "/api/workspace", ""); r.Code != http.StatusServiceUnavailable {
+		t.Fatalf("failing store: %d", r.Code)
+	}
+	if err := os.Remove(failFile); err != nil {
+		t.Fatal(err)
+	}
+	if r := call(app, "GET", "/api/workspace", ""); r.Code != 200 {
+		t.Fatalf("after the store recovered: %d", r.Code)
+	}
+	call(app, "GET", "/api/workspace", "")
+	if n := storeRuns(t, counter); n != 2 {
+		t.Fatalf("store ran %d times, want 2 (failure, then one success, then a hit)", n)
 	}
 }

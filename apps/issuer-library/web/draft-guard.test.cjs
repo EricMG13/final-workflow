@@ -16,6 +16,7 @@ async function boot({draft,newRunHidden,answer}){
     fetch:async()=>({ok:true,json:async()=>({real:[]})}),
     setInterval:()=>0,setTimeout,console,JSON,Promise,watchRuns:()=>{},
   });
+  vm.runInContext(read('hydrate.js'),context);
   vm.runInContext(read('boot.js'),context);
   await settle();
   element('new-run').hidden=newRunHidden;

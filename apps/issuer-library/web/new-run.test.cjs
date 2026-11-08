@@ -99,6 +99,14 @@ test('a stopped run does not claim its rejected module is still running',async t
   assert.equal(items[1].querySelector('span:not(.step-marker)').textContent,'Stopped here');
   const open=p.doc.getElementById('open-run');assert.equal(open.hidden,false);assert.equal(open.textContent,'Open run');
 });
+test('a stop in delivery marks no module stopped and keeps every module accepted',async t=>{
+  const p=await page(t,{status:{state:'failed',message:'delivery refused',progress:{module:'CP-1',step:'stopped',stopped_during:'delivering',accepted:2,spent_usd:'0.42'},run_available:true,id:ID}});
+  p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
+  assert.match(p.doc.getElementById('run-progress').textContent,/stopped while delivering the report/);
+  const items=[...p.doc.querySelectorAll('#module-stages li')];
+  assert.deepEqual(items.map(li=>li.dataset.status),['complete','complete']);
+  assert.equal(items.some(li=>li.hasAttribute('data-stopped')),false);
+});
 test('recent runs are a table, active first, and a row reopens its run',async t=>{
   const p=await page(t,{list:[ROW_DONE,ROW_RUNNING],status:{state:'running',message:'Working',progress:{module:'CP-1',step:'started',spent_usd:'0.10'},run_available:true}});
   await p.win.eval("window.dispatchEvent(new Event('hashchange'))");

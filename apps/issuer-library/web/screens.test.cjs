@@ -10,7 +10,9 @@ function fixture(hash,timeout,before){
   w.HTMLElement.prototype.scrollIntoView=function(){};
   if(timeout!==undefined)w.DESIGN_FRAME_TIMEOUT_MS=timeout;
   if(before)before(w);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
   for(const name of ['data.js','workspace-data.js'])vm.runInContext(fs.readFileSync(path.join(root,name),'utf8'),dom.getInternalVMContext());
+  w.hydrate(w.DESIGN_DATA);
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
@@ -54,8 +56,11 @@ test('the navigator is resident on Overview and Modules only',async t=>{
   for(const hash of ['W-Reports/list','W-Evidence/sources','CP-OS/activity']){await go(w,`${hash}?c=tdg-002`);assert.equal(tools(),true,hash);}
 });
 
+// Fixed waits race the timer when the machine is loaded, so the loading state is read under a long timeout and the
+// failure is awaited by polling for it (5 s ceiling). The failure test still needs a short timeout on a frame that never loads.
+const until=async(ok,what,ms=5000)=>{const end=Date.now()+ms;while(!ok()){if(Date.now()>end)assert.fail(what);await settle(5);}};
 test('the report frame shows loading, failure with retry, and loaded',async t=>{
-  const dom=fixture('W-Calendar/events?c=tdg-002',20),w=dom.window,d=w.document;t.after(()=>w.close());
+  const dom=fixture('W-Calendar/events?c=tdg-002',5000),w=dom.window,d=w.document;t.after(()=>w.close());
   const report=w.eval('window.DESIGN_WORKSPACE.reports[0]');
   // The loading state is read in the render's own task, before the 20 ms timer can fire; the busy
   // listener stands in for a loaded machine (as in library-workspace.test.cjs's model frame test).
@@ -63,7 +68,9 @@ test('the report frame shows loading, failure with retry, and loaded',async t=>{
   w.location.hash=`W-Reports/${report.id}`;w.dispatchEvent(new w.Event('hashchange'));
   const status=()=>d.querySelector('.frame-status');
   assert.match(text(status()),/^Loading report/);
-  await settle(60);
+  w.DESIGN_FRAME_TIMEOUT_MS=20;
+  await go(w,'W-Reports/list?c=tdg-002');await go(w,`W-Reports/${report.id}`);
+  await until(()=>/did not load/.test(status()?.textContent||''),'the report frame never reported failure');
   assert.match(text(status()),/did not load/);
   assert.equal(status().querySelector('a').getAttribute('href'),report.download);
   const frame=d.getElementById('report-preview'),src=frame.getAttribute('src');
@@ -206,10 +213,15 @@ async function bootPage(t,hash,reply){
   const errors=[],virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',e=>errors.push(e.message));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#${hash}`,runScripts:'outside-only',virtualConsole}),w=dom.window;t.after(()=>w.close());
   let tick=null;w.setInterval=fn=>{tick=fn;return 1;};w.console.warn=()=>{};
-  w.fetch=async()=>reply();w.eval('function watchRuns(){}');
+  w.fetch=async()=>reply();
+  let booted;const ready=new Promise(resolve=>{booted=resolve;});w.watchRuns=()=>booted();
   const real=w.document.createElement.bind(w.document);
   w.document.createElement=name=>{const el=real(name);if(name==='script')setTimeout(()=>el.onload&&el.onload(),0);return el;};
-  vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());await settle(30);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'hydrate.js'),'utf8'),dom.getInternalVMContext());
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'boot.js'),'utf8'),dom.getInternalVMContext());
+  // boot.js ends by starting the run watcher, so that call (not a fixed wait) marks the scripts as loaded; 5 s ceiling.
+  let ceiling;
+  await Promise.race([ready,new Promise((_,reject)=>{ceiling=setTimeout(()=>reject(new Error('boot.js never finished loading its scripts')),5000);})]).finally(()=>clearTimeout(ceiling));
   return {w,d:w.document,errors,tick:async()=>{await tick();}};
 }
 const GOOD={real:[],runs:{},outputs:{},inputs:{},pins:{},reports:[],models:[],visuals:[],issues:[],workspace:'/r'};

@@ -251,8 +251,10 @@ def names_issuer(text: str, names: tuple[str, ...]) -> bool:
     )
 
 
-def section(lines: list[str], title: str) -> list[tuple[int, str]]:
-    headings = (f"## {title}", f"### {title}")
+def section(
+    lines: list[str], title: str, levels: tuple[int, ...] = (2, 3)
+) -> list[tuple[int, str]]:
+    headings = tuple("#" * level + f" {title}" for level in levels)
     matches = [i for i, line in enumerate(lines) if line in headings]
     if len(matches) != 1:
         raise ValueError(f"Expected one Markdown section: {title}")

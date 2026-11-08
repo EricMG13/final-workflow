@@ -8,6 +8,78 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-07 — Phase 3 and branch end: identity, handoffs once, manifests once, workspace cache (branch `claude/system-design-remaining-calls-e06c23`)
+
+Scope: Tasks 7-10 (commits ec18373f..3976be83), the end batch 9b3215fa and the final batch 398ae209;
+macOS only. The live test used a copy of the retained app run `web-04cd5a…` (retained data, no
+provider call).
+- Payload probe `adv-security-handoff-hardlinks`: the workspace payload falls from 560 MB to 20.1 MB
+  at 28 hardlinked runs.
+- Cache live test (real app at 3976be83, in-app pane): `/api/workspace` 196,096 bytes; 82 ms, then
+  5 and 11 ms from the cache; appending a run file gave one rerun (84 ms), then 4 ms. Overview
+  renders through hydrate.
+- Task reviews (Fable): Tasks 7, 8, 9, 10 Approved; Task 10 race probes `task10-races.go/.sh` exit 0.
+- `validate.py` full exit 0 at 3976be83 (node 273, python 521, go test/vet incl. windows, amd64/arm64
+  builds, ruff). The diff ec18373f..3976be83 is 800 lines, at the cap.
+- End batch 9b3215fa: probes 0; quick 0; quality gate 0 (230 passed).
+- Whole-branch Fable review (0c596eac..9b3215fa): Ready to merge. Its three Lows were fixed in
+  398ae209 and the controller reran the probes (`branch-stop-reason-unknown-charge.py`,
+  `branch-stop-in-delivery.sh`, `branch-double-gaps-heading.py`): 0, 0, 0.
+- Final: `validate.py` full exit 0 at 398ae209 (node 275, python 523, go test/vet incl. windows,
+  amd64/arm64 builds, ruff); `tools/quality_gate.py` exit 0.
+- Owner items: `tests/test_retained_planning.py::test_issuer_identity_cannot_be_assembled_across_title_and_request`
+  fails at base 0c596eac and is not in `tests/nightly-known-failures.txt`; `_literal_tables` is not
+  fence-aware (pre-existing, cannot cause a false failure); Task 10 `clear()` waits behind an
+  in-flight store run (latency only); Task 8/9 Info notes.
+- Not verified: the browser gate (`FW_PLAYWRIGHT_PYTHON` unset); the
+  workspace reload on Windows; any provider run.
+
+## 2026-11-07 — Phase 2: delivery gaps, coverage record, front lines (branch `claude/system-design-remaining-calls-e06c23`)
+
+Scope: Tasks 4-6 (commits 74c66963..ec18373f, 799 changed lines) and the banner fix a46f6976 that
+the owner prompted ("Looks like wrong frontend"); macOS only.
+- Live test (deterministic retained-data rebuild, not a model run): the handoffs CP-0, CP-1 and
+  CP-1A of `runs/web-04cd5a5d02ea7d1dea714a8a6632cd21` rebuilt at ec18373f into a scratch copy with
+  the launcher's front routes; `runs/` untouched. The coverage check passes (CP-0 14, CP-1 32, CP-1A
+  22 entries). CP-1 limitations are 2 fixed plus 9 gap rows, matching the 9 data rows of its Gaps
+  table (independent awk count). The first view came from a scratch static server, not the app;
+  `#delivery-limits` had no class and rendered unstyled. a46f6976 gives it `class="banner"`
+  (RED/GREEN test; quick 0; quality gate 0), then it was viewed in the real Issuer Library app.
+- Reviews (Fable): Task 4 Approved (probe `task4-hostile-gaps.py` 0); Task 5 passed after 2 fix
+  rounds (5 probes 0); Task 6 passed after 1 round (`task6-manifest-roundtrip.py` and `-v2` 0).
+- `validate.py` full exit 0 at ec18373f (python 513, node 271, go, ruff).
+- Finding: the in-app pane does not paint sandboxed iframes (srcdoc probe: sandbox, not painted;
+  no sandbox, painted); the report frame is equally blank on main. The in-app report frame therefore
+  still needs checking in Edge/Chrome on Windows.
+- Owner item: `tests/test_retained_planning.py::test_issuer_identity_cannot_be_assembled_across_title_and_request`
+  fails at HEAD with src reverted and at base 0c596eac, and is not in `tests/nightly-known-failures.txt`.
+- Not verified: the report frame in the real app on Windows (Edge/Chrome); a model-written handoff
+  through the new coverage check (only retained handoffs); `validate.py` full after a46f6976 (quick
+  and quality gate only); the browser gate (`FW_PLAYWRIGHT_PYTHON` unset).
+
+## 2026-11-07 — Phase 1: run event log and app run watcher (branch `claude/system-design-remaining-calls-e06c23`)
+
+Scope: Tasks 1-3 and the cleanup (commits 7afa9551..74c66963), 940 changed lines, over the 800-line
+PR cap (tests about 350); macOS only. Natural split for the owner: Task 1 | Tasks 2-3.
+- Live test, SYNTHETIC: an event log written into a scratch workspace, read by the real Go server and
+  the real UI in the in-app pane. Running showed title "● 1/2 · Issuer library · Issuer Library",
+  rail "Run running, 1 of 2 modules" and "turn 1 of 24", "USD 0.26 of a USD 10 cap; the next call
+  holds USD 5.73". A stop(budget) was seen by the 5 s watcher (title "!", "Run stopped").
+  The real worker-to-events path is covered by fakes only. The notification was not exercised
+  (pane permission "denied").
+- The paid live CP-OS run (CP-0 and CP-1, cap USD 10) was denied by the permission classifier and
+  was not run; it remains an owner decision. The review step (no model call) ran live: hold 5.73,
+  provider_ready true.
+- Reviews (Fable): Task 1 fixed once (event writes made fail-open; probe v2 0); Task 2 Approved;
+  Task 3 fixed once (notification click with a draft open; probe 0); cleanup Approved (probe
+  `cleanup-external-gate.sh` 0).
+- Gates: `validate.py` full first failed on ruff only (RUF100 on `noqa` that `tools/quality_gate.py`
+  requires; the two gates disagreed); after 74c66963 (ruff `external` codes, unused `on_start`
+  removed) it exits 0. The first full run otherwise passed (node 271, python 507, go).
+- Owner items: the paid live run; the 940-line size above.
+- Not verified: the real worker writing events under a provider; the notification; the Windows UI;
+  the browser gate (`FW_PLAYWRIGHT_PYTHON` unset).
+
 ## 2026-11-07 — First nightly run triaged (branch `claude/nightly-disk`)
 
 Scope: nightly run 42351518717 on main 3bff5e8, its runner faults and its 94 failures not on

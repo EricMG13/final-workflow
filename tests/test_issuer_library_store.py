@@ -143,7 +143,7 @@ def test_runs_take_labels_from_the_catalogue_and_launcher_manifest(tmp_path):
 def test_outputs_keep_exact_values_identity_and_a_serving_link(tmp_path):
     result = store.workspace_store(tmp_path, workspace(tmp_path))
     output = result["outputs"]["alpha-001/CP-1.md"]
-    rows = output["sections"][1]["blocks"][0]["rows"]
+    rows = result["handoffs"][output["sha256"]][1]["blocks"][0]["rows"]
     assert [row["cells"] for row in rows] == [["Revenue", "0"], ["Debt", "not stated"]]
     assert output["sha256"] == hashlib.sha256(CP1.encode()).hexdigest()
     assert output["href"] == f"/files/runs/alpha-001/CP-1.md?sha256={output['sha256']}"
@@ -167,7 +167,7 @@ def test_a_handoff_that_cannot_be_structured_stays_readable_and_is_flagged(tmp_p
     result = store.workspace_store(tmp_path, workspace(tmp_path))
     output = result["outputs"]["alpha-001/CP-2.md"]
     assert "Body before" in output["parseError"]
-    block = output["sections"][0]["blocks"][0]
+    block = result["handoffs"][output["sha256"]][0]["blocks"][0]
     assert block["type"] == "text" and block["text"].startswith("Body before any heading")
     assert "## Later" in block["text"]
     assert any("alpha-001/CP-2.md" in issue for issue in result["issues"])
@@ -356,7 +356,8 @@ def test_the_library_reads_a_workspace_in_its_own_small_process(tmp_path):
     probe = (
         "import runpy,sys;sys.argv=[sys.argv[1],sys.argv[2]];"
         "runpy.run_path(sys.argv[0],run_name='__main__');"
-        "sys.stderr.write(' '.join(m for m in sys.modules if m.split('.')[0] in ('deploy_workflow','deploy_vii','pydantic')))"
+        "sys.stderr.write(' '.join(m for m in sys.modules "
+        "if m.split('.')[0] in ('deploy_workflow','deploy_vii','pydantic')))"
     )
     done = subprocess.run(
         [sys.executable, "-I", "-B", "-X", "utf8", "-c", probe, str(script), str(tmp_path)],
@@ -365,8 +366,11 @@ def test_the_library_reads_a_workspace_in_its_own_small_process(tmp_path):
         check=True,
     )
     assert done.stderr == b""
-    output = json.loads(done.stdout.decode("utf-8"))["outputs"]["own/CP-0.md"]
-    assert output["sections"][1]["blocks"][0]["text"].startswith("Net debt ≥ 0 at Şişli −")
+    sent = json.loads(done.stdout.decode("utf-8"))
+    output = sent["outputs"]["own/CP-0.md"]
+    assert sent["handoffs"][output["sha256"]][1]["blocks"][0]["text"].startswith(
+        "Net debt ≥ 0 at Şişli −"
+    )
 
 
 def test_one_run_that_breaks_the_parser_is_reported_and_the_rest_stay(tmp_path, monkeypatch):
@@ -492,7 +496,39 @@ def test_a_malformed_reader_section_reaches_the_workspace_issues(tmp_path):
     assert any("web-1/CP-1.md" in issue and "Reader summary" in issue for issue in result["issues"])
     output = result["outputs"]["web-1/CP-1.md"]
     assert output["summary"] is None
-    assert any(s["heading"] == "Chart data: leverage" for s in output["sections"])
+    sections = result["handoffs"][output["sha256"]]
+    assert any(s["heading"] == "Chart data: leverage" for s in sections)
+
+
+def many_runs(root: Path, count: int) -> dict:
+    for number in range(count):
+        put(root, f"runs/copy-{number}/CP-1.md", CP1)
+    real = [{"id": f"copy-{n}", "name": f"copy-{n}", "artifacts": []} for n in range(count)]
+    return {"issues": [], "real": real}
+
+
+def test_identical_handoff_bytes_in_many_runs_are_sent_once(tmp_path):
+    one = store.workspace_store(tmp_path / "one", many_runs(tmp_path / "one", 1))
+    three = store.workspace_store(tmp_path / "three", many_runs(tmp_path / "three", 3))
+    digest = hashlib.sha256(CP1.encode()).hexdigest()
+    assert list(three["handoffs"]) == [digest]
+    assert sorted(three["outputs"]) == ["copy-0/CP-1.md", "copy-1/CP-1.md", "copy-2/CP-1.md"]
+    assert all("sections" not in record for record in three["outputs"].values())
+    assert all(record["sha256"] == digest for record in three["outputs"].values())
+    assert three["handoffs"][digest][1]["blocks"][0]["rows"][0]["cells"] == ["Revenue", "0"]
+    assert len(json.dumps(three)) < 1.5 * len(json.dumps(one))
+
+
+def test_a_shared_unparseable_handoff_is_parsed_once_and_flagged_in_each_run(tmp_path):
+    bad = "Body before any heading\n\n## Later\n\nText\n"
+    for name in ("x-1", "x-2"):
+        put(tmp_path, f"runs/{name}/CP-2.md", bad)
+    real = [{"id": n, "name": n, "artifacts": []} for n in ("x-1", "x-2")]
+    result = store.workspace_store(tmp_path, {"issues": [], "real": real})
+    assert len(result["handoffs"]) == 1
+    for name in ("x-1", "x-2"):
+        assert "Body before" in result["outputs"][f"{name}/CP-2.md"]["parseError"]
+        assert any(f"{name}/CP-2.md" in issue for issue in result["issues"])
 
 
 # Issuer identity: expected keys, headings and terms are written here, not computed by the store.
@@ -805,6 +841,30 @@ def test_a_model_is_listed_with_its_register_sources_and_not_as_a_report(tmp_pat
     assert (by_role["other"]["changed"], by_role["other"]["run"]) == (True, None)
     assert by_role["other"]["output"] is None
     assert (by_role["gone"]["changed"], by_role["gone"]["output"]) == (True, None)
+
+
+def test_a_named_run_without_an_id_takes_its_own_deliverables_id(tmp_path):
+    put(tmp_path, "runs/alpha-001/CP-1.md", CP1)
+    own = model_delivery(tmp_path, "runs/alpha-001/deliveries/own")  # view.json: issuer_id ALP
+    catalogue = {
+        "issues": [],
+        "real": [
+            {
+                "id": "alpha-001",
+                "name": "Alpha Holdings",
+                "issuer": "Unclassified",
+                "sector": "",
+                "period": "",
+                "artifacts": [own],
+            }
+        ],
+    }
+    result = store.workspace_store(tmp_path, catalogue)
+    run = result["runs"]["alpha-001"]
+    (model,) = result["models"]
+    assert run["issuerKey"] == "id:alp"
+    assert model["issuerKey"] == "id:alp"
+    assert model["runId"] == "alpha-001"
 
 
 def test_the_runs_own_delivery_is_kept_over_a_same_named_model_in_either_order(tmp_path):
@@ -2565,6 +2625,47 @@ def test_models_past_the_workspace_cell_budget_get_no_grid_in_delivery_path_orde
     assert not [i for i in result["issues"] if "deliverables/m-1" in i or "deliverables/m-2" in i]
 
 
+def test_each_model_manifest_is_read_once_per_load(tmp_path, monkeypatch):
+    artifacts = [
+        model_delivery(tmp_path, f"deliverables/{name}", forecast=REQUEST, exact=exact_record())
+        for name in ("m-1", "m-2")
+    ]
+    reads: list[str] = []
+    real = store.delivery_json
+
+    def counted(folder):
+        reads.append(folder.name)
+        return real(folder)
+
+    monkeypatch.setattr(store, "delivery_json", counted)
+    result = models_of(tmp_path, *artifacts)
+    assert [m["id"] for m in result["models"]] == ["m-1", "m-2"]
+    assert sorted(n for n in reads if n.startswith("m-")) == ["m-1", "m-2"]
+
+
+def test_a_grid_over_the_budget_is_not_computed(tmp_path, monkeypatch):
+    artifact = model_delivery(
+        tmp_path, "deliverables/m-1", forecast=REQUEST, exact=exact_record(), extra=cashflow_files()
+    )
+    computed: list[int] = []
+    real = store.spec_cell
+
+    def counted(*args, **kwargs):
+        computed.append(1)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(store, "spec_cell", counted)
+    monkeypatch.setattr(store, "CASHFLOW_CELL_BUDGET", 1)
+    result = models_of(tmp_path, artifact)
+    (model,) = result["models"]
+    assert model["cashflow"] is None
+    assert computed == []
+    assert (
+        "deliverables/m-1: the cash flow model is not shown; the workspace's cash flow "
+        "models exceed 1 cells"
+    ) in result["issues"]
+
+
 def test_a_spec_on_a_column_with_no_record_is_a_layout_error_not_a_dash(tmp_path, monkeypatch):
     early = store.RowSpec("early", "X", "Early", "money", ("key", "revenue"), None, None)
     monkeypatch.setattr(store, "TAIL_ROWS", (early, *store.TAIL_ROWS))
@@ -2758,3 +2859,53 @@ def test_the_id_conflict_issue_reads_the_same_for_every_run_order():
         store.issuer_groups(dict(order), issues)
         texts.add(tuple(issues))
     assert texts == {("issuer name Alpha is recorded with different issuer IDs: ALP, bet, Zed",)}
+
+
+def named_run_with_deliveries(tmp_path, *views):
+    own = [
+        view_delivery(tmp_path, f"deliverables/d{n}", "alpha-001", issuer_id, name)
+        for n, (issuer_id, name) in enumerate(views)
+    ]
+    catalogue = identity_catalogue(tmp_path, {"alpha-001": ("Alpha Holdings", None, None)}, own)
+    result = store.workspace_store(tmp_path, catalogue)
+    return result, result["runs"]["alpha-001"]
+
+
+def test_a_named_run_takes_the_id_its_deliverables_agree_on_whatever_they_call_it(tmp_path):
+    result, run = named_run_with_deliveries(
+        tmp_path, ("ALP", "Alpha Holdings"), ("alp", "Alpha Holdings Ltd")
+    )
+    assert run["issuerKey"] == "id:alp"
+    assert any("Alpha Holdings Ltd" in i and "'Alpha Holdings'" in i for i in result["issues"])
+
+
+def test_a_named_run_whose_deliverables_name_different_ids_takes_none_and_says_so(tmp_path):
+    result, run = named_run_with_deliveries(tmp_path, ("ALP", "Alpha Holdings"), ("BET", "Beta"))
+    assert run["issuerKey"] == "name:Alpha Holdings"
+    assert (
+        "runs/alpha-001: deliverables name different issuers; no issuer ID taken"
+        in (result["issues"])
+    )
+
+
+def test_a_deliverable_name_equal_after_case_and_spacing_raises_no_issue(tmp_path):
+    result, run = named_run_with_deliveries(tmp_path, ("ALP", "  alpha   HOLDINGS "))
+    assert run["issuerKey"] == "id:alp"
+    assert not any(i.startswith("runs/alpha-001") for i in result["issues"])
+
+
+def test_named_run_id_says_no_id_recorded_when_no_deliverable_has_one() -> None:
+    delivered = [{"issuer_id": None, "issuer_name": "Zeta Corp"}]
+    run_id, issue = store.named_run_id("Alpha Holdings", None, delivered)
+    assert run_id is None
+    assert (
+        issue
+        == "deliverables name the issuer 'Zeta Corp', not 'Alpha Holdings'; no issuer ID recorded"
+    )
+
+
+def test_named_run_id_keeps_the_id_when_the_names_differ() -> None:
+    delivered = [{"issuer_id": "ZET", "issuer_name": "Zeta Corp"}]
+    run_id, issue = store.named_run_id("Alpha Holdings", None, delivered)
+    assert run_id == "ZET"
+    assert issue == "deliverables name the issuer 'Zeta Corp', not 'Alpha Holdings'; issuer ID kept"

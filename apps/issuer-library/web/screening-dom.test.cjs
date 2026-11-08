@@ -6,7 +6,7 @@ const html=read('index.html'),pinned=JSON.parse(read('testdata/catalogue-2026-11
 const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 const empty={runs:{},outputs:{},inputs:{},pins:{},reports:[],models:[],visuals:[],issues:[],handoffs:{}};
 function page(t,catalogue=pinned,problem=''){
-  const dom=new JSDOM(html,{url:'http://127.0.0.1:1/index.html#W-Library/cases',runScripts:'outside-only'}),w=dom.window;
+  const dom=new JSDOM(html,{url:'http://127.0.0.1:1/index.html#W-Library/cases?runs=any',runScripts:'outside-only'}),w=dom.window;
   w.scrollTo=()=>{};w.fetch=()=>new Promise(()=>{});w.HTMLElement.prototype.scrollIntoView=function(){};
   const context=dom.getInternalVMContext(),store=structuredClone(empty);
   vm.runInContext(read('hydrate.js'),context);w.hydrate(store);
@@ -102,7 +102,8 @@ test('sort buttons and issuer choices are native buttons: tabbable, named, and k
   tdg().click();assert.equal(p.ids().length,59,'a second choice releases the issuer');
   d.querySelector('[data-library-nav="reports"]').click();
   assert.equal(d.activeElement.dataset.libraryNav,'reports');assert.equal(d.activeElement.getAttribute('aria-pressed'),'true');
-  d.querySelector('[data-library-nav="all"]').click();assert.equal(p.ids().length,59);
+  d.querySelector('[data-library-nav="all"]').click();p.set('library-runs','any'); // a reset returns Runs to its Latest default
+  assert.equal(p.ids().length,59);
 });
 
 test('selecting a row opens its detail with the key values and bases, one run at a time',t=>{
@@ -133,8 +134,9 @@ test('View source moves to the source block; Reset returns every filter, the sor
   p.set('library-leverageMin','5');p.sort('leverage').click();p.d.querySelector('[data-library-issuer="TDG"]').click();
   assert.deepEqual(p.ids(),['tdg-002']);
   p.d.getElementById('library-clear').click();
+  assert.equal(p.d.getElementById('library-runs').value,'latest');p.set('library-runs','any'); // a reset returns Runs to its Latest default
   assert.deepEqual(p.ids(),key.default_sort.served_order);
-  for(const el of p.d.querySelectorAll('#library-filters [data-library-filter]'))assert.equal(el.value,'',el.id);
+  for(const el of p.d.querySelectorAll('#library-filters [data-library-filter]'))assert.equal(el.value,{runs:'any',ratingScope:'issuer'}[el.dataset.libraryFilter]??'',el.id);
   assert.equal(p.d.querySelector('[data-library-sort="leverage"]').closest('th').getAttribute('aria-sort'),'none');
   assert.equal(p.d.activeElement.id,'library-query');
 });
@@ -145,7 +147,7 @@ test('no match shows a reset that works; an empty workspace and an unreadable on
   assert.equal(p.count(),'0 of 59 runs · 0 issuers');
   assert.ok(text(p.d.getElementById('library-results')).includes('No runs match these filters'));
   assert.equal(p.d.getElementById('run-detail').hidden,true);
-  p.d.getElementById('library-empty-reset').click();
+  p.d.getElementById('library-empty-reset').click();p.set('library-runs','any'); // a reset returns Runs to its Latest default
   assert.equal(p.ids().length,59);
   const none=page(t,{real:[],sources:{}});
   assert.ok(text(none.d.getElementById('library-results')).includes('No runs in this workspace yet'));

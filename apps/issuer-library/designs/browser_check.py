@@ -258,6 +258,93 @@ def library_counts(page: Any, name: str) -> None:
     )
 
 
+def reset_library(page: Any) -> None:
+    """Reset returns Runs to Latest; Plan 1 steps compare every row, so choose Any run."""
+    page.click("#library-clear")
+    page.select_option("#library-runs", "any")
+
+
+def coverage_line(page: Any, group: str) -> str:
+    text: str = page.locator(f"[data-library-coverage='{group}']").inner_text()
+    return text
+
+
+def library_credit(page: Any, name: str) -> None:
+    """Credit and market controls on the retained workspace, where most new fields are absent."""
+    every = sorted(KEY["run_folder_rows"]["ids"] + KEY["delivery_rows"]["ids"])
+    total = len(every)
+    reset_library(page)
+    note("runs=any" in page.url, f"{name}: Any run is written to the Library query")
+    note(sorted(row_ids(page)) == every, f"{name}: Any run lists every key row")
+    page.select_option("#library-runs", "latest")
+    note(set(row_ids(page)) <= set(every), f"{name}: the Latest view lists only key rows")
+    page.select_option("#library-runs", "any")
+    page.click("#rating-filters summary")
+    page.select_option("#library-classification", "high_yield")
+    note(
+        f"recorded for 0 of {total} runs" in coverage_line(page, "classification")
+        and row_ids(page) == [],
+        f"{name}: classification screening reports none recorded on the retained runs",
+    )
+    reset_library(page)
+    page.click("#metric-filters summary")
+    page.fill("#library-netLeverageMax", "4")
+    note(
+        f"recorded for 0 of {total} runs" in coverage_line(page, "net_leverage")
+        and row_ids(page) == [],
+        f"{name}: a net leverage maximum reports none recorded and lists no run",
+    )
+    reset_library(page)
+    page.click("#deal-filters summary")
+    page.fill("#library-talkMin", "300")
+    note(
+        f"recorded for 0 of {total} runs" in coverage_line(page, "talk") and row_ids(page) == [],
+        f"{name}: a spread talk minimum reports none recorded and lists no run",
+    )
+    reset_library(page)
+    page.click("#limit-filters summary")
+    options = "els => els.map(e => e.value)"
+    gaps = page.eval_on_selector_all("#library-limitation option", options)
+    page.select_option("#library-limitation", gaps[1] if len(gaps) > 1 else "")
+    note(
+        len(gaps) < 2
+        or (row_ids(page) != [] and "recorded for" in coverage_line(page, "limitation")),
+        f"{name}: an accepted limitation taken from the served list keeps its runs",
+    )
+    reset_library(page)
+    for column in ("net_leverage", "rating"):
+        page.locator(f"[data-library-sort='{column}']").click()
+        note(
+            page.locator(f"[data-library-sort='{column}']").evaluate(
+                "e => e.closest('th').getAttribute('aria-sort')"
+            )
+            == "ascending"
+            and sorted(row_ids(page)) == every,
+            f"{name}: the {column} column sorts ascending and keeps every key row",
+        )
+    page.click("[data-library-select='tdg-002']")
+    detail = page.locator("#run-detail").inner_text()
+    note(
+        "Net leverage" in detail and "Classification" in detail and "Currency" in detail,
+        f"{name}: a run detail shows the credit rows",
+    )
+    # The query restores the state after a reload.
+    reset_library(page)
+    page.click("#metric-filters summary")
+    page.locator("[data-library-sort='rating']").click()  # an empty result has no sort buttons
+    page.fill("#library-netLeverageMax", "4")
+    before = row_ids(page)
+    page.reload()
+    page.wait_for_selector("#library-results tbody tr, .library-empty")
+    note(
+        page.input_value("#library-runs") == "any"
+        and page.input_value("#library-netLeverageMax") == "4"
+        and row_ids(page) == before,
+        f"{name}: a reload from the Library query restores the controls and the rows",
+    )
+    reset_library(page)
+
+
 def library_screening(page: Any, name: str, port: int) -> None:
     """A filter and a sort change the rows; a detail opens; Open run and Open report stay in app."""
     cases = KEY["filter_cases"]
@@ -266,14 +353,14 @@ def library_screening(page: Any, name: str, port: int) -> None:
         row_ids(page) == cases["c_search_issuer_name"]["expected_ids"],
         f"{name}: a search narrows the rows to the key's",
     )
-    page.click("#library-clear")
+    reset_library(page)
     page.click("#metric-filters summary")
     page.fill("#library-leverageMin", cases["a_leverage_min"]["filters"]["leverageMin"])
     note(
         sorted(row_ids(page)) == sorted(cases["a_leverage_min"]["expected_ids"]),
         f"{name}: a leverage minimum keeps the key's rows",
     )
-    page.click("#library-clear")
+    reset_library(page)
     sort = page.locator("[data-library-sort='leverage']")
     sort.focus()
     page.keyboard.press("Enter")
@@ -288,7 +375,7 @@ def library_screening(page: Any, name: str, port: int) -> None:
         len(row_ids(page)) == KEY["issuer_count"]["rows_per_issuer"]["TDG"],
         f"{name}: the keyboard chooses an issuer",
     )
-    page.click("#library-clear")
+    reset_library(page)
     page.click("[data-library-select='tdg-002']")
     detail = page.locator("#run-detail")
     note(
@@ -299,21 +386,23 @@ def library_screening(page: Any, name: str, port: int) -> None:
     detail.locator("a:has-text('Open report')").click()
     page.wait_for_selector("#report-preview")
     note("W-Reports" in page.url, f"{name}: Open report opens the report inside the app")
-    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
+    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases?runs=any")
     page.reload()
     page.wait_for_selector("#library-results tbody tr")
     page.click("[data-library-select='tdg-002']")
     page.locator("#run-detail a:has-text('Open run')").click()
     page.wait_for_selector(".summary-lead")
     note("W-Overview" in page.url, f"{name}: Open run reaches the Overview")
-    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
+    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases?runs=any")
     page.reload()
     page.wait_for_selector("#library-results tbody tr")
+    library_credit(page, name)
 
 
 def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
     page.wait_for_selector("#library-results tbody tr", timeout=30000)
+    page.select_option("#library-runs", "any")  # Plan 1's checks compare every row
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
     # Each run folder in the store has one Overview link; delivery rows sit beside them.
     note(
@@ -716,6 +805,7 @@ def new_run(  # noqa: PLR0915, RUF100
     page.set_viewport_size(size)
     page.click(".rail a[data-place='Issuer library']")
     page.wait_for_selector("#library-results tbody tr")
+    page.select_option("#library-runs", "any")  # Latest could hide the new run
     # The catalogue names a run by its folder; only the store knows its issuer.
     find = "(issuer) => Object.keys(contexts).find(k => contexts[k].issuer === issuer)"
     key = page.evaluate(find, ISSUER)

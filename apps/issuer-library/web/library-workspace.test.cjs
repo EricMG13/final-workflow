@@ -88,7 +88,7 @@ let workspace;
 test.before(async()=>{workspace=await readWorkspace();});
 
 test('Library lists every catalogue row; each run folder opens its Overview and each delivery row opens its report or model in the app',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const w=screens(workspace,'W-Library/cases?runs=any').window,d=w.document;t.after(()=>w.close());
   assert.equal(text(d.getElementById('library-count')),`${expected.row_count.value} of ${expected.row_count.value} runs · ${expected.issuer_count.value} issuers`);
   assert.deepEqual(sorted(rowIds(d)),sorted([...expected.run_folder_rows.ids,...expected.delivery_rows.ids]));
   // The store is live; the pinned catalogue names the 44 run folders, and each opens the store run of that folder.
@@ -101,7 +101,7 @@ test('Library lists every catalogue row; each run folder opens its Overview and 
 });
 
 test('Library search finds every run of the issuer searched',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const w=screens(workspace,'W-Library/cases?runs=any').window,d=w.document;t.after(()=>w.close());
   const box=d.getElementById('library-query');
   for(const [query,want] of Object.entries(key.library.search)){
     box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
@@ -120,7 +120,7 @@ test('Library search finds every run of the issuer searched',t=>{
 test('A metric with more than 20 decimals is shown as served and does not blank the other rows',t=>{
   const forged=structuredClone(workspace),run=forged.catalogue.real.find(r=>r.id==='tdg-002'),long=`1.${'0'.repeat(100)}1`;
   run.metrics.ebitda.value=long;
-  const w=screens(forged,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const w=screens(forged,'W-Library/cases?runs=any').window,d=w.document;t.after(()=>w.close());
   assert.equal(rowIds(d).length,forged.catalogue.real.length);
   d.querySelector('[data-library-select="tdg-002"]').click();
   assert.ok(text(d.getElementById('run-detail')).includes(long));
@@ -515,6 +515,21 @@ test('Catalogue text with markup in it renders no element of its own in the rows
   d.querySelector('[data-library-select="tdg-002"]').click();
   assert.equal(d.querySelector('[id^=pwn]'),null);
   assert.ok(text(d.getElementById('run-detail')).includes(HOSTILE),'shown as text');
+});
+test('View source on a library figure opens the pinned line in the evidence inspector when the joined run holds the file, else the Sources entry',async t=>{
+  const forged=structuredClone(workspace),run=forged.catalogue.real.find(r=>r.id==='tdg-002');
+  const probe=screens(forged,'W-Library/cases?runs=any').window;t.after(()=>probe.close());
+  const held=probe.eval("[...evidence.keys()].find(k=>k.startsWith('tdg-002/'))"),at=held.lastIndexOf(':'),file=held.slice(0,at),line=Number(held.slice(at+1));
+  const [leverage,coverage]=[run.metrics.leverage,run.metrics.cash].map(m=>m.source);
+  forged.catalogue.sources[leverage]={...forged.catalogue.sources[leverage],path:`runs/${file}`,line};
+  forged.catalogue.sources[coverage]={...forged.catalogue.sources[coverage],path:'runs/tdg-002/not-held.md',line:1};
+  const w=screens(forged,'W-Library/cases?runs=any').window,d=w.document;t.after(()=>w.close());
+  d.querySelector('[data-library-select="tdg-002"]').click();
+  const link=[...d.querySelectorAll('#run-detail a.tertiary-action')].find(a=>new URLSearchParams(a.getAttribute('href').split('?')[1]).get('e')===held);
+  assert.ok(link,'the figure pinned to a held file links to its line');
+  assert.ok(d.querySelector(`#run-detail [data-library-source="${coverage}"]`),'a file the run does not hold keeps the Sources entry');
+  w.location.hash=link.getAttribute('href');await settle(50);
+  assert.equal(w.eval('current.evidence'),held,'the inspector route names the pinned line');
 });
 test('A report id with markup in it renders no element of its own',async t=>{
   const forged=structuredClone(workspace);

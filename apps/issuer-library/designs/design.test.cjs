@@ -10,8 +10,9 @@ const root=path.resolve(__dirname,'../../../artifacts/issuer-library/design-fixt
 const web=path.resolve(__dirname,'../web');
 // Synthetic /api/catalogue records, one per store run and without metrics (as for most retained runs).
 const catalogueOf=runs=>({sources:{},real:Object.values(runs).map(r=>({id:r.folder,issuer:r.issuerKey??'none',name:r.issuer,title:r.run,sector:r.sector,workflow:'Annual review',date:'2024-12-31',period:r.period,period_kind:'Annual actual',metrics:{},completion:null,checkpoints:null,ratings:[],gaps:[],summary:'Synthetic record.',artifacts:[]}))});
+// The app is served over http; the Library query is written with history.replaceState, which jsdom refuses on a file: URL.
 function fixture(hash='CP-1/performance') {
-  const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`file://${web}/index.html#${hash}`,runScripts:'outside-only'});
+  const dom=new JSDOM(fs.readFileSync(path.join(web,'index.html'),'utf8'),{url:`http://127.0.0.1:1/index.html#${hash}`,runScripts:'outside-only'});
   dom.window.scrollTo=()=>{};dom.window.fetch=()=>new Promise(()=>{});
   dom.window.HTMLElement.prototype.scrollIntoView=function(){this.dataset.scrolledIntoView='true';};
   vm.runInContext(fs.readFileSync(path.join(web,'hydrate.js'),'utf8'),dom.getInternalVMContext());
@@ -365,17 +366,17 @@ test('A source footer leaves the line number to the inspector',()=>{
   dom.window.close();
 });
 test('Library return restores filters and clear resets retained default values without changing context',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
+  const dom=fixture('W-Library/cases?runs=any'),w=dom.window,d=w.document;
   const search=d.getElementById('library-query');search.value='Ford';search.dispatchEvent(new w.Event('input',{bubbles:true}));
   w.location.hash=d.querySelector('#library-results a.run-link').hash;w.eval('renderRoute()');assert.equal(d.querySelector('.issuer h1').textContent,'Ford Otosan');
   w.location.hash='W-Library/cases';w.eval('renderRoute()');assert.equal(d.getElementById('library-query').value,'Ford');assert.equal(d.querySelectorAll('#library-results a.run-link').length,1);
-  d.getElementById('library-clear').click();assert.equal(d.getElementById('library-query').value,'');assert.equal(d.querySelectorAll('#library-results a.run-link').length,8);assert.equal(w.eval('current.context'),'ford-otosan-2024');
+  d.getElementById('library-clear').click();assert.equal(d.getElementById('library-query').value,'');const runs=d.getElementById('library-runs');assert.equal(runs.value,'latest');runs.value='any';runs.dispatchEvent(new w.Event('change',{bubbles:true}));assert.equal(d.querySelectorAll('#library-results a.run-link').length,8);assert.equal(w.eval('current.context'),'ford-otosan-2024');
   d.getElementById('analysis').focus();d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'/',bubbles:true}));assert.equal(d.activeElement.id,'library-query');
   const submit=new w.Event('submit',{bubbles:true,cancelable:true});d.getElementById('library-filters').dispatchEvent(submit);assert.equal(submit.defaultPrevented,true);
   dom.window.close();
 });
 test('Literal search text is escaped and short IDs include their separate delivery collection',()=>{
-  const dom=fixture('W-Library/cases'),w=dom.window,d=w.document;
+  const dom=fixture('W-Library/cases?runs=any'),w=dom.window,d=w.document;
   const search=d.getElementById('library-query');search.value='TDG';search.dispatchEvent(new w.Event('input',{bubbles:true}));assert.equal(d.querySelectorAll('#library-results a.run-link').length,6);
   search.value='\"><img src=x onerror=alert(1)>';search.dispatchEvent(new w.Event('input',{bubbles:true}));
   w.location.hash='CP-1';w.eval('renderRoute()');w.location.hash='W-Library/cases';w.eval('renderRoute()');

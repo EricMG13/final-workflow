@@ -60,6 +60,7 @@ from deploy_workflow.owner_workflow import (
     SettledHead,
     verify_owner_run_receipt,
 )
+from deploy_workflow.run_events import append_event, stop_reason
 from deploy_workflow.run_pathway import _single_writer
 from deploy_workflow.run_scopes import PUBLIC_S1A_MODULES
 from deploy_workflow.workflow import _put
@@ -252,14 +253,14 @@ def _handoff(  # noqa: PLR0913 - existing signature
     raise ValueError(f"cpos_module_failed: {task.module_id}: {'; '.join(feedback)}")
 
 
-def run_handoffs(
+def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrator; events is one more observer
     manifest: Path,
     directory: Path,
     *,
     execute: Callable[[HandoffTask], bytes],
     check: Callable[[HandoffTask, bytes], tuple[str, ...]],
     on_handoff: Callable[[HandoffTask, bytes], None] | None = None,
-    on_start: Callable[[HandoffTask], None] | None = None,
+    events: Path | None = None,
 ) -> Path:
     """CP-OS exchange: plan, retain, check, pass current handoffs, deliver.
 
@@ -274,6 +275,8 @@ def run_handoffs(
     An optional observer runs after each checked response is durable and before
     the next module. It may stop for evidence review; resume rechecks the bytes.
     The start observer runs before each module is dispatched.
+    With ``events`` (a live run's directory) each module, the delivery and its
+    completion are appended to ``events.jsonl`` there; otherwise nothing is written.
     Their declared consumed inputs bound reuse planning; a checked published case
     does not trigger a new analytical build merely to satisfy a native producer.
     """
@@ -313,7 +316,8 @@ def run_handoffs(
         selected_modules = set(planned)
         if selected_modules & {"CP-8", "CP-MODEL", "CP-MEMO", "CP-OS"}:
             raise ValueError(
-                "cpos_scope: select analytical Markdown modules; comparison and Model use their existing routes"
+                "cpos_scope: select analytical Markdown modules; comparison and Model use their "
+                "existing routes"
             )
         preset = next(p for p in pathways() if p.id == request.run.pathway)
         if (
@@ -375,8 +379,8 @@ def run_handoffs(
                 1,
                 (),
             )
-            if on_start is not None:
-                on_start(task)
+            if events is not None:
+                append_event(events, "module_started", module=module_id)
             raw, path = _handoff(
                 task,
                 directory,
@@ -387,8 +391,12 @@ def run_handoffs(
             )
             handoffs[module_id] = raw
             selected[module_id] = path
+            if events is not None:
+                append_event(events, "module_accepted", module=module_id)
             if on_handoff is not None:
                 on_handoff(task, raw)
+        if events is not None:
+            append_event(events, "delivery_started")
         delivery_request = DeliveryRequest(
             run=request.run,
             handoffs={
@@ -457,6 +465,8 @@ def run_handoffs(
         }
         completion_raw = json.dumps(completion, indent=2).encode()
         _put(directory / f"completed-{_sha(completion_raw)}.json", completion_raw)
+        if events is not None:
+            append_event(events, "delivered")
         return report
 
 
@@ -491,7 +501,7 @@ def _release(adapter: "LiveAdapter | CopilotAdapter") -> None:
         adapter.close()
 
 
-def run_live_handoffs(
+def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes every run option
     manifest: Path,
     directory: Path,
     *,
@@ -501,7 +511,6 @@ def run_live_handoffs(
     max_turns: int = 24,
     max_output_tokens: int = 16000,
     on_handoff: Callable[[HandoffTask, bytes], None] | None = None,
-    on_start: Callable[[HandoffTask], None] | None = None,
     config: str = "sol-medium",
     rulings_root: Path | None = None,
 ) -> Path:
@@ -530,6 +539,7 @@ def run_live_handoffs(
             redactor=Redactor.from_environ(environment),
             max_turns=max_turns,
             max_output_tokens=max_output_tokens,
+            events=directory,
         )
         result = run_handoffs(
             manifest,
@@ -537,11 +547,13 @@ def run_live_handoffs(
             execute=executor,
             check=check,
             on_handoff=on_handoff,
-            on_start=on_start,
+            events=directory,
         )
     except BaseException as stop:
         # Documented fail-open: a release failure must not mask the stop it follows; it is
         # recorded as a note on the propagating exception.
+        if isinstance(stop, Exception):
+            append_event(directory, "stopped", reason=stop_reason(stop))
         try:
             _release(adapter)
         except Exception as failure:  # noqa: BLE001 -- noted on the propagating stop

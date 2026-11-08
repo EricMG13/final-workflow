@@ -318,3 +318,78 @@ def test_search_source_snippet_keeps_its_place_after_a_length_changing_lowercase
     tools = ModuleTools(source_task, tmp_path, check)
     hit = tools.search_source("S.txt", "Total Revenue")
     assert hit == "page 1: …" + "İ" * 79 + " total revenue 1,234 million…"
+
+
+def test_events_record_each_turn_and_rejection(tmp_path: Path) -> None:
+    from deploy_workflow.run_events import EVENTS, read_events
+
+    adapter = Adapter(
+        turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode().replace("100", "101")})),
+        turn(ToolCall("e", "edit_handoff", {"edits": [{"old": "101", "new": "100"}]})),
+    )
+    loop = HandoffExecutor(
+        tmp_path / "live",
+        adapter=adapter,
+        cap_usd=Decimal(10),
+        check=check,
+        max_turns=7,
+        events=tmp_path / "run",
+    )
+    assert loop(task()) == GOOD
+    events = read_events(tmp_path / "run" / EVENTS)
+    assert [e["event"] for e in events] == ["turn", "draft_rejected", "turn"]
+    turns = [e for e in events if e["event"] == "turn"]
+    assert [e["turn"] for e in turns] == [1, 2]
+    assert {e["max_turns"] for e in turns} == {7}
+    assert {e["module"] for e in events} == {"CP-2"}
+    assert [e["writes_left"] for e in events if e["event"] == "draft_rejected"] == [2]
+    assert all(e["cap_usd"] == "10" and Decimal(e["held_usd"]) > 0 for e in turns)
+    assert Decimal(turns[0]["spent_usd"]) == 0 and Decimal(turns[1]["spent_usd"]) > 0
+
+
+def test_a_refused_reservation_writes_no_turn_event(tmp_path: Path) -> None:
+    from deploy_workflow.model.budget import BudgetExhausted
+    from deploy_workflow.run_events import EVENTS
+
+    loop = HandoffExecutor(
+        tmp_path / "live",
+        adapter=Adapter(),
+        cap_usd=Decimal("0.000001"),
+        check=check,
+        events=tmp_path / "run",
+    )
+    with pytest.raises(BudgetExhausted):
+        loop(task())
+    assert not (tmp_path / "run" / EVENTS).exists()
+
+
+def test_no_events_folder_writes_no_events(tmp_path: Path) -> None:
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    assert loop(task()) == GOOD
+    assert not list(tmp_path.rglob("events.jsonl"))
+
+
+def test_a_turn_event_that_cannot_be_written_neither_holds_budget_nor_stops_the_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from types import SimpleNamespace
+
+    from deploy_workflow import run_events
+    from deploy_workflow.model.budget import Budget
+
+    def full_disk(_fd: int) -> None:
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(run_events, "os", SimpleNamespace(fsync=full_disk))
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(
+        tmp_path / "live", adapter=adapter, cap_usd=Decimal(10), check=check, events=tmp_path
+    )
+    with pytest.warns(RuntimeWarning, match="run event not recorded: turn"):
+        assert loop(task()) == GOOD
+    assert len(adapter.requests) == 1
+    assert not loop.budget.unsettled
+    Budget(Decimal(10), tmp_path / "live").reserve(
+        "call-next", Decimal("0.01"), config_id="sol-medium"
+    )

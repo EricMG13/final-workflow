@@ -136,11 +136,8 @@ func jobView(workspace, id string) (map[string]any, bool) {
 			}
 		}
 	}
-	if raw, err := os.ReadFile(filepath.Join(workspace, "runs", id, "progress.json")); err == nil {
-		var value map[string]any
-		if json.Unmarshal(raw, &value) == nil {
-			status["progress"] = value
-		}
+	if value, ok := runProgress(workspace, id); ok {
+		status["progress"] = value
 	}
 	status["id"] = id
 	info, statErr := os.Stat(filepath.Join(workspace, "runs", id))
@@ -148,7 +145,91 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	return status, true
 }
 
-// recentJobs lists every running or starting job plus the most recently written
+// eventsLimit bounds how much of a run's event log is read.
+const eventsLimit = 4 << 20
+
+// runEvent is one line of runs/<id>/events.jsonl, written by the CP-OS loop. Amounts are the
+// decimal strings it wrote.
+type runEvent struct {
+	Event    string `json:"event"`
+	Module   string `json:"module"`
+	Turn     int    `json:"turn"`
+	MaxTurns int    `json:"max_turns"`
+	SpentUSD string `json:"spent_usd"`
+	HeldUSD  string `json:"held_usd"`
+	CapUSD   string `json:"cap_usd"`
+}
+
+// runProgress folds a run's event log into the progress shown for it. A retained run has
+// no log and falls back to its progress.json. An unparsable last line is a write in flight
+// and is dropped. An unparsable earlier line skips the whole log and falls back to
+// progress.json: a documented fail-open, because progress is advisory, logged once here.
+// A log with no events yet has no progress either.
+func runProgress(workspace, id string) (map[string]any, bool) {
+	folder := filepath.Join(workspace, "runs", id)
+	if file, err := os.Open(filepath.Join(folder, "events.jsonl")); err == nil {
+		raw, readErr := io.ReadAll(io.LimitReader(file, eventsLimit))
+		file.Close()
+		if readErr == nil {
+			if events, ok := parseEvents(raw); ok && len(events) > 0 {
+				return foldEvents(events), true
+			} else if !ok {
+				log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
+			}
+		}
+	}
+	raw, err := os.ReadFile(filepath.Join(folder, "progress.json"))
+	if err != nil {
+		return nil, false
+	}
+	var value map[string]any
+	if json.Unmarshal(raw, &value) != nil {
+		return nil, false
+	}
+	return value, true
+}
+
+func parseEvents(raw []byte) ([]runEvent, bool) {
+	lines := bytes.Split(raw, []byte("\n"))
+	if len(lines[len(lines)-1]) == 0 {
+		lines = lines[:len(lines)-1]
+	}
+	var events []runEvent
+	for number, line := range lines {
+		var event runEvent
+		if err := json.Unmarshal(line, &event); err != nil {
+			if number == len(lines)-1 {
+				break
+			}
+			return nil, false
+		}
+		events = append(events, event)
+	}
+	return events, true
+}
+
+func foldEvents(events []runEvent) map[string]any {
+	progress := map[string]any{"accepted": 0}
+	steps := map[string]string{"module_started": "started", "turn": "running", "draft_rejected": "repairing",
+		"module_accepted": "accepted", "delivery_started": "delivering", "delivered": "delivered", "stopped": "stopped"}
+	for _, event := range events {
+		if step, known := steps[event.Event]; known {
+			progress["step"] = step
+		}
+		switch event.Event {
+		case "module_started":
+			progress["module"] = event.Module
+		case "module_accepted":
+			progress["accepted"] = progress["accepted"].(int) + 1
+		case "turn":
+			progress["turn"], progress["max_turns"] = event.Turn, event.MaxTurns
+			progress["spent_usd"], progress["held_usd"], progress["cap_usd"] = event.SpentUSD, event.HeldUSD, event.CapUSD
+		}
+	}
+	return progress
+}
+
+// recentJobs lists every running job plus the most recently written
 // others, newest first, up to limit rows in all. Job ids are random, so recency is the
 // modification time of status.json, never the folder name. Reviewed-only drafts are
 // not runs and are left out.
@@ -175,7 +256,7 @@ func recentJobs(workspace string, limit int) []map[string]any {
 		if err != nil || readErr != nil || json.Unmarshal(raw, &status) != nil || status.State == "reviewed" {
 			continue
 		}
-		running := status.State == "running" || status.State == "starting"
+		running := status.State == "running"
 		if running {
 			active++
 		}
@@ -286,8 +367,8 @@ func (app *Application) reviewRun(w http.ResponseWriter, r *http.Request) {
 	maxTurns := 32 // The launcher's default.
 	if value := r.FormValue("max_turns"); value != "" {
 		var err error
-		if maxTurns, err = strconv.Atoi(value); err != nil || maxTurns < 1 || maxTurns > 200 {
-			http.Error(w, "Max turns must be between 1 and 200", 400)
+		if maxTurns, err = strconv.Atoi(value); err != nil || maxTurns < 1 || maxTurns > 64 {
+			http.Error(w, "Max turns must be between 1 and 64", 400)
 			return
 		}
 	}

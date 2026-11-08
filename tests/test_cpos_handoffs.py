@@ -735,7 +735,8 @@ def test_copilot_config_selects_the_copilot_adapter(tmp_path, monkeypatch):
         closed.append(self)
         real_close(self)
 
-    def fake_run(manifest, directory, *, execute, check, on_handoff, on_start=None):
+    def fake_run(manifest, directory, **kwargs):
+        execute = kwargs["execute"]
         assert isinstance(execute, HandoffExecutor) and not closed
         built.append(execute.adapter)
         return directory / "report.html"
@@ -1101,3 +1102,100 @@ def test_a_fixed_checker_accepting_the_first_attempt_selects_it_without_executio
     assert (folder / "2.review.json").read_bytes() == second
     modules = [json.loads(p.read_bytes())["modules"]["CP-1"] for p in directory.glob("completed-*")]
     assert sorted(m.rsplit("/", 1)[1] for m in modules) == ["1.response.md", "2.response.md"]
+
+
+def test_live_run_events_cover_modules_and_delivery(tmp_path, monkeypatch):
+    """Fake transport proves the event wiring only; this is not a provider/module proof."""
+    from deploy_workflow.model.adapter import AdapterReply, LiveAdapter
+    from deploy_workflow.model.turn import ToolCall, Turn, Usage
+    from deploy_workflow.owners import cpos
+    from deploy_workflow.run_events import EVENTS, read_events
+
+    def complete(self, request, **kwargs):
+        module = json.loads(request.messages[1].text)["module_id"]
+        answer = Turn(
+            "",
+            (ToolCall(module, "write_handoff", {"markdown": RESPONSES[module].decode()}),),
+            Usage(input_tokens=100, output_tokens=50),
+            "tool_use",
+            "gpt-6.1-sol",
+            "fake",
+            200,
+        )
+        return AdapterReply("ok", answer, None, 200, None, None, 1, 2, answer.usage)
+
+    monkeypatch.setattr(LiveAdapter, "complete", complete)
+    state = tmp_path / "state"
+    cpos.run_live_handoffs(
+        live_job(tmp_path),
+        state,
+        ruling=ROOT / "docs/rulings/2026-11-05-live-loop-tests.md",
+        check=checked,
+        environ={},
+    )
+    events = read_events(state / EVENTS)
+    assert [e["event"] for e in events if e["event"] != "turn"] == [
+        "module_started",
+        "module_accepted",
+        "module_started",
+        "module_accepted",
+        "module_started",
+        "module_accepted",
+        "module_started",
+        "module_accepted",
+        "delivery_started",
+        "delivered",
+    ]
+    assert [e["module"] for e in events if e["event"] == "module_started"] == ORDER
+    assert [e["module"] for e in events if e["event"] == "turn"] == ORDER
+
+
+def test_a_live_run_that_fails_logs_its_stop_reason(tmp_path, monkeypatch):
+    from deploy_workflow.model.adapter import LiveAdapter
+    from deploy_workflow.owners import cpos
+    from deploy_workflow.run_events import EVENTS, read_events
+
+    def refuses(*args, **kwargs):
+        raise ValueError("cpos_module_failed: CP-0: bad")
+
+    monkeypatch.setattr(cpos, "run_handoffs", refuses)
+    monkeypatch.setattr(LiveAdapter, "complete", lambda *a, **k: pytest.fail("called"))
+    with pytest.raises(ValueError, match="cpos_module_failed"):
+        cpos.run_live_handoffs(
+            live_job(tmp_path),
+            tmp_path / "state",
+            ruling=ROOT / "docs/rulings/2026-11-05-live-loop-tests.md",
+            check=checked,
+            environ={},
+        )
+    (event,) = read_events(tmp_path / "state" / EVENTS)
+    assert (event["event"], event["reason"]) == ("stopped", "checker")
+
+
+def test_a_run_without_an_events_folder_writes_no_events(tmp_path):
+    path = job(tmp_path)
+    state = tmp_path / "state"
+    run_handoffs(path, state, execute=replay, check=checked)
+    assert not list(state.rglob("events.jsonl"))
+
+
+def test_a_delivered_event_that_cannot_be_written_leaves_the_run_completed(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from deploy_workflow import run_events
+
+    real = run_events.os.fsync
+
+    def fsync_unless_delivered(fd):
+        if (tmp_path / "state" / "events.jsonl").read_bytes().endswith(b'"delivered"}\n'):
+            raise OSError(28, "No space left on device")
+        real(fd)
+
+    monkeypatch.setattr(run_events, "os", SimpleNamespace(fsync=fsync_unless_delivered))
+    path = job(tmp_path)
+    state = tmp_path / "state"
+    with pytest.warns(RuntimeWarning, match="run event not recorded") as caught:
+        report = run_handoffs(path, state, execute=replay, check=checked, events=state)
+    assert any("delivered" in str(w.message) for w in caught)
+    assert verify_delivery(next(state.glob("delivery-*.json")), report.parent) == report
+    assert list(state.glob("completed-*.json"))

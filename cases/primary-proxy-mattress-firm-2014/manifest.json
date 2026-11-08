@@ -117,7 +117,8 @@
   ],
   "contexts": {
     "context-pre-closing.json": "Primary, credit_snapshot, as of 2014-09-11, legal documents declared draft; facility rows as the presentation states them.",
-    "context-after-closing.json": "Secondary, covenant_refinancing, as of 2014-10-21, legal documents declared executed."
+    "context-after-closing.json": "Secondary, covenant_refinancing, as of 2014-10-21, legal documents declared executed.",
+    "context-c1n.json": "C1n only: context-pre-closing.json with legal documents declared none (the lender presentation is removed, so no legal document remains)."
   },
   "checks": {
     "C1": {
@@ -140,7 +141,7 @@
       "cap_usd": 10
     },
     "C1n": {
-      "context": "context-pre-closing.json",
+      "context": "context-c1n.json",
       "modules": [
         "CP-0",
         "CP-1",
@@ -155,7 +156,7 @@
         "2014-08-29-ex99-1-press-release.htm"
       ],
       "cap_usd": 10,
-      "note": "C1 without the lender presentation and the 8-K that furnishes it."
+      "note": "C1 without the lender presentation and the 8-K that furnishes it. Context declares legal documents 'none' (coordinator ruling 2026-11-08, option a), so Plan 2 forecasts Will refuse and CP-4 stays Blocked; CP-4 still receives the Provisional paragraph (Primary). The answer key (Blocked) is unchanged."
     },
     "C2": {
       "context": "context-pre-closing.json",

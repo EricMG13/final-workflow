@@ -47,8 +47,8 @@ into `_instructions`.
 - **The Provisional label travels:**
   - Every CP-4 section routed to the report says "Provisional", and so does the Reader summary's main
     limitation.
-  - On Primary runs, CP-3, CP-5 and CP-6 label any term taken from a Provisional CP-4 handoff as
-    Provisional.
+  - In Provisional scope (Primary, or declared draft), CP-3, CP-5 and CP-6 label any term taken from
+    a Provisional CP-4 handoff as Provisional.
 - **CP-1D:** Primary runs add it to the default modules. The review shows the extra module, and the
   user can remove it. CP-4 is told not to use CP-1D figures as covenant capacity (CP-1D's own rule).
 - **Pro forma, by module and by dependency:**
@@ -174,8 +174,8 @@ entry to `VERIFICATION.md`.
     routed section and in the main limitation.
   - It never calls a draft executed, and never uses CP-1D figures as capacity.
   - With no legal document at all, the Blocked message stands.
-- [ ] **On Primary runs,** CP-3, CP-5 and CP-6 are told to label terms taken from a Provisional CP-4
-      handoff as Provisional.
+- [ ] **In Provisional scope (Primary, or declared draft; coordinator ruling 2026-11-08),** CP-3, CP-5
+      and CP-6 are told to label terms taken from a Provisional CP-4 handoff as Provisional.
 - [ ] **Checkers:**
   - The register is present in Provisional scope.
   - Any non-executed status, or no executed document recognised with any legal or offering document

@@ -51,11 +51,22 @@ func toastEnv(environ []string, title, body string) []string {
 	return append(env, "ISSUER_LIBRARY_TOAST_TITLE="+title, "ISSUER_LIBRARY_TOAST_BODY="+body)
 }
 
+// stopReasonWords are the fixed words for a reason the worker records in status.json. Only these
+// words are ever shown; a reason outside the table is dropped rather than echoed.
+var stopReasonWords = map[string]string{
+	"budget":      "spending cap reached",
+	"checker":     "a handoff did not pass its check",
+	"provider":    "provider error or unknown charge",
+	"interrupted": "interrupted",
+	"ruling":      "a provider ruling or pause is in force",
+}
+
 // finishNotice builds the native notice text for a finished run from its status word and, when
-// known, its issuer. It never carries the status message, which may hold redacted provider text.
+// known, its issuer and, for a run that did not complete, its recorded reason in short words. It never carries the status message, which may hold redacted provider text.
 func finishNotice(folder string) (title, body string, ok bool) {
 	var status struct {
-		State string `json:"state"`
+		State  string `json:"state"`
+		Reason string `json:"reason"`
 	}
 	raw, err := os.ReadFile(filepath.Join(folder, "status.json"))
 	if err != nil || json.Unmarshal(raw, &status) != nil || status.State == "" || status.State == "running" {
@@ -67,10 +78,15 @@ func finishNotice(folder string) (title, body string, ok bool) {
 	if raw, err = os.ReadFile(filepath.Join(folder, "review.json")); err == nil {
 		_ = json.Unmarshal(raw, &review) // an unreadable review only drops the issuer from the text
 	}
+	text := "Run " + status.State
 	if review.Issuer != "" {
-		return "Issuer Library", review.Issuer + " run " + status.State, true
+		text = review.Issuer + " run " + status.State
 	}
-	return "Issuer Library", "Run " + status.State, true
+	// A reason that only repeats the state word ("interrupted") adds nothing.
+	if words, known := stopReasonWords[status.Reason]; known && status.State != "complete" && words != status.State {
+		text += ": " + words
+	}
+	return "Issuer Library", text, true
 }
 
 // toastScript is the fixed PowerShell program for the Windows notice. The text arrives only

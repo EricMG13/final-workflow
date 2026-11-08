@@ -41,6 +41,26 @@ func TestFinishNoticeTextUsesIssuerAndState(t *testing.T) {
 	}
 }
 
+func TestFinishNoticeNamesTheStopReason(t *testing.T) {
+	cases := []struct{ name, status, review, want string }{
+		{"budget", `{"state":"stopped","reason":"budget"}`, `{"issuer":"TransDigm Group Incorporated"}`, "TransDigm Group Incorporated run stopped: spending cap reached"},
+		{"checker", `{"state":"stopped","reason":"checker"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run stopped: a handoff did not pass its check"},
+		{"provider", `{"state":"failed","reason":"provider"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run failed: provider error or unknown charge"},
+		{"ruling", `{"state":"failed","reason":"ruling"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run failed: a provider ruling or pause is in force"},
+		{"interrupted repeats the state word once", `{"state":"interrupted","reason":"interrupted"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run interrupted"},
+		{"no reason", `{"state":"stopped"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run stopped"},
+		{"unknown reason is not echoed", `{"state":"failed","reason":"sk-secret"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run failed"},
+		{"no issuer", `{"state":"stopped","reason":"budget"}`, "", "Run stopped: spending cap reached"},
+		{"complete carries no reason", `{"state":"complete","reason":"budget"}`, `{"issuer":"Northbridge Group"}`, "Northbridge Group run complete"},
+	}
+	for _, c := range cases {
+		title, body, ok := finishNotice(noticeFolder(t, c.status, c.review))
+		if !ok || title != "Issuer Library" || body != c.want {
+			t.Errorf("%s: got %q %q %v, want %q", c.name, title, body, ok, c.want)
+		}
+	}
+}
+
 func TestToastScriptIsFixedAndReadsOnlyTheTwoVariables(t *testing.T) {
 	if strings.Count(toastScript, "$env:") != 2 {
 		t.Fatalf("expected exactly two environment reads")

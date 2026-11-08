@@ -1506,6 +1506,29 @@ const eventLines = `{"at":"2026-11-07T10:00:00Z","event":"module_started","modul
 {"at":"2026-11-07T10:00:05Z","event":"turn","module":"CP-1","turn":2,"max_turns":32,"spent_usd":"0.85","held_usd":"1.60","cap_usd":"10"}
 `
 
+func TestJobViewCarriesTheFirstEventTimeAsStartedAt(t *testing.T) {
+	root := t.TempDir()
+	intake := filepath.Join(root, "intake", eventsID)
+	if err := os.MkdirAll(intake, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(intake, "status.json"), []byte(`{"state":"stopped"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	view, ok := jobView(root, eventsID)
+	if _, has := view["started_at"]; !ok || has {
+		t.Fatalf("a run with no log must not invent a start time: %v", view)
+	}
+	writeEvents(t, root, eventsID, eventLines)
+	if view, _ = jobView(root, eventsID); view["started_at"] != "2026-11-07T10:00:00Z" {
+		t.Fatalf("started_at = %v", view["started_at"])
+	}
+	writeEvents(t, root, eventsID, `{"event":"module_started","module":"CP-0"}`+"\n")
+	if view, _ = jobView(root, eventsID); view["started_at"] != nil {
+		t.Fatalf("an event without a time gave started_at %v", view["started_at"])
+	}
+}
+
 func TestRunProgressFoldsEvents(t *testing.T) {
 	root := t.TempDir()
 	writeEvents(t, root, eventsID, eventLines+`{"at":"2026-11-07T10:00:06Z","event":"draft_rejected","module":"CP-1","writes_left":2}`+"\n")

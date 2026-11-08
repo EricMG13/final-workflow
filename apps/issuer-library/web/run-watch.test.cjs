@@ -94,7 +94,7 @@ test('polling stops when no run is active',async t=>{
 });
 test('a stopped run leads with the sentence for its reason',async t=>{
   const rows=[
-    ['budget','stopped','Stopped: the next model call would pass the spending cap; a new run needs a higher cap.'],
+    ['budget','stopped','Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.'],
     ['checker','stopped','Stopped: a module\'s handoff did not pass its check within the allowed turns.'],
     ['provider','stopped','Stopped: the model provider returned an error or an unknown charge.'],
     ['interrupted','interrupted','Stopped: the run was interrupted before a response was retained.'],
@@ -105,12 +105,12 @@ test('a stopped run leads with the sentence for its reason',async t=>{
     await p.watch();
     p.state.list=[job({state,reason,message:'detail text'})];
     await p.watch();
-    assert.equal(p.built[0].options.body,sentence,reason);
+    assert.equal(p.built[0].options.body,`Northbridge Group: ${sentence}`,reason);
     assert.equal(p.win.stopText(p.state.list[0]),`${sentence} detail text`,reason);
   }
   const p=await page(t,{list:[job()]});
   await p.watch();p.state.list=[job({state:'failed',reason:'other',message:'plain message'})];await p.watch();
-  assert.equal(p.built[0].options.body,'plain message');
+  assert.equal(p.built[0].options.body,'Northbridge Group run failed','an unclassified stop shows no raw engine message');
   assert.equal(p.win.stopText(p.state.list[0]),'Failed: plain message');
 });
 test('a repairing module shows its turn and the rejected draft',async t=>{
@@ -121,6 +121,13 @@ test('a repairing module shows its turn and the rejected draft',async t=>{
   assert.equal(run({step:'delivering'}),'delivering the report');
   assert.equal(run({module:'CP-1',step:'started'}),'running Title CP-1 (2 of 4)');
   assert.equal(run({module:'CP-1',step:'accepted'}),'Title CP-1 accepted (2 of 4)');
+});
+test('a finished run with a known cap states spend against the cap; an unknown cap states spend alone',async t=>{
+  const p=await page(t);
+  assert.equal(p.win.spendText({state:'stopped',spent_usd:'9.90',progress:{cap_usd:'10.00'}}),'Recorded spend: USD 9.90 of a USD 10.00 cap');
+  assert.equal(p.win.spendText({state:'failed',progress:{spent_usd:'9.90',cap_usd:'10'}}),'Recorded spend: USD 9.90 of a USD 10 cap');
+  assert.equal(p.win.spendText({state:'stopped',spent_usd:'9.90',progress:{}}),'Recorded spend: USD 9.90');
+  assert.equal(p.win.spendText({state:'stopped',spent_usd:'unknown',progress:{cap_usd:'10'}}),'Recorded spend could not be read; it may be above zero.');
 });
 test('the spend line states the cap and the held amount while the run reports them',async t=>{
   const p=await page(t);
@@ -172,15 +179,34 @@ test('a running run without counts falls back to the module text, or to no text'
   assert.deepEqual(parts(p).lines,[]);
 });
 test('a stopped, failed or interrupted run shows the amber strip with its sentence, spend line and Resume',async t=>{
-  const rows=[['stopped','budget','Stopped','Stopped: the next model call would pass the spending cap; a new run needs a higher cap.'],
+  const rows=[['stopped','budget','Stopped','Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.'],
     ['failed','provider','Failed','Stopped: the model provider returned an error or an unknown charge.'],
     ['interrupted','interrupted','Interrupted','Stopped: the run was interrupted before a response was retained.']];
   for(const [state,reason,word,sentence] of rows){
     const p=await page(t,{list:[job({state,reason,message:'',spent_usd:'0.42'})]});
     await p.watch();
     assert.equal(strip(p).dataset.tone,'amber',state);assert.equal(strip(p).querySelector('.strip-icon').dataset.icon,'triangle-alert',state);
-    assert.deepEqual(parts(p),{title:`Run ${word.toLowerCase()} · Northbridge Group`,lines:[sentence,'Recorded spend: USD 0.42'],actions:[ACTIVITY,['Resume',`#W-NewRun/run?resume=${ID}`]]},state);
+    assert.deepEqual(parts(p),{title:`Run ${word.toLowerCase()} · Northbridge Group`,lines:[sentence,'Recorded spend: USD 0.42 of a USD 10.00 cap'],actions:[ACTIVITY,['Resume',`#W-NewRun/run?resume=${ID}`]]},state);
   }
+});
+test('a stop with module codes in its engine message never puts them in the browser notice',async t=>{
+  const p=await page(t,{list:[job()]});
+  await p.watch();p.state.list=[job({state:'failed',reason:'checker',message:'CP-3 handoff rejected; CP-OS stopped'})];await p.watch();
+  assert.equal(p.built[0].options.body,"Northbridge Group: Stopped: a module's handoff did not pass its check within the allowed turns.");
+  assert.doesNotMatch(p.built[0].options.body,/CP-/);
+  const q=await page(t,{list:[job()]});
+  await q.watch();q.state.list=[job({state:'stopped',reason:'budget',issuer:undefined})];await q.watch();
+  assert.equal(q.built[0].options.body,"Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.");
+  const r=await page(t,{list:[job({issuer:undefined})]});
+  await r.watch();r.state.list=[job({state:'complete',issuer:undefined})];await r.watch();
+  assert.equal(r.built[0].options.body,'The run complete');
+});
+test('a ruling stop is not resumable anywhere: the strip offers Activity only',async t=>{
+  const p=await page(t,{list:[job({state:'failed',reason:'ruling',message:''})]});
+  await p.watch();
+  assert.deepEqual(parts(p).actions,[ACTIVITY]);
+  assert.equal(p.win.eval("resumable({state:'failed',reason:'ruling'})"),false);
+  assert.equal(p.win.eval("resumable({state:'failed',reason:'provider'})"),true);
 });
 test('a complete run shows the grey strip with a tick and View reports only',async t=>{
   const p=await page(t,{list:[job({state:'complete'})]});
@@ -279,7 +305,7 @@ test('plain state words replace raw states, and bare module codes are named',asy
   assert.equal(p.win.stopText({state:'running',message:'Working'}),'Running: Working');
   assert.equal(text('failed','CP-1 rejected; CP-OS stopped; CP-9 unknown'),'Failed: Financial analysis (CP-1) rejected; CP-OS stopped; CP-9 unknown');
   assert.equal(text('failed','Financial analysis (CP-1) rejected'),'Failed: Financial analysis (CP-1) rejected','an already named code is left alone');
-  assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap; a new run needs a higher cap. x');
+  assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules. x');
 });
 test('Fix 1: dismissing a running strip hides it (and the mark) until the run changes state',async t=>{
   const p=await page(t,{list:[job()]});

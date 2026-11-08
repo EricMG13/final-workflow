@@ -559,6 +559,10 @@ function summaryView(context) {
   const questions=groups.map(([title,items])=>[title,items.filter(([id])=>available.includes(id)&&id!==led)]).filter(([,items])=>items.length);
   return `${summaryLead(lead)}${summaryCharts(available,context)}<div class="question-map">${questions.map(([title,items])=>`<section><h2>${esc(title)}</h2><div>${items.map(([id])=>summaryCard(id,context)).join('')}</div></section>`).join('')}</div>${built.length?`<section class="summary-deliverables"><h2>Deliverables from this run</h2>${built.map(r=>`<div class="deliverable"><a class="text-action" href="${routeHref('W-Reports',r.id,null,context)}">${esc(reportName(r))}${icon('arrow-right')}</a>${reportAcceptance(r).html}</div>`).join('')}</section>`:''}`;
 }
+// The retained-record wording for a run with no live record: the heading, and the note and link that follow the flow.
+function retainedRecordHtml(ctx) {
+  return {head:`<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div>`,tail:`<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`};
+}
 function workspaceView(module,section) {
   const context=current?.context,ctx=contexts[context],available=ctx?contextModules(context):[];
   if(module==='W-Library')return libraryView();
@@ -578,8 +582,9 @@ function workspaceView(module,section) {
   if(module==='W-Forecast')return forecastView(context,section);
   if(module==='CP-OS') {
     const flow=`<ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${moduleLink('W-Evidence','Inspect retained outputs')}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${moduleLink('W-Reports','View reports')}</li></ol>`;
-    if(/^web-[a-f0-9]{32}$/.test(context||''))return `<section id="run-activity" data-run="${esc(context)}" aria-live="polite"><h2>Run activity · ${esc(ctx.run)}</h2><p class="hint">Loading run activity…</p></section>${flow}`;
-    return `<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2><p>No live progress or cost recorded for this run.</p></div>${flow}<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`;
+    if(/^web-[a-f0-9]{32}$/.test(context||''))return `<section id="run-activity" data-run="${esc(context)}"><h2>Run activity · ${esc(ctx.run)}</h2><p class="hint">Loading run activity…</p></section>${flow}`;
+    const retained=retainedRecordHtml(ctx);
+    return `${retained.head}${flow}${retained.tail}`;
   }
   if(module==='W-Help')return HELP;
   return '';

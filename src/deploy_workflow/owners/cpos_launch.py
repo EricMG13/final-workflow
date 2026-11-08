@@ -294,10 +294,12 @@ PROVISIONAL_PARAGRAPH = (
     f"- When either sentence applies, write the word {PROVISIONAL} in every report section routed "
     f"to this module and in the Main limitation of the Reader summary, and give {PROVISIONAL} "
     "confidence.\n"
-    f"- With no legal document at all, state `{BLOCKED_LINE}` and the method's Blocked message.\n\n"
+    f"- With no legal document at all, or a register that lists no legal or offering document, "
+    f"state `{BLOCKED_LINE}` and the method's Blocked message.\n\n"
 )
 PROVISIONAL_ISSUES = {
     "register_missing": "Provisional register missing",
+    "blocked_line_missing": "Provisional register lists no legal or offering document",
     "register_malformed": "Provisional register row malformed",
     "executed_marketing_document": "Provisional register calls a marketing document executed",
     "draft_limitation_missing": "Provisional draft limitation missing",
@@ -916,6 +918,8 @@ def _register(lines: list[str]) -> list[list[str]] | None:
             break
     if not rows or rows[0] != REGISTER_HEADER or len(rows) < 3:
         return None
+    if not all(re.fullmatch(r":?-+:?", cell) for cell in rows[1]):  # No separator: not a table.
+        return None
     return rows[2:]
 
 
@@ -993,7 +997,14 @@ def cp4_issues(task: HandoffTask, text: str, routes: Sequence[MarkdownRoute]) ->
         )
     valid, issues = _valid_rows(register)
     ranked = [row for row in valid if row[1] != OTHER_KIND]
-    if BLOCKED_LINE in text and not ranked:
+    if not ranked:
+        if BLOCKED_LINE not in text and not issues:
+            issues.append(
+                _problem(
+                    "blocked_line_missing",
+                    f"state `{BLOCKED_LINE}` and the method's Blocked message.",
+                )
+            )
         return tuple(issues)
     statuses = [row[2] for row in ranked]
     unsigned = [s for s in statuses if s != "executed"]

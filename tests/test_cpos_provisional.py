@@ -232,6 +232,40 @@ def test_a_register_outside_findings_is_missing(tmp_path):
     assert new_categories(issues) == {"register_missing"}, issues
 
 
+def categories_for(tmp_path, register: str) -> set[str]:
+    """The key's executed-only case with its register replaced: the rest of the answer is valid."""
+    case = next(c for c in CASES if c["id"] == "executed-only-no-labels")
+    prepared = prepared_for(tmp_path, case["pathway"], case["run_type"], case["legal_documents"])
+    raw = case_answer({**case, "answer": {**case["answer"], "register": register}}, prepared)
+    task = HandoffTask(
+        prepared.plan.run,
+        "CP-4",
+        instructions_of(prepared, "CP-4"),
+        {"annual.txt": b"Net sales", "context": b"{}"},
+        case_handoffs(case),
+        1,
+        (),
+    )
+    return new_categories(_checked_handoff(task, raw.encode(), checker(prepared.layout)))
+
+
+HEADER_ROW = "| Document | Kind | Status | Authority rank | Source |"
+CA = "credit agreement or indenture"
+
+
+def test_a_register_without_a_separator_row_is_missing_not_short_a_row(tmp_path):
+    register = (
+        f"{HEADER_ROW}\n| Draft CA | {CA} | draft | 1 | ca.htm |\n"
+        f"| Old CA | {CA} | executed | 1 | old.htm |"
+    )
+    assert categories_for(tmp_path, register) == {"register_missing"}
+
+
+def test_in_scope_a_register_of_only_other_rows_needs_the_blocked_line(tmp_path):
+    register = f"{HEADER_ROW}\n| --- | --- | --- | --- | --- |\n| 10-K | other | filed | not ranked | 10-k.htm |"
+    assert categories_for(tmp_path, register) == {"blocked_line_missing"}
+
+
 def test_cp4_scope_is_decided_by_the_paragraph_alone(tmp_path):
     # Primary/draft run, but the task's instructions lack the paragraph: no new check applies.
     prepared = prepared_for(tmp_path, "credit_snapshot", "primary", "draft")

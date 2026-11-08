@@ -1,5 +1,5 @@
 {
- "_about": "Frozen answer key for the issuer-identity and report-acceptance fixes (2026-11-07). The controller derived it from the retained workspace at a313b50 (runs/*/workflow.json, hash-verified deliverables/*/view.json, the unchanged Go discovery catalogue and the hand-written CURATED_RUNS names), independently of engine/store.py and web/views.js. Implementers and fixers must not edit it; a test that disagrees with it is fixed in the code, not here.",
+ "_about": "Frozen answer key for the issuer-identity and report-acceptance fixes (2026-11-07). The controller derived it from the retained workspace at a313b50 (runs/*/workflow.json, hash-verified deliverables/*/view.json, the unchanged Go discovery catalogue and the hand-written CURATED_RUNS names), independently of engine/store.py and web/views.js. Implementers and fixers must not edit it; a test that disagrees with it is fixed in the code, not here. Ruling 2026-11-08: the report qualification unrun now reads \"Analytical qualification: not run\".",
  "library": {
   "count": "9 issuers · 44 runs · 19 reports",
   "unrecordedHeading": "Issuer not recorded",
@@ -191,31 +191,31 @@
    },
    "tdg-fy2024-snapshot-2": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot-3": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot-4": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot-5": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot-6": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2024-snapshot-7": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "tdg-fy2025-valuation-1": {
     "state": "Candidate · not accepted",
@@ -231,7 +231,7 @@
    },
    "ff9a58944ddfb17f1876151a30020200a622d0d7238d3a79eb1ddba1d7e050fa": {
     "state": "Candidate · not accepted",
-    "qualification": "Analytical qualification: unrun"
+    "qualification": "Analytical qualification: not run"
    },
    "278856a3253b29f86c89e87f27bcee1c4c629da6e781ea323419393088a6fadb": {
     "state": "Candidate · not accepted",

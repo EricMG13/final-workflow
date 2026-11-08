@@ -152,7 +152,11 @@ test('The reading toolbar separates the status from the acceptance badge',async 
   const tools=w.document.querySelector('.report-tools'),sep=tools.querySelector('.tool-sep');
   assert.ok(sep,'no separator');
   assert.equal(sep.previousElementSibling.textContent,key.reports.status['tdg-fy2024-snapshot-7']);
-  assert.ok(sep.nextElementSibling.classList.contains('badge'));
+  // The badge and its qualification text are one inline group, so they wrap as a unit.
+  const group=sep.nextElementSibling;
+  assert.ok(group.classList.contains('acceptance'));
+  assert.ok(group.firstElementChild.classList.contains('badge'));
+  assert.ok(group.querySelector('.muted').textContent.startsWith('Analytical qualification'));
   assert.equal(sep.getAttribute('aria-hidden'),'true');
 });
 
@@ -162,8 +166,8 @@ test('A model source with no valid path or hash still renders, flagged, with no 
   Object.assign(model.sources[0],{sha256:null,changed:null});
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
   const cells=[...d.querySelector('.forecast-built tbody tr').children];
-  assert.equal(cells[2].textContent,'');
-  assert.equal(text(cells[3]),'Invalid path or hash');
+  assert.equal(cells[3].textContent,'');
+  assert.equal(text(cells[4]),'Invalid path or hash');
 });
 
 test('Each deliverable listed on the run overview shows its report’s state',async t=>{
@@ -200,7 +204,8 @@ test('A synthetic delivery shows accepted, unrecorded and unknown states in exac
   assert.ok(kinds(second).includes('Acceptance not recorded|badge badge-gray'),kinds(second).join());
   assert.ok(kinds(third).includes('Acceptance not recorded|badge badge-gray'),kinds(third).join());
   const candidate=[...d.querySelectorAll('.report-list li .badge')].find(b=>text(b)==='Candidate · not accepted');
-  assert.ok(candidate&&candidate.classList.contains('badge-attention'),'candidate state is an attention badge');
+  assert.ok(candidate&&candidate.classList.contains('badge-gray'),'candidate state is a grey badge');
+  assert.equal(d.querySelector('.report-list .badge-attention'),null,'no report row uses amber for acceptance');
 });
 
 // The Forecast tab, opened the way a reader opens it: from the run, through the tab.
@@ -212,6 +217,8 @@ async function forecastTab(read,run,t){
   await go(w,tab.getAttribute('href').slice(1));
   return w;
 }
+// Role words for the source roles a delivery declares, written here independently of the app.
+const ROLE_WORDS={annual:'Annual handoff',quarter:'Quarterly handoff',forecast:'Forecast handoff',forecast_exact:'Forecast calculations',current_synthesis:'Current synthesis'};
 const collapse=value=>value.replace(/\s+/g,' ').trim();
 
 for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.models.length)){
@@ -234,14 +241,23 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
     assert.deepEqual(rows.map(r=>r[0]),expected.registerIds);
     assert.deepEqual(rows,expected.registerRows);
     const built=[...d.querySelectorAll('.forecast-built tbody tr')];
-    assert.deepEqual(built.map(tr=>tr.querySelector('th').textContent),expected.builtFrom.map(b=>b.role));
+    assert.deepEqual([...d.querySelectorAll('.forecast-built thead th')].map(text),['Role','Run','Source','SHA-256 prefix','Status']);
+    assert.deepEqual(built.map(tr=>tr.querySelector('th').textContent),expected.builtFrom.map(b=>ROLE_WORDS[b.role]));
     built.forEach((tr,i)=>{
-      const b=expected.builtFrom[i],cells=[...tr.querySelectorAll('td')],link=cells[0].querySelector('a');
-      assert.equal(cells[1].textContent,b.sha256Prefix,b.role);
-      assert.equal(text(cells[2]).includes('Changed since publication'),b.changed,b.role);
-      if(b.output===null){assert.equal(link,null,`${b.role} must not link`);assert.equal(cells[0].textContent,b.path);}
+      const b=expected.builtFrom[i],cells=[...tr.querySelectorAll('td')],link=cells[1].querySelector('a');
+      const runBadge=cells[0].querySelector('span.code');
+      assert.ok(runBadge,`${b.role} has no run badge`);
+      assert.equal(runBadge.textContent,b.path.split('/')[1],b.role);
+      assert.equal(cells[2].textContent,b.sha256Prefix,b.role);
+      assert.equal(text(cells[3]),b.changed?'Changed since publication':'Matches publication',b.role);
+      assert.ok(cells[3].querySelector('.badge'),`${b.role} status is a badge`);
+      assert.ok(cells[3].querySelector('.badge').classList.contains(b.changed?'badge-attention':'badge-gray'),b.role);
+      if(b.output===null){assert.equal(link,null,`${b.role} must not link`);assert.equal(cells[1].textContent,b.path);}
       else{assert.ok(link,`${b.role} has no link`);assert.equal(link.textContent,b.output.split('/').at(-1));}
     });
+    // The sources come from different attempts, and the note says which files, as a fact.
+    assert.equal(text(d.querySelector('.forecast-built .forecast-attempts')),'These files come from different attempts: CP-1-attempt-2.md (attempt 2), CP-2G-attempt-2.md (attempt 2), CP-2G-attempt-1-calculations.json (attempt 1)');
+    assert.equal(d.querySelector('.forecast-built .table-scroll').nextElementSibling,d.querySelector('.forecast-attempts'));
     const frame=d.getElementById('model-preview');
     assert.equal(frame.getAttribute('sandbox'),'allow-scripts allow-downloads');
     assert.match(frame.getAttribute('src'),/^\/files\/deliverables\/tdg-model-3\/model\.html\?sha256=[0-9a-f]{64}&embedded=1$/);
@@ -295,6 +311,22 @@ test('Forecast for tdg-002 lays the calculation record out as a cash flow model'
   assert.equal(section.querySelector('.cashflow-notes').previousElementSibling,section.querySelector('.table-scroll'));
   assert.equal(section.querySelector('.cashflow-notes').nextElementSibling,section.querySelector('.cashflow-na'));
   assert.deepEqual([...section.querySelectorAll('.cashflow-na li')].map(text),cashflow.notAvailable);
+  // The Not available lines sit in a disclosure, closed by default, whose summary counts them.
+  const na=section.querySelector('.cashflow-na');
+  assert.equal(na.tagName,'DETAILS');
+  assert.equal(na.hasAttribute('open'),false);
+  assert.equal(text(na.querySelector('summary')),`Why cells show n.a. (${cashflow.notAvailable.length} lines)`);
+  assert.deepEqual([...section.querySelectorAll('tbody td')].filter(td=>td.textContent==='—'),[],'no cell shows a dash');
+  // Totals: exactly the rows the key names carry total-row, in order.
+  assert.deepEqual(rows.filter(tr=>tr.classList.contains('total-row')).map(tr=>text(tr.querySelector('th'))),cashflow.totals);
+  // Every n.a. and n.m. cell states what it is; the label repeats the title's reason, the text stays the display.
+  rows.forEach((tr,i)=>[...tr.querySelectorAll('td')].forEach((td,j)=>{
+    const shown=cashflow.rows[i].display[j],at=`${cashflow.rows[i].label} / ${cashflow.columns[j]}`;
+    if(shown==='n.a.')assert.equal(td.getAttribute('aria-label'),`n.a.: ${td.getAttribute('title')}`,at);
+    else if(shown==='n.m.')assert.equal(td.getAttribute('aria-label'),'n.m.: not modelled in the calculation record',at);
+    else assert.equal(td.hasAttribute('aria-label'),false,at);
+  }));
+  assert.ok(rows.some(tr=>[...tr.querySelectorAll('td')].some(td=>td.getAttribute('aria-label')==='n.m.: not modelled in the calculation record')));
   assert.deepEqual([...d.querySelectorAll('.forecast-limits li')].map(text),cashflow.limits);
   assert.equal(d.querySelector('.forecast-limits h2').textContent,'Model limitations');
 });
@@ -319,10 +351,11 @@ test('A model with no calculation record says so in place of the table; hostile 
   a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad,status:'na'};
   a.cashflow.units=null;
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
-  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record');
+  assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · Q1 FY2024 (YTD) to FY2027E · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record');
   assert.equal(d.querySelector('.forecast-limits li').textContent,bad);
   assert.deepEqual([...d.querySelectorAll('.cashflow-notes li')].map(li=>li.textContent),[bad]);
-  assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Power & Control — ${bad}`]);
+  assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Power & Control — ${cashflow.columns[1]}: ${bad}`]);
+  assert.equal(d.querySelectorAll('.cashflow td')[1].getAttribute('aria-label'),`n.a.: ${bad}`);
   assert.equal(d.querySelector('.forecast-cashflow img,.forecast-limits img'),null);
   assert.equal(d.querySelector('[onerror]'),null);
   const select=d.getElementById('model-select');
@@ -355,6 +388,44 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>!e.mode
   });
 }
 
+test('Ratio titles show four decimals, with the approximation sign only where rounding changed the value',async t=>{
+  const forged=structuredClone(workspace);
+  const model=forged.store.models.find(m=>m.id==='tdg-model-3');
+  const percent=model.cashflow.rows.find(r=>r.kind==='percent'),multiple=model.cashflow.rows.find(r=>r.kind==='multiple'),money=model.cashflow.rows.find(r=>r.kind==='money');
+  const set=(row,i,exact)=>{row.cells[i]={exact,display:'shown',reason:null,status:'value'};};
+  const cases=[[percent,'0.5','50.0000%'],[percent,'0.123456789','≈ 12.3457%'],[percent,'-0.12345','-12.3450%'],[percent,'-0.0000000001','≈ 0.0000%'],[percent,'1E-4','0.0100%'],[multiple,'4.79755','≈ 4.7976x'],[multiple,'3','3.0000x'],[money,'1221.04741248','1221.04741248']];
+  cases.forEach(([row,exact],i)=>set(row,i,exact));
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  const rows=[...d.querySelectorAll('.cashflow tbody tr:not(.band-row)')];
+  cases.forEach(([row,exact,title],i)=>{
+    const tr=rows.find(r=>text(r.querySelector('th'))===row.label);
+    assert.equal(tr.querySelectorAll('td')[i].getAttribute('title'),title,`${row.label} ${exact}`);
+  });
+});
+
+test('Built from names an unknown role by its token and adds no attempt note when the files share an attempt',async t=>{
+  const forged=structuredClone(workspace);
+  const model=forged.store.models.find(m=>m.id==='tdg-model-3');
+  model.sources[0].role='<b>mystery</b>';
+  for(const s of model.sources)if(s.path)s.path=s.path.replace(/-attempt-\d+/,'-attempt-2');
+  const w=await forecastTab(forged,'tdg-002',t),d=w.document;
+  assert.equal(d.querySelector('.forecast-built tbody th').textContent,'<b>mystery</b>');
+  assert.equal(d.querySelector('.forecast-built tbody th b'),null);
+  assert.equal(d.querySelector('.forecast-attempts'),null);
+});
+
+test('A report whose qualification is unrun reads "not run" and no acceptance badge is amber',async t=>{
+  const forged=structuredClone(workspace);
+  const report=forged.store.reports.find(r=>r.qualification==='unrun');
+  assert.ok(report,'the workspace holds an unrun report');
+  const w=screens(forged,'W-Reports/list?c=tdg-002').window,d=w.document;t.after(()=>w.close());
+  await settle();
+  const row=[...d.querySelectorAll('.report-list li')].find(li=>li.querySelector('.code').textContent===report.id);
+  assert.match(text(row),/Analytical qualification: not run/);
+  assert.doesNotMatch(text(row),/unrun/);
+  assert.equal(d.querySelector('.badge-attention'),null);
+});
+
 test('Model text from a workspace stays text, and a source that changed says so',async t=>{
   const bad='<img src=x onerror=alert(1)>',forged=structuredClone(workspace);
   const model=forged.store.models.find(m=>m.id==='tdg-model-3');
@@ -365,9 +436,9 @@ test('Model text from a workspace stays text, and a source that changed says so'
   assert.equal(d.querySelector('.forecast-assumptions tbody tr').children[1].textContent,bad);
   assert.equal(d.querySelector('#content img[src="x"]'),null);
   assert.equal(d.querySelector('#content [onerror]'),null);
-  const status=[...d.querySelectorAll('.forecast-built tbody tr')].map(tr=>text(tr.children[3]));
+  const status=[...d.querySelectorAll('.forecast-built tbody tr')].map(tr=>text(tr.children[4]));
   assert.equal(status[0],'Changed since publication');
-  assert.deepEqual(status.slice(1),['','','','']);
+  assert.deepEqual(status.slice(1),Array(4).fill('Matches publication'));
 });
 
 test('The model frame shows loading, then the failure with a download link when the page never arrives',async t=>{

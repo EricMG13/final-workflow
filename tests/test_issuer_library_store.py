@@ -1305,7 +1305,9 @@ def test_a_model_read_error_names_its_type_and_reason_and_never_the_bytes(tmp_pa
 
 NA = "n.a."
 NM = "n.m."
-DASH = "—"
+DASH = "—"  # no cell displays this any more
+NO_VALUE = "the model's source table has no value for this period"
+PRINTED = "printed as — in the source"
 QUARTER_LABELS = ["Q1 FY2025 (YTD)", "2025-01-01–2025-03-31", "Q1 FY2026 (YTD)"]
 
 
@@ -1362,7 +1364,7 @@ def test_business_units_come_from_the_total_rows_with_hostile_text_literal(tmp_p
     ]
     assert shown(cashflow, "<b>Alpha</b>") == ["60", "90", "120", "600", "660", NM, NM]
     assert shown(cashflow, "Beta") == ["40", "60", "80", "400", "440", NM, NM]
-    assert shown(cashflow, "Gamma") == [DASH, DASH, DASH, "2", "1", NM, NM]
+    assert shown(cashflow, "Gamma") == [NA, NA, NA, "2", "1", NM, NM]
     assert shown(cashflow, "<b>Alpha</b> YoY growth") == [
         NA, NA, "100.00%", NA, "10.00%", NM, NM,
     ]  # fmt: skip
@@ -1390,9 +1392,9 @@ def test_add_backs_follow_the_annual_labels_then_quarter_only_labels(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
     labels = [r["label"] for r in cashflow["rows"] if r["band"] == "Add-backs to issuer EBITDA"]
     assert labels == ["Acquisition costs", "Other, net", "Quarter only item"]
-    assert shown(cashflow, "Acquisition costs") == ["2", DASH, "3", "10", "20", NM, NM]
-    assert shown(cashflow, "Other, net") == [DASH, "1", "(4)", "5", "(5)", NM, NM]
-    assert shown(cashflow, "Quarter only item") == ["8", "7", "9", DASH, DASH, NM, NM]
+    assert shown(cashflow, "Acquisition costs") == ["2", NA, "3", "10", "20", NM, NM]
+    assert shown(cashflow, "Other, net") == [NA, "1", "(4)", "5", "(5)", NM, NM]
+    assert shown(cashflow, "Quarter only item") == ["8", "7", "9", NA, NA, NM, NM]
 
 
 def test_adjusted_ebitda_margin_and_growth_use_the_prior_period_of_each_column(tmp_path):
@@ -1409,19 +1411,19 @@ def test_adjusted_ebitda_margin_and_growth_use_the_prior_period_of_each_column(t
 
 def test_cash_liquidity_debt_and_credit_rows(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
-    assert shown(cashflow, "Cash interest") == [DASH, DASH, DASH, "100", "100", "40", NM]
-    assert shown(cashflow, "Cash taxes") == [DASH, DASH, DASH, "30", NA, NM, NM]
-    assert shown(cashflow, "Capital expenditure (outflow)") == [DASH] * 3 + ["40", "44", "44", "44"]
-    assert shown(cashflow, "Closing cash") == [DASH] * 3 + ["300", DASH, NM, NM]
-    assert shown(cashflow, "Undrawn facility") == [DASH] * 5 + [NA, NA]
-    assert shown(cashflow, "Closing debt (carrying value)") == [DASH] * 3 + ["2,000", NA, NM, NM]
+    assert shown(cashflow, "Cash interest") == [NA, NA, NA, "100", "100", "40", NM]
+    assert shown(cashflow, "Cash taxes") == [NA, NA, NA, "30", NA, NM, NM]
+    assert shown(cashflow, "Capital expenditure (outflow)") == [NA] * 3 + ["40", "44", "44", "44"]
+    assert shown(cashflow, "Closing cash") == [NA] * 3 + ["300", NA, NM, NM]
+    assert shown(cashflow, "Undrawn facility") == [NA] * 5 + [NA, NA]
+    assert shown(cashflow, "Closing debt (carrying value)") == [NA] * 3 + ["2,000", NA, NM, NM]
     assert shown(cashflow, "Total leverage (debt / Adj EBITDA)") == [
         NA, NA, NA, "3.70x", "3.70x", "0.13x", "0.13x",
     ]  # fmt: skip
     assert shown(cashflow, "Interest coverage (Adj EBITDA / cash interest)") == [
-        DASH, DASH, DASH, "5.40x", "5.40x", "2.00x", "2.00x",
+        NA, NA, NA, "5.40x", "5.40x", "2.00x", "2.00x",
     ]  # fmt: skip
-    assert shown(cashflow, "Cash proxy / closing debt") == [DASH] * 5 + ["12.35%", "12.35%"]
+    assert shown(cashflow, "Cash proxy / closing debt") == [NA] * 5 + ["12.35%", "12.35%"]
     names = [r["label"] for r in cashflow["rows"]]
     assert "Working capital" not in names
 
@@ -1442,13 +1444,13 @@ def test_cells_carry_exact_values_and_the_reason_for_every_gap(tmp_path):
         "exact": "-30", "display": "(30)", "reason": None, "status": "value",
     }  # fmt: skip
     assert cell("Other, net", 0) == {
-        "exact": None, "display": DASH, "reason": "printed as — in the source", "status": "gap",
+        "exact": None, "display": NA, "reason": PRINTED, "status": "na",
     }  # fmt: skip
     assert cell("Acquisition costs", 1) == {
         "exact": None,
-        "display": DASH,
-        "reason": None,
-        "status": "gap",
+        "display": NA,
+        "reason": NO_VALUE,
+        "status": "na",
     }
     assert cell("COGS (cost of sales)", 1) == {
         "exact": None, "display": NA, "reason": "source cell is not a number", "status": "na",
@@ -1495,7 +1497,7 @@ def test_a_zero_prior_period_gives_no_growth_not_a_crash(tmp_path):
 def test_senior_secured_leverage_is_the_register_date_year_only(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
     label = "Senior secured leverage (secured debt / Adj EBITDA)"
-    ltm = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+    ltm = "needs last-twelve-months Adj EBITDA for this quarter, which is not recorded"
     cells = row(cashflow, label)["cells"]
     assert [c["display"] for c in cells] == [NA, NA, NA, "3.00x", NA, NM, NM]
     assert [c["reason"] for c in cells[:3]] == [ltm] * 3
@@ -2413,22 +2415,61 @@ def test_a_table_cell_keeps_its_rows_kind():
 
 def test_every_cell_carries_a_status_that_matches_what_it_shows(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
-    expected = {NA: "na", NM: "nm", DASH: "gap"}
+    expected = {NA: "na", NM: "nm"}
     seen = set()
     for line in cashflow["rows"]:
         for cell in line["cells"]:
+            assert cell["display"] != DASH
             assert cell["status"] == expected.get(cell["display"], "value")
             seen.add(cell["status"])
-    assert seen == {"value", "gap", "na", "nm"}
+    assert seen == {"value", "na", "nm"}
 
 
-def test_a_source_cell_printed_as_a_dash_is_a_gap_with_its_reason(tmp_path):
+def test_a_source_cell_printed_as_a_dash_is_n_a_with_its_reason(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
     cell = row(cashflow, "Other, net")["cells"][0]
-    assert (cell["status"], cell["display"], cell["reason"]) == (
-        "gap",
-        DASH,
-        "printed as — in the source",
+    assert (cell["status"], cell["display"], cell["reason"]) == ("na", NA, PRINTED)
+
+
+def test_every_other_gap_is_n_a_with_the_source_table_has_no_value_reason(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    blank = row(cashflow, "Acquisition costs")["cells"][1]  # an empty source cell
+    quarter_only = row(cashflow, "Quarter only item")["cells"][3]  # no fiscal-year column entry
+    history_none = row(cashflow, "Model cash from operations")["cells"][0]  # no history spec
+    for cell in (blank, quarter_only, history_none):
+        assert (cell["status"], cell["display"], cell["reason"]) == ("na", NA, NO_VALUE)
+
+
+def test_every_row_states_its_kind_and_the_eleven_totals_are_marked(tmp_path):
+    cashflow, _ = cashflow_of(tmp_path)
+    kinds = {line["label"]: line["kind"] for line in cashflow["rows"]}
+    assert set(kinds.values()) == {"money", "percent", "multiple"}
+    assert kinds["Revenue"] == "money"
+    assert kinds["Gross profit margin"] == "percent"
+    assert kinds["Revenue YoY growth"] == "percent"
+    assert kinds["Total leverage (debt / Adj EBITDA)"] == "multiple"
+    assert kinds["Interest coverage (Adj EBITDA / cash interest)"] == "multiple"
+    assert kinds["Cash proxy / closing debt"] == "percent"
+    totals = [line["label"] for line in cashflow["rows"] if line["total"]]
+    assert totals == [
+        "Revenue",
+        "Gross profit",
+        "EBIT (income from operations)",
+        "EBITDA (EBIT + D&A)",
+        "Adj EBITDA (EBITDA As Defined)",
+        "Model cash from operations",
+        "Cash proxy (not issuer free cash flow)",
+        "Closing cash",
+        "Accessible liquidity",
+        "Closing debt (carrying value)",
+        "Net debt (all modelled cash deducted)",
+    ]
+    assert not any(line["total"] for line in cashflow["rows"] if line["label"].endswith("growth"))
+
+
+def test_the_ltm_reason_names_the_quarter_and_says_it_is_not_recorded():
+    assert store.LTM_NEEDED == (
+        "needs last-twelve-months Adj EBITDA for this quarter, which is not recorded"
     )
 
 
@@ -3008,7 +3049,7 @@ def test_named_run_id_keeps_the_id_when_the_names_differ() -> None:
 LTM_ROW = "LTM Adj EBITDA (As Defined)"
 SENIOR_ROW = "Senior secured leverage (secured debt / Adj EBITDA)"
 TOTAL_ROW = "Total leverage (debt / Adj EBITDA)"
-LTM_NEEDED_TEXT = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+LTM_NEEDED_TEXT = "needs last-twelve-months Adj EBITDA for this quarter, which is not recorded"
 AFTER_DEBT_TEXT = "needs quarter-end total carrying debt, which the model does not derive"
 AFTER_SENIOR_TEXT = (
     "needs quarter-end senior secured carrying debt, which the model does not derive"
@@ -3031,7 +3072,7 @@ def test_ltm_adj_ebitda_and_quarter_end_leverage_show_where_the_record_holds_the
     )
     cashflow, issues = cashflow_of(tmp_path, extra=cashflow_files(record))
     assert issues == []
-    assert shown(cashflow, LTM_ROW) == ["100", DASH, "4,322", "540", "594", NM, NM]
+    assert shown(cashflow, LTM_ROW) == ["100", NA, "4,322", "540", "594", NM, NM]
     assert shown(cashflow, SENIOR_ROW) == [NA, NA, "4.67x", "3.00x", NA, NM, NM]
     assert row(cashflow, SENIOR_ROW)["cells"][2]["exact"] == "4.6719"
     total = row(cashflow, TOTAL_ROW)["cells"]
@@ -3042,9 +3083,9 @@ def test_ltm_adj_ebitda_and_quarter_end_leverage_show_where_the_record_holds_the
     ]
 
 
-def test_without_quarter_values_the_old_text_stays_and_the_ltm_row_is_dashes(tmp_path):
+def test_without_quarter_values_the_ltm_row_is_not_available_and_leverage_names_why(tmp_path):
     cashflow, _ = cashflow_of(tmp_path)
-    assert shown(cashflow, LTM_ROW) == [DASH, DASH, DASH, "540", "594", NM, NM]
+    assert shown(cashflow, LTM_ROW) == [NA, NA, NA, "540", "594", NM, NM]
     for label in (SENIOR_ROW, TOTAL_ROW):
         assert [c["reason"] for c in row(cashflow, label)["cells"][:3]] == [LTM_NEEDED_TEXT] * 3
 

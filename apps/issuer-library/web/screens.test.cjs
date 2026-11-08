@@ -529,7 +529,7 @@ test('the cash flow grid reads cell status and column ytd, never the display or 
   const plain=cf.columns.find(c=>!c.ytd);plain.label='Looks (YTD)';
   const cell=cf.rows[0].cells.find(c=>c.status==='value');
   cell.display='n.a.';cell.reason='text only';
-  const gone=cf.rows.flatMap(r=>r.cells).find(c=>c.status==='gap');
+  const gone=cf.rows[1].cells.find(c=>c.status==='value');
   gone.status='na';gone.display='shown as text';gone.reason='by status';
   await go(w,'W-Library/cases');await go(w,'W-Forecast/tdg-model-1?c=tdg-002');
   assert.equal(d.querySelectorAll('.cashflow thead .col-sub').length,ytdColumns);

@@ -229,18 +229,19 @@ SETEXT = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
 
 
 def _starts_section(shown: list[str], i: int) -> bool:
-    """An ATX heading line, or a text line underlined by a setext heading's `=` or `-` line."""
+    """An ATX heading line, or a text line that is not a table row, underlined by `=` or `-`."""
     if HEADING_START.match(shown[i]):
         return True
-    return bool(shown[i].strip()) and SETEXT.fullmatch("".join(shown[i + 1 : i + 2])) is not None
+    underlined = SETEXT.fullmatch("".join(shown[i + 1 : i + 2])) is not None
+    return underlined and bool(shown[i].strip()) and table_row(shown[i]) is None
 
 
 def _table_at(
     lines: list[str], anchor: str, source: str
 ) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
     """The table under `anchor` that begins before the next heading, read as shown. Hidden text
-    among its rows, or more `|` text past a blank line or hidden text without its own separator
-    row, means rows may be lost: refused."""
+    among its rows, or `|` text outside code after them before the next `#` heading that starts
+    no table with its own separator row, means rows may be lost: refused (the store's rule)."""
     shown = _shown(lines, source)
     positions = [i for i, line in enumerate(shown) if line == anchor]
     if len(positions) != 1:
@@ -255,12 +256,9 @@ def _table_at(
         last += 1
     if any(shown[i] != lines[i] for i in range(first, last)):
         raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
-    more = next((i for i in range(last, end) if shown[i].strip() and shown[i] == lines[i]), end)
-    if (
-        more < end
-        and "|" in shown[more]
-        and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2]))
-    ):
+    stop = next((i for i in range(last, len(shown)) if HEADING_START.match(shown[i])), len(shown))
+    more = next((i for i in range(last, stop) if "|" in CODE_SPAN.sub("", shown[i])), stop)
+    if more < stop and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2])):
         raise ValueError(
             f"model_table: the table under {anchor} is split by a blank line or hidden text"
         )

@@ -1254,12 +1254,13 @@ def markdown_table(lines: list[str], file: str) -> Table:
 
 def markdown_tables(text: str, file: str) -> list[Table]:
     """The tables of a Markdown text as a viewer shows it; `file` names it in a limit error. A table
-    is its header and the raw rows after it; `interrupted` when hiding changed one of them or more
-    '|' text follows without its own separator row (never merged into this table)."""
+    is its header and raw rows; `interrupted` when hiding changed one or '|' text outside code
+    follows before the next `#` heading without its own separator row (delivery's rule). Rows after
+    a split table are never merged: they read under its header, with no period and its problem."""
     tables: list[Table] = []
     raw = text.split("\n")
     shown = shown_lines(raw)
-    at = 0
+    at, head, problem = 0, "", None  # the header and problem of a split table
     while at < len(raw):
         if table_row(shown[at]) is None:
             at += 1
@@ -1268,16 +1269,18 @@ def markdown_tables(text: str, file: str) -> list[Table]:
         while end < len(raw) and table_row(raw[end]) is not None:
             end += 1
         rows = [row for row in map(table_row, shown[at:end]) if row is not None]
-        table = markdown_table(rows, file)
-        more = next(
-            (i for i in range(end, len(raw)) if shown[i].strip() and shown[i] == raw[i]), end
-        )
-        split = more < len(raw) and "|" in shown[more] and not HEADING_START.match(shown[more])
-        split = split and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2]))
-        if any(shown[i] != raw[i] for i in range(at, more if split else end)):
+        follows = problem is not None and not SEPARATOR.fullmatch("".join(shown[at + 1 : at + 2]))
+        table = markdown_table([head, *rows] if follows else rows, file)
+        stop = next((i for i in range(end, len(raw)) if HEADING_START.match(shown[i])), len(raw))
+        more = next((i for i in range(end, stop) if "|" in CODE_SPAN.sub("", shown[i])), stop)
+        split = more < stop and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2]))
+        if any(shown[i] != raw[i] for i in range(at, more + 1 if split else end)):
             table["interrupted"] = "interrupted by a comment"
         elif split:
             table["interrupted"] = "split by a blank line or a comment"
+        if follows:
+            table["periods"], table["interrupted"] = {}, problem
+        head, problem = head if follows else rows[0], table["interrupted"] if split else None
         tables.append(table)
         at = end
     return tables
@@ -1330,15 +1333,7 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     names = CASHFLOW_LABELS
     anchor = names["secured_term_loans"].casefold()
     debt = next(
-        (t for t in tables if any(plain_label(label) == anchor for label in t["rows"])),
-        next(
-            (
-                t
-                for t in tables
-                if t["interrupted"] and register_date("".join(t["header"][1:2])) is not None
-            ),
-            None,
-        ),
+        (t for t in tables if any(plain_label(label) == anchor for label in t["rows"])), None
     )
     if debt is None or len(debt["header"]) < 2:
         return None

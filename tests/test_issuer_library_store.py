@@ -3163,34 +3163,6 @@ def test_a_commented_or_fenced_draft_register_is_never_read(wrap):
     assert found is not None and found[1] == 1620
 
 
-@pytest.mark.parametrize("shape", ["<!-->", "<!--->", "<!-- note --> see PDF"])
-def test_every_comment_shape_between_register_rows_voids_the_total(shape):
-    text = (
-        "### Debt\n\n"
-        + HIDDEN_HEAD
-        + DEBT_ROWS
-        + shape
-        + "\n| 7% secured notes due 2033 | carrying 1 | x |\n"
-    )
-    found = store.secured_debt(store.markdown_tables(text, "annual.md"))
-    assert found is not None and found[1] is None
-    assert (
-        found[2] == "the debt register (Sep 30, 2024 amount / status) is interrupted by a comment"
-    )
-
-
-def test_a_comment_before_the_term_loans_row_names_the_interruption():
-    text = (
-        "### Debt\n\n" + HIDDEN_HEAD + "| Trade receivable securitization | carrying 120 | x |\n"
-        "<!-- reviewer note -->\n| Term loans aggregate | carrying 1,000 | x |\n"
-    )
-    found = store.secured_debt(store.markdown_tables(text, "annual.md"))
-    assert found is not None and found[1] is None
-    assert (
-        found[2] == "the debt register (Sep 30, 2024 amount / status) is interrupted by a comment"
-    )
-
-
 def test_a_row_indented_up_to_three_spaces_is_a_row_and_four_splits_the_table():
     found = secured_of("   | 7% secured notes due 2033 | carrying 100 | x |\n")
     assert found is not None and found[1] == 1720
@@ -3198,11 +3170,15 @@ def test_a_row_indented_up_to_three_spaces_is_a_row_and_four_splits_the_table():
     assert found is not None and found[1] is None  # code under the rows: a split, never a partial
 
 
-@pytest.mark.parametrize("gap", ["\n<!-- note -->\n", "\n<!-- a\n\nb -->\n", "\n", "\t", ""])
+@pytest.mark.parametrize(
+    "gap",
+    ["\n<!-- note -->\n", "\n<!-- a\n\nb -->\n", "\n", "\t", "", "<!-- note --> ", "---\n"]
+    + ["<!-->\n", "<!--->\n", "<!-- note --> see PDF\n"],
+)
 def test_a_register_split_by_a_blank_line_or_hidden_text_gives_no_total(gap):
     row = "| 7% secured notes due 2033 | carrying 100 | x |\n"
     extra = {"\t": "\t" + row, "": row[1:]}.get(gap, gap + row)
-    found = secured_of(extra)
+    found = secured_of(extra + "\nAmounts in USD millions.\n")  # text after it, as in a handoff
     assert found is not None and found[1] is None
     words = "interrupted by a comment" if "<!--" in gap else "split by a blank line or a comment"
     assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
@@ -3217,3 +3193,28 @@ def test_a_table_after_hidden_text_is_its_own_table_and_a_plural_total_is_a_subt
     assert store.table_cell(table, "Gain on sale", ("fy", "FY2024"))["exact"] is None  # absent
     assert store.table_cell(table, "Gain on sale", ("fy", "FY2023"))["exact"] == "30"
     assert secured_of("| Totals, secured notes | carrying 600 | x |\n")[1] == 1620
+
+
+COVENANTS = (  # an unrelated dated table, split, above the register
+    "### Covenants\n\n| Covenant | Sep 30, 2023 status | Note |\n|---|---|---|\n"
+    "| Leverage | 5.0x | ok |\n\n| Coverage | 2.0x | ok |\n\n### Debt\n\n" + DEBT_HEAD
+)
+SECURITIZATION, _, TERM_ON = DEBT_ROWS.partition("\n")  # the first row; the rest from Term loans
+NOTE_2033 = "| 7% secured notes due 2033 | carrying 100 | x |\n"
+SPLIT = "split by a blank line or a comment"
+
+
+@pytest.mark.parametrize(
+    ("rows", "words"),
+    [
+        (SECURITIZATION + "\n<!-- note -->\n" + TERM_ON, "interrupted by a comment"),
+        (SECURITIZATION + "\n\n" + TERM_ON, SPLIT),
+        (SECURITIZATION + "\n\n" + NOTE_2033 + TERM_ON, SPLIT),
+        (NOTE_2033 + "\n| Revolver | Sep 30, 2024: undrawn | x |\n" + DEBT_ROWS, SPLIT),
+    ],
+)
+def test_a_register_whose_term_loans_row_follows_its_split_names_the_split(rows, words):
+    found = store.secured_debt(store.markdown_tables(COVENANTS + rows, "annual.md"))
+    assert found is not None and (found[0].isoformat(), found[1]) == ("2024-09-30", None)
+    assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
+    assert store.secured_debt(store.markdown_tables(COVENANTS, "annual.md")) is None

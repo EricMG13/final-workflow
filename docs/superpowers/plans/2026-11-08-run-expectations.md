@@ -42,15 +42,17 @@ each module figure to its evidence; it never calculates a figure.
 | `startRun` accepts only `{id, review_id, confirm}` (`jobs.go:716-751`) | Add `accept_limitations`; required only when the review lists any limitation |
 | The context has no investment-grade/high-yield field (`context.py:92-103`) | Add `identity.issue_classification`: `investment_grade` or `high_yield`, chosen in the issuer identity section |
 | The selected methods are written for high-yield and leveraged-loan issuers (e.g. `cp-2d…/SKILL.md:161`, `cp-2g…/SKILL.md:181`, `cp-3…/SKILL.md:361`, `CP-4_RUNBOOK.md:15`, `cp-6…/SKILL.md:176`); none branches on investment grade | The classification changes expectations, not analysis: for an investment-grade issuer, each module whose method is framed for high yield shows `Limited` with that reason. Adapting methods for investment grade is a separate methodology decision (`METHODOLOGY-REVIEW.md`), out of scope |
-| Facility rows hold instrument, currency, size, tenor, talk spread (margin), OID, floor; quotes hold bid, ask, price, yield, spread, kind, date (`context.py:106-133`); nothing holds a coupon | Add optional `deal_terms[].coupon_pct` (percent; fixed-rate notes) to the form's facility row and the reader |
-| 35 saved context files in `cases/` and the pinned owner-oracle contexts (`cases/PINS.json`) have neither new field; `Contract` forbids unknown keys and requires declared ones | Classification is required in the form (no preselected default, so nobody is silently misclassified); coupon is optional. Both are optional in the reader, where `""` means **not stated**. Schema stays `context/1`; existing fixtures and pins are not edited |
+| Facility rows hold instrument, currency, size, tenor, talk spread and OID (low-high ranges), floor; nothing holds a coupon, a contractual margin or a maturity (`context.py:106-121`) | Add optional `deal_terms[].coupon_pct` (fixed rate), `margin_bps` (floating rate) and `maturity` (date) to the form's facility row and the reader; each is one value, not a range |
+| Facility rows exist only for Primary runs: the form hides the section and the reader refuses rows otherwise ("deal rows belong to a primary run only", `context.py:567-570`). A bond or loan already trading therefore has no row, and its quotes have no facility to belong to | Facility rows for every run type. Terms (instrument, currency, size, coupon, margin, floor, maturity) for all runs; talk fields (spread and OID talk ranges, tenor) shown for Primary only. The reader drops the Primary-only refusal; Primary still needs at least one row. CP-3 ignores a row that states no talk (`cp3_relative_value.py:846-869`), so relative value is unchanged |
+| Quotes hold single values (bid, ask, price, yield, spread), whatever the run type (`context.py:123-133`) | Quote filters compare the single value as entered. Where a quote has bid and ask but no price, the price filter treats bid-ask as a pair and matches by overlap; no mid is calculated |
+| 35 saved context files in `cases/` and the pinned owner-oracle contexts (`cases/PINS.json`) have none of the new fields; `Contract` forbids unknown keys and requires declared ones | Classification is required in the form (no preselected default, so nobody is silently misclassified); coupon, margin and maturity are optional. All are optional in the reader, where `""` means **not stated**. Schema stays `context/1`; existing fixtures and pins are not edited |
 | User-entered values (classification, ratings, facility terms, quotes, coupon) are the user's data | Used exactly as entered, in expectations and the library. Not re-derived from documents, not cross-checked, reconciled or corrected: an entry error is the user's to fix in the context |
 | Library filters are sector, workflow, as-of year, content and module, plus search (`views.js:328-341`); none is credit or market information | Add **Credit** and **Market** filter groups and credit columns; keep the existing filters under **More filters** |
 | `store.py` already parses CP-1's fixed chart tables (`Chart data: leverage`, `interest cover`, `liquidity`, `debt maturities`) with period, unit and basis (`store.py:463-478`) | Leverage, interest cover and liquidity filters read those module values exactly as written, latest period; no recalculation |
 | Only 2 of 44 retained runs hold the fixed leverage table; older handoffs use varying headers | Older runs show **Not recorded** for module figures; no guessing from old tables. Each filter shows its coverage ("recorded for 2 of 44 runs") |
 | `store.py` imports only the standard library so a page load does not pay for the engine (`jobs.go:56-57`) | Read the context JSON the run recorded (its path is in `workflow.json`) as it is; `load_context` already validated it at review. Unreadable gives Not recorded |
 | A run can hold several facilities and several quotes | Facility filters match only when one facility meets all of them. A quote belongs to the facility with the same Facility ID as entered; otherwise it is listed on its own. The latest-dated quote per facility is the one filtered |
-| Talk is a low-high range; quoted spread is a different quantity from new-issue margin | Margin talk and quoted spread are separate filters. A range filter matches when the entered range overlaps it; a single value is a range of one. No midpoint is calculated |
+| Talk is a low-high range; contractual margin and quoted spread are single values, and each is a different quantity | Margin, margin talk and quoted spread are separate filters. A range filter matches when the entered range overlaps it; a single value matches when it lies inside the filter. No midpoint is calculated |
 | An issuer's runs span years (e.g. Berkshire 2008-2017) | Credit and market filters apply to each issuer's **latest run** by default, with "Any run" as an option, so an old figure never qualifies an issuer silently |
 | Amounts carry a currency and unit; ratios, percentages and bps do not | Ratio, percentage and bps filters work across currencies. Amount filters (liquidity, facility size) require choosing one currency first. No FX conversion |
 
@@ -76,8 +78,7 @@ the user's to resolve); parsing documents or handoffs for values the user alread
 **Out of scope (later plans):** files-first run check with pathway ratings, phased context stages,
 context prefill from filings, post-run expected-versus-actual reporting in Run activity,
 investment-grade variants of the methods, credit metrics for runs that predate the fixed chart
-tables, facility rows for run types other than Primary (the form shows Deal terms only for
-Primary), saved named filter views.
+tables, saved named filter views.
 
 ## Global Constraints
 
@@ -123,9 +124,9 @@ owner with both outcomes. Never loosen a test to pass.
 4. **Non-USD issuer (Erste):** CP-2D `Limited` for non-USD facilities; no USD labels invented (Task 3).
 5. **Investment-grade issuer on Credit Snapshot:** each module with a high-yield-framed method shows
    `Limited` with that reason; a high-yield issuer on the same files shows none of these (Task 3).
-6. **An older context.json without the new fields:** loads in the reader with classification and
-   coupon not stated; loads in the form with the classification empty and the Issuer step marked
-   to fix (Task 1).
+6. **An older context.json without the new fields:** loads in the reader with classification,
+   coupon, margin and maturity not stated; loads in the form with the classification empty and the
+   Issuer step marked to fix (Task 1).
 7. **Hostile file names or context text:** rendered as inert text on the Review step and in the
    library (Tasks 7, 10).
 8. **Stale acceptance:** inputs changed after acceptance; Start refuses and asks for a new review (Task 6).
@@ -138,12 +139,18 @@ owner with both outcomes. Never loosen a test to pass.
 13. **Two facilities:** a term loan (margin talk 350, 7 years) and notes (coupon 8%, 5 years) do not
     match "coupon at least 7% and tenor at least 7 years" (Task 10).
 14. **Talk range:** talk 325-375 matches "margin talk 350-400" and not "margin talk above 400" (Task 10).
+15. **Secondary bond:** a Secondary run with one facility row (notes, coupon 6.5%, maturity
+    2029-06-15) and a quote with bid 98.50, ask 99.00 and no price loads; the quote sits under the
+    facility; it matches "price 98.75-100" and not "price above 99.50"; CP-3's parsed rows equal
+    those of the same context without the facility row (Tasks 1, 10).
+16. **Floating-rate loan:** margin 375 matches "margin 350-400"; it does not match a margin-talk
+    filter, which reads talk only (Task 10).
 
 ---
 
 ## Phase 1: context fields and rule set (offline)
 
-### Task 1: Issue classification and coupon in the context
+### Task 1: Issue classification and facility terms in the context
 
 **Files:** modify `docs/templates/context-form.html`, `docs/templates/README.md`,
 `apps/issuer-library/web/context-embed.js`, `src/deploy_workflow/context.py`,
@@ -154,20 +161,25 @@ owner with both outcomes. Never loosen a test to pass.
       option preselected. Cards: **Investment grade** ("Rated BBB-/Baa3 or above, or managed as
       investment grade") and **High yield** ("Below investment grade, including leveraged loans").
       Help line: "The workflow's methods are written for high-yield and leveraged-loan issuers."
-- [ ] Form: a "Coupon (%)" field on each facility row, optional, with help "Percent; fixed-rate
-      notes. Leave blank for floating-rate loans."
-- [ ] `build()` emits `identity.issue_classification` and `deal_terms[].coupon_pct`; `fill()` reads
-      them, leaving the classification empty (and the Issuer step marked to fix) when an older file
-      lacks it; review summary and panel show the classification, the panel adding the
-      investment-grade limitation.
+- [ ] Form: the facility section ("Facilities") appears for every run type; required (at least one
+      row) for Primary, optional otherwise. Each row gains optional **Coupon (%)** ("Fixed-rate
+      notes"), **Margin (bps)** ("Floating-rate loans; over the reference rate") and **Maturity**
+      (date). Spread talk, OID talk and tenor show for Primary only.
+- [ ] `build()` emits `identity.issue_classification` and `deal_terms[]` for every run type, with
+      `coupon_pct`, `margin_bps` and `maturity`; `fill()` reads them, leaving the classification
+      empty (and the Issuer step marked to fix) when an older file lacks it, and no longer drops
+      facility rows of a non-Primary file; review summary and panel show the classification, the
+      panel adding the investment-grade limitation.
 - [ ] Embed: the classification stays visible in the Issuer section; it is not moved into
       "Additional issuer details" (the embed currently moves every identity fieldset there).
-- [ ] Reader: `Identity.issue_classification: Literal["", "investment_grade", "high_yield"] = ""`
-      and `DealTerm.coupon_pct: str = ""` (a plain non-negative number, as the form's other
-      percentages); any other value refused, naming the path.
-- [ ] Tests: older file loads with both `""`; each valid value round-trips; invalid values refused;
-      the existing form-output and parity tests cover the new fields; the classification is
-      visible in the embed; `cases/PINS.json` unchanged.
+- [ ] Reader: `Identity.issue_classification: Literal["", "investment_grade", "high_yield"] = ""`;
+      `DealTerm.coupon_pct`, `margin_bps` (plain non-negative numbers, as the form's other fields)
+      and `maturity` (a date) default to `""`; any other value refused, naming the path. The
+      Primary-only refusal of facility rows is removed; Primary still needs at least one row.
+- [ ] Tests: older file loads with every new field `""`; each valid value round-trips; invalid values
+      refused; a Secondary context with facility rows loads; CP-3's parsed rows for Review Focus 15
+      are unchanged by the facility row; the existing form-output and parity tests cover the new
+      fields; the classification is visible in the embed; `cases/PINS.json` unchanged.
 
 ### Task 2: Document-kind guess
 
@@ -294,9 +306,10 @@ Not recorded sorts last. "Open report" is the row's main action, for readers who
 report.
 
 **Facilities.** The Facilities cell ("2 facilities") expands to a sub-table, values as entered and
-labelled "entered by user": Facility ID · Instrument · Currency · Size (m) · Tenor · Coupon ·
-Margin talk · OID talk · Floor · Latest quote (price, yield, spread, kind, date, provider).
-Quotes whose Facility ID matches no facility are listed beneath it on their own.
+labelled "entered by user": Facility ID · Instrument · Currency · Size (m) · Coupon · Margin ·
+Floor · Maturity · Latest quote (price or bid/ask, yield, spread, kind, date, provider), plus Tenor,
+Margin talk and OID talk on Primary runs. Quotes whose Facility ID matches no facility are listed
+beneath it on their own.
 
 **Filters.**
 
@@ -309,10 +322,12 @@ Quotes whose Facility ID matches no facility are listed beneath it on their own.
 | Credit | Liquidity (cash + undrawn) | Min / max, after choosing a currency | CP-1 `Chart data: liquidity` |
 | Market | Instrument | Recorded instruments | Context facility rows |
 | Market | Coupon (%) | Min / max | Context facility rows |
-| Market | Margin talk (bps) | Min / max; overlaps the entered low-high range | Context facility rows |
-| Market | OID talk, floor (%), tenor (years) | Min / max | Context facility rows |
+| Market | Margin (bps) | Min / max | Context facility rows |
+| Market | Maturity | From / to year | Context facility rows |
+| Market | Floor (%) | Min / max | Context facility rows |
 | Market | Facility size | Min / max, after choosing a currency | Context facility rows |
-| Market | Quoted price, yield (%), spread (bps) | Min / max, latest-dated quote per facility | Context quotes |
+| Market | Margin talk (bps), OID talk, tenor (years) | Min / max; talk matches by overlapping the entered range | Context facility rows (Primary) |
+| Market | Quoted price, yield (%), spread (bps) | Min / max on the single value, latest-dated quote per facility; bid-ask matched by overlap when no price is entered | Context quotes |
 | Market | Quote kind | Observed · Indicative talk | Context quotes |
 | Coverage | Currency | Recorded reporting currencies | Context |
 | Coverage | Completeness | Report written · with accepted limitations · stopped · partial | Run folder, `expectations.json` |
@@ -339,8 +354,9 @@ a focused test beside the existing store tests; update `apps/issuer-library/desi
       period, unit, output id, line, or a state `not_recorded` / `not_meaningful` with its reason),
       `completeness` (requested and accepted module counts, report written, run state,
       accepted-limitation count).
-- [ ] Per run, a `facilities` list from the context's facility rows (with coupon) and quotes, values
-      as entered, each quote attached by Facility ID as entered, unattached quotes kept separately.
+- [ ] Per run, a `facilities` list from the context's facility rows (any run type) and quotes,
+      values as entered, each quote attached by Facility ID as entered, unattached quotes kept
+      separately.
 - [ ] Context read as the run recorded it (path from `workflow.json`), plain JSON, no re-validation;
       unreadable gives Not recorded and a Settings issue. A rating not on the scale is shown as
       entered and not counted by the rating filter.
@@ -357,10 +373,10 @@ a focused test beside the existing store tests; update `apps/issuer-library/desi
 - [ ] Columns, sorting, facility sub-table and evidence links as in the layout above; Not recorded
       in grey, never 0.
 - [ ] `filterLibrary` gains the Credit, Market and Coverage filters; facility filters matched within
-      one facility; range overlap for talk; latest-run scope by default; coverage and hidden counts;
-      chips and URL hash state.
+      one facility; single values inside the filter, talk and bid-ask by overlap; latest-run scope
+      by default; coverage and hidden counts; chips and URL hash state.
 - [ ] All text set through `textContent`. Tests: hand-written expected matches on the jsdom fixture
-      for Review Focus 9-14; keyboard and screen-reader labels on every control; narrow-screen layout.
+      for Review Focus 9-16; keyboard and screen-reader labels on every control; narrow-screen layout.
 
 ### Task 11: Help, README and checkpoint C
 
@@ -373,14 +389,14 @@ a focused test beside the existing store tests; update `apps/issuer-library/desi
 
 ## Done when
 
-- The issuer identity section requires investment grade or high yield, facility rows take an
-  optional coupon, and older context files still load.
+- The issuer identity section requires investment grade or high yield; every run type can record
+  facilities with optional coupon, margin and maturity; older context files still load.
 - The Review step lists an expected outcome for the run and for every module, with reason and fix,
   including the investment-grade limitations.
 - Start cannot be pressed past listed limitations without the separate acceptance.
 - Every started run folder holds `expectations.json` with what was expected and accepted.
 - The back-test report states rule agreement on retained runs, labelled as retained-data evidence.
 - The library filters by classification, lowest rating, leverage, interest cover, liquidity,
-  currency, completeness, coupon, margin talk, quoted price, yield and spread, tenor and facility
-  size; module figures link to their handoff line, user-entered values show as entered, and
+  currency, completeness, coupon, margin, maturity, margin talk, quoted price, yield and spread,
+  and facility size; module figures link to their handoff line, user-entered values show as entered, and
   missing values are visible and never match a numeric filter.

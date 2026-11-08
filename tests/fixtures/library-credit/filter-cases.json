@@ -16,6 +16,8 @@
    "ironwood-001",
    "jasper-001",
    "kestrel-001",
+   "larkspur-2024-001",
+   "larkspur-2024-002",
    "unclassified-a-001",
    "unclassified-b-001"
   ],
@@ -41,6 +43,9 @@
    "ironwood-001",
    "jasper-001",
    "kestrel-001",
+   "larkspur-2023-001",
+   "larkspur-2024-001",
+   "larkspur-2024-002",
    "unclassified-a-001",
    "unclassified-b-001"
   ],
@@ -59,11 +64,13 @@
    "brackenfell-hy-001",
    "fairholt-001",
    "ironwood-001",
-   "jasper-001"
+   "jasper-001",
+   "larkspur-2023-001",
+   "larkspur-2024-001"
   ],
   "coverage": {
    "net_leverage": {
-    "recorded": 9,
+    "recorded": 12,
     "hidden": 6
    }
   },
@@ -79,11 +86,12 @@
    "brackenfell-hy-001",
    "fairholt-001",
    "ironwood-001",
-   "jasper-001"
+   "jasper-001",
+   "larkspur-2024-001"
   ],
   "coverage": {
    "net_leverage": {
-    "recorded": 9,
+    "recorded": 12,
     "hidden": 4
    }
   },
@@ -105,11 +113,14 @@
    "garrowby-001",
    "hartley-001",
    "ironwood-001",
-   "jasper-001"
+   "jasper-001",
+   "larkspur-2023-001",
+   "larkspur-2024-001",
+   "larkspur-2024-002"
   ],
   "coverage": {
    "net_leverage": {
-    "recorded": 9,
+    "recorded": 12,
     "hidden": 6
    }
   },
@@ -125,7 +136,7 @@
   "expected_ids": [],
   "coverage": {
    "net_leverage": {
-    "recorded": 9,
+    "recorded": 12,
     "hidden": 6
    }
   },
@@ -148,7 +159,7 @@
   "coverage": {
    "leverage": {
     "recorded": 11,
-    "hidden": 4
+    "hidden": 7
    }
   },
   "why": "Leverage (metrics.leverage only): 3.80,4.60,3.90,4.10,1.80,5.20,4.00,absent,6.00,4.90,3.20,4.40. fairholt-001 has net_leverage 2.50 and no leverage; it must NOT pass (net leverage never fills leverage). 4.00 passes (inclusive). recorded 11, hidden 8,13,14,15."
@@ -167,7 +178,7 @@
   "coverage": {
    "leverage": {
     "recorded": 11,
-    "hidden": 2
+    "hidden": 4
    }
   },
   "why": "Latest drops aldermoor-2023-001; credit filter drops not-screened rows (aldermoor-2025-001, Unclassified x2). fairholt-001 and kestrel-001 are hidden (no leverage), the only screened rows lacking it."
@@ -245,11 +256,12 @@
    "brackenfell-hy-001",
    "fairholt-001",
    "ironwood-001",
-   "jasper-001"
+   "jasper-001",
+   "larkspur-2024-001"
   ],
   "coverage": {
    "net_leverage": {
-    "recorded": 9,
+    "recorded": 12,
     "hidden": 4
    }
   },
@@ -273,7 +285,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Lowest issuer rating rank >= 11. cobalt BBB-/Ba1 -> Ba1 (11) matches. Ranks: 2:13, 4:15, 5:11, 6:14, 8:15, 9:22, 10:15; jasper tie Baa3/BBB- (10) does not. aldermoor-2023-001 (13) is dropped by Latest. recorded 9 rows with an on-scale issuer rating; hidden 7 (NR), 11 (facility-only rating) and 15 (rating without scope)."
@@ -298,7 +310,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 6
+    "hidden": 9
    }
   },
   "why": "As above plus aldermoor-2023-001 (rank 13). hidden: 3 (none), 7 (NR), 11 (facility only), 13, 14, 15 (rating without scope)."
@@ -320,7 +332,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank >= 12. cobalt Ba1 (11) does NOT match: the split BBB-/Ba1 run matches BB+/Ba1 but not BB/Ba2."
@@ -341,7 +353,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 6
+    "hidden": 9
    }
   },
   "why": "Rank >= 15. dunmore (issuer B+ = 14, facility B3 not counted under issuer scope) does not match. hartley (P)B2 reads as B2 = 15 and matches; fairholt WD is off scale, B = 15 matches."
@@ -365,7 +377,7 @@
   "coverage": {
    "rating": {
     "recorded": 10,
-    "hidden": 5
+    "hidden": 8
    }
   },
   "why": "With ratingScope any dunmore's facility B3 (16) is its lowest and matches; ironwood's only (facility) B3 now counts and matches. recorded 10, hidden 3,7,13,14,15."
@@ -383,7 +395,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 6
+    "hidden": 9
    }
   },
   "why": "Only garrowby SD (+B-) places as D (22). elmstead NR, aldermoor-2025/ironwood/unclassified without issuer ratings and fairholt WD+B never match."
@@ -399,7 +411,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 6
+    "hidden": 9
    }
   },
   "why": "Rank <= 1: no run; off-scale and unrated rows do not match either."
@@ -422,7 +434,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank <= 15. garrowby (SD, 22) fails. hartley (P)B2/B+(EXP) lowest (P)B2 = 15 matches; jasper tie (10) matches. aldermoor-2023-001 dropped by Latest."
@@ -439,7 +451,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank >= 18. SD places as D so garrowby matches although its other rating B- (16) would not; fairholt WD+B and hartley do not."
@@ -456,7 +468,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank >= 16. hartley (rank 15) does not match; garrowby does."
@@ -473,7 +485,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank <= 10. jasper Baa3/BBB- tie (10) matches; cobalt's lowest is Ba1 (11) and does not."
@@ -492,7 +504,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank in [12,14]: aldermoor-2024 (BB-, 13) and dunmore (B+, 14). One rating group, one coverage entry."
@@ -513,7 +525,7 @@
   "coverage": {
    "talk": {
     "recorded": 4,
-    "hidden": 11
+    "hidden": 14
    }
   },
   "why": "Talk ranges overlap [350,400]: brackenfell [325,375], fairholt F1 [325,375], jasper [400,400] (missing high takes the low; touching counts). dunmore [450,500] does not. cobalt and garrowby are margin-only: a margin never satisfies a talk filter."
@@ -534,7 +546,7 @@
   "coverage": {
    "margin": {
     "recorded": 4,
-    "hidden": 11
+    "hidden": 14
    }
   },
   "why": "margin_bps 375 inside: brackenfell, fairholt F2, garrowby (margin-only, no talk). cobalt 300 outside. Talk never satisfies a margin filter."
@@ -579,7 +591,7 @@
   "coverage": {
    "price": {
     "recorded": 2,
-    "hidden": 13
+    "hidden": 16
    }
   },
   "why": "hartley has no price: bid-ask [98.50,99.00] overlaps [98.75,100]. ironwood second quote price 99.00 is inside. Judgment on recorded: a quote carrying bid and ask without price counts as recorded for the price group, because it can be evaluated (recorded 10 and 11)."
@@ -597,7 +609,7 @@
   "coverage": {
    "price": {
     "recorded": 2,
-    "hidden": 13
+    "hidden": 16
    }
   },
   "why": "hartley [98.50,99.00] does not reach 99.50; ironwood quote 101.25 does."
@@ -664,7 +676,7 @@
   "coverage": {
    "coupon": {
     "recorded": 2,
-    "hidden": 13
+    "hidden": 16
    }
   },
   "why": "hartley coupon 7.875 inside; ironwood 5.500 not."
@@ -685,7 +697,7 @@
   "coverage": {
    "classification": {
     "recorded": 10,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "brackenfell-hy-001 (private_side: true) is returned like any high-yield run; the 'Private side' label is a UI concern, not a filter. aldermoor-2023-001 dropped by Latest, aldermoor-2025-001 by the credit filter. recorded 10 rows carry a classification; hidden 6, 8 and 15 (no classification, screened)."
@@ -709,7 +721,7 @@
   "coverage": {
    "classification": {
     "recorded": 10,
-    "hidden": 5
+    "hidden": 8
    }
   },
   "why": "private_side: true row brackenfell-hy-001 included. hidden: 6,8,13,14,15."
@@ -723,7 +735,9 @@
   "expected_ids": [
    "dunmore-001",
    "fairholt-001",
-   "kestrel-001"
+   "kestrel-001",
+   "larkspur-2024-001",
+   "larkspur-2024-002"
   ],
   "coverage": {
    "classification": {
@@ -744,7 +758,7 @@
   ],
   "coverage": {
    "currency": {
-    "recorded": 13,
+    "recorded": 16,
     "hidden": 0
    }
   },
@@ -762,7 +776,7 @@
   ],
   "coverage": {
    "limitation": {
-    "recorded": 13,
+    "recorded": 16,
     "hidden": 0
    }
   },
@@ -788,11 +802,14 @@
    "hartley-001",
    "ironwood-001",
    "jasper-001",
-   "kestrel-001"
+   "kestrel-001",
+   "larkspur-2023-001",
+   "larkspur-2024-001",
+   "larkspur-2024-002"
   ],
   "coverage": {
    "limitation": {
-    "recorded": 13,
+    "recorded": 16,
     "hidden": 2
    }
   },
@@ -814,7 +831,7 @@
   "coverage": {
    "cash": {
     "recorded": 8,
-    "hidden": 7
+    "hidden": 10
    }
   },
   "why": "cash: 412,900,85,40,60,25,120,210 on rows 4,5,6,7,8,9,10,12. Pass 412,120,210."
@@ -832,7 +849,7 @@
   "coverage": {
    "undrawn": {
     "recorded": 5,
-    "hidden": 10
+    "hidden": 13
    }
   },
   "why": "garrowby undrawn is the recorded value 0 (zero is not missing). Recorded on rows 4,5,8,9,12."
@@ -855,7 +872,7 @@
   "coverage": {
    "coverage": {
     "recorded": 10,
-    "hidden": 5
+    "hidden": 8
    }
   },
   "why": "Plan 1 coverage bound; 3.0 passes (inclusive). Missing on 3,8 and the Unclassified rows."
@@ -902,7 +919,7 @@
   "coverage": {
    "rating": {
     "recorded": 9,
-    "hidden": 3
+    "hidden": 5
    }
   },
   "why": "Rank >= 13. kestrel-001 carries only {label: S&P BB− preliminary Positive} with no agency or scope. Under the default issuer scope it is not counted (never guessed from the label): not recorded, so hidden, and it does not match. hidden = 7 (NR), 11 (facility-only), 15."
@@ -926,9 +943,39 @@
   "coverage": {
    "rating": {
     "recorded": 10,
-    "hidden": 2
+    "hidden": 4
    }
   },
   "why": "Under ratingScope any the scope-less rating counts, placed by its label as entered; the text (U+2212 minus, extra words) is off scale, so it is not recorded and does not match. recorded 10 (ironwood now counts via its facility B3, rank 16), hidden 7 (NR) and 15."
+ },
+ {
+  "name": "RF19 tied latest reported runs, no credit filter",
+  "focus": "RF19",
+  "filters": {
+   "sector": "Consumer"
+  },
+  "expected_ids": [
+   "larkspur-2024-001",
+   "larkspur-2024-002"
+  ],
+  "why": "larkspur-2024-001 and larkspur-2024-002 are reported on the same latest date: both stay screened (no arbitrary pick). larkspur-2023-001 is an older reported run and is not screened."
+ },
+ {
+  "name": "RF19 tied latest reported runs, net leverage max 4",
+  "focus": "RF19",
+  "filters": {
+   "sector": "Consumer",
+   "netLeverageMax": "4"
+  },
+  "expected_ids": [
+   "larkspur-2024-001"
+  ],
+  "coverage": {
+   "net_leverage": {
+    "recorded": 12,
+    "hidden": 0
+   }
+  },
+  "why": "Both tied runs are screened on their own values: 17 (3.20) passes, 18 (4.80) is out of bounds; 16 (3.50, older) is not screened. recorded counts the whole input (12 rows with a meaningful net leverage); no screened Consumer row lacks it, so hidden 0."
  }
 ]

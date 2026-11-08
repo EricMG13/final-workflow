@@ -1372,6 +1372,162 @@
     }
    ],
    "facilities": []
+  },
+  {
+   "id": "larkspur-2023-001",
+   "issuer": "LARK",
+   "name": "Larkspur Foods",
+   "title": "Credit review",
+   "workflow": "Credit review",
+   "sector": "Consumer",
+   "date": "2023-12-31",
+   "period": "FY2023",
+   "period_kind": "Annual actual",
+   "currency": "USD",
+   "summary": "Tie-on-date issuer group. Fictional issuer invented for tests; not a real company.",
+   "gaps": [
+    "HTML Model not published by app runs"
+   ],
+   "metrics": {
+    "net_leverage": {
+     "value": "3.50",
+     "unit": "x",
+     "period": "FY2024",
+     "basis": "Net debt / EBITDA As Defined (fictional)",
+     "source": "larkspur-2023-001.net_leverage",
+     "provenance": "calculated"
+    }
+   },
+   "completion": null,
+   "checkpoints": null,
+   "ratings": [],
+   "identity_source": "larkspur-2023-001.identity",
+   "sector_source": "larkspur-2023-001.sector",
+   "handoff": "runs/larkspur-2023-001/CP-1.md",
+   "handoff_href": "/files/runs/larkspur-2023-001/CP-1.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "artifacts": [
+    {
+     "folder": "deliverables/larkspur-2023-001-report",
+     "kind": "report",
+     "label": "larkspur-2023-001 report",
+     "state": "candidate",
+     "relationship": "direct",
+     "available": true,
+     "href": "/files/deliverables/larkspur-2023-001-report/report.html?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+     "issue": ""
+    }
+   ],
+   "files": [
+    {
+     "name": "CP-1.md",
+     "href": "/files/runs/larkspur-2023-001/CP-1.md"
+    }
+   ],
+   "facilities": []
+  },
+  {
+   "id": "larkspur-2024-001",
+   "issuer": "LARK",
+   "name": "Larkspur Foods",
+   "title": "Credit review",
+   "workflow": "Credit review",
+   "sector": "Consumer",
+   "date": "2024-12-31",
+   "period": "FY2024",
+   "period_kind": "Annual actual",
+   "currency": "USD",
+   "summary": "Tie-on-date issuer group. Fictional issuer invented for tests; not a real company.",
+   "gaps": [
+    "HTML Model not published by app runs"
+   ],
+   "metrics": {
+    "net_leverage": {
+     "value": "3.20",
+     "unit": "x",
+     "period": "FY2024",
+     "basis": "Net debt / EBITDA As Defined (fictional)",
+     "source": "larkspur-2024-001.net_leverage",
+     "provenance": "calculated"
+    }
+   },
+   "completion": null,
+   "checkpoints": null,
+   "ratings": [],
+   "identity_source": "larkspur-2024-001.identity",
+   "sector_source": "larkspur-2024-001.sector",
+   "handoff": "runs/larkspur-2024-001/CP-1.md",
+   "handoff_href": "/files/runs/larkspur-2024-001/CP-1.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "artifacts": [
+    {
+     "folder": "deliverables/larkspur-2024-001-report",
+     "kind": "report",
+     "label": "larkspur-2024-001 report",
+     "state": "candidate",
+     "relationship": "direct",
+     "available": true,
+     "href": "/files/deliverables/larkspur-2024-001-report/report.html?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+     "issue": ""
+    }
+   ],
+   "files": [
+    {
+     "name": "CP-1.md",
+     "href": "/files/runs/larkspur-2024-001/CP-1.md"
+    }
+   ],
+   "facilities": []
+  },
+  {
+   "id": "larkspur-2024-002",
+   "issuer": "LARK",
+   "name": "Larkspur Foods",
+   "title": "Credit review",
+   "workflow": "Credit review",
+   "sector": "Consumer",
+   "date": "2024-12-31",
+   "period": "FY2024",
+   "period_kind": "Annual actual",
+   "currency": "USD",
+   "summary": "Tie-on-date issuer group. Fictional issuer invented for tests; not a real company.",
+   "gaps": [
+    "HTML Model not published by app runs"
+   ],
+   "metrics": {
+    "net_leverage": {
+     "value": "4.80",
+     "unit": "x",
+     "period": "FY2024",
+     "basis": "Net debt / EBITDA As Defined (fictional)",
+     "source": "larkspur-2024-002.net_leverage",
+     "provenance": "calculated"
+    }
+   },
+   "completion": null,
+   "checkpoints": null,
+   "ratings": [],
+   "identity_source": "larkspur-2024-002.identity",
+   "sector_source": "larkspur-2024-002.sector",
+   "handoff": "runs/larkspur-2024-002/CP-1.md",
+   "handoff_href": "/files/runs/larkspur-2024-002/CP-1.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "artifacts": [
+    {
+     "folder": "deliverables/larkspur-2024-002-report",
+     "kind": "report",
+     "label": "larkspur-2024-002 report",
+     "state": "candidate",
+     "relationship": "direct",
+     "available": true,
+     "href": "/files/deliverables/larkspur-2024-002-report/report.html?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+     "issue": ""
+    }
+   ],
+   "files": [
+    {
+     "name": "CP-1.md",
+     "href": "/files/runs/larkspur-2024-002/CP-1.md"
+    }
+   ],
+   "facilities": []
   }
  ],
  "sources": {
@@ -2067,6 +2223,69 @@
    "line": 4,
    "quote": "Sector: Chemicals",
    "href": "/files/runs/kestrel-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2023-001.net_leverage": {
+   "path": "runs/larkspur-2023-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 26,
+   "quote": "| Net leverage | 3.50x |",
+   "href": "/files/runs/larkspur-2023-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2023-001.identity": {
+   "path": "runs/larkspur-2023-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 3,
+   "quote": "Issuer: Larkspur Foods",
+   "href": "/files/runs/larkspur-2023-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2023-001.sector": {
+   "path": "runs/larkspur-2023-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 4,
+   "quote": "Sector: Consumer",
+   "href": "/files/runs/larkspur-2023-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-001.net_leverage": {
+   "path": "runs/larkspur-2024-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 26,
+   "quote": "| Net leverage | 3.20x |",
+   "href": "/files/runs/larkspur-2024-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-001.identity": {
+   "path": "runs/larkspur-2024-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 3,
+   "quote": "Issuer: Larkspur Foods",
+   "href": "/files/runs/larkspur-2024-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-001.sector": {
+   "path": "runs/larkspur-2024-001/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 4,
+   "quote": "Sector: Consumer",
+   "href": "/files/runs/larkspur-2024-001/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-002.net_leverage": {
+   "path": "runs/larkspur-2024-002/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 26,
+   "quote": "| Net leverage | 4.80x |",
+   "href": "/files/runs/larkspur-2024-002/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-002.identity": {
+   "path": "runs/larkspur-2024-002/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 3,
+   "quote": "Issuer: Larkspur Foods",
+   "href": "/files/runs/larkspur-2024-002/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "larkspur-2024-002.sector": {
+   "path": "runs/larkspur-2024-002/CP-1-selected-input.md",
+   "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "line": 4,
+   "quote": "Sector: Consumer",
+   "href": "/files/runs/larkspur-2024-002/CP-1-selected-input.md?sha256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   }
  }
 }

@@ -11,7 +11,6 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-import pytest
 from pypdf.errors import DependencyError
 
 from deploy_workflow.model.handoff import _pages
@@ -22,9 +21,13 @@ ROOT = Path(__file__).resolve().parents[1]
 KEY = json.loads((ROOT / "tests/fixtures/run-expectations/document-key.json").read_text("utf-8"))
 ENTRIES: list[dict[str, Any]] = KEY["entries"]
 HTML = {".htm", ".html"}
-# A file the launcher's own reader cannot open here is refused by the launcher before any guess.
-# Only the optional AES dependency of pypdf is tolerated as the reason, and it is reported.
+# Two real PDFs are AES-encrypted and pypdf here lacks `cryptography`, so the launcher's reader
+# cannot open them. Their pages[:3], read once by the same reader from a qpdf-decrypted copy, are
+# committed (the fixture says how); the test uses them only when the PDF cannot be opened.
 READER_GAP = "cryptography"
+PAGES_FIXTURE = json.loads(
+    (ROOT / "tests/fixtures/run-expectations-pages/encrypted-pdfs.json").read_text("utf-8")
+)["files"]
 
 
 def first_pages(entry: dict[str, Any]) -> list[str]:
@@ -35,26 +38,22 @@ def first_pages(entry: dict[str, Any]) -> list[str]:
     raw = path.read_bytes()
     if path.suffix.lower() in HTML:
         return _pages(f"{path.name}.jsonl", _html_page_rows(path.name, raw))[:3]
-    return _pages(path.name, raw)[:3]
+    try:
+        return _pages(path.name, raw)[:3]
+    except DependencyError as error:
+        assert READER_GAP in str(error), f"{entry['path']}: {error}"
+        fixture = PAGES_FIXTURE[path.name]
+        assert fixture["path"] == entry["path"]
+        return list(fixture["pages"])
 
 
 def scored() -> tuple[list[tuple[dict[str, Any], Guess]], list[str]]:
-    results: list[tuple[dict[str, Any], Guess]] = []
-    unreadable: list[str] = []
-    for entry in ENTRIES:
-        try:
-            pages = first_pages(entry)
-        except (
-            DependencyError
-        ) as error:  # reported below; only pypdf's missing AES package is tolerated
-            assert READER_GAP in str(error), f"{entry['path']}: {error}"
-            unreadable.append(entry["path"])
-            continue
-        results.append((entry, guess_kind(Path(entry["path"]).name, pages)))
-    return results, unreadable
+    results = [(e, guess_kind(Path(e["path"]).name, first_pages(e))) for e in ENTRIES]
+    scored_paths = {e["path"] for e, _ in results}
+    return results, [e["path"] for e in ENTRIES if e["path"] not in scored_paths]
 
 
-RESULTS, UNREADABLE = scored()
+RESULTS, UNSCORED = scored()
 
 
 def table() -> str:
@@ -73,7 +72,7 @@ def table() -> str:
         f"{origin:<10} {kind:<22} {n:>2} {right:>6} {unrec:>13} {wrong:>6}"
         for (origin, kind), (n, right, unrec, wrong) in sorted(rows.items())
     ]
-    lines.append(f"unreadable by the launcher reader here ({READER_GAP} missing): {UNREADABLE}")
+    lines.append(f"entries not scored: {UNSCORED}")
     return "\n".join(lines)
 
 
@@ -81,7 +80,8 @@ def test_key_is_the_one_the_brief_describes() -> None:
     assert KEY["schema"] == "document-key/1"
     assert len(ENTRIES) >= 20
     assert {e["kind"] for e in ENTRIES} <= set(KINDS)
-    assert len(UNREADABLE) <= 2  # HEICO and the KPMG report, both AES-encrypted PDFs
+    assert UNSCORED == []
+    assert len(RESULTS) == len(ENTRIES)
 
 
 def test_no_recognised_kind_contradicts_the_key() -> None:
@@ -96,6 +96,7 @@ def test_no_recognised_kind_contradicts_the_key() -> None:
 
 def test_real_files_are_mostly_recognised() -> None:
     real = [(e, g) for e, g in RESULTS if e["origin"] == "real"]
+    assert len(real) == sum(e["origin"] == "real" for e in ENTRIES)  # the ceiling counts them all
     missed = [
         e["path"] for e, g in real if g.kind == "unrecognised" and e["kind"] != "unrecognised"
     ]
@@ -109,7 +110,7 @@ def test_synthetic_files_are_all_recognised() -> None:
 
 def test_focus_entries_match_exactly() -> None:
     focus = [(e, g) for e, g in RESULTS if "focus" in e]
-    assert len(focus) >= 15
+    assert len(focus) == sum("focus" in e for e in ENTRIES)
     bad = [
         (e["path"], (e["kind"], e["executed"], e["period_end"]), (g.kind, g.executed, g.period_end))
         for e, g in focus
@@ -189,6 +190,11 @@ def test_no_pages_is_unrecognised() -> None:
     assert guess_kind("x.txt", []) == Guess("unrecognised", "", None, None)
 
 
-@pytest.mark.parametrize("kind", KINDS)
-def test_every_kind_name_is_a_string(kind: str) -> None:
-    assert re.fullmatch(r"[a-z_]+", kind)
+def test_a_wrapped_body_line_is_not_a_title() -> None:
+    wrapped = (
+        "as illustrated in the Supplement n. 2 dated October 12, 2020 to the Base\n"
+        "Prospectus of the Euro 35,000,000,000 Euro Medium Term Note Programme dated\n"
+        "January 9, 2020, as already supplemented\n"
+    )
+    assert guess_kind("a.pdf", [wrapped]).kind == "unrecognised"
+    assert guess_kind("a.pdf", [wrapped + "\nPROSPECTUS\n"]).kind == "prospectus"

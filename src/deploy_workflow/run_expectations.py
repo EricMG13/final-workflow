@@ -9,7 +9,6 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from itertools import pairwise
 
 KINDS = (
     "financial_report",
@@ -147,13 +146,25 @@ def _lines(page: str, first: bool) -> list[str]:
     return lines
 
 
+def _wraps(previous: str, line: str) -> bool:
+    """True when ``line`` is the wrapped tail of a prose sentence: the previous line stops without
+    closing punctuation, and this line is long mixed-case text rather than a short or capitalised
+    title."""
+    open_prose = len(previous.split()) >= 6 and previous[-1] not in ".!?:;"
+    return open_prose and len(line.split()) > 6 and not line.isupper()
+
+
 def _hits(lines: list[str]) -> dict[str, str]:
     """Kind -> the text that matched, from title lines (a line, or a line joined to the next)."""
     found: dict[str, str] = {}
-    for candidate in [*lines, *(f"{a} {b}" for a, b in pairwise(lines))]:
-        for kind, rx in LINE_PHRASES:
-            if match := rx.match(candidate):
-                found.setdefault(kind, match.group(0))
+    for index, line in enumerate(lines):
+        if index and _wraps(lines[index - 1], line):
+            continue  # A wrapped body line that happens to begin with a document noun.
+        following = lines[index + 1] if index + 1 < len(lines) else ""
+        for candidate in (line, f"{line} {following}"):
+            for kind, rx in LINE_PHRASES:
+                if match := rx.match(candidate):
+                    found.setdefault(kind, match.group(0))
     text = "\n".join(lines)
     for kind, rx in COVER_PHRASES:
         if match := rx.search(text):

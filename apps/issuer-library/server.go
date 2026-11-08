@@ -276,11 +276,8 @@ func (app *Application) post(w http.ResponseWriter, r *http.Request) {
 		}
 		app.writeCatalogue(w)
 	case "/api/quit":
-		app.mu.RLock()
-		active := len(app.activeJobs) > 0
-		app.mu.RUnlock()
-		if active {
-			http.Error(w, "A run is active. Keep the application open until it finishes or stops.", 409)
+		if runs, reviews := app.claimQuit(); runs > 0 || reviews > 0 {
+			http.Error(w, "A run or review is active. Keep the application open until it finishes or stops.", 409)
 			return
 		}
 		jsonResponse(w, map[string]bool{"stopped": true})

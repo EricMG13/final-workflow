@@ -10,6 +10,24 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Codex review of `ac22d9d7`: Quit race and handoff Excel reads (branch `claude/exciting-darwin-pb4frw`)
+
+Scope: four review findings, each reproduced on main `9838968` before the fix; Linux, offline, no provider call.
+- P1 Quit: `/api/quit` checked active runs under a read lock and never set `quitting`, so a Start could begin
+  before the stop; a review in flight was not checked. Quit and the relaunch path now share `claimQuit`, which
+  checks runs and reviews and sets `quitting` in one critical section. Quit with a run or review answers 409.
+- P1 precision, P1 sparse scan, P2 source-id detection (`model/handoff.py`): workbook reads now reuse the
+  preparation reader (`xlsx_content`): exact stored lexemes (`9007199254740993.25`, was `…994.0`), only stored
+  cells (a 2-cell sheet with dimension `A1:XFD1048576` hung past 30 s, now immediate), formulas with
+  `cache=[absent]` never 0, non-General number formats shown, its limitations on each sheet page. A workbook
+  is recognised by content (ZIP with `xl/workbook.xml`), so source id `S1` reads; other ZIPs and text keep
+  their prior handling. The reader's DTD/external-relationship refusals now apply here too.
+- New tests fail on the old code for the reported reason and pass now: `TestQuitClaimsTheShutdownGuard…`;
+  three in `tests/test_handoff_loop.py`.
+- Gates: `tools/quality_gate.py` 0 findings; `go test -race` package ok; targeted pytest 1208 passed, 3 failed
+  (`test_gate.py` ×2, `test_o5_done_when.py`), all three on main and in `tests/nightly-known-failures.txt`.
+Not verified: Windows/macOS for the Go change; a model reading the new workbook page format live.
+
 ## 2026-11-08 — Sweep follow-ups R14, R15, R17 (branch `claude/sweep-followups`)
 
 Scope: three register rows that predate the swept range, fixed on the owner's request from main `5740af30`; macOS;

@@ -821,3 +821,41 @@ func TestRelaunchSidePlantedAnswersAndLinks(t *testing.T) {
 		t.Errorf("the link target changed: %q", raw)
 	}
 }
+
+// Codex review of ac22d9d (P1). Expected by hand: Quit with a run or a review in flight answers
+// 409 and leaves the library not quitting; Quit when idle answers 200 and from then a Start is
+// refused with 503 and the quitting message, before the asynchronous stop runs.
+func TestQuitClaimsTheShutdownGuardBeforeAStartCanBegin(t *testing.T) {
+	app, _ := testApp(t)
+	stopped := make(chan struct{})
+	app.stop = func() { <-stopped } // hold the stop, so the Start below races an unfinished quit
+	t.Cleanup(func() { close(stopped) })
+	for _, busy := range []func(){
+		func() { app.activeJobs = map[string]bool{"web-a": true} },
+		func() { app.reviews = 1 },
+	} {
+		app.mu.Lock()
+		app.activeJobs, app.reviews = map[string]bool{}, 0
+		busy()
+		app.mu.Unlock()
+		if w := call(app, "POST", "/api/quit", "{}"); w.Code != 409 {
+			t.Fatalf("Quit with work in flight: %d %q", w.Code, w.Body.String())
+		}
+		app.mu.RLock()
+		quitting := app.quitting
+		app.mu.RUnlock()
+		if quitting {
+			t.Fatal("a refused Quit set the library quitting")
+		}
+	}
+	app.mu.Lock()
+	app.activeJobs, app.reviews = map[string]bool{}, 0
+	app.mu.Unlock()
+	if w := call(app, "POST", "/api/quit", "{}"); w.Code != 200 {
+		t.Fatalf("idle Quit: %d %q", w.Code, w.Body.String())
+	}
+	start := `{"id":"web-` + strings.Repeat("c", 32) + `","review_id":"x","confirm":true}`
+	if w := call(app, "POST", "/api/runs/start", start); w.Code != 503 || w.Body.String() != libraryQuitting+"\n" {
+		t.Fatalf("Start after Quit: %d %q", w.Code, w.Body.String())
+	}
+}

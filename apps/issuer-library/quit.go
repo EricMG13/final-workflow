@@ -151,6 +151,17 @@ func (app *Application) watchQuitRequests(ctx context.Context, every time.Durati
 	}
 }
 
+// claimQuit sets the library quitting when no run or review is in flight, in the same critical
+// section as the check, so no Start or review can begin between the check and the stop. It
+// returns the work in flight; quitting is left unset when there is any.
+func (app *Application) claimQuit() (runs, reviews int) {
+	app.mu.Lock()
+	defer app.mu.Unlock()
+	runs, reviews = len(app.activeJobs), app.reviews
+	app.quitting = runs == 0 && reviews == 0 // From here no review or Start begins.
+	return runs, reviews
+}
+
 // answerQuitRequest acts on a quit request in the state folder, if there is one, and reports
 // whether the library is stopping for it. Nothing is done while other users can write to the
 // folder. A request that is stale, or not a plain file private to this user, is removed unread
@@ -172,12 +183,8 @@ func (app *Application) answerQuitRequest() bool {
 	if !app.refreshing.TryLock() {
 		return false
 	}
-	app.mu.Lock()
-	runs, reviews := len(app.activeJobs), app.reviews
-	quitting := runs == 0 && reviews == 0
-	app.quitting = quitting // From here no review or Start begins.
-	app.mu.Unlock()
-	if !quitting {
+	runs, reviews := app.claimQuit()
+	if runs > 0 || reviews > 0 {
 		app.refreshing.Unlock()
 		status := fmt.Sprintf("busy: %s, %s", count(runs, "run"), count(reviews, "review"))
 		if err = saveJSON(filepath.Join(app.loc.State, quitAnswerName), status); err != nil {

@@ -320,9 +320,10 @@ def _annual_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
 SECURITIZATION = "trade receivable securitization"
 TERM_LOANS = "term loans aggregate"
 SECURED_NOTES = re.compile(r"(?<![a-z])secured notes", re.ASCII)
-CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII | re.IGNORECASE)
+CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII)
 REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+UNCLASSIFIED_PHRASE = "the debt register has a row that cannot be classified"
 LABEL_LIMIT = 200
 CELL_LIMIT = 4000
 
@@ -358,6 +359,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     parts: list[tuple[Cell, int]] = []
     named: set[str] = set()
     seen: set[str] = set()
+    exact: set[str] = set()
     incomplete = False
     for number, quote, values in rows:
         label = values[0]
@@ -369,6 +371,9 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
                 Cell(None, "UNCLASSIFIED_ROW", note=f"repeated row label: {label[:LABEL_LIMIT]}"),
             )
         seen.add(low)
+        if label in exact:
+            continue  # a later row of a label is dropped, as the store does
+        exact.add(label)
         if low.startswith("total"):
             continue
         unsecured = "subordinated" in low or "unsecured" in low
@@ -397,21 +402,33 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         return _Register(when, calc(parts))
 
 
-def _growth(this: Cell, prior: Cell | None) -> Cell:
+def _growth(this: Cell, prior: Cell) -> Cell:
     """`this / prior - 1`; no prior-year period is PRIOR_PERIOD_MISSING, never zero."""
-    if prior is None:
-        return Cell(None, "PRIOR_PERIOD_MISSING", note="No selected period ends a year earlier")
     # (this - prior) / prior equals this / prior - 1 and is rounded once: subtracting 1 from a
     # 38-digit quotient would lose a digit.
     return _ratio(((this, 1), (prior, -1)), ((prior, 1),))
 
 
-def _prior_year(layout: ModelDelivery, period: str) -> str | None:
-    end = layout.periods[period].end_date
-    for other, dates in layout.periods.items():
-        if (end - dates.end_date).days in {365, 366}:
-            return other
-    return None
+FULL_YEAR_DAYS = range(357, 374)
+FISCAL_LABEL = re.compile(r"FY([0-9]{4})")
+
+
+def _is_full_year(layout: ModelDelivery, period: str) -> bool:
+    dates = layout.periods[period]
+    return (dates.end_date - dates.start_date).days + 1 in FULL_YEAR_DAYS
+
+
+def _prior_growth(
+    layout: ModelDelivery, cells: dict[str, dict[str, Cell]], period: str, key: str
+) -> Cell:
+    """Growth of `key` on the period labelled FY<n-1>, as the store pairs fiscal years."""
+    found = FISCAL_LABEL.fullmatch(period)
+    prior = f"FY{int(found.group(1)) - 1}" if found else None
+    if prior not in layout.periods:
+        return Cell(None, "PRIOR_PERIOD_MISSING", note="No selected period ends a year earlier")
+    if not (_is_full_year(layout, period) and _is_full_year(layout, prior)):
+        return Cell(None, "PRIOR_PERIOD_MISSING", note="the prior period is not a full year")
+    return _growth(cells[period][key], cells[prior][key])
 
 
 def _derived_cells(
@@ -424,23 +441,23 @@ def _derived_cells(
         else None
     )
     for period, row in cells.items():
-        prior = _prior_year(reader.layout, period)
-        before = {} if prior is None else cells[prior]
         with localcontext(CONTEXT):
-            row["revenue_growth"] = _growth(row["revenue"], before.get("revenue"))
+            row["revenue_growth"] = _prior_growth(reader.layout, cells, period, "revenue")
             row["gross_margin"] = _ratio(((row["gross_profit"], 1),), ((row["revenue"], 1),))
             row["adj_ebitda_margin"] = _ratio(
                 ((row["issuer_as_defined"], 1),), ((row["revenue"], 1),)
             )
-            row["adj_ebitda_growth"] = _growth(
-                row["issuer_as_defined"], before.get("issuer_as_defined")
+            row["adj_ebitda_growth"] = _prior_growth(
+                reader.layout, cells, period, "issuer_as_defined"
             )
             if register is None:
                 continue
-            if register.when != reader.layout.periods[period].end_date:
-                shown = "an unreadable date" if register.when is None else register.when.isoformat()
+            if (
+                register.when is not None
+                and register.when != reader.layout.periods[period].end_date
+            ):
                 row["senior_secured_debt"] = Cell(
-                    None, "REGISTER_DATE_DIFFERS", note=f"recorded at {shown}"
+                    None, "REGISTER_DATE_DIFFERS", note=f"recorded at {register.when.isoformat()}"
                 )
             else:
                 row["senior_secured_debt"] = register.total
@@ -555,6 +572,14 @@ def _fact_unit(key: str, ratio_keys: tuple[str, ...]) -> str:
     return "decimal_fraction" if unit == "FRACTION" else unit
 
 
+def _limitation(cell: Cell) -> str | None:
+    if cell.value is not None:
+        return cell.note
+    if cell.reason == "UNCLASSIFIED_ROW":
+        return f"{UNCLASSIFIED_PHRASE}: {cell.note}"
+    return cell.note or cell.reason or "Missing source input"
+
+
 def _unit_of(key: str, ratio_keys: tuple[str, ...]) -> str:
     return DERIVED_UNITS.get(key, "MULTIPLE" if key in ratio_keys else "MILLIONS")
 
@@ -575,8 +600,9 @@ def _written_decimals(cell: Cell) -> int:
 def _ratio_decimals(value: Decimal | None) -> int:
     """Two places, and more only where two would show a nonzero ratio as zero."""
     places = 2
-    while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
-        places += 1
+    with localcontext(CONTEXT):
+        while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
+            places += 1
     return places
 
 
@@ -690,9 +716,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
                         formula=formulas.get(key),
                         calculation_id=f"model.{key}.{period}" if key in formulas else None,
                         citations=quotes,
-                        limitation=cell.note
-                        if cell.value is not None
-                        else (cell.note or cell.reason or "Missing source input"),
+                        limitation=_limitation(cell),
                         decimals=_ratio_decimals(cell.value)
                         if _pure(key, ratio_keys)
                         else _written_decimals(cell),

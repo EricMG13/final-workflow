@@ -614,3 +614,89 @@ def test_the_model_page_lists_the_derived_table() -> None:
     facts = {f["fact_id"]: f for f in view["modules"][0]["facts"]}
     assert facts[growth["fact_ids"][0]]["unit"] == "decimal_fraction"
     assert "20.58%" in page
+
+
+def test_the_register_is_read_as_the_store_reads_it() -> None:
+    # The store's CARRYING is case-sensitive: "Carrying 910" is no carrying value, so the
+    # revolver is not an unclassified row; 20020 is the hand-summed T4.18 total.
+    _, values = derived_values(
+        b"| Revolving credit facility | Commitment 910;",
+        b"| Revolving credit facility | Carrying 910;",
+    )
+    assert values["FY2024"]["senior_secured_debt"]["amount"] == "20020"
+    # A repeated label whose later row has no carrying value is ignored.
+    _, values = derived_values(
+        b"| Tranche I term loans | Principal 1,871 |",
+        b"| Term loans aggregate | Principal 1,871 |",
+    )
+    assert values["FY2024"]["senior_secured_debt"]["amount"] == "20020"
+    # A register date the reader cannot parse is not "recorded at another date".
+    _, values = derived_values(
+        b"| Sep 30, 2024 amount / status |", b"| September 30, 2024 amount / status |"
+    )
+    assert values["FY2024"]["senior_secured_debt"]["reason"] == "NOT_SOURCED"
+
+
+def test_growth_uses_the_previous_fiscal_year_if_both_are_full_years() -> None:
+    from deploy_vii.model.frame import Cell
+    from deploy_workflow.handoff_delivery import ModelDelivery, ModelPeriod
+    from deploy_workflow.model_handoff_delivery import _AnnualReader, _derived_cells
+
+    def growth(periods, revenue):
+        layout = ModelDelivery(
+            periods={
+                k: ModelPeriod(start_date=s, end_date=e, balance_column=None)
+                for k, (s, e) in periods.items()
+            },
+            anchors={},
+            rows={},
+        )
+        raw = b"# A\n"
+        spec = HandoffInput(path="a.md", sha256=sha256(raw).hexdigest())
+        cells = {
+            p: {
+                "revenue": Cell(Decimal(v), basis="REPORTED"),
+                "gross_profit": Cell(Decimal(1), basis="REPORTED"),
+                "issuer_as_defined": Cell(Decimal(1), basis="REPORTED"),
+            }
+            for p, v in revenue.items()
+        }
+        _derived_cells(_AnnualReader(raw, spec, layout), cells, DerivedRows())
+        return cells["FY2024"]["revenue_growth"]
+
+    weeks52 = growth(
+        {
+            "FY2023": (date(2022, 10, 2), date(2023, 9, 30)),
+            "FY2024": (date(2023, 10, 1), date(2024, 9, 28)),
+        },
+        {"FY2023": "6585", "FY2024": "7940"},
+    )
+    assert weeks52.value is not None and weeks52.reason is None
+    short = growth(
+        {
+            "FY2023": (date(2023, 4, 1), date(2023, 9, 30)),
+            "FY2024": (date(2023, 10, 1), date(2024, 9, 30)),
+        },
+        {"FY2023": "3000", "FY2024": "7940"},
+    )
+    assert short.value is None and short.reason == "PRIOR_PERIOD_MISSING"
+    assert short.note == "the prior period is not a full year"
+
+
+def test_the_page_names_the_unclassified_row_and_the_ambient_context_is_ignored() -> None:
+    published, _ = derived_values(
+        b"| Revolving credit facility | Commitment 910;",
+        b"| Revolving credit facility | carrying 910;",
+    )
+    facts = {
+        f["fact_id"]: f
+        for f in json.loads(published.files["model-view.json"])["modules"][0]["facts"]
+    }
+    for key in ("senior_secured_debt", "senior_secured_multiple"):
+        assert facts[f"derived.{key}.FY2024"]["limitation"] == (
+            "the debt register has a row that cannot be classified: Revolving credit facility"
+        )
+    args = derived_layout(b"| NET SALES | 7,940 |", b"| NET SALES | 6,617.91 |")
+    expected = build_model(*args).files
+    with localcontext(Context(prec=3, rounding="ROUND_CEILING")):
+        assert build_model(*args).files == expected

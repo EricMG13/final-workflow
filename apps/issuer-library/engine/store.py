@@ -919,6 +919,8 @@ PRIOR_MISSING = "prior-year period not in the handoffs"
 COMPONENT_MISSING = "a component is not in the handoffs"
 REASON_PHRASES = {
     "NOT_SOURCED": "not reported in the source",
+    "NOT_STATED": COMPONENT_MISSING,
+    "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero",
     "COMPONENT_MISSING": COMPONENT_MISSING,
     "PRIOR_PERIOD_MISSING": PRIOR_MISSING,
     "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",

@@ -919,6 +919,24 @@ def test_the_prior_window_must_start_with_the_fiscal_year_and_the_year_be_full()
     assert "full year" in ltm["note"]
 
 
+@pytest.mark.parametrize(
+    ("prior_end", "days"), [("2023-12-21", 373), ("2024-01-05", 358), ("2023-12-23", 371)]
+)
+def test_the_ltm_must_span_a_year_like_the_kernel(prior_end: str, days: int) -> None:
+    """Prior-window end to this window end, hand-counted: 2024-12-28 less each end."""
+    header = "| Source row | Label | 2024-10-01–2024-12-28 | 2023-10-01–2023-12-30 |"
+    text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()
+    block = text[text.index(BRIDGE) :]
+    block = block[: block.index(header) + len(header)]
+    edit = [(block.encode(), block.replace("2023-12-30", prior_end).encode())]
+    ltm = edited_quarters(quarter=edit)[WINDOW]["ltm_adj_ebitda"]
+    if days == 371:  # the kernel's upper bound is inclusive
+        assert ltm["amount"] == "4322"
+        return
+    assert ltm["amount"] is None and ltm["reason"] == "WINDOW_MISSING"
+    assert str(days) in ltm["note"] and "364" in ltm["note"]
+
+
 def bridge_with_column(header: str, value: str) -> list[tuple[bytes, bytes]]:
     """An edit adding a column to the bridge table: `value` on its Total Company row."""
     text = (ROOT / "runs/tdg-003/CP-1-attempt-2.md").read_text()

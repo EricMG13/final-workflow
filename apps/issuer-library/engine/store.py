@@ -929,6 +929,9 @@ REASON_PHRASES = {
 }
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
 DEBT_TOTAL_NEEDED = "needs quarter-end total carrying debt, which the model does not derive"
+DEBT_SENIOR_NEEDED = (
+    "needs quarter-end senior secured carrying debt, which the model does not derive"
+)
 MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
 Q1_NOTE = "Q1 is the first quarter of the fiscal year, so it is also the year to date."
 CASHFLOW_NOTES = (
@@ -1568,11 +1571,9 @@ def op_quarter(c: CellContext, key: str, fallback: Spec | None = None) -> Cell:
     return spec_cell(fallback, c) if fallback is not None else absent_cell()
 
 
-def op_needs_ltm(c: CellContext) -> Cell:
+def op_needs_ltm(c: CellContext, debt_needed: str = DEBT_TOTAL_NEEDED) -> Cell:
     held = quarter_held(c, "ltm_adj_ebitda")
-    return unavailable_cell(
-        LTM_NEEDED if held is None or held["amount"] is None else DEBT_TOTAL_NEEDED
-    )
+    return unavailable_cell(LTM_NEEDED if held is None or held["amount"] is None else debt_needed)
 
 
 def op_senior(c: CellContext) -> Cell:
@@ -1837,7 +1838,7 @@ TAIL_ROWS = (
         CREDIT,
         "Senior secured leverage (secured debt / Adj EBITDA)",
         "multiple",
-        ("quarter", "senior_secured_multiple", ("ltm",)),
+        ("quarter", "senior_secured_multiple", ("ltm", DEBT_SENIOR_NEEDED)),
         ("prefer", "senior_secured_multiple", ("senior",)),
         None,
     ),

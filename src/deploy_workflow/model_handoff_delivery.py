@@ -32,6 +32,7 @@ from deploy_vii.contracts import (
 from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell, SourceRef
 from deploy_vii.model.metrics import _ratio
+from deploy_vii.model.periods import LTM_DAYS
 from deploy_vii.render import render
 from deploy_vii.report_view import (
     FactCoord,
@@ -655,7 +656,14 @@ def _quarter_cells(
         if not _is_full_year(layout, year):
             annual_cell = Cell(None, "WINDOW_MISSING", note=f"{year} is not a full year")
         priors = year_before(window)
-        if len(priors) == 1 and priors[0].start == dates.start_date:
+        span = (window.end - priors[0].end).days if len(priors) == 1 else None
+        if span is not None and not LTM_DAYS[0] <= span <= LTM_DAYS[1]:
+            prior = Cell(
+                None,
+                "WINDOW_MISSING",
+                note=f"the LTM spans {span} days, outside {LTM_DAYS[0]}-{LTM_DAYS[1]}",
+            )
+        elif len(priors) == 1 and priors[0].start == dates.start_date:
             prior = _quarter_cell(row[0], row[2], priors[0].column)
         else:
             why = (

@@ -2954,6 +2954,9 @@ SENIOR_ROW = "Senior secured leverage (secured debt / Adj EBITDA)"
 TOTAL_ROW = "Total leverage (debt / Adj EBITDA)"
 LTM_NEEDED_TEXT = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
 AFTER_DEBT_TEXT = "needs quarter-end total carrying debt, which the model does not derive"
+AFTER_SENIOR_TEXT = (
+    "needs quarter-end senior secured carrying debt, which the model does not derive"
+)
 
 
 def quarter_record(quarters):
@@ -2993,9 +2996,9 @@ def test_without_quarter_values_the_old_text_stays_and_the_ltm_row_is_dashes(tmp
 def test_a_recorded_ltm_without_a_recorded_leverage_says_the_debt_total_is_missing(tmp_path):
     record = quarter_record({"2025-10-01–2025-12-31": {"ltm_adj_ebitda": amount("4322")}})
     cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(record))
-    for label in (SENIOR_ROW, TOTAL_ROW):
+    for label, text in ((SENIOR_ROW, AFTER_SENIOR_TEXT), (TOTAL_ROW, AFTER_DEBT_TEXT)):
         cell = row(cashflow, label)["cells"][2]
-        assert (cell["display"], cell["reason"]) == (NA, AFTER_DEBT_TEXT)
+        assert (cell["display"], cell["reason"]) == (NA, text)
     other = row(cashflow, TOTAL_ROW)["cells"][0]
     assert other["reason"] == LTM_NEEDED_TEXT
 

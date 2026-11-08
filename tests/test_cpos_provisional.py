@@ -262,7 +262,10 @@ def test_a_register_without_a_separator_row_is_missing_not_short_a_row(tmp_path)
 
 
 def test_in_scope_a_register_of_only_other_rows_needs_the_blocked_line(tmp_path):
-    register = f"{HEADER_ROW}\n| --- | --- | --- | --- | --- |\n| 10-K | other | filed | not ranked | 10-k.htm |"
+    register = (
+        f"{HEADER_ROW}\n| --- | --- | --- | --- | --- |\n"
+        "| 10-K | other | filed | not ranked | 10-k.htm |"
+    )
     assert categories_for(tmp_path, register) == {"blocked_line_missing"}
 
 

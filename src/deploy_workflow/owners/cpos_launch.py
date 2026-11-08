@@ -1009,12 +1009,13 @@ def cp4_issues(task: HandoffTask, text: str, routes: Sequence[MarkdownRoute]) ->
     statuses = [row[2] for row in ranked]
     unsigned = [s for s in statuses if s != "executed"]
     all_final = bool(unsigned) and all(s == "final" for s in unsigned)
+    has_final = "final" in statuses
     needs_limit = any(s in ("draft", "indicative") for s in statuses) or (
-        bool(ranked) and "executed" not in statuses and not all_final
+        "executed" not in statuses and not all_final
     )
     if needs_limit and DRAFT_LIMITATION not in text:
         issues.append(_problem("draft_limitation_missing", f"state: {DRAFT_LIMITATION}"))
-    if "final" in statuses and FINAL_OM_REASON not in text:
+    if has_final and FINAL_OM_REASON not in text:
         issues.append(_problem("final_om_reason_missing", f"state: {FINAL_OM_REASON}"))
     if all_final and FINAL_OM_DRAFT_WORDING in text:
         issues.append(
@@ -1022,7 +1023,7 @@ def cp4_issues(task: HandoffTask, text: str, routes: Sequence[MarkdownRoute]) ->
                 "final_om_draft_wording", "remove the draft sentence; every document is final."
             )
         )
-    if needs_limit or "final" in statuses:
+    if needs_limit or has_final:
         issues += _label_issues(lines, routes)
     return tuple(issues)
 

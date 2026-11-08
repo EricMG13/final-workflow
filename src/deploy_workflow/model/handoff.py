@@ -579,7 +579,8 @@ class HandoffExecutor:
         if received is None:
             # The reply may be paid for but cannot be redacted or priced: unusable, charge unknown.
             turn, usage, priced = None, reply.usage, None
-            fault = f"{type(failure).__name__}: {self._fault_text(str(failure))}"
+            detail, _ = _caught(lambda: self._fault_text(str(failure)))  # __str__ may raise
+            fault = f"{type(failure).__name__}: {REDACTION_FAILED if detail is None else detail}"
             fault_trace = self._fault_text(failure or RuntimeError(fault))
         else:
             turn, usage, priced = received

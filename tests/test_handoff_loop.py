@@ -486,3 +486,27 @@ def test_an_adapter_failure_keeps_its_message_beside_a_pricing_fault(
         loop(task())
     (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
     assert "socket gone after send" in row["error"] and "injected post-send fault" in row["error"]
+
+
+def test_a_post_reply_exception_whose_str_raises_still_settles_and_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model import handoff as handoff_module
+    from deploy_workflow.model.budget import read_reservation_snapshot
+
+    class Opaque(ArithmeticError):
+        def __str__(self) -> str:
+            raise ValueError("no text")
+
+    def opaque(*_a: Any, **_k: Any) -> Any:
+        raise Opaque
+
+    monkeypatch.setattr(handoff_module, "price_usage", opaque)
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    with pytest.raises(RuntimeError, match="cpos_live_stopped"):
+        loop(task())
+    (marker,) = read_reservation_snapshot(tmp_path)
+    assert marker.status is not None and loop.budget.spent == marker.usd > 0
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert row["cost_status"] == "unknown"

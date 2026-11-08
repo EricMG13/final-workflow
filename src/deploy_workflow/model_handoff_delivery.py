@@ -522,12 +522,20 @@ def _long_date(text: str) -> date | None:
         return None
 
 
+QUARTER_REQUIRED = ("securitization", "term loans")
+
+
+def _kind_of(name: str, low: str) -> bool:
+    return name in low if name == "securitization" else low.startswith(name)
+
+
 def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     """Quarter-end senior secured debt from the `Net` column, classified as the annual one is."""
     headers, rows = _table_at(lines, anchor)
-    net = next((i for i, h in enumerate(headers) if h.startswith("Net")), None)
-    if net is None or "Label" not in headers:
-        raise ValueError("model_columns: the quarter register needs Label and Net columns")
+    nets = [i for i, h in enumerate(headers) if h.startswith("Net")]
+    if len(nets) != 1 or "Label" not in headers:
+        raise ValueError("model_columns: the quarter register needs one Net and a Label column")
+    net = nets[0]
     when = _long_date(anchor)
     if when is None:
         return Cell(None, "NOT_SOURCED", note="Register date not readable")
@@ -538,10 +546,11 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     repeated: str | None = None
     unclassified: str | None = None
     incomplete = False
+    named: set[str] = set()
     for number, _, values in rows:
         label = values[headers.index("Label")]
         low = label.casefold()
-        if not label or low.startswith(("less:", "long-term debt")):
+        if not label or low.startswith(("total", "less:", "long-term debt")):
             continue
         amount = _quarter_cell(number, values, net)
         unsecured = "subordinated" in low or "unsecured" in low
@@ -554,13 +563,15 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
         if secured:
             incomplete |= amount.value is None
             parts.append((amount, 1))
+            if amount.value is not None:
+                named.update(name for name in QUARTER_REQUIRED if _kind_of(name, low))
         elif amount.value is not None and not unsecured and unclassified is None:
             unclassified = label[:LABEL_LIMIT]
     if repeated is not None:
         return Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{repeated}")
     if unclassified is not None:
         return Cell(None, "UNCLASSIFIED_ROW", note=unclassified)
-    if incomplete or not parts:
+    if incomplete or named != set(QUARTER_REQUIRED):
         return Cell(None, "COMPONENT_MISSING", note="A required secured row has no Net value")
     with localcontext(CONTEXT):
         return calc(parts)
@@ -568,13 +579,14 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
 
 def _annual_adjusted(lines: list[str], year: str) -> Cell:
     """The fiscal year's As Defined total, read from the one annual table holding its row."""
+    lines = hide_fenced(hide_comments(lines, "annual"))
     holding = [i for i, line in enumerate(lines) if line.startswith(f"| {ADJUSTED_EBITDA_LABEL} |")]
     if len(holding) != 1:
         return Cell(
             None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
         )
     top = holding[0]
-    while lines[top - 1].startswith("|"):
+    while top > 0 and lines[top - 1].startswith("|"):
         top -= 1
     headers, rows = table([(i + 1, lines[i]) for i in range(top, len(lines))])
     found = next(r for r in rows if r[2][0] == ADJUSTED_EBITDA_LABEL)
@@ -591,7 +603,7 @@ def _ltm_cell(annual: Cell, this: Cell, prior: Cell) -> Cell:
         (prior, "prior-year window"),
     ):
         if operand.value is None:
-            return Cell(None, "WINDOW_MISSING", note=f"{name} is missing")
+            return Cell(None, operand.reason, note=operand.note or f"{name} is missing")
     with localcontext(CONTEXT):
         return calc(((annual, 1), (this, 1), (prior, -1)))
 
@@ -600,11 +612,12 @@ def _quarter_cells(
     layout: ModelDelivery, annual: list[str], quarter: bytes, derived: DerivedRows
 ) -> dict[_Window, dict[str, Cell]]:
     """The LTM and quarter-end rows of every window that starts a fiscal year."""
-    lines = physical_lines(quarter.decode("utf-8"))
+    lines = hide_fenced(hide_comments(physical_lines(quarter.decode("utf-8")), "quarter"))
     headers, rows = _table_at(lines, str(derived.quarter_bridge))
-    row = next((r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL), None)
-    if row is None:
+    found_rows = [r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL]
+    if len(found_rows) != 1:
         raise ValueError(f"model_row: expected one {ADJUSTED_EBITDA_LABEL}")
+    row = found_rows[0]
     windows = []
     for column, header in enumerate(headers):
         found = WINDOW_HEADER.fullmatch(header)
@@ -612,6 +625,8 @@ def _quarter_cells(
             windows.append(
                 _Window(header, date.fromisoformat(found[1]), date.fromisoformat(found[2]), column)
             )
+    if len({(w.start, w.end) for w in windows}) != len(windows):
+        raise ValueError("model_columns: the same window appears twice in the bridge")
 
     def year_before(window: _Window) -> list[_Window]:
         return [
@@ -635,14 +650,24 @@ def _quarter_cells(
         )
         if year is None or window in comparatives:
             continue
+        dates = layout.periods[year]
+        annual_cell = _annual_adjusted(annual, year)
+        if not _is_full_year(layout, year):
+            annual_cell = Cell(None, "WINDOW_MISSING", note=f"{year} is not a full year")
         priors = year_before(window)
-        prior = (
-            _quarter_cell(row[0], row[2], priors[0].column)
-            if len(priors) == 1
-            else Cell(None, "WINDOW_MISSING", note="prior-year window is missing")
-        )
+        if len(priors) == 1 and priors[0].start == dates.start_date:
+            prior = _quarter_cell(row[0], row[2], priors[0].column)
+        else:
+            why = (
+                "two prior-year windows match"
+                if len(priors) > 1
+                else "prior-year window does not start with the fiscal year"
+                if priors
+                else "prior-year window is missing"
+            )
+            prior = Cell(None, "WINDOW_MISSING", note=why)
         this = _quarter_cell(row[0], row[2], window.column)
-        out = {"ltm_adj_ebitda": _ltm_cell(_annual_adjusted(annual, year), this, prior)}
+        out = {"ltm_adj_ebitda": _ltm_cell(annual_cell, this, prior)}
         if derived.quarter_debt_register is not None:
             debt = _quarter_register(lines, derived.quarter_debt_register, window.end)
             out["senior_secured_debt"] = debt

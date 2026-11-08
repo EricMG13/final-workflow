@@ -10,6 +10,23 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Issuer Library: Impeccable polish of the run lifecycle surfaces (branch `claude/app-sections-skill-use-d9996f`)
+
+Scope: New run progress, Run activity and the run strip, after the critique fixes below (start `b8a3d391`); macOS only; a synthetic
+scratch workspace (one budget stop in CP-1 after CP-0 accepted, one complete run) and jsdom fakes, no provider call.
+- The module where a run stopped shows amber "Stopped here"; a stop between modules (`stopped_during: accepted`) keeps the accepted
+  module ticked and reads "Stopped after <module> (n of N)."; the strip is hidden on that run's own Run activity and New run progress
+  view (not a dismissal); Resume is the one primary action for a resumable run; the short run id badge with the full id in its title;
+  "Run record · WEB-…" heading; the module sentence on its own line with a full stop; event dates only on the first row and when the
+  day changes; no link after "0 saved outputs" or when no report exists; strip text up to 120ch, card radius, 24px action targets.
+- Reviews: mx-precise on `4f9fd8a6` (one Medium: the stop-between-modules case above; one Low: a loose test, tightened); one fix
+  round `15e0d9fd`; scoped mx-precise re-review of the fix PASS (its new test fails on `4f9fd8a6`, exit 1).
+- Gates at `15e0d9fd`, exit 0: `node --test` over validate.py NODE_TESTS 353/353; the review's three probes; `tools/quality_gate.py
+  --base 5740af30` 0 findings. No Python or Go file changed since the pytest/go run in the entry below. Impeccable detector: no finding
+  on a line this pass changed. Browser check in the in-app pane at 1366×768 and 720×900.
+Not verified: Windows/Edge rendering; a real engine run producing a stop between modules; real screen readers; the weekly full suite;
+nothing pushed.
+
 ## 2026-11-08 — Issuer Library: fixes from the Impeccable critique of the new sections (branch `claude/app-sections-skill-use-d9996f`)
 
 Scope: `apps/issuer-library` sections added after the 2026-11-06 layout pass (critique

@@ -21,6 +21,11 @@ PAGES = re.compile(r"\bpp?\.[\d,\u2013-]+", re.IGNORECASE)
 # addend (numbers() drops it), so that pair is one figure. sum(12,345) is read as 12 and 345.
 CALL_ARGS = re.compile(r"(?<=\w\()[\d.,\s\u2212-]+(?=\))")
 ARG_COMMA = re.compile(r"(?<![\d.])(\d),(?=\d{3}(?!\d))|,")
+# When a call separates its arguments with ", " (ratio(19,702, 25,228)), a bare comma between a
+# 1-3 digit group and a three-digit group is a thousands separator, whatever the group's length.
+# ponytail: mixed separators such as sum(980,161, 5) read 980,161 as one figure; the upgrade path is
+# to read operands from the calculate tool's own call record.
+ARG_COMMA_SPACED = re.compile(r"(?<![\d.])(\d{1,3}),(?=\d{3}(?!\d))|,")
 # A digest has letters; a run of digits alone is a long decimal result, not a digest.
 # The same date written out for display: 31 March 2025, Mar 31, 2025.
 MONTH = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]{0,6}\.?"
@@ -42,8 +47,13 @@ LAUNCHER_KIND = "cpos-markdown-delivery/1"
 MODULE = re.compile(r"CP-[A-Z0-9]+")
 
 
+def _call_args(args: str) -> str:
+    comma = ARG_COMMA_SPACED if ", " in args else ARG_COMMA
+    return comma.sub(lambda k: k[0] if k[1] else " ", args)
+
+
 def numbers(text: str) -> set[str]:
-    text = CALL_ARGS.sub(lambda m: ARG_COMMA.sub(lambda k: k[0] if k[1] else " ", m[0]), text)
+    text = CALL_ARGS.sub(lambda m: _call_args(m[0]), text)
     text = PAGES.sub(" ", HEX_RUN.sub(" ", WRITTEN_DATE.sub(" ", ISO_DATE.sub(" ", text))))
     found = set()
     for match in NUMBER.findall(text):

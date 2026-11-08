@@ -8,6 +8,29 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-08 — Phase 4: derived rows in calculation.json (branch `claude/model-derived-rows`)
+
+Scope: Tasks 7-8 (5139dc9f..60c101c7), the Low batch 33be4f6c and the end commit; macOS only.
+Phase diff against origin/main: 652 changed lines (cap 800). **Deterministic retained-data**
+check: TDG `runs/cpos-tdg-model-001` inputs, no provider call; not a live model run.
+- Answer-key correction: the plan said FY2024 senior secured debt 13,932 and 3.34x. The register's
+  8 secured rows (486+8642+2077+2727+1438+984+2180+1486) give 20,020 and 4.80x (20020/4173); the
+  store derives the same total.
+- Controller live check (real app, retained data): Forecast grid FY2024 revenue growth 20.58%, gross
+  margin 58.84%, Adj EBITDA margin 52.56%, Adj EBITDA growth 22.92%, senior secured leverage 4.80x;
+  FY2023 growth 21.29% / 28.31%; FY2022 growth n.a.; FY2022/23 senior n.a.
+- Reviews: Task 7 mx-precise approve; Task 8 mx-precise + mx-adversary, one fix round, re-review
+  approve; phase mx-architect approve (two Low, fixed in the end commit: register problems resolve
+  in the store's order, a negative divisor reads "a divisor is zero or negative").
+- Gates after the end commit: targeted pytest (241 passed) exit 0; `tools/quality_gate.py` exit 0;
+  `validate.py full` exit 0 (node 275, python 526, go, ruff).
+- Owner items (predate the change): an escaped `\|` in a register cell parses differently in the
+  store; subtotal rows such as "Secured notes subtotal" are counted by both readers; `op_prefer`
+  ignores a recorded unit (accepted, Decision 7).
+
+Not verified: Windows/Edge rendering of the new cells; a 52/53-week issuer other than the
+constructed periods; in-app runs still publish no model (Decision 10); the weekly full suite.
+
 ## 2026-11-08 — Resume a stopped run (branches claude/resume-core, claude/resume-run)
 
 Scope: Tasks 4-6 of the deferred-features plan.

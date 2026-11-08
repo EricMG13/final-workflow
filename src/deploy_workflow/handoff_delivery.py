@@ -80,6 +80,12 @@ class ModelRow(Contract):
     label: str
 
 
+class DerivedRows(Contract):
+    """Request to publish the grid's derived rows; the debt register is matched like anchors."""
+
+    debt_register: str | None = None
+
+
 class ModelDelivery(Contract):
     """Explicit source selectors for the selected annual CP-1 publication method."""
 
@@ -88,6 +94,7 @@ class ModelDelivery(Contract):
     rows: dict[str, ModelRow]
     extra_handoffs: dict[str, HandoffInput] = Field(default_factory=dict)
     forecast_exact: HandoffInput | None = None
+    derived: DerivedRows | None = Field(default=None, exclude_if=lambda v: v is None)
 
 
 class MarkdownRoute(Contract):

@@ -12,6 +12,7 @@ import html
 import json
 import re
 from collections.abc import Mapping
+from datetime import date
 from decimal import Decimal, localcontext
 from typing import NamedTuple
 
@@ -43,6 +44,7 @@ from deploy_vii.report_view import (
 from deploy_workflow.handoff_delivery import (
     HEADINGS,
     SOURCE_NUMBER,
+    DerivedRows,
     HandoffInput,
     ModelDelivery,
     heading_of,
@@ -93,6 +95,21 @@ RATIOS = (
     ("net_carrying_multiple", "net_carrying_debt", "issuer_as_defined"),
     ("issuer_earnings_cash_interest", "issuer_as_defined", "interest_cash"),
 )
+DERIVED_FORMULAS = {
+    "revenue_growth": "revenue / prior-year revenue - 1",
+    "gross_margin": "gross_profit / revenue",
+    "adj_ebitda_margin": "issuer_as_defined / revenue",
+    "adj_ebitda_growth": "issuer_as_defined / prior-year issuer_as_defined - 1",
+    "senior_secured_debt": "carrying values of the securitization, the term loans aggregate "
+    "and the secured notes at the register date",
+    "senior_secured_multiple": "senior_secured_debt / issuer_as_defined",
+}
+DERIVED_KEYS = tuple(DERIVED_FORMULAS)
+DERIVED_UNITS = {
+    "senior_secured_debt": "MILLIONS",
+    "senior_secured_multiple": "MULTIPLE",
+    **dict.fromkeys(DERIVED_KEYS[:4], "FRACTION"),
+}
 FORMULAS = {
     "opex_magnitude": "selling_admin + income_statement_amortization",
     "ebit": "gross_profit - opex_magnitude",
@@ -119,6 +136,14 @@ LABELS = {
     "gross_carrying_multiple": "Carrying borrowing / issuer EBITDA As Defined",
     "net_carrying_multiple": "Mechanical net carrying borrowing / issuer EBITDA As Defined",
     "issuer_earnings_cash_interest": "Issuer EBITDA As Defined / reported cash interest",
+    "revenue_growth": "Revenue YoY growth",
+    "gross_margin": "Gross profit margin",
+    "adj_ebitda_margin": "Adj EBITDA margin (As Defined / revenue)",
+    "adj_ebitda_growth": "Adj EBITDA YoY growth (As Defined)",
+    "senior_secured_debt": "Senior secured carrying debt at the register date",
+    "senior_secured_multiple": (
+        "Senior secured leverage (secured carrying debt / Adj EBITDA As Defined)"
+    ),
 }
 
 
@@ -139,7 +164,9 @@ class _AnnualReader:
         self.citations: dict[str, Citation] = {}
 
     def selected(self, name: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-        anchor = self.layout.anchors[name]
+        return self.table_at(self.layout.anchors[name])
+
+    def table_at(self, anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
         positions = [i for i, line in enumerate(self.lines) if line == anchor]
         if len(positions) != 1:
             raise ValueError(f"model_anchor: expected one {anchor}")
@@ -288,6 +315,162 @@ def _annual_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
     return result
 
 
+# The debt register is read as store.secured_debt reads it (apps/issuer-library/engine/store.py);
+# the labels are that module's CASHFLOW_LABELS.
+SECURITIZATION = "trade receivable securitization"
+TERM_LOANS = "term loans aggregate"
+SECURED_NOTES = re.compile(r"(?<![a-z])secured notes", re.ASCII)
+CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII)
+REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+UNCLASSIFIED_PHRASE = "the debt register has a row that cannot be classified"
+REPEATED_NOTE = "repeated row label: "
+REPEATED_PHRASE = "the debt register repeats a row label: "
+LABEL_LIMIT = 200
+CELL_LIMIT = 4000
+
+
+class _Register(NamedTuple):
+    """The annual debt register: its date and the secured total, or why there is none."""
+
+    when: date | None
+    total: Cell
+
+
+def _register_date(text: str) -> date | None:
+    found = REGISTER_DATE.search(text)
+    if found is None or found.group(1) not in MONTHS:
+        return None
+    try:
+        return date(int(found.group(3)), MONTHS.index(found.group(1)) + 1, int(found.group(2)))
+    except ValueError:
+        return None
+
+
+def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
+    """Sum the secured carrying values of the register under `anchor`, classified as the store does.
+
+    Total rows are skipped. A row with a carrying value that is neither secured nor named
+    unsecured gives no total (UNCLASSIFIED_ROW, noted with its label); so does a repeated label.
+    """
+    headers, rows = reader.table_at(anchor)
+    when = _register_date(headers[1])
+    if when is None:
+        return _Register(None, Cell(None, "NOT_SOURCED", note="Register date not readable"))
+    required = {SECURITIZATION, TERM_LOANS}
+    parts: list[tuple[Cell, int]] = []
+    named: set[str] = set()
+    seen: set[str] = set()
+    exact: set[str] = set()
+    incomplete = False
+    repeated: str | None = None
+    unclassified: str | None = None
+    for number, quote, values in rows:
+        label = values[0]
+        low = label.casefold()
+        carrying = CARRYING.search(values[1]) if len(values[1]) <= CELL_LIMIT else None
+        if low in seen and carrying is not None and repeated is None:
+            repeated = label[:LABEL_LIMIT]
+        seen.add(low)
+        if label in exact:
+            continue  # a later row of a label is dropped, as the store does
+        exact.add(label)
+        if low.startswith("total"):
+            continue
+        unsecured = "subordinated" in low or "unsecured" in low
+        secured = low in required or (SECURED_NOTES.search(low) and not unsecured)
+        if not secured:
+            if carrying is not None and not unsecured and unclassified is None:
+                unclassified = label[:LABEL_LIMIT]
+            continue
+        if carrying is None:
+            incomplete = True
+            continue
+        locator = f"line {number}"
+        reader.citations[locator] = Citation(
+            source_id="annual", source_sha256=reader.spec.sha256, locator=locator, quote=quote
+        )
+        ref = SourceRef("annual", locator, carrying.group(0))
+        amount = Decimal(carrying.group(1).replace(",", ""))
+        parts.append((Cell(amount, basis="REPORTED", sources=(ref,)), 1))
+        named.add(low)
+    if repeated is not None:
+        return _Register(when, Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{repeated}"))
+    if unclassified is not None:
+        return _Register(when, Cell(None, "UNCLASSIFIED_ROW", note=unclassified))
+    if incomplete or not required <= named:
+        return _Register(
+            when,
+            Cell(None, "COMPONENT_MISSING", note="A required secured row has no carrying value"),
+        )
+    with localcontext(CONTEXT):
+        return _Register(when, calc(parts))
+
+
+def _growth(this: Cell, prior: Cell) -> Cell:
+    """`this / prior - 1`; no prior-year period is PRIOR_PERIOD_MISSING, never zero."""
+    # (this - prior) / prior equals this / prior - 1 and is rounded once: subtracting 1 from a
+    # 38-digit quotient would lose a digit.
+    return _ratio(((this, 1), (prior, -1)), ((prior, 1),))
+
+
+FULL_YEAR_DAYS = range(357, 374)
+FISCAL_LABEL = re.compile(r"FY([0-9]{4})")
+
+
+def _is_full_year(layout: ModelDelivery, period: str) -> bool:
+    dates = layout.periods[period]
+    return (dates.end_date - dates.start_date).days + 1 in FULL_YEAR_DAYS
+
+
+def _prior_growth(
+    layout: ModelDelivery, cells: dict[str, dict[str, Cell]], period: str, key: str
+) -> Cell:
+    """Growth of `key` on the period labelled FY<n-1>, as the store pairs fiscal years."""
+    found = FISCAL_LABEL.fullmatch(period)
+    prior = f"FY{int(found.group(1)) - 1}" if found else None
+    if prior not in layout.periods:
+        return Cell(None, "PRIOR_PERIOD_MISSING", note="No selected period ends a year earlier")
+    if not (_is_full_year(layout, period) and _is_full_year(layout, prior)):
+        return Cell(None, "PRIOR_PERIOD_MISSING", note="the prior period is not a full year")
+    return _growth(cells[period][key], cells[prior][key])
+
+
+def _derived_cells(
+    reader: _AnnualReader, cells: dict[str, dict[str, Cell]], derived: DerivedRows
+) -> None:
+    """Add the fiscal-year growth, margin and senior secured rows to each period's cells."""
+    register = (
+        _secured_register(reader, derived.debt_register)
+        if derived.debt_register is not None
+        else None
+    )
+    for period, row in cells.items():
+        with localcontext(CONTEXT):
+            row["revenue_growth"] = _prior_growth(reader.layout, cells, period, "revenue")
+            row["gross_margin"] = _ratio(((row["gross_profit"], 1),), ((row["revenue"], 1),))
+            row["adj_ebitda_margin"] = _ratio(
+                ((row["issuer_as_defined"], 1),), ((row["revenue"], 1),)
+            )
+            row["adj_ebitda_growth"] = _prior_growth(
+                reader.layout, cells, period, "issuer_as_defined"
+            )
+            if register is None:
+                continue
+            if (
+                register.when is not None
+                and register.when != reader.layout.periods[period].end_date
+            ):
+                row["senior_secured_debt"] = Cell(
+                    None, "REGISTER_DATE_DIFFERS", note=f"recorded at {register.when.isoformat()}"
+                )
+            else:
+                row["senior_secured_debt"] = register.total
+            row["senior_secured_multiple"] = _ratio(
+                ((row["senior_secured_debt"], 1),), ((row["issuer_as_defined"], 1),)
+            )
+
+
 # The line under a table header, exactly as the reader applies it (unstripped).
 TABLE_SEPARATOR = re.compile(r"\|[ :|\-]+\|")
 
@@ -388,6 +571,31 @@ def _literal_tables(
     return source, facts, tables, bindings
 
 
+def _fact_unit(key: str, ratio_keys: tuple[str, ...]) -> str:
+    """The unit a view fact carries: report_view renders decimal_fraction as a percent."""
+    unit = _unit_of(key, ratio_keys)
+    return "decimal_fraction" if unit == "FRACTION" else unit
+
+
+def _limitation(cell: Cell) -> str | None:
+    if cell.value is not None:
+        return cell.note
+    if cell.reason == "UNCLASSIFIED_ROW" and cell.note and cell.note.startswith(REPEATED_NOTE):
+        return REPEATED_PHRASE + cell.note[len(REPEATED_NOTE) :]
+    if cell.reason == "UNCLASSIFIED_ROW":
+        return f"{UNCLASSIFIED_PHRASE}: {cell.note}"
+    return cell.note or cell.reason or "Missing source input"
+
+
+def _unit_of(key: str, ratio_keys: tuple[str, ...]) -> str:
+    return DERIVED_UNITS.get(key, "MULTIPLE" if key in ratio_keys else "MILLIONS")
+
+
+def _pure(key: str, ratio_keys: tuple[str, ...]) -> bool:
+    """A dimensionless number: a ratio, a multiple or a fraction, never a monetary amount."""
+    return _unit_of(key, ratio_keys) != "MILLIONS"
+
+
 def _written_decimals(cell: Cell) -> int:
     """Places to show a Model amount: the most the source cells it came from were written to."""
     written = (
@@ -399,9 +607,29 @@ def _written_decimals(cell: Cell) -> int:
 def _ratio_decimals(value: Decimal | None) -> int:
     """Two places, and more only where two would show a nonzero ratio as zero."""
     places = 2
-    while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
-        places += 1
+    with localcontext(CONTEXT):
+        while value and places < 6 and abs(value) * 2 < Decimal(1).scaleb(-places):
+            places += 1
     return places
+
+
+def _published_cells(reader: _AnnualReader) -> dict[str, dict[str, Cell]]:
+    cells = _annual_cells(reader)
+    if reader.layout.derived is not None:
+        _derived_cells(reader, cells, reader.layout.derived)
+    return cells
+
+
+def _table_specs(
+    cells: dict[str, dict[str, Cell]], ratio_keys: tuple[str, ...], present: tuple[str, ...]
+) -> list[tuple[str, tuple[str, ...], str]]:
+    """The (table id, row keys, block) of the history, ratios and, when requested, derived rows."""
+    history = tuple(k for k in next(iter(cells.values())) if k not in ratio_keys + present)
+    specs = [
+        ("history", history, "financials-credit-metrics"),
+        ("ratios", ratio_keys, "company-profile"),
+    ]
+    return specs + [("derived", present, "company-profile")] * bool(present)
 
 
 def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 statements at base)
@@ -454,18 +682,14 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         bindings.extend(raw_bindings)
     reader = _AnnualReader(raw_inputs["annual"], inputs["annual"], layout)
     reader.validate()
-    cells = _annual_cells(reader)
+    cells = _published_cells(reader)
+    ratio_keys = tuple(key for key, _, _ in RATIOS)
+    present = tuple(key for key in DERIVED_KEYS if key in next(iter(cells.values())))
     if not any(row[key].value is not None for row in cells.values() for key in INPUT_KEYS):
         raise ValueError("model_empty: no selected historical monetary observations")
-    ratio_keys = tuple(key for key, _, _ in RATIOS)
-    for tid, keys, block in (
-        (
-            "history",
-            tuple(k for k in next(iter(cells.values())) if k not in ratio_keys),
-            "financials-credit-metrics",
-        ),
-        ("ratios", ratio_keys, "company-profile"),
-    ):
+    tables_spec = _table_specs(cells, ratio_keys, present)
+    formulas = {**FORMULAS, **{key: DERIVED_FORMULAS[key] for key in present}}
+    for tid, keys, block in tables_spec:
         layouts = []
         for key in keys:
             ids = []
@@ -485,25 +709,23 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
                         field=period,
                         amount=cell.value,
                         status="known" if cell.value is not None else "missing",
-                        unit="MULTIPLE" if tid == "ratios" else "MILLIONS",
-                        scale=Decimal(1) if tid == "ratios" else Decimal(1000000),
-                        currency=None if tid == "ratios" else "USD",
+                        unit=_fact_unit(key, ratio_keys),
+                        scale=Decimal(1) if _pure(key, ratio_keys) else Decimal(1000000),
+                        currency=None if _pure(key, ratio_keys) else "USD",
                         period=period,
                         basis="Historical handoff publication. "
                         + (
-                            "Existing Decimal helper: " + FORMULAS[key]
-                            if key in FORMULAS
+                            "Existing Decimal helper: " + formulas[key]
+                            if key in formulas
                             else "Reported source value; exact handoff citation attached."
                         ),
-                        value_class="calculated" if key in FORMULAS else "source",
-                        formula=FORMULAS.get(key),
-                        calculation_id=f"model.{key}.{period}" if key in FORMULAS else None,
+                        value_class="calculated" if key in formulas else "source",
+                        formula=formulas.get(key),
+                        calculation_id=f"model.{key}.{period}" if key in formulas else None,
                         citations=quotes,
-                        limitation=cell.note
-                        if cell.value is not None
-                        else (cell.note or cell.reason or "Missing source input"),
+                        limitation=_limitation(cell),
                         decimals=_ratio_decimals(cell.value)
-                        if tid == "ratios"
+                        if _pure(key, ratio_keys)
                         else _written_decimals(cell),
                     )
                 )
@@ -538,18 +760,18 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         period: {
             key: {
                 "amount": None if cell.value is None else str(cell.value),
-                "unit": "MULTIPLE" if key in ratio_keys else "MILLIONS",
-                "quantity_family": "dimensionless" if key in ratio_keys else "monetary",
-                "currency": None if key in ratio_keys else "USD",
-                "scale": "1" if key in ratio_keys else "1000000",
+                "unit": _unit_of(key, ratio_keys),
+                "quantity_family": "dimensionless" if _pure(key, ratio_keys) else "monetary",
+                "currency": None if _pure(key, ratio_keys) else "USD",
+                "scale": "1" if _pure(key, ratio_keys) else "1000000",
                 "period": period,
                 "start_date": (
                     None
-                    if key in {"cash", "carrying_debt", "net_carrying_debt"}
+                    if key in {"cash", "carrying_debt", "net_carrying_debt", "senior_secured_debt"}
                     else layout.periods[period].start_date.isoformat()
                 ),
                 "end_date": layout.periods[period].end_date.isoformat(),
-                "formula": FORMULAS.get(key),
+                "formula": formulas.get(key),
                 "reason": cell.reason,
                 "note": cell.note,
                 "sources": [
@@ -576,7 +798,7 @@ def build_model(  # noqa: PLR0912, PLR0915 - pre-existing size (15 branches, 72 
         "excel_output": False,
         "scope": SCOPE,
         "annual_periods": list(cells),
-        "formulas": FORMULAS,
+        "formulas": formulas,
         "values": values,
         "forecast_exact_file": "forecast_exact.json" if "forecast_exact" in inputs else None,
         "forecast_exact_sha256": inputs["forecast_exact"].sha256

@@ -19,12 +19,12 @@ import sys
 import tempfile
 import textwrap
 from collections.abc import Mapping, Sequence
-from types import MappingProxyType
-from typing import Any
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from types import MappingProxyType
+from typing import Any
 
 from deploy_vii.contracts import PATHWAY_MODULES, Run
 from deploy_vii.live.prompts import STEP_CONTRACTS

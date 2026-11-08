@@ -21,7 +21,9 @@ from decimal import Decimal, DecimalException, localcontext
 from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import unquote
 from uuid import uuid4
+from zipfile import BadZipFile, ZipFile
 
 from pydantic import TypeAdapter
 
@@ -31,9 +33,11 @@ from deploy_vii.business_context import (
     _row_issues,
     governance_sponsor_score,
 )
+from deploy_vii.contracts import Span
 from deploy_vii.model._cells import CONTEXT, calc
 from deploy_vii.model.frame import Cell
 from deploy_vii.model.metrics import _ratio
+from deploy_vii.preparation import xlsx_content
 from deploy_vii.registry import modules
 from deploy_workflow.model.adapter import AdapterReply, ModelAdapter
 from deploy_workflow.model.budget import Budget, OverrunStop
@@ -154,6 +158,56 @@ TOOLS += (
 )
 
 
+def _is_workbook(raw: bytes) -> bool:
+    """An OOXML workbook by its content, whatever the source is called."""
+    if not raw.startswith(b"PK\x03\x04"):
+        return False
+    try:
+        with ZipFile(io.BytesIO(raw)) as archive:
+            return "xl/workbook.xml" in archive.namelist()
+    except BadZipFile:
+        return False
+
+
+def _cell_label(span: Span) -> str:
+    """One stored cell as the model reads it: numbers as their exact stored lexeme, text quoted,
+    a formula with its stored cache (``[absent]``, never zero) and a non-General number format."""
+    address = span.locator.partition("!")[2]
+    if span.formula is not None:
+        formula = span.text.partition("\n")[0].removeprefix("Formula: ")
+        cache = "[absent]" if span.cached_value is None else span.cached_value
+        return f"{address}='={formula}' cache={cache}"
+    if span.data_type in {"s", "inlineStr", "str"}:
+        return f"{address}={span.text!r}"
+    value = (
+        {"1": "TRUE", "0": "FALSE"}.get(span.text, span.text)
+        if span.data_type == "b"
+        else span.text
+    )
+    shown = span.number_format not in {None, "builtin:0"} and span.data_type == "n"
+    return f"{address}={value}" + (f" format={span.number_format!r}" if shown else "")
+
+
+def _workbook_pages(raw: bytes) -> list[str]:
+    """One page per sheet from the preparation reader's stored cells: exact lexemes, no
+    recalculation, and work bounded by the cells actually stored, not the sheet's dimension."""
+    extraction = xlsx_content(raw)
+    sheets = [item.locator for item in extraction.coverage]
+    rows: dict[str, dict[str, list[str]]] = {sheet: {} for sheet in sheets}
+    for span in extraction.spans:
+        sheet, _, address = span.locator.partition("!")
+        if sheet not in rows or span.data_type == "metadata" or not (span.text or span.formula):
+            continue
+        row = address.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+        rows[sheet].setdefault(row, []).append(_cell_label(span))
+    notes = "\n".join(extraction.limitations)
+    return [
+        f"Sheet {unquote(sheet.removeprefix('sheet:'))}\n{notes}\n"
+        + "\n".join(" | ".join(cells) for cells in rows[sheet].values())
+        for sheet in sheets
+    ]
+
+
 def _pages(name: str, raw: bytes) -> list[str]:
     if raw.startswith(b"%PDF"):
         from pypdf import PdfReader
@@ -161,26 +215,8 @@ def _pages(name: str, raw: bytes) -> list[str]:
         return [
             p.extract_text(extraction_mode="layout") or "" for p in PdfReader(io.BytesIO(raw)).pages
         ]
-    if Path(name).suffix.lower() == ".xlsx":
-        from openpyxl import load_workbook  # type: ignore[import-untyped]
-
-        book = load_workbook(io.BytesIO(raw), read_only=True, data_only=False)
-        try:
-            # Preserve formulas as formulas; never pretend an uncomputed cell is zero.
-            return [
-                f"Sheet {sheet.title}\n"
-                + "\n".join(
-                    " | ".join(
-                        f"{cell.coordinate}={cell.value!r}"
-                        for cell in row
-                        if cell.value is not None
-                    )
-                    for row in sheet.rows
-                )
-                for sheet in book
-            ]
-        finally:
-            book.close()
+    if _is_workbook(raw):
+        return _workbook_pages(raw)
     text = raw.decode("utf-8")
     if name.endswith(".jsonl"):
         rows = [json.loads(line) for line in text.splitlines() if line.strip()]

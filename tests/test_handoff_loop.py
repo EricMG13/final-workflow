@@ -1,6 +1,7 @@
 """Offline adversarial tests of the adapted cp-os loop; not live module proof."""
 
 import json
+import time
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
@@ -163,6 +164,87 @@ def test_excel_input_preserves_formula_zero_and_cell_locators(tmp_path: Path) ->
     assert "Sheet Annual" in read and "A1=0" in read and "C1='=A1+1'" in read
     assert "D1='USD millions'" in read and "B1=" not in read
     assert not list(tmp_path.iterdir())  # Input parsing produces no workbook deliverable.
+
+
+def _workbook(sheet_xml: str, dimension: str = "") -> bytes:
+    """A minimal OOXML workbook written by hand, independent of the reader under test."""
+    import io
+    import zipfile
+
+    main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    rels = "http://schemas.openxmlformats.org/package/2006/relationships"
+    office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    parts = {
+        "[Content_Types].xml": '<Types xmlns="http://schemas.openxmlformats.org/package/2006/'
+        'content-types"><Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-'
+        'officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/'
+        'sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.'
+        'worksheet+xml"/></Types>',
+        "_rels/.rels": f'<Relationships xmlns="{rels}"><Relationship Id="r1" '
+        f'Type="{office}/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+        "xl/workbook.xml": f'<workbook xmlns="{main}" xmlns:r="{office}"><sheets>'
+        '<sheet name="Annual FY" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        "xl/_rels/workbook.xml.rels": f'<Relationships xmlns="{rels}"><Relationship Id="rId1" '
+        f'Type="{office}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>',
+        "xl/worksheets/sheet1.xml": f'<worksheet xmlns="{main}">{dimension}'
+        f"<sheetData>{sheet_xml}</sheetData></worksheet>",
+    }
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, text in parts.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
+
+
+def _read(tmp_path: Path, source_id: str, raw: bytes) -> str:
+    module = ModuleTools(replace(task(), sources={source_id: raw}), tmp_path, check)
+    return module.read_pages(source_id, 1, 1)
+
+
+# Codex review of ac22d9d. Expected by hand: the stored lexeme 9007199254740993.25 is shown
+# exactly (a float would give 9007199254740994.0); a formula with no stored value shows its
+# cache as [absent], never 0; a non-General number format is shown with the cell.
+def test_excel_amount_is_its_exact_stored_lexeme(tmp_path: Path) -> None:
+    raw = _workbook(
+        '<row r="1"><c r="A1"><v>9007199254740993.25</v></c><c r="B1"><f>A1*2</f></c></row>'
+    )
+    read = _read(tmp_path, "issuer.xlsx", raw)
+    assert "Sheet Annual FY" in read
+    assert "A1=9007199254740993.25 | B1='=A1*2' cache=[absent]" in read
+    assert "9007199254740994" not in read
+
+
+# Expected by hand: two stored cells at opposite corners of a sheet whose dimension claims all
+# 17,179,869,184 cells are read as exactly those two cells, well within the test's time.
+def test_excel_sparse_workbook_reads_only_stored_cells(tmp_path: Path) -> None:
+    raw = _workbook(
+        '<row r="1"><c r="A1"><v>1</v></c></row>'
+        '<row r="1048576"><c r="XFD1048576"><v>2</v></c></row>',
+        dimension='<dimension ref="A1:XFD1048576"/>',
+    )
+    started = time.monotonic()
+    read = _read(tmp_path, "issuer.xlsx", raw)
+    assert time.monotonic() - started < 5
+    assert "date serials are retained without conversion.\nA1=1\nXFD1048576=2\n" in read
+
+
+# Expected by hand: workbook bytes are a workbook under any source id, and bytes that only begin
+# like a ZIP, or a ZIP that is not a workbook, are not.
+def test_excel_is_detected_by_content_not_source_id(tmp_path: Path) -> None:
+    import io
+    import zipfile
+
+    raw = _workbook('<row r="1"><c r="A1" t="inlineStr"><is><t>USD m</t></is></c></row>')
+    assert "A1='USD m'" in _read(tmp_path, "S1", raw)
+    assert "page=1>>>\nPK\x03\x04 is not a workbook\n<<<END>>>" in _read(
+        tmp_path, "notes.xlsx", b"PK\x03\x04 is not a workbook"
+    )
+    other = io.BytesIO()
+    with zipfile.ZipFile(other, "w") as archive:
+        archive.writestr("word/document.xml", "<w/>")
+    with pytest.raises(UnicodeDecodeError):
+        _read(tmp_path, "S2", other.getvalue())
 
 
 def test_heading_feedback_identifies_exact_repair(tmp_path: Path) -> None:

@@ -10,7 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from deploy_workflow.handoff_delivery import HandoffInput, ModelRow, verify_delivery
+from deploy_workflow.handoff_delivery import (
+    DeliveryRequest,
+    HandoffInput,
+    ModelRow,
+    verify_delivery,
+)
 from deploy_workflow.model_handoff_delivery import build_model
 from deploy_workflow.owners.cpos import HandoffPlan, run_handoffs
 
@@ -153,6 +158,27 @@ def test_charts_have_18_exact_table_twins_and_missing_observation(published) -> 
             else:
                 assert twin["cells"][0]["state"] == "known"
     assert (marks, gaps) == (18, 1)
+
+
+DELIVERY_REQUEST = (
+    "runs/cpos-tdg-model-001/execution/"
+    "delivery-07ede06e6c4828bde0fb39cd68f14e6f3c154a0837dc28734ac7074bf2b080f5.json"
+)
+
+
+@pytest.mark.parametrize(
+    ("path", "contract"),
+    [
+        (DELIVERY_REQUEST, DeliveryRequest),
+        ("runs/cpos-tdg-model-001/workflow.json", HandoffPlan),
+    ],
+)
+def test_a_manifest_without_derived_rows_keeps_its_key_set(path, contract) -> None:
+    raw = (ROOT / path).read_text(encoding="utf-8")
+    written = json.loads(contract.model_validate_json(raw).model_dump_json())["model"]
+    held = json.loads(raw)["model"]
+    assert set(written) == set(held)
+    assert "derived" not in written and "derived" not in held
 
 
 def test_balance_selector_must_match_source_instant() -> None:

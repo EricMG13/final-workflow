@@ -920,6 +920,9 @@ COMPONENT_MISSING = "a component is not in the handoffs"
 REASON_PHRASES = {
     "NOT_SOURCED": "not reported in the source",
     "COMPONENT_MISSING": COMPONENT_MISSING,
+    "PRIOR_PERIOD_MISSING": PRIOR_MISSING,
+    "REGISTER_DATE_DIFFERS": "secured-debt carrying values are recorded at another date",
+    "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
 }
 LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
 MONTHS_SHORT = {name[:3]: number for number, name in enumerate(MONTHS, 1)}
@@ -1519,6 +1522,14 @@ def op_margin(c: CellContext, source: RowKey) -> Cell:
     return derive("percent", [c.grid[source][c.at], c.grid["revenue"][c.at]], lambda a, b: a / b)
 
 
+def op_prefer(c: CellContext, key: str, fallback: Spec) -> Cell:
+    """The calculation record's own value for the key when it holds one, else the derivation."""
+    record = c.column["record"]
+    if record is not None and key in record:
+        return held_cell(record[key], c.kind)
+    return spec_cell(fallback, c)
+
+
 def op_needs_ltm(c: CellContext) -> Cell:
     return unavailable_cell(LTM_NEEDED)
 
@@ -1546,6 +1557,7 @@ CELL_OPS: dict[str, Callable[..., Cell]] = {
     "margin": op_margin,
     "ltm": op_needs_ltm,
     "senior": op_senior,
+    "prefer": op_prefer,
 }
 
 
@@ -1585,7 +1597,11 @@ HEAD_ROWS = (
         ("key", "revenue"),
     ),
     RowSpec(
-        "revenue-growth", "Revenue", "Revenue YoY growth", "percent", *every(("growth", "revenue"))
+        "revenue-growth",
+        "Revenue",
+        "Revenue YoY growth",
+        "percent",
+        *every(("prefer", "revenue_growth", ("growth", "revenue"))),
     ),
     RowSpec(
         "cogs",
@@ -1605,7 +1621,13 @@ HEAD_ROWS = (
         ("key", "gross_profit"),
         None,
     ),
-    RowSpec("gp-margin", INCOME, "Gross profit margin", "percent", *every(("margin", "gp"))),
+    RowSpec(
+        "gp-margin",
+        INCOME,
+        "Gross profit margin",
+        "percent",
+        *every(("prefer", "gross_margin", ("margin", "gp"))),
+    ),
     RowSpec(
         "opex",
         INCOME,
@@ -1672,8 +1694,20 @@ TAIL_ROWS = (
         ("key", "issuer_as_defined"),
         ("key", "ebitda"),
     ),
-    RowSpec("adj-margin", ADJUSTED, "Adj EBITDA margin", "percent", *every(("margin", "adj"))),
-    RowSpec("adj-growth", ADJUSTED, "Adj EBITDA YoY growth", "percent", *every(("growth", "adj"))),
+    RowSpec(
+        "adj-margin",
+        ADJUSTED,
+        "Adj EBITDA margin",
+        "percent",
+        *every(("prefer", "adj_ebitda_margin", ("margin", "adj"))),
+    ),
+    RowSpec(
+        "adj-growth",
+        ADJUSTED,
+        "Adj EBITDA YoY growth",
+        "percent",
+        *every(("prefer", "adj_ebitda_growth", ("growth", "adj"))),
+    ),
     RowSpec(
         "interest",
         PROXY,
@@ -1745,7 +1779,7 @@ TAIL_ROWS = (
         "Senior secured leverage (secured debt / Adj EBITDA)",
         "multiple",
         ("ltm",),
-        ("senior",),
+        ("prefer", "senior_secured_multiple", ("senior",)),
         None,
     ),
     RowSpec(

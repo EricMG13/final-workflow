@@ -1505,6 +1505,28 @@ def test_senior_secured_leverage_is_the_register_date_year_only(tmp_path):
     )
 
 
+def test_the_grid_prefers_recorded_derived_rows_and_falls_back_without_them(tmp_path):
+    senior = "Senior secured leverage (secured debt / Adj EBITDA)"
+    record = calculation_record()
+    record["values"]["FY2024"]["revenue_growth"] = amount("0.25")
+    record["values"]["FY2024"]["senior_secured_multiple"] = amount(None, "UNCLASSIFIED_ROW")
+    cashflow, _ = cashflow_of(tmp_path / "with", extra=cashflow_files(record))
+    growth = row(cashflow, "Revenue YoY growth")["cells"][3]
+    assert (growth["exact"], growth["display"], growth["status"]) == ("0.25", "25.00%", "value")
+    cell = row(cashflow, senior)["cells"][3]
+    assert (cell["display"], cell["reason"]) == (
+        NA,
+        "the debt register has a row that cannot be classified",
+    )
+    # FY2025 holds no recorded keys, so its cells keep the old derivation.
+    assert row(cashflow, "Revenue YoY growth")["cells"][4]["display"] == "10.00%"
+    plain, _ = cashflow_of(tmp_path / "without")
+    assert row(plain, "Revenue YoY growth")["cells"][3]["reason"] == (
+        "prior-year period not in the handoffs"
+    )
+    assert row(plain, senior)["cells"][3]["display"] == "3.00x"
+
+
 def test_senior_secured_leverage_needs_every_secured_instrument_carrying_value(tmp_path):
     broken = ANNUAL_MD.replace("Principal 500; carrying 500", "Principal 500")
     cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=broken))

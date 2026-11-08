@@ -12,7 +12,7 @@
 5. Model delivery publishes LTM Adj EBITDA (and quarter-end senior secured leverage where the quarter register is classifiable) under `calculation.json["quarters"]`; the store reads them.
 6. `VERIFICATION.md` becomes the archive by rename; a new short `VERIFICATION.md` holds the recent entries and points at it.
 
-**Tech Stack:** Python 3.13 (standard library only in `apps/issuer-library/engine/store.py`; pydantic 2.14.1 in `src/`), Go 1.26 (`apps/issuer-library/go.mod`), plain browser JavaScript with jsdom tests, PowerShell 5.1 (Windows only, invoked through `os/exec`).
+**Tech Stack:** Python 3.13 (standard library only in `apps/issuer-library/engine/store.py`; pydantic 2.14.1 in `src/`), Go 1.24 (`apps/issuer-library/go.mod`), plain browser JavaScript with jsdom tests, PowerShell 5.1 (Windows only, invoked through `os/exec`).
 
 **Spec:** the controller's brief of 2026-11-08 and the "Owner calls" section of `docs/superpowers/plans/2026-11-07-run-events-delivery-coverage-workspace.md`, with the rulings in `.superpowers/sdd/2026-11-07-run-events-delivery-coverage-workspace/progress.md`. All code facts below were read at `7cce363a`. No separate spec file (one-record rule, `AGENTS.md`).
 

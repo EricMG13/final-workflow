@@ -381,6 +381,18 @@ def test_thousands_figure_in_call_arguments_stays_whole() -> None:
     assert flow.numbers("sum(980,161)") == {"980", "161"}  # not the one figure 980161
 
 
+def test_thousands_figures_in_a_call_written_with_comma_space_stay_whole() -> None:
+    # Verbatim from a retained live CP-3 handoff: ", " separates the arguments.
+    line = (
+        "| Term loans/secured notes share of gross principal | ratio(19,702, 25,228); CP-1 C3 | "
+        "0.78095766608530204534644046297764388774 | 0.780958 fraction; "
+        "not percentage or recovery |"
+    )
+    got = flow.numbers(line)
+    assert {"19702", "25228"} <= got
+    assert not got & {"19", "702", "25", "228"}
+
+
 def test_duration_word_glued_by_pdf_extraction_is_a_unit() -> None:
     # The sol-medium filing text reads "Operating leases ..... 5.4years".
     assert flow.numbers("lease term 5.4years and 18months, 30days") == {"5.4", "18", "30"}

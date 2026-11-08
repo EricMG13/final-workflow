@@ -1248,7 +1248,9 @@ BRIDGE_TWINS = {
 
 @pytest.mark.parametrize("twin", BRIDGE_TWINS.values(), ids=BRIDGE_TWINS)
 @pytest.mark.parametrize("after", [True, False], ids=["after", "before"])
-def test_a_repeated_bridge_ebitda_row_is_refused_whatever_its_spelling(twin: bytes, after: bool):
+def test_a_repeated_bridge_ebitda_row_is_refused_whatever_its_spelling(
+    twin: bytes, after: bool
+) -> None:
     edit = ROW_BRIDGE + twin if after else twin + ROW_BRIDGE
     with pytest.raises(ValueError, match="model_row: expected one"):
         edited_quarters(quarter=[(ROW_BRIDGE, edit)])

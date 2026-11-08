@@ -1,6 +1,7 @@
 """The live-run event log: line format, tolerant reading and the fixed stop reasons."""
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -66,13 +67,14 @@ def test_read_events_reads_at_most_the_limit(tmp_path: Path) -> None:
     assert [e["event"] for e in read_events(path, limit=15)] == ["a"]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="resource and SIGXFSZ do not exist on Windows")
 def test_an_append_that_fails_part_way_leaves_the_log_as_it_was(tmp_path: Path) -> None:
     import resource
     import signal
 
     append_event(tmp_path, "module_started", module="CP-0")
     size = (tmp_path / EVENTS).stat().st_size
-    signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
+    previous = signal.signal(signal.SIGXFSZ, signal.SIG_IGN)
     soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
     resource.setrlimit(resource.RLIMIT_FSIZE, (size + 20, hard))  # room for 20 more bytes only
     try:
@@ -80,6 +82,7 @@ def test_an_append_that_fails_part_way_leaves_the_log_as_it_was(tmp_path: Path) 
             append_event(tmp_path, "turn", module="CP-0", turn=1, spent_usd="0")
     finally:
         resource.setrlimit(resource.RLIMIT_FSIZE, (soft, hard))
+        signal.signal(signal.SIGXFSZ, previous)
     append_event(tmp_path, "module_accepted", module="CP-0")
     assert [e["event"] for e in read_events(tmp_path / EVENTS)] == [
         "module_started",

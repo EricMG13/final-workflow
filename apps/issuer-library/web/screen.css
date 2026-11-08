@@ -310,7 +310,7 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .cashflow .band-row th{background:var(--gray-50);font:600 var(--fs-compact)/18px 'Red Hat Text',sans-serif;color:var(--text-tertiary)}
 .cashflow tbody tr:hover>th[scope=row]{background:var(--gray-25)}
 /* At desktop widths the row labels wrap in a 22rem column and cells use 12px side padding, so the 11 period columns fit a 1236 px box. */
-.cashflow th,.cashflow td{padding-left:12px;padding-right:12px}.cashflow tbody th[scope=row]{white-space:normal;width:22rem;min-width:0;max-width:22rem}
+.cashflow th,.cashflow td{padding-left:12px;padding-right:12px}.cashflow tbody th[scope=row]{white-space:normal;width:14rem;min-width:12rem;max-width:22rem}
 .cashflow .col-sub{display:block}
 .cashflow-notes,.cashflow-na ul{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:var(--fs-label)}
 .cashflow-na{margin-top:10px;font-size:var(--fs-label);color:var(--muted)}.cashflow-na summary{cursor:pointer;font-weight:600;color:var(--text-secondary)}.cashflow-na ul{margin-top:6px}
@@ -321,7 +321,7 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .report-tools .acceptance .badge{display:inline-flex;flex:0 0 auto;width:auto;white-space:nowrap}.report-tools .acceptance .muted{display:inline;width:auto}
 .forecast-caption{color:var(--muted);font-size:var(--fs-label);margin:4px 0 10px}
 /* At 720 px and below the section bar sits above every sticky table cell (z-index 3 at most), and row labels wrap in a capped column. */
-@media(max-width:720px){#section-nav{z-index:5}.cashflow tbody th[scope=row]{white-space:normal;width:9.5rem;min-width:0;max-width:9.5rem}}
+@media(max-width:720px){#section-nav{z-index:5}.cashflow tbody th[scope=row]{white-space:normal;width:12rem;min-width:12rem;max-width:12rem}}
 .rail a[data-place="Run activity"]{position:relative}.run-mark{position:absolute;top:1px;right:1px;min-width:15px;height:15px;border-radius:var(--radius-inline);background:var(--blue);color:#fff;font-size:var(--fs-label);line-height:15px;text-align:center;pointer-events:none}.run-mark[data-state=complete]{background:var(--gray-200);color:var(--navy)}.run-mark[data-state=stopped]{background:var(--amber-bg);color:var(--amber);font-weight:700}.run-mark[hidden]{display:none}
 #run-activity .table-scroll{margin:12px 0}.activity-log{margin:0;font-size:var(--fs-compact)}.activity-log caption{text-align:left;color:var(--muted);font-size:var(--fs-label);padding:12px 16px 0}.activity-log td:first-child{font-family:'Red Hat Mono',monospace;white-space:nowrap}.activity-log td{font-size:var(--fs-compact)}#run-activity .text-action{margin:4px 0 0}.caution details{margin-top:6px}.caution summary{cursor:pointer}
 
@@ -338,3 +338,10 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .strip-actions{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px}.strip-actions a{font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--blue-700);text-decoration:underline}.run-strip[data-tone=amber] .strip-actions a{color:var(--amber)}
 .strip-close{display:grid;place-items:center;width:32px;height:32px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--radius-control);background:none;cursor:pointer}.strip-close:hover{background:rgba(0,5,51,.07)}.strip-close img{width:16px;height:16px}
 @media(max-width:720px){.run-strip{padding:10px 12px}}
+/* Cash flow rows are 32px (a 20px line, 5px above and below, the 1px rule inside the height); a wrapped label grows its row. Each column group opens with a 1px --rule line, and the scenario columns sit on --quiet. */
+.cashflow tbody th,.cashflow tbody td{height:32px;padding-top:5px;padding-bottom:5px;line-height:20px;vertical-align:middle}
+.cashflow .group-start{border-left:1px solid var(--rule)}
+.cashflow td.scenario{background:var(--quiet)}
+/* The published model is the original deliverable, kept behind a disclosure so the cash flow model leads. */
+.model-original{margin:20px 0}.model-original>summary{cursor:pointer;font-weight:600;font-size:var(--fs-control);color:var(--text-secondary);min-height:32px;padding:6px 0}
+.model-original[open]>summary{margin-bottom:8px}

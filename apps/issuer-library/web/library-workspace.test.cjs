@@ -260,8 +260,9 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
     assert.equal(d.querySelector('.forecast-built .table-scroll').nextElementSibling,d.querySelector('.forecast-attempts'));
     const frame=d.getElementById('model-preview');
     assert.equal(frame.getAttribute('sandbox'),'allow-scripts allow-downloads');
-    assert.match(frame.getAttribute('src'),/^\/files\/deliverables\/tdg-model-3\/model\.html\?sha256=[0-9a-f]{64}&embedded=1$/);
-    assert.ok(frame.getAttribute('src').includes(`sha256=${expected.modelSha256}`));
+    assert.equal(frame.getAttribute('src'),null,'the frame has no address until the disclosure is opened');
+    assert.match(frame.dataset.src,/^\/files\/deliverables\/tdg-model-3\/model\.html\?sha256=[0-9a-f]{64}&embedded=1$/);
+    assert.ok(frame.dataset.src.includes(`sha256=${expected.modelSha256}`));
     // Each link opens the output it names, in the run that holds it.
     const open=async(link,output)=>{await go(w,link.getAttribute('href').slice(1));assert.equal(w.eval('current.output'),output);await go(w,`W-Forecast/forecast?c=${run}`);};
     await open(assumptions.querySelector('a.text-action'),expected.registerLinkOutput);
@@ -341,7 +342,7 @@ for(const run of ['tdg-model-001','tdg-003'])test(`Forecast for ${run} shows the
 });
 
 test('A model with no calculation record says so in place of the table; hostile reasons and limits stay text',async t=>{
-  const bad='<img src=x onerror=alert(1)>';
+  const bad='<img src=x onerror=alert(1)>',quoted='x" onmouseover="alert(1)';
   const forged=structuredClone(workspace);
   const models=forged.store.models;
   const a=models.find(m=>m.id==='tdg-model-3'),b=models.find(m=>m.id==='tdg-model-2');
@@ -349,6 +350,7 @@ test('A model with no calculation record says so in place of the table; hostile 
   a.cashflow.limits=[bad];
   a.cashflow.notes=[bad];
   a.cashflow.rows[0].cells[1]={exact:null,display:'n.a.',reason:bad,status:'na'};
+  a.cashflow.rows[0].cells[2]={exact:null,display:'n.a.',reason:quoted,status:'na'};
   a.cashflow.units=null;
   const w=await forecastTab(forged,'tdg-002',t),d=w.document;
   assert.equal(d.querySelector('.forecast-cashflow h2').nextElementSibling.textContent,'Units not recorded · Q1 FY2024 (YTD) to FY2027E · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record');
@@ -356,6 +358,11 @@ test('A model with no calculation record says so in place of the table; hostile 
   assert.deepEqual([...d.querySelectorAll('.cashflow-notes li')].map(li=>li.textContent),[bad]);
   assert.deepEqual([...d.querySelectorAll('.cashflow-na li')].map(li=>li.textContent).slice(0,1),[`Not available: Power & Control — ${cashflow.columns[1]}: ${bad}`]);
   assert.equal(d.querySelectorAll('.cashflow td')[1].getAttribute('aria-label'),`n.a.: ${bad}`);
+  // A quote in a reason must stay inside the one aria-label attribute: unescaped it would open an onmouseover attribute.
+  const quotedCell=d.querySelectorAll('.cashflow td')[2];
+  assert.equal(quotedCell.getAttribute('aria-label'),`n.a.: ${quoted}`);
+  assert.equal(quotedCell.hasAttribute('onmouseover'),false);
+  assert.deepEqual([...quotedCell.attributes].map(attr=>attr.name).sort(),['aria-label','class','title'].filter(n=>quotedCell.hasAttribute(n)).sort());
   assert.equal(d.querySelector('.forecast-cashflow img,.forecast-limits img'),null);
   assert.equal(d.querySelector('[onerror]'),null);
   const select=d.getElementById('model-select');
@@ -372,7 +379,7 @@ test('Choosing another model in the Forecast tab shows that model',async t=>{
   select.value='tdg-model-1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
   await settle();
   assert.equal(d.getElementById('model-select').selectedOptions[0].textContent,forecast.runs[run].options[2]);
-  assert.match(d.getElementById('model-preview').getAttribute('src'),/tdg-model-1\/model\.html/);
+  assert.match(d.getElementById('model-preview').dataset.src,/tdg-model-1\/model\.html/);
 });
 
 for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>!e.models.length)){
@@ -441,22 +448,29 @@ test('Model text from a workspace stays text, and a source that changed says so'
   assert.deepEqual(status.slice(1),Array(4).fill('Matches publication'));
 });
 
-test('The model frame shows loading, then the failure with a download link when the page never arrives',async t=>{
+test('The model frame is not loaded or watched until its disclosure is opened, then shows loading and the failure with a download link',async t=>{
   const w=screens(workspace,'W-Overview/overview?c=tdg-002').window;t.after(()=>w.close());
   w.DESIGN_FRAME_TIMEOUT_MS=20;
-  // The render arms the 20 ms timer synchronously, so the loading state is read in that same task, before
-  // any timer can fire. A busy listener after the app's stands in for a loaded machine: awaiting go()'s
-  // settle() here would read the status after the timer had already failed it. jsdom's own later
-  // hashchange for the same route does not re-render (renderRoute's `changed`), so `status` stays live.
-  w.addEventListener('hashchange',()=>{for(const end=Date.now()+40;Date.now()<end;);});
-  w.location.hash='W-Forecast/forecast?c=tdg-002';w.dispatchEvent(new w.Event('hashchange'));
-  const status=w.document.querySelector('.forecast .frame-status');
-  assert.equal(text(status),'Loading model…');
+  await go(w,'W-Forecast/forecast?c=tdg-002');
+  const d=w.document,details=d.querySelector('details.model-original'),frame=d.getElementById('model-preview'),status=details.querySelector('.frame-status');
+  assert.equal(details.open,false);
+  assert.equal(text(details.querySelector('summary')),'Published model (original HTML)');
+  assert.equal(frame.closest('details'),details);
+  assert.equal(frame.getAttribute('src'),null);
+  await settle(80);
+  assert.equal(status.hidden,true,'no watch has started');
+  assert.equal(text(status),'');
+  details.open=true;
+  await until(()=>frame.getAttribute('src'),'the frame never got its address',2000);
+  assert.equal(frame.getAttribute('src'),frame.dataset.src);
   await until(()=>/did not load/.test(status.textContent),'the model frame never reported failure',2000);
   assert.match(text(status),/^The model did not load\. Download original HTML Retry$/);
   assert.match(status.querySelector('a').getAttribute('href'),/model\.html\?sha256=[0-9a-f]{64}&download=1$/);
-  w.document.getElementById('model-preview').dispatchEvent(new w.Event('load'));
+  frame.dispatchEvent(new w.Event('load'));
   assert.equal(status.hidden,true);
+  // Closing and opening again does not start a second watch or reset the address.
+  const src=frame.getAttribute('src');details.open=false;await settle(30);details.open=true;await settle(30);
+  assert.equal(frame.getAttribute('src'),src);
 });
 
 // Security review M1/M2/P1: a model or report id reaches the address as one encoded section and is read back exactly.
@@ -495,7 +509,7 @@ for(const id of ['m é 1','a%20b','Société modèle','a/b?c=1#x']){
     select.value=id;select.dispatchEvent(new w.Event('change',{bubbles:true}));
     await settle();
     assert.equal(d.getElementById('model-select').value,id);
-    assert.match(d.getElementById('model-preview').getAttribute('src'),new RegExp(want.href.split('?')[0].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+    assert.match(d.getElementById('model-preview').dataset.src,new RegExp(want.href.split('?')[0].replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
     assert.equal(d.querySelector('.forecast-scope')?.textContent??null,want.scope);
     const again=w.eval('parseRoute()');
     assert.equal(again.section,id);
@@ -533,4 +547,113 @@ test('hydrate gives every output the sections of its own hash',()=>{
 test('hydrate refuses an output whose handoff was not sent',()=>{
   const hydrate=loadHydrate();
   assert.throws(()=>hydrate({outputs:{'r1/CP-1.md':{id:'r1/CP-1.md',sha256:'zz'}},handoffs:{}}),/r1\/CP-1\.md/);
+});
+
+test('The cash flow table is a labelled scroll region with ruled column groups and quiet scenario cells',async t=>{
+  const w=await forecastTab(workspace,'tdg-002',t),d=w.document;
+  const region=d.querySelector('.forecast-cashflow .table-scroll'),h2=d.querySelector('.forecast-cashflow h2');
+  assert.equal(region.getAttribute('role'),'region');
+  assert.equal(region.getAttribute('tabindex'),'0');
+  assert.equal(region.getAttribute('aria-labelledby'),h2.id);
+  assert.ok(h2.id);
+  const names=cashflow.groups;
+  const first=d.querySelector('.cashflow tbody tr:not(.band-row)');
+  const cells=[...first.querySelectorAll('td')],columns=cashflow.columns;
+  assert.equal(cells.length,columns.length);
+  const starts=cells.map(c=>c.classList.contains('group-start'));
+  assert.equal(starts.filter(Boolean).length,names.length,'one ruled first column per group');
+  assert.equal(starts[0],true);
+  const scenario=cells.map(c=>c.classList.contains('scenario'));
+  assert.ok(scenario.some(Boolean)&&scenario.some(v=>!v),'some cells are scenario columns and some are not');
+  // jsdom does not resolve var(), so each token the cash flow rules read is replaced by the value screen.css defines it with.
+  const css=fs.readFileSync(path.join(__dirname,'screen.css'),'utf8'),token=name=>css.match(new RegExp(`${name}:(#[0-9a-f]{6})`))[1];
+  const sheet=[...css.matchAll(/\.cashflow[^{]*\{[^}]*\}/g)].map(m=>m[0]).join('\n').replaceAll('var(--rule)',token('--rule')).replaceAll('var(--quiet)',token('--quiet'));
+  const style=d.createElement('style');style.textContent=sheet;d.head.append(style);
+  const cs=w.getComputedStyle(cells[starts.indexOf(true)]);
+  assert.equal(w.getComputedStyle(cells[0]).height,'32px');
+  assert.equal(w.getComputedStyle(first.querySelector('th')).minWidth,'12rem');
+  const startCell=cells.find(c=>c.classList.contains('group-start'));
+  assert.match(w.getComputedStyle(startCell).borderLeft,/^1px solid (rgb\(221, 225, 234\)|#dde1ea)$/);
+  assert.equal(cs.paddingTop,'5px');
+  const quiet=cells.find(c=>c.classList.contains('scenario'));
+  assert.equal(w.getComputedStyle(quiet).backgroundColor,'rgb(246, 247, 250)');
+  assert.equal(w.getComputedStyle(cells.find(c=>!c.classList.contains('scenario'))).backgroundColor,'rgba(0, 0, 0, 0)');
+});
+
+test('The section pager names models on Forecast and reports on Reports, and sections elsewhere',async t=>{
+  const w=await forecastTab(workspace,'tdg-002',t),d=w.document;
+  assert.equal(d.getElementById('previous-section').getAttribute('aria-label'),'Previous model');
+  assert.equal(d.getElementById('next-section').getAttribute('aria-label'),'Next model');
+  await go(w,'W-Reports/list?c=tdg-002');
+  assert.equal(d.getElementById('previous-section').getAttribute('aria-label'),'Previous report');
+  assert.equal(d.getElementById('next-section').getAttribute('aria-label'),'Next report');
+  await go(w,'W-Evidence/sources?c=tdg-002');
+  const evidence=d.getElementById('previous-section');
+  if(evidence)assert.equal(evidence.getAttribute('aria-label'),'Previous section');
+  await go(w,'W-Calendar/calendar?c=tdg-002');
+  const other=d.getElementById('previous-section');
+  if(other)assert.equal(other.getAttribute('aria-label'),'Previous section');
+});
+
+test('Library runs inside an issuer group are newest first, with runs of no recorded date last and ties by run id',t=>{
+  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const runs=Object.entries(workspace.store.runs);
+  for(const group of d.querySelectorAll('#library-results tbody.run-list[data-group]')){
+    const keys=[...group.querySelectorAll('a.run-link')].map(runKey);
+    const asOf=k=>workspace.store.runs[k].asOf||null;
+    const expected=[...keys].sort((a,b)=>(asOf(b)!==null)-(asOf(a)!==null)||(asOf(a)!==null&&asOf(b)!==null?asOf(b).localeCompare(asOf(a)):0)||(a<b?-1:a>b?1:0));
+    assert.deepEqual(keys,expected,text(group.querySelector('h2')));
+  }
+  assert.ok(runs.length>0);
+  const tdg=[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))==='TransDigm Group Incorporated');
+  const order=[...tdg.querySelectorAll('a.run-link')].map(runKey),dated=order.filter(k=>workspace.store.runs[k].asOf);
+  assert.ok(dated.length>0&&dated.length<order.length,'the group mixes dated and undated runs');
+  assert.deepEqual(order.slice(order.length-(order.length-dated.length)).some(k=>workspace.store.runs[k].asOf),false,'undated runs come last');
+});
+
+test('A filter that hides some of a group runs shows shown of total; a search opens matching groups without remembering it',t=>{
+  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const toggle=name=>[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))===name);
+  assert.match(text(toggle('TransDigm Group Incorporated').querySelector('.run-toggle')),/^24 runs$/);
+  const box=d.getElementById('library-query');
+  box.value='cpos-tdg-';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  const group=toggle('TransDigm Group Incorporated'),button=group.querySelector('.run-toggle');
+  const shown=group.querySelectorAll('tr.run-row').length;
+  assert.ok(shown>1&&shown<24);
+  assert.equal(text(button),`${shown} of 24 runs`);
+  assert.equal(button.getAttribute('aria-expanded'),'true');
+  assert.equal([...group.querySelectorAll('tr.run-row')].some(r=>r.hidden),false);
+  assert.equal(w.eval('expandedIssuers.size'),0,'the reader chose nothing');
+  box.value='';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  const back=toggle('TransDigm Group Incorporated');
+  assert.equal(text(back.querySelector('.run-toggle')),'24 runs');
+  assert.equal(back.querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
+  assert.equal(back.querySelector('tr.run-row').hidden,true);
+});
+
+test('Help explains run notices, resuming a stopped run and n.a. and n.m. in the cash flow model',t=>{
+  const w=screens(workspace,'W-Help/help').window,d=w.document;t.after(()=>w.close());
+  const heads=[...d.querySelectorAll('.help-copy h2')].map(text);
+  for(const name of ['Run notices','Resuming a stopped run','n.a. and n.m. in the cash flow model'])assert.ok(heads.includes(name),name);
+  const body=name=>text([...d.querySelectorAll('.help-copy h2')].find(h=>text(h)===name).nextElementSibling);
+  assert.match(body('Run notices'),/Dismiss/);
+  assert.match(body('Resuming a stopped run'),/accepted/);assert.match(body('Resuming a stopped run'),/higher maximum USD spend/);
+  const na=body('n.a. and n.m. in the cash flow model');
+  assert.match(na,/n\.a\. means not available/);assert.match(na,/Why cells show n\.a\./);assert.match(na,/never zero/);assert.match(na,/n\.m\. means not modelled/);
+});
+
+test('An Other models row opens the model under the run it was published for, not an earlier run that only supplied files',async t=>{
+  const w=await forecastTab(workspace,'tdg-run-comparison',t),d=w.document;
+  const keys=w.eval('Object.keys(contexts)'),folderOf=k=>w.eval(`contexts[${JSON.stringify(k)}].folder`);
+  const issuer=w.eval('contexts["tdg-run-comparison"].issuerKey');
+  const same=keys.filter(k=>w.eval(`contexts[${JSON.stringify(k)}].issuerKey`)===issuer&&k!=='tdg-run-comparison');
+  const supplier=same[0],owner=same.at(-1);
+  assert.notEqual(supplier,owner);
+  const base=JSON.parse(JSON.stringify(w.DESIGN_WORKSPACE.models[0]));
+  base.id='zz-owned-model';base.issuerKey=issuer;base.runId=folderOf(owner);base.sources=[{...base.sources[0],run:supplier}];
+  w.DESIGN_WORKSPACE.models.splice(0,w.DESIGN_WORKSPACE.models.length,base);
+  await go(w,'W-Library/cases');await go(w,'W-Forecast/forecast?c=tdg-run-comparison');
+  const link=d.querySelector('.forecast-other li a');
+  assert.ok(link,'the row links');
+  assert.equal(new URLSearchParams(link.getAttribute('href').split('?')[1]).get('c'),owner);
 });

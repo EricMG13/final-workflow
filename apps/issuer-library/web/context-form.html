@@ -39,8 +39,8 @@
   --rb-font-text: 'Red Hat Text', system-ui, sans-serif;
   --rb-font-mono: 'Red Hat Mono', ui-monospace, monospace;
   --rb-fs-page: 20px; --rb-fs-call: 16px; --rb-fs-issuer: 15px;
-  --rb-fs-body: 13.5px; --rb-fs-table: 12px; --rb-fs-label: 11px;
-  --rb-fs-micro: 10.5px; --rb-lh-body: 1.5; --rb-lh-table: 1.45;
+  --rb-fs-body: 13px; --rb-fs-table: 12px; --rb-fs-label: 11px;
+  --rb-fs-micro: 11px; --rb-lh-body: 1.5; --rb-lh-table: 1.45;
   /* space */
   --rb-s-1: 4px; --rb-s-2: 6px; --rb-s-3: 8px; --rb-s-4: 10px;
   --rb-s-5: 12px; --rb-s-6: 18px; --rb-s-7: 24px;
@@ -242,7 +242,8 @@ body>details { margin:var(--rb-s-5); }
 .rtag.req { background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; }
 .rtag.rec { background:transparent; border:1px solid #CFD3DD; color:#3A4056; }
 .rtag.opt { background:transparent; border:1px solid #E4E6EC; color:#4F566B; }
-.tag.def { background:#E7ECFF; color:#0017E5; }
+/* Default tag: the grey .badge-gray of screen.css (--gray-50 #F8F9FB, --border-secondary #E4E6EC, --text-secondary #3A4056); this sandboxed form cannot read the app's variables. */
+.tag.def { background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; text-transform:none; font-weight:500; }
 </style></head>
 <body>
 

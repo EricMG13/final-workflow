@@ -91,7 +91,19 @@ test('the form uses the app look: 40 px fields, 16 px text, pills and a styled f
  assert.match(css,/::file-selector-button/);
  const req=p.win.getComputedStyle(p.doc.querySelector('.rtag.req'));assert.equal(req.backgroundColor,'rgb(248, 249, 251)');assert.equal(req.color,'rgb(58, 64, 86)');
  const rec=p.win.getComputedStyle(p.doc.querySelector('.rtag.rec'));assert.equal(rec.backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(rec.borderTopColor,'rgb(207, 211, 221)');
- assert.match(css,/\.tag\.def \{[^}]*background:#E7ECFF;[^}]*color:#0017E5/);
+ assert.match(css,/\.tag\.def \{[^}]*background:#F8F9FB;[^}]*color:#3A4056/);
+});
+test('the Default tag is the grey pill in sentence case, and the form text sizes are 13px and 11px',t=>{
+ const p=form(t),tag=p.doc.querySelector('.tag.def');
+ assert.ok(tag,'a Default tag is shown');
+ assert.equal(tag.textContent,'Default');
+ const s=p.win.getComputedStyle(tag);
+ assert.equal(s.textTransform,'none');assert.equal(s.backgroundColor,'rgb(248, 249, 251)');assert.equal(s.color,'rgb(58, 64, 86)');assert.equal(s.borderRadius,'999px');
+ const html=fs.readFileSync(path.join(__dirname,'context-form.html'),'utf8');
+ assert.match(html,/--rb-fs-body: 13px;/);assert.match(html,/--rb-fs-micro: 11px;/);assert.doesNotMatch(html,/13\.5px|10\.5px/);
+ assert.match(html,/\.tag\.def \{ background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; text-transform:none;/);
+ const css=fs.readFileSync(path.join(__dirname,'context-embed.css'),'utf8');
+ assert.match(html,/\.badge-gray of screen\.css/);assert.match(css,/\.badge-gray of screen\.css/);
 });
 const later=()=>new Promise(resolve=>setTimeout(resolve,20));
 test('a host with several text nodes titles all their codes once, and loses the title when they go',async t=>{

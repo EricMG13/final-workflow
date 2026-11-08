@@ -4,14 +4,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -146,3 +149,46 @@ func privateFolder(name string) error {
 // ownerOnly reports whether info describes a plain file (not a link or other reparse point). Its
 // access comes from the state folder, which privateFolder has checked.
 func ownerOnly(info fs.FileInfo) bool { return info.Mode().IsRegular() }
+
+// systemDirectory is the Windows system folder from GetSystemDirectoryW, not from the environment.
+func systemDirectory() (string, error) {
+	buffer := make([]uint16, syscall.MAX_PATH)
+	length, _, err := syscall.NewLazyDLL("kernel32.dll").NewProc("GetSystemDirectoryW").Call(uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)))
+	if length == 0 || int(length) >= len(buffer) {
+		return "", fmt.Errorf("Windows system folder lookup failed: %v", err)
+	}
+	return syscall.UTF16ToString(buffer[:length]), nil
+}
+
+// powershellPath is the system PowerShell by absolute path. There is no PATH fallback: if it is
+// missing the notice fails, and the caller logs that.
+func powershellPath() (string, error) {
+	directory, err := systemDirectory()
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(directory, "WindowsPowerShell", "v1.0", "powershell.exe")
+	if _, err = os.Stat(path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// platformNotify shows a toast through PowerShell running the fixed toastScript; the text goes
+// in environment variables only. A failure is returned for the caller to log, never to act on.
+func platformNotify(title, body string) error {
+	program, err := powershellPath()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, program, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", toastScript)
+	cmd.Env = toastEnv(os.Environ(), title, body)
+	configureWorkerCommand(cmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("PowerShell toast output: %s", output)
+		return err
+	}
+	return nil
+}

@@ -40,6 +40,12 @@ type Application struct {
 	expires    time.Time  // when the ticket stops working; fixed at start
 	session    string     // this launch's session cookie value, in memory only; fixed at start
 	storeCache storeCache
+	watched    atomic.Int64 // app.now().UnixNano() of the last GET /api/runs/list; zero when never
+	finished   atomic.Int64 // app.now().UnixNano() when the latest run finished; see tabWatching
+	now        func() time.Time
+	pause      func(time.Duration)            // how tabWatching waits between looks; tests move a fake clock
+	notifier   func(title, body string) error // shows the native run notice; a no-op in tests
+	onFinished func(id string)                // called when finishJob returns; nil outside tests
 }
 
 // storeCache holds the last workspace store output. mu is held while the store runs, so
@@ -499,7 +505,7 @@ func newApplication(loc Locations, override string) (*Application, error) {
 	if err = json.Unmarshal(raw, &seed); err != nil {
 		return nil, err
 	}
-	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed}
+	app := &Application{engine: localEngine(), loc: loc, config: config, locked: locked, seed: seed, now: time.Now, pause: time.Sleep, notifier: platformNotify}
 	// Without the secret nothing can be served safely, so the app does not start.
 	if app.ticket, err = randomSecret(); err != nil {
 		return nil, fmt.Errorf("could not create the launch secret: %w", err)

@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 import warnings
@@ -28,7 +30,13 @@ from deploy_workflow.model.pricing import PRICES_AS_OF
 from deploy_workflow.model.redact import Redactor
 from deploy_workflow.model_testing.configs import CONFIGS
 from deploy_workflow.owners.cpos import run_live_handoffs, with_notes
-from deploy_workflow.owners.cpos_launch import MAX_OUTPUT_TOKENS, Prepared, checker, prepare
+from deploy_workflow.owners.cpos_launch import (
+    MAX_OUTPUT_TOKENS,
+    Accepted,
+    Prepared,
+    checker,
+    prepare,
+)
 from deploy_workflow.platform_io import replace
 from deploy_workflow.run_events import stop_reason
 
@@ -55,7 +63,7 @@ def write_json(path: Path, value: object) -> None:
     write_file(path, json.dumps(value, ensure_ascii=True, allow_nan=False, indent=2).encode())
 
 
-def read_job(directory: Path) -> tuple[dict, Path]:
+def read_job(directory: Path) -> tuple[dict[str, Any], Path]:
     job = json.loads((directory / "job.json").read_text())
     workspace = Path(job["workspace"]).resolve(strict=True)
     if directory.resolve().parent != workspace / "intake" or directory.name != job["id"]:
@@ -92,7 +100,93 @@ def check_path_room(directory: Path) -> None:
         ) from error
 
 
-def launch(job: dict, directory: Path, out: Path) -> Prepared:
+RESUME_ID = re.compile(r"web-[a-f0-9]{32}")
+MODULE_DIR = re.compile(r"CP-[A-Za-z0-9]+")
+
+
+def _inside(path: Path, base: Path) -> bytes | None:
+    """A regular file's bytes, none for anything else (a link, a folder, a file out of base)."""
+    if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(base):
+        return None
+    return path.read_bytes()
+
+
+def _record(response: Path, base: Path) -> tuple[bytes, Any, Any] | None:
+    """A response with its verdict and request parsed, none when a file is not a plain one.
+    Raises ValueError for JSON that does not parse."""
+    stem = response.name.removesuffix(".response.md")
+    raw = _inside(response, base)
+    verdict = _inside(response.with_name(f"{stem}.review.json"), base)
+    asked = _inside(response.with_name(f"{stem}.request.json"), base)
+    if raw is None or verdict is None or asked is None:
+        return None
+    return raw, json.loads(verdict), json.loads(asked)
+
+
+def _accepted_answers(run_folder: Path, model: tuple[str, str, str] | None) -> dict[str, Accepted]:
+    """CP-OS's own record of what a stopped run accepted: for each module the one
+    requests/<module>/<fingerprint>/<n>.response.md whose <n>.review.json has no issues and names
+    that response's hash, with the request it answered. A module whose record cannot be read, or
+    has several different accepted answers, is entered with the reason it is not offered; the
+    app's saved <module>.md copy is never read."""
+    base = run_folder.resolve()
+    found: dict[str, list[Accepted]] = {}
+    damaged: set[str] = set()
+    for response in sorted(run_folder.glob("requests/*/*/*.response.md")):
+        module = response.parent.parent.name
+        if not MODULE_DIR.fullmatch(module):
+            continue
+        try:
+            record = _record(response, base)
+        except ValueError:
+            damaged.add(module)
+            continue
+        if record is None:
+            continue
+        raw, review, asked = record
+        if not isinstance(review, dict) or not isinstance(asked, dict):
+            damaged.add(module)
+        elif (
+            review.get("issues") == []
+            and review.get("response_sha256") == hashlib.sha256(raw).hexdigest()
+        ):
+            found.setdefault(module, []).append(Accepted(raw, asked, model))
+    answers: dict[str, Accepted] = {}
+    for module, records in found.items():
+        if len({item.response for item in records}) == 1:
+            answers[module] = records[0]
+        else:
+            answers[module] = Accepted(
+                b"", {}, model, "the stopped run holds more than one accepted answer for it"
+            )
+    for module in damaged:
+        answers[module] = Accepted(
+            b"", {}, model, "its record in the stopped run could not be read"
+        )
+    return answers
+
+
+def retained_of(workspace: Path, job: dict[str, Any]) -> dict[str, Accepted]:
+    """A stopped run's accepted answers, by module; none unless the job resumes a run. The review
+    id covers what prepare keeps, so a changed record is stale at Start."""
+    if job.get("resume_of") is None:
+        return {}
+    stopped = job["resume_of"]
+    if not isinstance(stopped, str) or not RESUME_ID.fullmatch(stopped):
+        raise ValueError("resume_of is not the id of a run started from this app")
+    folder = workspace / "runs" / stopped
+    if not folder.is_dir():
+        raise ValueError("the stopped run has no retained work in the workspace")
+    model = None
+    try:
+        reviewed = json.loads((workspace / "intake" / stopped / "review.json").read_text())
+        model = (reviewed["provider"], reviewed["model"], reviewed["effort"])
+    except (OSError, ValueError, KeyError, TypeError):
+        pass  # No recorded model: prepare then keeps nothing and says so.
+    return _accepted_answers(folder, model)
+
+
+def launch(job: dict[str, Any], directory: Path, out: Path) -> Prepared:
     """The launcher's own checks and plan. A refusal writes nothing."""
     try:
         cap = Decimal(job["cap_usd"])
@@ -109,6 +203,7 @@ def launch(job: dict, directory: Path, out: Path) -> Prepared:
         config=job["config"],
         cap=cap,
         modules=job["modules"] or None,
+        retained=retained_of(Path(job["workspace"]).resolve(strict=True), job),
     )
 
 
@@ -121,15 +216,19 @@ def engine_revision() -> str:
     return revision.hexdigest()
 
 
-def review(directory: Path) -> dict:
-    job, _ = read_job(directory)
-    check_path_room(directory)
-    # A scanner holding a file for a moment on Windows must not refuse the review.
-    with tempfile.TemporaryDirectory(dir=directory, ignore_cleanup_errors=True) as preview:
-        prepared = launch(job, directory, Path(preview))
+def retained_note(job: dict[str, Any], prepared: Prepared) -> str:
+    """One plain sentence on why a resume's replay ended before a module; empty otherwise."""
+    module, why = prepared.retained_stop
+    if not module or job.get("resume_of") is None:
+        return ""
+    title = next((item.title for item in modules() if item.module_id == module), module)
+    return f"Retained work stops before {title}: {why}."
+
+
+def review_id(job: dict[str, Any], revision: str, prepared: Prepared) -> str:
+    """Binds Start to what was reviewed: request, inputs, instructions, the answers it replays and
+    the running code. Start computes it again from the plan it is about to run."""
     request = prepared.plan
-    revision = engine_revision()
-    # Binds Start to what was reviewed: request, inputs, instructions and the running code.
     material = {
         "job": job,
         "engine": revision,
@@ -137,11 +236,23 @@ def review(directory: Path) -> dict:
         "sources": {name: item.sha256 for name, item in request.sources.items()},
         "instructions": {name: item.sha256 for name, item in request.instructions.items()},
         "hold": str(prepared.hold),
+        "retained": {name: item.sha256 for name, item in request.retained_handoffs.items()},
     }
+    return hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest()
+
+
+def review(directory: Path) -> dict[str, Any]:
+    job, _ = read_job(directory)
+    check_path_room(directory)
+    # A scanner holding a file for a moment on Windows must not refuse the review.
+    with tempfile.TemporaryDirectory(dir=directory, ignore_cleanup_errors=True) as preview:
+        prepared = launch(job, directory, Path(preview))
+    request = prepared.plan
+    revision = engine_revision()
     selected = CONFIGS[job["config"]]
     return {
         "ok": True,
-        "review_id": hashlib.sha256(json.dumps(material, sort_keys=True).encode()).hexdigest(),
+        "review_id": review_id(job, revision, prepared),
         "id": job["id"],
         "engine_revision": revision,
         "issuer": request.run.issuer_name,
@@ -162,6 +273,9 @@ def review(directory: Path) -> dict:
         "cap_usd": job["cap_usd"],
         "hold_usd": f"{prepared.hold:.2f}",
         "max_turns": job["max_turns"],
+        "resume_of": job.get("resume_of"),
+        "retained_modules": list(prepared.retained_modules),
+        "retained_note": retained_note(job, prepared),
         "prices_as_of": str(PRICES_AS_OF),
         "provider_ready": bool(os.environ.get(KEY_VARIABLES[selected.provider])),
         "provider_key": KEY_VARIABLES[selected.provider],
@@ -204,14 +318,22 @@ def start(directory: Path) -> None:
     if not current["provider_ready"]:
         raise ValueError("the selected provider is not configured in the launching environment")
     job, workspace = read_job(directory)
+    out = workspace / "runs" / job["id"]
+    existed = out.exists()
+    prepared = launch(job, directory, out)
+    # The plan about to run must be the one that was approved: files read since the review (the
+    # stopped run's record, the sources) may have changed, and nothing is paid for before this.
+    if review_id(job, engine_revision(), prepared) != approved["review_id"]:
+        if not existed:
+            shutil.rmtree(out, ignore_errors=True)  # Only what launch just wrote; nothing ran.
+        raise ValueError("review is stale; review the inputs again before starting")
     # This receipt is created only after the web API's explicit, one-shot Start.
     ruling = directory / "start-authorization.md"
     with ruling.open("x", encoding="utf-8", newline="\n") as stream:
         stream.write(
             f"lifts: live-provider-pause\nby: user\ndate: {date.today()}\n"
-            f"configs: {job['config']}\nreview: {current['review_id']}\n"
+            f"configs: {job['config']}\nreview: {approved['review_id']}\n"
         )
-    prepared = launch(job, directory, workspace / "runs" / job["id"])
     run_dir = prepared.directory
 
     def spent() -> str:

@@ -1643,3 +1643,85 @@ print(json.dumps({'run':n}))
 		t.Fatalf("the pre-refresh body was cached: %d %s", next.Code, next.Body.String())
 	}
 }
+
+const activityLines = `{"at":"2026-11-08T09:00:00Z","event":"module_started","module":"CP-0"}
+{"at":"2026-11-08T09:00:01Z","event":"turn","module":"CP-0","turn":1,"max_turns":24,"spent_usd":"0.00","held_usd":"5.73","cap_usd":"10"}
+{"at":"2026-11-08T09:00:02Z","event":"draft_rejected","module":"CP-0","writes_left":2}
+{"at":"2026-11-08T09:00:03Z","event":"module_accepted","module":"CP-0"}
+{"at":"2026-11-08T09:00:04Z","event":"delivery_started"}
+{"at":"2026-11-08T09:00:05Z","event":"delivered"}
+`
+
+type eventsBody struct {
+	Events   []map[string]any `json:"events"`
+	Complete bool             `json:"complete"`
+}
+
+func getEvents(t *testing.T, app *Application) (int, eventsBody, string) {
+	t.Helper()
+	response := call(app, "GET", "/api/runs/events?id="+eventsID, "")
+	var body eventsBody
+	if response.Code == 200 {
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return response.Code, body, response.Body.String()
+}
+
+func TestRunEventsEndpointListsEveryEventWithItsFields(t *testing.T) {
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || len(body.Events) != 6 || !body.Complete {
+		t.Fatalf("%d %s", code, raw)
+	}
+	if body.Events[0]["at"] != "2026-11-08T09:00:00Z" || body.Events[0]["event"] != "module_started" {
+		t.Fatalf("first event: %v", body.Events[0])
+	}
+	if body.Events[1]["held_usd"] != "5.73" || body.Events[1]["turn"] != float64(1) || body.Events[1]["max_turns"] != float64(24) {
+		t.Fatalf("turn event: %v", body.Events[1])
+	}
+	if body.Events[2]["writes_left"] != float64(2) {
+		t.Fatalf("rejected event: %v", body.Events[2])
+	}
+	if body.Events[5]["event"] != "delivered" {
+		t.Fatalf("last event: %v", body.Events[5])
+	}
+}
+
+func TestRunEventsEndpointDropsATruncatedLastLine(t *testing.T) {
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines[:strings.LastIndex(strings.TrimSuffix(activityLines, "\n"), "\n")+1]+`{"event":"tur`)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || len(body.Events) != 5 || body.Complete {
+		t.Fatalf("%d %s", code, raw)
+	}
+}
+
+func TestRunEventsEndpointWithoutALogIsAnEmptyList(t *testing.T) {
+	app, root := testApp(t)
+	if code, _, _ := getEvents(t, app); code != 404 {
+		t.Fatalf("neither file: %d", code)
+	}
+	writeJob(t, root, eventsID, "running", time.Now())
+	code, _, raw := getEvents(t, app)
+	if code != 200 || strings.TrimSpace(raw) != `{"events":[],"complete":true}` {
+		t.Fatalf("%d %s", code, raw)
+	}
+}
+
+func TestRunEventsStopsAtTheReadLimit(t *testing.T) {
+	saved := eventsLimit
+	eventsLimit = 300
+	t.Cleanup(func() { eventsLimit = saved })
+	app, root := testApp(t)
+	writeJob(t, root, eventsID, "running", time.Now())
+	writeEvents(t, root, eventsID, activityLines)
+	code, body, raw := getEvents(t, app)
+	if code != 200 || body.Complete || len(body.Events) == 0 || len(body.Events) >= 6 {
+		t.Fatalf("%d %s", code, raw)
+	}
+}

@@ -146,19 +146,55 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	return status, true
 }
 
-// eventsLimit bounds how much of a run's event log is read.
-const eventsLimit = 4 << 20
+// eventsLimit bounds how much of a run's event log is read; a variable so tests can shorten it.
+var eventsLimit int64 = 4 << 20
 
 // runEvent is one line of runs/<id>/events.jsonl, written by the CP-OS loop. Amounts are the
 // decimal strings it wrote.
 type runEvent struct {
-	Event    string `json:"event"`
-	Module   string `json:"module"`
-	Turn     int    `json:"turn"`
-	MaxTurns int    `json:"max_turns"`
-	SpentUSD string `json:"spent_usd"`
-	HeldUSD  string `json:"held_usd"`
-	CapUSD   string `json:"cap_usd"`
+	At         string `json:"at,omitempty"`
+	Event      string `json:"event"`
+	Module     string `json:"module,omitempty"`
+	Turn       int    `json:"turn,omitempty"`
+	MaxTurns   int    `json:"max_turns,omitempty"`
+	SpentUSD   string `json:"spent_usd,omitempty"`
+	HeldUSD    string `json:"held_usd,omitempty"`
+	CapUSD     string `json:"cap_usd,omitempty"`
+	Reason     string `json:"reason,omitempty"`
+	WritesLeft *int   `json:"writes_left,omitempty"`
+}
+
+// eventLog is a run's event log as read: ok is false when an earlier line is unreadable
+// (events holds those before it), dropped when the last line was dropped as a write in
+// flight, limited when the read limit was reached.
+type eventLog struct {
+	events           []runEvent
+	ok, dropped, cut bool
+}
+
+func readEventLog(workspace, id string) (eventLog, error) {
+	file, err := os.Open(filepath.Join(workspace, "runs", id, "events.jsonl"))
+	if err != nil {
+		return eventLog{}, err
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, eventsLimit))
+	if err != nil {
+		return eventLog{}, err
+	}
+	events, ok, dropped := parseEvents(raw)
+	return eventLog{events, ok, dropped, int64(len(raw)) >= eventsLimit}, nil
+}
+
+// readRunEvents lists a run's events. complete is false when the read limit was reached, the
+// last line was dropped, or an earlier line is unreadable. A missing log is
+// (nil, true, fs.ErrNotExist).
+func readRunEvents(workspace, id string) (events []runEvent, complete bool, err error) {
+	record, err := readEventLog(workspace, id)
+	if err != nil {
+		return nil, errors.Is(err, fs.ErrNotExist), err
+	}
+	return record.events, record.ok && !record.dropped && !record.cut, nil
 }
 
 // runProgress folds a run's event log into the progress shown for it. A retained run has
@@ -168,15 +204,11 @@ type runEvent struct {
 // A log with no events yet has no progress either.
 func runProgress(workspace, id string) (map[string]any, bool) {
 	folder := filepath.Join(workspace, "runs", id)
-	if file, err := os.Open(filepath.Join(folder, "events.jsonl")); err == nil {
-		raw, readErr := io.ReadAll(io.LimitReader(file, eventsLimit))
-		file.Close()
-		if readErr == nil {
-			if events, ok := parseEvents(raw); ok && len(events) > 0 {
-				return foldEvents(events), true
-			} else if !ok {
-				log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
-			}
+	if record, err := readEventLog(workspace, id); err == nil {
+		if record.ok && len(record.events) > 0 {
+			return foldEvents(record.events), true
+		} else if !record.ok {
+			log.Printf("run %s: events.jsonl has an unreadable line; falling back to progress.json", id)
 		}
 	}
 	raw, err := os.ReadFile(filepath.Join(folder, "progress.json"))
@@ -190,23 +222,22 @@ func runProgress(workspace, id string) (map[string]any, bool) {
 	return value, true
 }
 
-func parseEvents(raw []byte) ([]runEvent, bool) {
+func parseEvents(raw []byte) (events []runEvent, ok, dropped bool) {
 	lines := bytes.Split(raw, []byte("\n"))
 	if len(lines[len(lines)-1]) == 0 {
 		lines = lines[:len(lines)-1]
 	}
-	var events []runEvent
 	for number, line := range lines {
 		var event runEvent
 		if err := json.Unmarshal(line, &event); err != nil {
 			if number == len(lines)-1 {
-				break
+				return events, true, true
 			}
-			return nil, false
+			return events, false, false
 		}
 		events = append(events, event)
 	}
-	return events, true
+	return events, true, false
 }
 
 func foldEvents(events []runEvent) map[string]any {
@@ -288,6 +319,28 @@ func recentJobs(workspace string, limit int) []map[string]any {
 	return recent
 }
 
+// serveRunEvents answers GET /api/runs/events: the run's events, [] when it has no log yet,
+// 404 when it has neither a log nor a status.json (the rule of /api/runs/status).
+func serveRunEvents(w http.ResponseWriter, r *http.Request, workspace, id string) {
+	events, complete, err := readRunEvents(workspace, id)
+	if errors.Is(err, fs.ErrNotExist) {
+		if _, statErr := os.Stat(filepath.Join(workspace, "intake", id, "status.json")); statErr != nil {
+			http.NotFound(w, r)
+			return
+		}
+	} else if err != nil {
+		http.Error(w, "Run events are unreadable", 500)
+		return
+	}
+	if events == nil {
+		events = []runEvent{}
+	}
+	jsonResponse(w, struct {
+		Events   []runEvent `json:"events"`
+		Complete bool       `json:"complete"`
+	}{events, complete})
+}
+
 func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		app.mu.RLock()
@@ -300,6 +353,10 @@ func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Query().Get("id")
 		if !jobID.MatchString(id) {
 			http.NotFound(w, r)
+			return
+		}
+		if r.URL.Path == "/api/runs/events" {
+			serveRunEvents(w, r, workspace, id)
 			return
 		}
 		status, ok := jobView(workspace, id)

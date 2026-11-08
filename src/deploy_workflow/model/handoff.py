@@ -577,11 +577,12 @@ class HandoffExecutor:
         fault: str | None = None  # one line, for the stop message
         fault_trace: str | None = None  # the redacted chain, kept in the record and response
         if received is None:
+            assert failure is not None  # _receive returns a tuple, so None means it raised
             # The reply may be paid for but cannot be redacted or priced: unusable, charge unknown.
             turn, usage, priced = None, reply.usage, None
             detail, _ = _caught(lambda: self._fault_text(str(failure)))  # __str__ may raise
             fault = f"{type(failure).__name__}: {REDACTION_FAILED if detail is None else detail}"
-            fault_trace = self._fault_text(failure or RuntimeError(fault))
+            fault_trace = self._fault_text(failure)
         else:
             turn, usage, priced = received
         if reply.kind in {"not_sent", "sent_known"}:

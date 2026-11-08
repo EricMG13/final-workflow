@@ -1972,3 +1972,38 @@ def test_a_stopped_pricing_failure_still_exports_as_the_ok_turn(
     (record,) = rig.records()
     assert record["error_class"] in LOOP_STOPS
     assert _export(rig, tmp_path / "out.jsonl") == 1
+
+
+def test_a_pricing_failure_on_a_non_ok_reply_keeps_the_providers_class(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    usage = Usage(input_tokens=100, output_tokens=50)
+    reply = AdapterReply(
+        "sent_usage", None, None, None, "IdleTimeout", None, 100.0, 101.0, usage=usage
+    )
+    rig = make_rig(tmp_path, [reply])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    assert _stop(rig).reason == "IdleTimeout"
+    (record,) = rig.records()
+    assert record["error_class"] == "IdleTimeout" and record["cost_status"] == "unknown"
+    assert "ArithmeticError" in record["error"]
+
+
+def test_a_pricing_failure_whose_str_raises_is_still_recorded_and_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Opaque(ArithmeticError):
+        def __str__(self) -> str:
+            raise ValueError("no text")
+
+    def opaque(*_args: Any, **_kwargs: Any) -> Any:
+        raise Opaque
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
+    monkeypatch.setattr(loop_module, "price_usage", opaque)
+    assert _stop(rig).reason == "BadTurn"
+    (record,) = rig.records()
+    assert record["cost_status"] == "unknown" and rig.budget.spent > 0

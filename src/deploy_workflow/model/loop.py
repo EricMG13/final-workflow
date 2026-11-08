@@ -743,11 +743,12 @@ class ToolLoop:
             message = self._redactor.exception(failure)
             stop = (error_class, self._named(failure))
         elif priced_failure is not None:  # the charge could not be priced: unknown, recorded, stop
-            stop = (
-                "BadTurn",
-                self._named(priced_failure),
-            )  # in LOOP_STOPS: the ok reply still exports
-            error_class, message = stop
+            # An ok reply stops as BadTurn (in LOOP_STOPS: it still exports); a non-ok reply
+            # keeps the provider's class.
+            error_class = "BadTurn" if reply.kind == "ok" else reply.error_class or "BadTurn"
+            named, _ = _caught(lambda: self._named(priced_failure))  # a raising __str__ is guarded
+            message = named or f"{type(priced_failure).__name__}: detail withheld"
+            stop = (error_class, message)
         elif stop is not None:
             error_class, message = stop
         self._append(

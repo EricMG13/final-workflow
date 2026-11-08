@@ -6,20 +6,9 @@ Each case's forecast is recomputed with `expectations()` from its context and so
 compared with what the retained run did. The four launcher runs carry their own context; the four
 campaign cases carry a context reconstructed under cases/expectations-backtest/ (a README line
 there says so). Output is Markdown: a "deterministic retained-data report".
-Handoff status -> actual outcome class (below). A status is the first status word within 70
-Handoff status -> actual outcome class (one table below). A status is the first status word within
-characters after the module id, with no other module id between, in the module's own handoff, else
-in CP-0's:
-
-| Handoff                                         | Actual      |
-| BLOCKED, or no accepted handoff in a finished run | will_refuse |
-| READY_WITH_LIMITATIONS                          | limited     |
-| READY                                           | ready       |
-| accepted, no status vocabulary (campaign files, DEFERRED) | ran |
-| no completion record (the run stopped)          | no_record   |
-
-`COMPATIBLE` lists, per forecast, the actual classes that agree with it. `ran` only contradicts
-`will_refuse`; against any other forecast it is "not testable".
+Handoff status -> actual class, and the verdict against a forecast, are the one documented table in
+src/deploy_workflow/handoff_outcome.py (shared with live_check). A run with no completion record
+is `not_reached` throughout, so it is not testable.
 """
 
 from __future__ import annotations
@@ -37,6 +26,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT)]
 
 from deploy_vii.registry import plan
+from deploy_workflow import handoff_outcome as outcome
 from deploy_workflow.context import load_context
 from deploy_workflow.model.handoff import _pages
 from deploy_workflow.run_expectations import (
@@ -49,15 +39,6 @@ from deploy_workflow.run_expectations import (
 logging.getLogger("pypdf").setLevel(logging.ERROR)  # font notices, not findings
 RUNS = ROOT / "runs"
 CHUNK, FIRST_PAGES = 12_000, 3
-STATUS = {"BLOCKED": "will_refuse", "READY_WITH_LIMITATIONS": "limited", "READY": "ready"}
-COMPATIBLE = {
-    "will_refuse": {"will_refuse"},
-    "gap": {"limited", "will_refuse"},
-    "limited": {"limited"},
-    "ready": {"ready"},
-    "check": {"ready", "limited"},
-    "information": {"ready", "limited"},
-}
 LAUNCHER = (
     "cpos-launch-live-001",
     "cpos-launch-live-002",
@@ -135,25 +116,12 @@ def completed(directory: Path) -> dict[str, str] | None:
 
 
 def actual_of(module: str, texts: dict[str, str] | None) -> str:
-    if texts is None:
-        return "no_record"
-    if module not in texts:
-        return "will_refuse"
-    pattern = re.compile(
-        rf"\b{re.escape(module)}\b(?:(?!CP-)[^\n]){{0,70}}?\b({'|'.join(STATUS)})\b"
-    )
-    for text in (texts[module], texts.get("CP-0", "")):
-        if found := pattern.search(text):
-            return STATUS[found[1]]
-    return "ran"
+    """The module's actual class from the accepted handoffs (None: no completion record)."""
+    own = None if texts is None else texts.get(module)
+    return outcome.actual_of(module, own, (texts or {}).get("CP-0", ""))[0]
 
 
-def verdict(forecast: str, actual: str) -> str:
-    if actual == "no_record":
-        return "not testable"
-    if actual == "ran":
-        return "disagreed" if forecast == "will_refuse" else "not testable"
-    return "agreed" if actual in COMPATIBLE[forecast] else "disagreed"
+verdict = outcome.verdict
 
 
 def rule_of(item_id: str) -> str:

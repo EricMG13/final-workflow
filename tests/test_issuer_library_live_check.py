@@ -315,10 +315,11 @@ def test_forecast_against_outcome_reports_every_disagreement(tmp_path: Path) -> 
     forecast = {"CP-0": "ready", "CP-1": "ready", "CP-2": "will_refuse", "CP-4": "will_refuse"}
     found, did = live_check.outcome_faults(forecast, tmp_path)
     assert found == [
-        "CP-1: forecast ready, run did limited (READY_WITH_LIMITATIONS in CP-0.md)",
-        "CP-2: forecast will_refuse, run did ran (accepted, no status stated)",
+        "CP-1: forecast ready, run did limited (READY_WITH_LIMITATIONS in CP-0 handoff)",
+        "CP-2: forecast will_refuse, run did unconfirmed (accepted, no status stated)",
+        "CP-4: forecast will_refuse, run did not_reached (no handoff)",
     ]
-    assert did["CP-4"].startswith("will_refuse (no accepted handoff)")
+    assert did["CP-4"] == "not_reached (no handoff)"
 
 
 def test_forecast_takes_the_worst_item_per_module() -> None:
@@ -327,3 +328,126 @@ def test_forecast_takes_the_worst_item_per_module() -> None:
         "CP-0": "ready",
         "CP-4": "will_refuse",
     }
+
+
+def test_a_module_that_never_ran_or_states_no_status_never_agrees(tmp_path: Path) -> None:
+    (tmp_path / "CP-0.md").write_text("# CP-0\n")
+    (tmp_path / "CP-3C.md").write_text("# CP-3C\nNo status line.\n")
+    found, did = live_check.outcome_faults({"CP-4": "will_refuse", "CP-3C": "limited"}, tmp_path)
+    assert [f.split(":")[0] for f in found] == ["CP-4", "CP-3C"]
+    assert did["CP-4"].startswith("not_reached") and did["CP-3C"].startswith("unconfirmed")
+    refused, _ = live_check.outcome_faults({"CP-4": "will_refuse"}, tmp_path, refused="CP-4")
+    assert refused == []  # the module the run stopped at did refuse
+    (tmp_path / "CP-4.md").write_text("| CP-4 — legal | BLOCKED |\n")
+    assert live_check.outcome_faults({"CP-4": "will_refuse"}, tmp_path)[0] == []
+
+
+def test_the_status_table_is_the_back_tests() -> None:
+    sys.path.insert(0, str(ROOT / "tools"))
+    import expectations_backtest as backtest
+
+    assert live_check.handoff_outcome["STATUS"] is not None
+    assert backtest.verdict("ready", "unconfirmed") == "not testable"
+    assert backtest.verdict("will_refuse", "not_reached") == "not testable"
+
+
+def test_shown_spend_matches_exactly() -> None:
+    ok = live_check.spend_line_ok
+    assert ok("Recorded spend: USD 1.2 of a USD 25 cap", "1.2")
+    assert ok("Recorded spend: USD 1.2", "1.2")
+    assert not ok("Recorded spend: USD 1.23 of a USD 25 cap", "1.2")
+    assert not ok("Recorded spend: USD 1.2 of a USD 25 cap and more", "1.2")
+
+
+def test_case_literals_are_checked_with_their_sources() -> None:
+    literals = [{"text": "7,940", "source": "10-K p. 26"}, {"text": "9,999", "source": "10-K p. 1"}]
+    assert live_check.literal_faults("net sales 7,940", literals) == [
+        "report lacks frozen literal 9,999 (10-K p. 1)"
+    ]
+
+
+def _workspace(tmp_path: Path, *, delivered: bytes = b"# CP-0\n") -> tuple[Path, Path, dict]:
+    ws = tmp_path / "ws"
+    intake, run = ws / "intake/web-1", ws / "runs/web-1"
+    (run / "instructions").mkdir(parents=True)
+    (run / "deliveries/d1").mkdir(parents=True)
+    intake.mkdir(parents=True)
+    (intake / "status.json").write_text("{}")
+    (intake / "start-authorization.md").write_text("by: user\n")
+    (run / "workflow.json").write_text("{}")
+    (run / "instructions/CP-0.md").write_text("x")
+    (run / "CP-0.md").write_text("# CP-0\n")
+    (run / "completed-1.json").write_text("{}")
+    for name in live_check.BUNDLE:
+        (run / "deliveries/d1" / name).write_text("x")
+    (run / "deliveries/d1/CP-0.md").write_bytes(delivered)
+    review = {
+        "modules": ["CP-0"],
+        "review_id": "r1",
+        "issue_classification": "high_yield",
+        "documents": [],
+        "expectations": [],
+        "counted": [],
+        "without": {},
+    }
+    return ws, run, review
+
+
+def _args(tmp_path: Path) -> SimpleNamespace:
+    context = tmp_path / "context.json"
+    context.write_text("{}")
+    return SimpleNamespace(case_data={"context_path": context})
+
+
+def test_required_outputs_pass_and_say_stage_2_records_are_not_applicable(tmp_path, capsys) -> None:
+    ws, run, review = _workspace(tmp_path)
+    assert live_check.required_outputs(_args(tmp_path), ws, run, review, "") == []
+    out = capsys.readouterr().out
+    assert "expectations.json: not applicable before Stage 2" in out
+    assert "context.json: not applicable before Stage 2" in out
+    assert "start receipt accepted ids: not applicable before Stage 2" in out
+
+
+def test_required_outputs_find_a_changed_delivered_handoff_and_stage_2_mismatches(tmp_path) -> None:
+    ws, run, review = _workspace(tmp_path, delivered=b"# changed\n")
+    (run / "context.json").write_text("{other}")
+    (run / "expectations.json").write_text(json.dumps({"review_id": "r1"}))
+    found = live_check.required_outputs(_args(tmp_path), ws, run, review, "")
+    assert "delivered CP-0.md differs from the accepted handoff" in found
+    assert "run context.json is not byte-identical to the case context" in found
+    assert "expectations.json differs from the approved review" in found
+
+
+def test_a_stopped_run_still_has_its_folder_checked(tmp_path, capsys) -> None:
+    ws, run, review = _workspace(tmp_path)
+    for path in [*(run / "deliveries/d1").iterdir(), run / "completed-1.json"]:
+        path.unlink()
+    (run / "deliveries/d1").rmdir()
+    (run / "instructions/CP-0.md").unlink()
+    found = live_check.required_outputs(_args(tmp_path), ws, run, review, "Stopped: CP-2")
+    assert found == ["instructions/CP-0.md missing"]
+    assert "expectations.json: not applicable before Stage 2" in capsys.readouterr().out
+
+
+class _Bc:
+    def __init__(self) -> None:
+        self.notes: list[tuple[bool, str]] = []
+
+    def note(self, ok: bool, what: str, fault: bool = True, kind: str = "check") -> None:
+        self.notes.append((ok, what))
+
+
+def _case_args(tmp_path: Path, counted: int) -> SimpleNamespace:
+    expected = {"ordered_modules": ["CP-0"], "modules": {}, "counted_total": counted}
+    return SimpleNamespace(case_data={"expected-outcomes": expected})
+
+
+def test_case_outcomes_names_a_missing_review_and_a_counted_total_mismatch(tmp_path) -> None:
+    ws, _, review = _workspace(tmp_path)
+    bc, summary = _Bc(), {}
+    live_check.case_outcomes(bc, _case_args(tmp_path, 0), ws, summary)
+    assert any("no review.json" in what for ok, what in bc.notes if not ok)
+    (ws / "intake/web-1/review.json").write_text(json.dumps(review | {"counted": ["a"]}))
+    bc = _Bc()
+    live_check.case_outcomes(bc, _case_args(tmp_path, 0), ws, summary)
+    assert any("review counts 1 items, frozen 0" in what for ok, what in bc.notes if not ok)

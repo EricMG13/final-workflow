@@ -387,6 +387,7 @@ function renderRoute() {
     if(!showsCodes(next))nameCodes($('section-nav'));
     updateWorkspaceChrome(next.module);
     $('content').innerHTML=moduleBody(next);
+    const activity=$('run-activity');if(activity)loadRunActivity(activity);
     sizeLibraryBand();
     // watchFrame returns the callback that stops its timer; the previous report's timer must not fire against a detached element.
     if(cancelReportFrame)cancelReportFrame();

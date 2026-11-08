@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"maps"
 	"math"
 	"os"
 	"path"
@@ -80,7 +81,8 @@ func facilityMetrics(facility Facility) []*Metric {
 
 // checkTerms admits only the allowed term keys, each a user-provenance metric passing checkMetric.
 func checkTerms(terms map[string]*Metric, allowed []string, verified map[string]Source) error {
-	for key, metric := range terms {
+	for _, key := range slices.Sorted(maps.Keys(terms)) {
+		metric := terms[key]
 		if !slices.Contains(allowed, key) {
 			return fmt.Errorf("facility term %q is not an allowed term", key)
 		}
@@ -193,6 +195,9 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 	for _, rating := range run.Ratings {
 		if _, ok := verified[rating.Source]; !ok {
 			return run, fmt.Errorf("rating requires pinned source")
+		}
+		if rating.Scope != "" && rating.Scope != "issuer" && rating.Scope != "facility" {
+			return run, fmt.Errorf("rating scope must be issuer, facility or omitted")
 		}
 	}
 	if err := checkCreditKeys(run, verified); err != nil {

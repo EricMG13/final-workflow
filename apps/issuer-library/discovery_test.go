@@ -1034,3 +1034,19 @@ func TestManifestOmittedFacilityCollectionsServedEmpty(t *testing.T) {
 		t.Fatalf("facility served with null collection: %s", raw)
 	}
 }
+
+// Two bad terms must always be reported by the same key (the sorted-first one).
+func TestManifestTermErrorNamesSortedFirstKey(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		_, run := discoverFixture(t, "synthetic", func(doc any) any {
+			terms := doc.(map[string]any)["run"].(map[string]any)["facilities"].([]any)[0].(map[string]any)["terms"].(map[string]any)
+			for _, key := range []string{"zz_bad", "aa_bad", "mm_bad"} {
+				terms[key] = terms["size_m"]
+			}
+			return doc
+		})
+		if len(run.Gaps) == 0 || !strings.Contains(run.Gaps[len(run.Gaps)-1], `"aa_bad"`) {
+			t.Fatalf("run %d: error does not name the sorted-first bad key: %v", i, run.Gaps)
+		}
+	}
+}

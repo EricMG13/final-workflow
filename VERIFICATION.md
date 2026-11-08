@@ -10,6 +10,14 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Phase 6: verification record split (branch `claude/verification-archive`)
+
+Moved the sections dated before 2026-11-07, verbatim and in original order, to docs/VERIFICATION-ARCHIVE.md by `git mv`; 2026-11-07 entries stay here.
+Proof, run before this entry was added, exit 0: `diff <(git show origin/main:VERIFICATION.md | tail -n +10) <(cat <(tail -n +12 VERIFICATION.md) <(tail -n +5 docs/VERIFICATION-ARCHIVE.md))`.
+Line counts: VERIFICATION.md 256 (with this entry), docs/VERIFICATION-ARCHIVE.md 5655.
+This PR merges after #35-#42.
+Not verified: none beyond the gates.
+
 ## 2026-11-07 — Phase 3 and branch end: identity, handoffs once, manifests once, workspace cache (branch `claude/system-design-remaining-calls-e06c23`)
 
 Scope: Tasks 7-10 (commits ec18373f..3976be83), the end batch 9b3215fa and the final batch 398ae209;

@@ -242,6 +242,22 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
 ## Development and reproducible packaging
 
 Build requires Go 1.24 (or newer) and Python 3.13. Windows runtime dependencies are bundled.
+Tests that use jsdom need Node.js 26.12.1 or lower.
+
+### Run from source
+
+After `uv sync` at the repository root, from the repository root:
+
+```sh
+cd apps/issuer-library
+ISSUER_LIBRARY_PYTHON="$(cd ../.. && pwd)/.venv/bin/python" \
+ISSUER_LIBRARY_ENGINE_ROOT="$PWD/engine" \
+go run . --workspace "$(cd ../.. && pwd)"
+```
+
+It opens the browser on the signed-in Library, which screens the repository's retained
+runs. Without both variables the library cannot read the workspace. The Windows package
+needs neither variable.
 
 ```sh
 cd apps/issuer-library

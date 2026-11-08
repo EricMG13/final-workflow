@@ -6,6 +6,7 @@ const app=path.resolve(__dirname,'..'),repo=path.resolve(app,'../..');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const key=JSON.parse(fs.readFileSync(path.join(app,'designs/library-answer-key.json'),'utf8'));
 const forecast=JSON.parse(fs.readFileSync(path.join(app,'designs/forecast-answer-key.json'),'utf8'));
+const pinned=JSON.parse(fs.readFileSync(path.join(__dirname,'testdata/catalogue-2026-11-08.json'),'utf8'));
 const settle=(ms=10)=>new Promise(resolve=>setTimeout(resolve,ms));
 const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 const PROVIDER_KEYS=['OPENAI_API_KEY','ANTHROPIC_API_KEY','OPENROUTER_API_KEY'];
@@ -53,8 +54,8 @@ async function readWorkspace(){
     const cookie=(launched.headers.get('set-cookie')||'').split(';')[0];
     assert.equal(launched.status,303,'the launch link was refused');assert.ok(cookie.includes('='),'no session cookie');
     const read=async url=>{const response=await fetch(base+url,{cache:'no-store',headers:{cookie}});if(!response.ok)assert.fail(`${url}: ${response.status} ${await response.text()}`);return response.json();};
-    const catalogue=await read('/api/catalogue'),store=await read('/api/workspace');
-    return {catalogue,store};
+    // The catalogue is the pinned 2026-11-08 response (the key describes it); only the store is read live.
+    return {catalogue:pinned,store:await read('/api/workspace')};
   }finally{
     child.kill();
     await gone;
@@ -71,46 +72,58 @@ function screens(read,hash){
   w.hydrate(store);
   w.DESIGN_DATA={runs:store.runs,outputs:store.outputs,inputs:store.inputs,pins:store.pins};
   w.DESIGN_WORKSPACE={reports:store.reports,models:store.models,visuals:store.visuals};
+  w.DESIGN_CATALOGUE={real:catalogue.real||[],sources:catalogue.sources||{}};
   w.DESIGN_APP={workspace:catalogue.workspace||'',policy_locked:!!catalogue.policy_locked,issues:store.issues,problem:''};
-  for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
+  for(const name of ['screening.js','views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   return dom;
 }
 const runKey=a=>new URLSearchParams(a.getAttribute('href').split('?')[1]).get('c');
 const sorted=list=>[...list].sort();
 const renderedKeys=d=>sorted([...d.querySelectorAll('#library-results a.run-link')].map(runKey));
+const rowIds=d=>[...d.querySelectorAll('#library-results tbody button[data-library-select]')].map(b=>b.dataset.librarySelect);
+// Hand-written by someone else (Plan 1, L0); read here only to check what the screen lists.
+const expected=JSON.parse(fs.readFileSync(path.join(__dirname,'testdata/library-screening-expected.json'),'utf8'));
 
 let workspace;
 test.before(async()=>{workspace=await readWorkspace();});
 
-test('Library groups the retained workspace by issuer and counts it as the answer key does',t=>{
+test('Library lists every catalogue row; each run folder opens its Overview and each delivery row opens its report or model in the app',t=>{
   const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  assert.equal(text(d.getElementById('library-count')),key.library.count);
-  const groups=[...d.querySelectorAll('#library-results tbody.run-list')];
-  assert.deepEqual(groups.map(g=>text(g.querySelector('h2'))),key.library.groups.map(g=>g[0]));
-  groups.forEach((group,i)=>{
-    assert.deepEqual(sorted([...group.querySelectorAll('a.run-link')].map(runKey)),sorted(key.library.groups[i][1]),key.library.groups[i][0]);
-  });
-});
-
-test('A run recorded under another name says so, and only that run',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  const seen=new Set();
-  for(const link of d.querySelectorAll('#library-results a.run-link')){
-    const id=runKey(link),row=link.closest('tr'),line=row.querySelector('.recorded-as');
-    seen.add(id);
-    if(Object.hasOwn(key.library.recordedAs,id))assert.equal(line&&text(line),key.library.recordedAs[id],id);
-    else assert.doesNotMatch(text(row),/Recorded as/,id);
+  assert.equal(text(d.getElementById('library-count')),`${expected.row_count.value} of ${expected.row_count.value} runs · ${expected.issuer_count.value} issuers`);
+  assert.deepEqual(sorted(rowIds(d)),sorted([...expected.run_folder_rows.ids,...expected.delivery_rows.ids]));
+  // The store is live; the pinned catalogue names the 44 run folders, and each opens the store run of that folder.
+  const folders=renderedKeys(d).map(k=>w.eval(`contexts[${JSON.stringify(k)}].folder`));
+  assert.deepEqual(sorted(folders),sorted(expected.run_folder_rows.ids),'one Overview link per run folder');
+  for(const id of expected.delivery_rows.ids) {
+    const link=d.querySelector(`#library-results tr:has([data-library-select="${id}"]) a.report-link`);
+    assert.match(link?.getAttribute('href')||'',/^#W-(Reports|Forecast)\//,id);
   }
-  for(const id of Object.keys(key.library.recordedAs))assert.ok(seen.has(id),`${id} not rendered`);
 });
 
 test('Library search finds every run of the issuer searched',t=>{
   const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
   const box=d.getElementById('library-query');
-  for(const [query,expected] of Object.entries(key.library.search)){
+  for(const [query,want] of Object.entries(key.library.search)){
     box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
-    assert.deepEqual(renderedKeys(d),sorted(expected),`search "${query}"`);
+    assert.deepEqual(renderedKeys(d),sorted(want),`search "${query}"`);
   }
+  // Issuer then id, where the store's terms for the run do not end in the issuer: only a search that keeps the
+  // served issuer apart from the recorded terms finds these.
+  for(const [query,id] of [['FROTO ford-otosan-2024-001','ford-otosan-2024-001'],['LMI lmi-2014-001','lmi-2014-001']]) {
+    box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
+    assert.deepEqual(rowIds(d),[id],`a query spanning issuer and id: ${query}`);
+  }
+  box.value=expected.filter_cases.c_search_issuer_name.filters.search;box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.deepEqual(rowIds(d),expected.filter_cases.c_search_issuer_name.expected_ids);
+});
+
+test('A metric with more than 20 decimals is shown as served and does not blank the other rows',t=>{
+  const forged=structuredClone(workspace),run=forged.catalogue.real.find(r=>r.id==='tdg-002'),long=`1.${'0'.repeat(100)}1`;
+  run.metrics.ebitda.value=long;
+  const w=screens(forged,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  assert.equal(rowIds(d).length,forged.catalogue.real.length);
+  d.querySelector('[data-library-select="tdg-002"]').click();
+  assert.ok(text(d.getElementById('run-detail')).includes(long));
 });
 
 test('Reports for a run list the same issuer by identity, not by display name',async t=>{
@@ -492,6 +505,17 @@ test('A model id with markup in it renders no element of its own on Overview, Fo
   assert.equal(d.querySelector('[id^=pwn]'),null,'Forecast tab');
   assert.ok([...d.querySelectorAll('a')].some(a=>a.getAttribute('href')===`#W-Forecast/${encodeURIComponent(HOSTILE)}?c=tdg-002`||a.getAttribute('href').startsWith(`#W-Forecast/${encodeURIComponent(HOSTILE)}`)),'the id is one encoded section');
 });
+test('Catalogue text with markup in it renders no element of its own in the rows or the selected run',t=>{
+  const forged=structuredClone(workspace),run=forged.catalogue.real.find(r=>r.id==='tdg-002');
+  for(const field of ['name','title','issuer','sector','workflow','summary','period'])run[field]=HOSTILE;
+  run.gaps=[HOSTILE];run.ratings=[{label:HOSTILE,date:HOSTILE,source:''}];run.artifacts[0].label=HOSTILE;run.artifacts[0].issue=HOSTILE;
+  run.metrics.leverage.basis=HOSTILE;run.metrics.leverage.source='s"><b id=pwn2>';
+  forged.catalogue.sources={'s"><b id=pwn2>':{path:HOSTILE,line:1,quote:HOSTILE,href:HOSTILE}};
+  const w=screens(forged,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  d.querySelector('[data-library-select="tdg-002"]').click();
+  assert.equal(d.querySelector('[id^=pwn]'),null);
+  assert.ok(text(d.getElementById('run-detail')).includes(HOSTILE),'shown as text');
+});
 test('A report id with markup in it renders no element of its own',async t=>{
   const forged=structuredClone(workspace);
   forged.store.reports[0].id=HOSTILE;
@@ -591,57 +615,6 @@ test('The section pager names models on Forecast and reports on Reports, and sec
   await go(w,'CP-1/summary?c=tdg-002');
   assert.equal(d.getElementById('previous-section').getAttribute('aria-label'),'Previous section');
   assert.equal(d.getElementById('next-section').getAttribute('aria-label'),'Next section');
-});
-
-test('Library runs inside an issuer group are newest first, with runs of no recorded date last and ties by run id',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  const runs=Object.entries(workspace.store.runs);
-  for(const group of d.querySelectorAll('#library-results tbody.run-list[data-group]')){
-    const keys=[...group.querySelectorAll('a.run-link')].map(runKey);
-    const asOf=k=>workspace.store.runs[k].asOf||null;
-    const expected=[...keys].sort((a,b)=>(asOf(b)!==null)-(asOf(a)!==null)||(asOf(a)!==null&&asOf(b)!==null?asOf(b).localeCompare(asOf(a)):0)||(a<b?-1:a>b?1:0));
-    assert.deepEqual(keys,expected,text(group.querySelector('h2')));
-  }
-  assert.ok(runs.length>0);
-  const tdg=[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))==='TransDigm Group Incorporated');
-  const order=[...tdg.querySelectorAll('a.run-link')].map(runKey),dated=order.filter(k=>workspace.store.runs[k].asOf);
-  assert.ok(dated.length>0&&dated.length<order.length,'the group mixes dated and undated runs');
-  assert.deepEqual(order.slice(order.length-(order.length-dated.length)).some(k=>workspace.store.runs[k].asOf),false,'undated runs come last');
-});
-
-test('A filter that hides some of a group runs shows shown of total; a search opens matching groups without remembering it',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  const toggle=name=>[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))===name);
-  assert.match(text(toggle('TransDigm Group Incorporated').querySelector('.run-toggle')),/^24 runs$/);
-  const box=d.getElementById('library-query');
-  box.value='cpos-tdg-';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  const group=toggle('TransDigm Group Incorporated'),button=group.querySelector('.run-toggle');
-  const shown=group.querySelectorAll('tr.run-row').length;
-  assert.ok(shown>1&&shown<24);
-  assert.equal(text(button),`${shown} of 24 runs`);
-  assert.equal(button.getAttribute('aria-expanded'),'true');
-  assert.equal([...group.querySelectorAll('tr.run-row')].some(r=>r.hidden),false);
-  assert.equal(w.eval('expandedIssuers.size'),0,'the reader chose nothing');
-  box.value='';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  const back=toggle('TransDigm Group Incorporated');
-  assert.equal(text(back.querySelector('.run-toggle')),'24 runs');
-  assert.equal(back.querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
-  assert.equal(back.querySelector('tr.run-row').hidden,true);
-});
-
-test('Final 3: a group toggle clicked during a search changes the view only, never the remembered state',t=>{
-  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
-  const group=()=>[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))==='TransDigm Group Incorporated');
-  const box=d.getElementById('library-query');
-  box.value='cpos-tdg-';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  group().querySelector('.run-toggle').click();
-  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
-  assert.equal(group().querySelector('tr.run-row').hidden,true);
-  group().querySelector('.run-toggle').click();
-  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
-  assert.equal(w.eval('expandedIssuers.size'),0);
-  box.value='';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
 });
 
 test('Help explains run notices, resuming a stopped run and n.a. and n.m. in the cash flow model',t=>{

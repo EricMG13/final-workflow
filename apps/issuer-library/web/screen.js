@@ -43,7 +43,7 @@ const moduleNames = Object.fromEntries(groups.flatMap(g=>g[1]));
 delete modules.undefined; // A pin this workspace does not hold.
 const isAnalytical = id => !id.startsWith('W-')&&id!=='CP-OS';
 const $ = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc = value => String(value ?? '').replace(/[&<>"'\r]/g, c => ({'\r':'&#13;','&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const plain = value => String(value).replace(/\*\*|`/g,'');
 const rich = value => esc(value).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');
 const icon = name => `<img src="icons/${name}.svg" alt="">`;
@@ -51,10 +51,10 @@ const matchesHeading = (heading,prefix) => prefix.startsWith('=') ? heading===pr
 const evidence = new Map();
 const lastSection = new Map(), lastFile = new Map();
 const readingPositions = new Map(), expandedGroups = new Map();
-const LIBRARY_DEFAULTS = {query:'',sector:'all',workflow:'all',year:'all',content:'all',module:'all'};
+// Screening state, kept while the reader is on another screen. Filter names are LibraryLogic's.
+const LIBRARY_DEFAULTS = {search:'',sector:'',workflow:'',completion:'',availability:'',basis:'',period:'',leverageMin:'',leverageMax:'',coverageMin:'',coverageMax:'',issuer:''};
 const libraryFilters = {...LIBRARY_DEFAULTS};
-const expandedIssuers = new Set(); // Issuers whose run list is open; kept for the page session.
-const searchOpen = new Map(); // Groups opened or closed by hand during a search; the search view only, cleared when it ends.
+const libraryState = {selected:'',sortKey:'',direction:'asc'};
 let current = null, returnTrigger = null, returnScroll = 0, returnContentScroll = 0;
 installDestinations();
 const appDestinations=new Set(['W-Library','W-NewRun','W-Settings','W-Help']); // These need no selected run.
@@ -348,13 +348,41 @@ function moduleBody({module,context,output}) {
   }
 }
 let cancelReportFrame=null;
-// Column headers stick just under the sticky filter band, which sits 8px above the content's top edge.
-function sizeLibraryBand() {
-  const workspace=document.querySelector('.library-workspace'),band=document.querySelector('.library-discovery');
-  if(workspace&&band)workspace.style.setProperty('--band-h',`${band.offsetHeight-8}px`);
-  else document.getElementById('workbench')?.style.removeProperty('--band-h');
+// A number box with text it cannot read is 'invalid', which excludes every run rather than being ignored.
+function readLibraryFilters() {
+  $('library-filters').querySelectorAll('[data-library-filter]').forEach(control=>{libraryFilters[control.dataset.libraryFilter]=control.validity?.badInput?'invalid':control.value;});
+  updateLibrary();
 }
-window.addEventListener('resize',sizeLibraryBand);
+function resetLibrary() {
+  Object.assign(libraryFilters,LIBRARY_DEFAULTS);
+  Object.assign(libraryState,{selected:'',sortKey:'',direction:'asc'});
+  updateLibrary(true);
+}
+// Clicks inside the Library screen; true when one was handled.
+function libraryClick(target) {
+  const choose=target.closest('[data-library-select]'),sort=target.closest('[data-library-sort]'),nav=target.closest('[data-library-nav],[data-library-issuer]'),source=target.closest('[data-library-source]');
+  if(choose) {
+    libraryState.selected=choose.dataset.librarySelect;updateLibrary();
+    $('run-detail').focus({preventScroll:true});$('run-detail').scrollIntoView({block:'start'});
+  } else if(sort) {
+    const key=sort.dataset.librarySort;
+    libraryState.direction=libraryState.sortKey===key&&libraryState.direction==='asc'?'desc':'asc';libraryState.sortKey=key;
+    updateLibrary();$('library-results').querySelector(`[data-library-sort="${key}"]`).focus();
+  } else if(nav) {
+    const {libraryNav:kind,libraryIssuer:issuer}=nav.dataset;
+    if(kind==='all')resetLibrary();
+    else if(kind==='reports')Object.assign(libraryFilters,{issuer:'',availability:'report'});
+    else libraryFilters.issuer=libraryFilters.issuer===issuer?'':issuer;
+    updateLibrary(true);
+    [...$('library-nav').querySelectorAll('button')].find(b=>b.dataset.libraryNav===kind&&b.dataset.libraryIssuer===issuer).focus();
+  } else if(source) {
+    $('metric-sources').open=true;
+    const block=$(`source-${source.dataset.librarySource}`);block.focus({preventScroll:true});block.scrollIntoView({block:'center'});
+  } else if(target.closest('#library-clear,#library-empty-reset')) {
+    resetLibrary();$('library-query').focus();
+  } else return false;
+  return true;
+}
 function showNavigator(open) {
   $('navigator').classList.toggle('mobile-open',open);
   $('module-toggle').setAttribute('aria-expanded',String(open));
@@ -391,7 +419,6 @@ function renderRoute() {
     updateWorkspaceChrome(next.module);
     $('content').innerHTML=moduleBody(next);
     const activity=$('run-activity');if(activity)loadRunActivity(activity);
-    sizeLibraryBand();
     // watchFrame returns the callback that stops its timer; the previous report's timer must not fire against a detached element.
     if(cancelReportFrame)cancelReportFrame();
     cancelReportFrame=null;
@@ -442,7 +469,7 @@ function renderRoute() {
   $('announcement').textContent=`${named}${moduleNames[next.module]}, ${namedText(navigationSections(next.module,next.context,next.output).find(s=>s[0]===next.section)[1])}${next.evidence?', evidence open':''}`;
 }
 document.addEventListener('change',event=>{
-  if(event.target.matches('[data-library-filter]'))updateLibraryResults();
+  if(event.target.matches('[data-library-filter]'))readLibraryFilters();
   if(event.target.id==='model-select')go('W-Forecast',event.target.value);
   if(event.target.id==='report-select')go('W-Reports',event.target.value);
   if(event.target.id==='output-select')go(current.module,current.section,null,event.target.value);
@@ -458,20 +485,7 @@ document.addEventListener('click',event=>{
   if(searchHit){returnTrigger=$('module-search');showNavigator(false);if(searchHit.hash===location.hash)$('analysis').focus();}
   const summary=event.target.closest('summary');
   if(summary?.parentElement.dataset.group)expandedGroups.set(summary.parentElement.dataset.group,!summary.parentElement.open);
-  const toggle=event.target.closest('.run-toggle');
-  if(toggle){
-    const open=toggle.getAttribute('aria-expanded')!=='true',issuer=toggle.closest('tbody').dataset.group;
-    if(libraryFilters.query.trim()!=='')searchOpen.set(issuer,open);
-    else if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
-    toggle.setAttribute('aria-expanded',String(open));toggle.getAttribute('aria-controls').split(' ').forEach(id=>{$(id).hidden=!open;});return;
-  }
-  const unset=event.target.closest('[data-library-unset]');
-  if(unset){const control=$('library-filters').querySelector(`[data-library-filter="${unset.dataset.libraryUnset}"]`);control.value='all';updateLibraryResults();control.focus();return;}
-  if(event.target.closest('#library-clear')){
-    Object.assign(libraryFilters,LIBRARY_DEFAULTS);
-    $('library-filters').querySelectorAll('[data-library-filter]').forEach(control=>{control.value=libraryFilters[control.dataset.libraryFilter];});
-    updateLibraryResults();$('library-query').focus();return;
-  }
+  if(libraryClick(event.target))return;
   if(event.target.closest('.skip')){event.preventDefault();if(current.evidence){returnTrigger=$('analysis');go(current.module,current.section);}else $('analysis').focus();return;}
   const source=event.target.closest('[data-evidence]');
   if(source){event.preventDefault();returnTrigger=source;returnScroll=window.scrollY;returnContentScroll=$('content').scrollTop;go(current.module,current.section,source.dataset.evidence);return;}
@@ -481,7 +495,7 @@ document.addEventListener('click',event=>{
   const step=event.target.closest('#next-section')?1:event.target.closest('#previous-section')?-1:0;
   if(step){const sections=navigationSections(current.module,current.context),index=sections.findIndex(s=>s[0]===current.section);if(sections[index+step])go(current.module,sections[index+step][0]);}
 });
-document.addEventListener('input',event=>{if(event.target.id==='library-query')updateLibraryResults();});
+document.addEventListener('input',event=>{if(event.target.matches('input[data-library-filter]'))readLibraryFilters();});
 document.addEventListener('submit',event=>{if(event.target.id==='library-filters')event.preventDefault();});
 $('module-search').addEventListener('input',()=>renderNavigator(current.module));
 $('module-search-clear').addEventListener('click',()=>{$('module-search').value='';renderNavigator(current.module);$('module-search').focus();});

@@ -30,6 +30,8 @@ MODULE_CODE = re.compile(r"\bCP-[A-Z0-9]+\b(?![-.][A-Za-z0-9])")
 
 HERE = Path(__file__).resolve().parent
 R = HERE.parents[2]
+# Hand-written by someone other than the code's author (Plan 1, L0); the walk fails on drift.
+KEY = json.loads((HERE.parent / "web/testdata/library-screening-expected.json").read_text())
 # Set by main(): importing this module creates nothing and starts nothing.
 S = Path()
 PY = ""
@@ -225,35 +227,108 @@ def real_workspace(browser: Any, name: str, port: int, full: bool) -> None:
     page.close()
 
 
-def expand_groups(page: Any, name: str) -> None:
-    """Open every collapsed issuer group through its toggle, asserting the toggle reports it."""
-    toggles = page.locator("#library-results .run-toggle")
-    for index in range(toggles.count()):
-        toggle = toggles.nth(index)
-        if toggle.get_attribute("aria-expanded") == "false":
-            toggle.click()
-        note(
-            toggle.get_attribute("aria-expanded") == "true",
-            f"{name}: issuer group {index + 1} opens with its run toggle",
-        )
+ROW_IDS = "els => els.map(e => e.dataset.librarySelect)"
+
+
+def row_ids(page: Any) -> list[str]:
+    ids: list[str] = page.eval_on_selector_all(
+        "#library-results button[data-library-select]", ROW_IDS
+    )
+    return ids
+
+
+def library_counts(page: Any, name: str) -> None:
+    """Row, run folder, delivery and issuer counts against the key; a drifted workspace fails."""
+    ids = row_ids(page)
+    folders = KEY["run_folder_rows"]["ids"]
+    note(
+        sorted(ids) == sorted(folders + KEY["delivery_rows"]["ids"]),
+        f"{name}: library rows are the key's {len(folders)} run folders and"
+        f" {KEY['delivery_rows']['count']} delivery rows (got {len(ids)}; drift fails here)",
+    )
+    total, issuers = KEY["row_count"]["value"], KEY["issuer_count"]["value"]
+    note(
+        page.locator("#library-count").inner_text()
+        == f"{total} of {total} runs \u00b7 {issuers} issuers",
+        f"{name}: the count line says {total} runs and {issuers} issuers",
+    )
+    note(
+        page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
+        f"{name}: the library fits 1366x768 with no horizontal overflow",
+    )
+
+
+def library_screening(page: Any, name: str, port: int) -> None:
+    """A filter and a sort change the rows; a detail opens; Open run and Open report stay in app."""
+    cases = KEY["filter_cases"]
+    page.fill("#library-query", cases["c_search_issuer_name"]["filters"]["search"])
+    note(
+        row_ids(page) == cases["c_search_issuer_name"]["expected_ids"],
+        f"{name}: a search narrows the rows to the key's",
+    )
+    page.click("#library-clear")
+    page.click("#metric-filters summary")
+    page.fill("#library-leverageMin", cases["a_leverage_min"]["filters"]["leverageMin"])
+    note(
+        sorted(row_ids(page)) == sorted(cases["a_leverage_min"]["expected_ids"]),
+        f"{name}: a leverage minimum keeps the key's rows",
+    )
+    page.click("#library-clear")
+    sort = page.locator("[data-library-sort='leverage']")
+    sort.focus()
+    page.keyboard.press("Enter")
+    page.keyboard.press("Enter")
+    note(
+        row_ids(page)[:4] == KEY["sort_leverage_desc_missing_last"]["first_4_ids"],
+        f"{name}: the keyboard sorts by leverage descending, missing last, as the key says",
+    )
+    page.locator("[data-library-issuer='TDG']").focus()
+    page.keyboard.press("Space")
+    note(
+        len(row_ids(page)) == KEY["issuer_count"]["rows_per_issuer"]["TDG"],
+        f"{name}: the keyboard chooses an issuer",
+    )
+    page.click("#library-clear")
+    page.click("[data-library-select='tdg-002']")
+    detail = page.locator("#run-detail")
+    note(
+        "Total carrying debt / EBITDA As Defined" in detail.inner_text()
+        and "5.96\u00d7" in detail.inner_text(),
+        f"{name}: a row's detail opens with its metric and basis",
+    )
+    detail.locator("a:has-text('Open report')").click()
+    page.wait_for_selector("#report-preview")
+    note("W-Reports" in page.url, f"{name}: Open report opens the report inside the app")
+    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
+    page.reload()
+    page.wait_for_selector("#library-results tbody tr")
+    page.click("[data-library-select='tdg-002']")
+    page.locator("#run-detail a:has-text('Open run')").click()
+    page.wait_for_selector(".summary-lead")
+    note("W-Overview" in page.url, f"{name}: Open run reaches the Overview")
+    page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
+    page.reload()
+    page.wait_for_selector("#library-results tbody tr")
 
 
 def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
-    page.wait_for_selector("#library-results .issuer-row", timeout=30000)
+    page.wait_for_selector("#library-results tbody tr", timeout=30000)
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
-    # libraryResults renders exactly one a.run-link per run (single or grouped, hidden or not).
+    # Each run folder in the store has one Overview link; delivery rows sit beside them.
     note(
         page.locator("#library-results a.run-link").count() == want,
         f"{name}: library lists all {want} run folders, one link each",
     )
-    expand_groups(page, name)
+    pick = "#library-results [data-library-select"
     note(
-        "cpos-launch-live-002".upper() in page.inner_text("#library-results")
-        or "TransDigm Group Incorporated" in page.inner_text("#library-results"),
+        page.locator(pick + "='cpos-launch-live-002']").count() == 1
+        and page.locator(pick + "^='delivery:']").count() > 0,
         f"{name}: launcher run is in the library",
     )
+    library_counts(page, name)
     page.screenshot(path=str(S / f"{name}-library.png"))
+    library_screening(page, name, port)
     page.goto(f"http://127.0.0.1:{port}/#CP-1/performance?c=tdg-002")
     page.wait_for_selector(".bars")
     note(
@@ -377,10 +452,10 @@ def fitted_screens(page: Any, name: str, port: int) -> None:
             f"{name}: no horizontal overflow at {width}x{height}",
         )
         page.screenshot(path=str(S / f"{name}-summary-{width}.png"))
-    page.set_viewport_size({"width": 390, "height": 800})
+    page.set_viewport_size({"width": 390, "height": 844})
     page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
     page.reload()
-    page.wait_for_selector("#library-results .issuer-row")
+    page.wait_for_selector("#library-results tbody tr")
     note(
         page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
         f"{name}: no horizontal overflow at 390 wide (library)",
@@ -570,7 +645,7 @@ def new_run(  # noqa: PLR0915, RUF100
         page.close()
         return
     note(
-        status.startswith("complete") and "Automated checks only" in status,
+        status.startswith("Complete: Report written.") and "Automated checks only" in status,
         f"{name}: fake-provider run finishes through the real bridge: {status[:70]}",
     )
     note("Recorded spend: USD" in page.inner_text("#run-spend"), f"{name}: spend is shown")
@@ -640,11 +715,14 @@ def new_run(  # noqa: PLR0915, RUF100
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
     page.click(".rail a[data-place='Issuer library']")
-    page.wait_for_selector("#library-results .issuer-row")
-    expand_groups(page, name)
+    page.wait_for_selector("#library-results tbody tr")
+    # The catalogue names a run by its folder; only the store knows its issuer.
+    find = "(issuer) => Object.keys(contexts).find(k => contexts[k].issuer === issuer)"
+    key = page.evaluate(find, ISSUER)
+    link = page.locator(f"#library-results a.run-link[href*='c={key}']")
     note(
-        ISSUER in page.inner_text("#library-results"),
-        f"{name}: the library lists the new run under its issuer",
+        key is not None and link.count() == 1,
+        f"{name}: the library lists the new run with its Overview link",
     )
     # A run that appears on disk while the app is open is offered, not forced.
     added = Path(workspace, "runs", "added-001")
@@ -652,10 +730,9 @@ def new_run(  # noqa: PLR0915, RUF100
     (added / "CP-0.md").write_text("# CP-0\n\nAdded later.\n")
     expect(page.locator("#workspace-updated")).to_be_visible(timeout=70000)
     page.click("#reload-workspace")
-    page.wait_for_selector("#library-results .issuer-row")
-    expand_groups(page, name)
+    page.wait_for_selector("#library-results tbody tr")
     note(
-        "ADDED-001" in page.inner_text("#library-results"),
+        page.locator("[data-library-select='added-001']").count() == 1,
         f"{name}: a run added on disk is offered, then listed after Reload",
     )
     note(not errors, f"{name}: no console errors {errors[:4]}")

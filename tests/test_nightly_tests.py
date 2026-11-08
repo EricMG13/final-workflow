@@ -2,29 +2,45 @@
 
 from __future__ import annotations
 
+import os
+import re
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 from tools import nightly_tests as nightly
 
-SIZES = {"tests/a.py": 50, "tests/b.py": 40, "tests/c.py": 30, "tests/d.py": 20, "tests/e.py": 10}
+ROOT = Path(__file__).resolve().parents[1]
+SLOW = "import time\n\n" + "".join(f"def test_{n}():\n    time.sleep(0)\n\n" for n in range(7))
 
 
-def test_shards_cover_every_file_once_with_balanced_size() -> None:
-    shards = [nightly.shard_files(SIZES, 2, n) for n in range(2)]
-    # Largest first onto the lightest shard: a(50)->0, b(40)->1, c(30)->1 (70), d(20)->0 (70),
-    # e(10)->0 (80): shard 0 holds a, d, e; shard 1 holds b, c.
-    assert shards == [["tests/a.py", "tests/d.py", "tests/e.py"], ["tests/b.py", "tests/c.py"]]
-    assert sorted(name for shard in shards for name in shard) == sorted(SIZES)
+def _ran(folder: Path, shard: int, shards: int) -> list[str]:
+    """Node ids the real plugin keeps for one shard, from pytest's own verbose report."""
+    command = [*nightly.pytest_command(sys.executable, ["test_slow.py", "test_fast.py"]), "-rA"]
+    done = subprocess.run(
+        command,
+        cwd=folder,
+        env=os.environ | {nightly.SHARD_ENV: f"{shard}/{shards}", "PYTHONPATH": str(ROOT)},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    return re.findall(r"^PASSED (\S+)", done.stdout, re.MULTILINE)
 
 
-def test_more_shards_than_files_leaves_empty_shards() -> None:
-    assert [nightly.shard_files({"tests/a.py": 1}, 3, n) for n in range(3)] == [
-        ["tests/a.py"],
-        [],
-        [],
-    ]
+def test_shards_split_tests_not_files_so_a_slow_file_is_spread(tmp_path: Path) -> None:
+    (tmp_path / "test_slow.py").write_text(SLOW)
+    (tmp_path / "test_fast.py").write_text("def test_a():\n    pass\n")
+    ran = [_ran(tmp_path, n, 3) for n in range(3)]
+    everything = sorted(name for shard in ran for name in shard)
+    assert everything == sorted(
+        [*(f"test_slow.py::test_{n}" for n in range(7)), "test_fast.py::test_a"]
+    )
+    assert [len(shard) for shard in ran] == [3, 3, 2]
+    assert all(any("test_slow.py" in name for name in shard) for shard in ran)
 
 
 def _shard(folder: Path, n: int, status: str, log: str) -> None:

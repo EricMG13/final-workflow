@@ -43,6 +43,8 @@ type FacilityQuote struct {
 }
 type Rating struct {
 	Label  string `json:"label"`
+	Agency string `json:"agency,omitempty"`
+	Scope  string `json:"scope,omitempty"`
 	Date   string `json:"date"`
 	Source string `json:"source"`
 }

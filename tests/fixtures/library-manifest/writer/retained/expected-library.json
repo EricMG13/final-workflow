@@ -2,7 +2,7 @@
   "schema": "issuer-library-run/1",
   "run": {
     "id": "web-04cd5a5d02ea7d1dea714a8a6632cd21",
-    "issuer": "TDG",
+    "issuer": "tdg",
     "name": "TransDigm Group Incorporated",
     "identity_source": "ctx_identity",
     "sector": "Aerospace",

@@ -83,7 +83,7 @@
   "quotes": [
     {
       "facility_id": "NOTE-X",
-      "kind": "indicative",
+      "kind": "indicative_talk",
       "bid": "",
       "ask": "",
       "price": "101.25",

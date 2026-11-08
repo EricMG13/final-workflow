@@ -141,7 +141,9 @@ entry to `VERIFICATION.md`.
   - **Financial base:** 10-K for the year ended 28 January 2014 (0001047469-14-003037); 10-Qs for
     29 April 2014 (0001104659-14-044836) and 29 July 2014 (0001558370-14-000163), the presentation's
     LTM basis.
-  - **Context support:** merger 8-K of 29 August 2014 (0001104659-14-064027).
+  - **Context support:** Back to Bed asset purchase 8-K of 29 August 2014 (0001104659-14-064027;
+    Item 1.01, the bolt-on Asset Purchase Agreement, not the Sleep Train merger agreement, which is
+    not in the case; the lender presentation carries sources and uses and acquired EBITDA).
   - **After closing, for C1r:** 8-K of 21 October 2014 (0001104659-14-072654). Exhibit 10.1 is the
     ABL Credit Agreement and Exhibit 10.2 the Term Loan Credit Agreement, both dated 20 October
     2014; margin LIBOR + 4.00–4.25%, maturity 20 October 2021.

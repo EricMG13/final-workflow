@@ -36,7 +36,7 @@ func fakeEngine(t *testing.T) Engine {
 folder=pathlib.Path(sys.argv[2])
 job=json.loads((folder/'job.json').read_text())
 if sys.argv[1]=='review':
- print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True,'cap_usd':job['cap_usd']}))
+ print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True,'cap_usd':job['cap_usd'],'max_turns':job['max_turns'],'resume_of':job.get('resume_of')}))
 else:
  with (folder/'synthetic-starts.txt').open('a') as stream: stream.write('one\n')
  while (folder/'hold').exists(): time.sleep(.02)
@@ -1642,6 +1642,208 @@ print(json.dumps({'run':n}))
 	next := call(app, "GET", "/api/workspace", "")
 	if next.Code != 200 || strings.TrimSpace(next.Body.String()) != `{"run": 2}` {
 		t.Fatalf("the pre-refresh body was cached: %d %s", next.Code, next.Body.String())
+	}
+}
+
+func stoppedRun(t *testing.T, app *Application, root string) string {
+	t.Helper()
+	response := reviewRequest(t, app, `["annual.txt"]`)
+	var review map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &review)
+	id := review["id"].(string)
+	if started := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); started.Code != 202 {
+		t.Fatal(started.Body.String())
+	}
+	status := filepath.Join(root, "intake", id, "status.json")
+	for range 100 {
+		if raw, _ := os.ReadFile(status); strings.Contains(string(raw), `"stopped"`) {
+			app.mu.Lock()
+			active := len(app.activeJobs)
+			app.mu.Unlock()
+			if active == 0 {
+				return id
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatal("the synthetic run did not stop")
+	return ""
+}
+
+func resumeBody(id string) string {
+	return `{"id":"` + id + `","cap_usd":"12.00","max_turns":9}`
+}
+
+func TestResumeReviewsACopyOfTheStoppedRunAsANewJob(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	oldJob, err := os.ReadFile(filepath.Join(root, "intake", id, "job.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var result map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &result)
+	next, _ := result["id"].(string)
+	if next == "" || next == id || result["resume_of"] != id || result["max_turns"] != float64(9) {
+		t.Fatalf("not a new job resuming %s: %v", id, result)
+	}
+	var job NewJob
+	raw, err := os.ReadFile(filepath.Join(root, "intake", next, "job.json"))
+	if err != nil || json.Unmarshal(raw, &job) != nil {
+		t.Fatal(err)
+	}
+	if job.ResumeOf != id || job.Cap != "12.00" || job.MaxTurns != 9 || job.Config != "sol-medium" || !slices.Equal(job.Modules, []string{"CP-4"}) || len(job.Sources) != 1 || job.Sources[0].Path != "annual.txt" {
+		t.Fatalf("job was not the stopped one with a new cap and turns: %+v", job)
+	}
+	if got, err := os.ReadFile(filepath.Join(root, "intake", next, "sources", "annual.txt")); err != nil || string(got) != "Synthetic source" {
+		t.Fatal("source was not copied", err)
+	}
+	if got, _ := os.ReadFile(filepath.Join(root, "intake", next, "status.json")); !strings.Contains(string(got), `"reviewed"`) {
+		t.Fatalf("new job is not reviewed: %s", got)
+	}
+	if after, _ := os.ReadFile(filepath.Join(root, "intake", id, "job.json")); !bytes.Equal(after, oldJob) {
+		t.Fatal("the stopped run's job changed")
+	}
+	if _, err := os.Stat(filepath.Join(root, "intake", next, "synthetic-starts.txt")); !os.IsNotExist(err) {
+		t.Fatal("resume executed a worker")
+	}
+}
+
+func TestResumeRefusesARunningOrReviewedJob(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	for _, state := range []string{"reviewed", "running"} {
+		if err := saveJSON(filepath.Join(root, "intake", id, "status.json"), JobStatus{State: state, ID: id}); err != nil {
+			t.Fatal(err)
+		}
+		response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+		if response.Code != 409 || !strings.Contains(response.Body.String(), "Only a stopped, failed or interrupted run can be resumed") {
+			t.Fatalf("%s: %d %s", state, response.Code, response.Body.String())
+		}
+	}
+	if entries, _ := os.ReadDir(filepath.Join(root, "intake")); len(entries) != 1 {
+		t.Fatalf("a refused resume left %d intake folders", len(entries))
+	}
+}
+
+func TestResumeRefusesWhenTheStoppedRunsInputsAreGone(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	if err := os.RemoveAll(filepath.Join(root, "intake", id, "sources")); err != nil {
+		t.Fatal(err)
+	}
+	response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+	if response.Code != 409 || !strings.Contains(response.Body.String(), "The stopped run's inputs are no longer in the workspace") {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestResumeRefusesABadRequest(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	for _, body := range []string{
+		`{"id":"nope","cap_usd":"12.00","max_turns":9}`,
+		`{"id":"` + id + `","cap_usd":"","max_turns":9}`,
+		`{"id":"` + id + `","cap_usd":"12.00","max_turns":0}`,
+		`{"id":"` + id + `","cap_usd":"12.00","max_turns":65}`,
+		`{"id":"` + id + `","cap_usd":"12.00","max_turns":9,"config":"other"}`,
+	} {
+		if response := call(app, "POST", "/api/runs/resume", body); response.Code != 400 {
+			t.Fatalf("%s accepted: %d", body, response.Code)
+		}
+	}
+}
+
+func TestResumedJobStartsOnlyThroughConfirmedStart(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+	var result map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &result)
+	next := result["id"].(string)
+	if _, err := os.Stat(filepath.Join(root, "intake", next, "start.claim")); !os.IsNotExist(err) {
+		t.Fatal("resume claimed a start")
+	}
+	if refused := call(app, "POST", "/api/runs/start", `{"id":"`+next+`","review_id":"review-fingerprint","confirm":false}`); refused.Code != 400 {
+		t.Fatalf("unconfirmed start: %d", refused.Code)
+	}
+	if _, err := os.Stat(filepath.Join(root, "intake", next, "synthetic-starts.txt")); !os.IsNotExist(err) {
+		t.Fatal("an unconfirmed start ran")
+	}
+	if started := call(app, "POST", "/api/runs/start", `{"id":"`+next+`","review_id":"review-fingerprint","confirm":true}`); started.Code != 202 {
+		t.Fatalf("confirmed start: %d %s", started.Code, started.Body.String())
+	}
+	var raw []byte
+	var err error
+	for range 100 {
+		if raw, err = os.ReadFile(filepath.Join(root, "intake", next, "synthetic-starts.txt")); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err != nil || string(raw) != "one\n" {
+		t.Fatalf("starts: %q %v", raw, err)
+	}
+}
+
+func TestResumeCopiesOnlyTheListedRegularFiles(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	outside := filepath.Join(root, "outside.txt")
+	if err := os.WriteFile(outside, []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	sources := filepath.Join(root, "intake", id, "sources")
+	if err := os.Symlink(outside, filepath.Join(sources, "link.txt")); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	if err := os.WriteFile(filepath.Join(sources, "unlisted.txt"), []byte("late"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+	if response.Code != 200 {
+		t.Fatal(response.Code, response.Body.String())
+	}
+	var result map[string]any
+	_ = json.Unmarshal(response.Body.Bytes(), &result)
+	copied := filepath.Join(root, "intake", result["id"].(string), "sources")
+	entries, _ := os.ReadDir(copied)
+	if len(entries) != 1 || entries[0].Name() != "annual.txt" {
+		t.Fatalf("copied %d entries, want only annual.txt: %v", len(entries), entries)
+	}
+}
+
+func TestResumeRefusesAListedSourceThatIsNowALink(t *testing.T) {
+	app, root := testApp(t)
+	app.engine = fakeEngine(t)
+	id := stoppedRun(t, app, root)
+	outside := filepath.Join(root, "outside.txt")
+	if err := os.WriteFile(outside, []byte("secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	listed := filepath.Join(root, "intake", id, "sources", "annual.txt")
+	if err := os.Remove(listed); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, listed); err != nil {
+		t.Skip("symlinks unavailable:", err)
+	}
+	response := call(app, "POST", "/api/runs/resume", resumeBody(id))
+	if response.Code != 409 || !strings.Contains(response.Body.String(), "no longer in the workspace") {
+		t.Fatalf("%d %s", response.Code, response.Body.String())
+	}
+	if entries, _ := os.ReadDir(filepath.Join(root, "intake")); len(entries) != 1 {
+		t.Fatalf("a refused resume left %d intake folders", len(entries))
 	}
 }
 

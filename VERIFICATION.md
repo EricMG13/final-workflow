@@ -8,6 +8,30 @@ contains the settled CP-6 timeout cost, the corrected TDG annual publication, th
 live CP-8 comparison and checks of the five broader report bundles. The older
 entries below retain their historical case scope.
 
+## 2026-11-08 — Resume a stopped run (branches claude/resume-core, claude/resume-run)
+
+Scope: Tasks 4-6 of the deferred-features plan.
+- Resume creates a new reviewed job; only cap and max turns may change. A stopped run's accepted
+  modules are replayed without a call.
+- Replayed bytes come from CP-OS's accepted record, `requests/<m>/<fp>/<n>.response.md`, with an
+  issue-free review and a matching sha.
+- A module is kept only while its sources (context included), upstream, instructions and model
+  setting match and the current checker accepts it. The prefix ends at the first mismatch; the
+  review names the reason.
+- Resume copies only the job's listed regular files and never follows symlinks. Start recomputes the
+  review id from the plan it will run, before any call. The stopped run's folders are never written.
+- Reviews: mx-precise 1 Medium (sources the answer never saw); mx-adversary 3 Mediums (replay from
+  the app's copy; instructions and model not pinned; Start re-reading after the id matched);
+  re-review 1 Medium (an edited copy blocked Start). All fixed in 2 rounds.
+- Probes exit 0: adv3-instructions, adv3-start-toctou(-sources), adv3-resume-id, adv3-context,
+  adv3-stopped-run-untouched, p3-sources-changed, rr3-accepted-selection, rr3-start-record-window,
+  rr3-checker-at-review, rr3-corrupt-record, rr3-copy-edges.
+- Superseded by the design change: adv3-replay-bytes (the controller confirmed the replayed bytes
+  equal the model's accepted answer, not the edit), rr3-copy-start, adv3-go's whole-tree-copy case,
+  p3-copyfs-symlink.
+- Not verified: a real paid resume; the Go-to-Python engine path end to end (the Go tests use
+  fakeEngine); Windows.
+
 ## 2026-11-08 — Native Windows notice (branch `claude/native-toast`)
 
 Scope: Task 3 of the deferred-features plan.

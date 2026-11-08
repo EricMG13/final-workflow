@@ -54,6 +54,7 @@ const readingPositions = new Map(), expandedGroups = new Map();
 const LIBRARY_DEFAULTS = {query:'',sector:'all',workflow:'all',year:'all',content:'all',module:'all'};
 const libraryFilters = {...LIBRARY_DEFAULTS};
 const expandedIssuers = new Set(); // Issuers whose run list is open; kept for the page session.
+const searchOpen = new Map(); // Groups opened or closed by hand during a search; the search view only, cleared when it ends.
 let current = null, returnTrigger = null, returnScroll = 0, returnContentScroll = 0;
 installDestinations();
 const appDestinations=new Set(['W-Library','W-NewRun','W-Settings','W-Help']); // These need no selected run.
@@ -381,9 +382,11 @@ function renderRoute() {
     $('module-head').innerHTML=moduleHead(next);
     // A page with one section already says its name in the heading above.
     const only=sections.length===1&&!isAnalytical(next.module);
+    // The pager names what it steps through on the pages where the sections are models or reports.
+    const pagerNoun={'W-Forecast':'model','W-Reports':'report'}[next.module]||'section';
     const title=`<h3 id="section-title" tabindex="-1" ${only?'class="sr-only"':''}>${esc(sections[index][1])}</h3>`;
     // The bar sticks at narrow widths, so it names the run and the module (or destination) it belongs to.
-    $('section-nav').innerHTML=contextPrefix(next)+(only||(isAnalytical(next.module)&&!next.output)?title:`${title}<span>${index+1} / ${sections.length}</span><button id="previous-section" ${index===0?'disabled':''} aria-label="Previous section">${icon('arrow-left')}</button><button id="next-section" ${index===sections.length-1?'disabled':''} aria-label="Next section">${icon('arrow-right')}</button>`);
+    $('section-nav').innerHTML=contextPrefix(next)+(only||(isAnalytical(next.module)&&!next.output)?title:`${title}<span>${index+1} / ${sections.length}</span><button id="previous-section" ${index===0?'disabled':''} aria-label="Previous ${pagerNoun}">${icon('arrow-left')}</button><button id="next-section" ${index===sections.length-1?'disabled':''} aria-label="Next ${pagerNoun}">${icon('arrow-right')}</button>`);
     if(!showsCodes(next))nameCodes($('section-nav'));
     updateWorkspaceChrome(next.module);
     $('content').innerHTML=moduleBody(next);
@@ -393,7 +396,16 @@ function renderRoute() {
     if(cancelReportFrame)cancelReportFrame();
     cancelReportFrame=null;
     const modelFrame=$('model-preview'),frame=$('report-preview');
-    if(modelFrame)cancelReportFrame=watchFrame(modelFrame,$('content').querySelector('.frame-status'),'Loading model…','The model did not load.',()=>{const link=document.createElement('a');link.setAttribute('href',modelFrame.dataset.download);link.download='';link.textContent='Download original HTML';return link;},'This model\'s file could not be found. Reload the library to refresh the list.');
+    // The published model loads only when its disclosure is first opened: the frame gets its address and its watch then.
+    const disclosure=$('content').querySelector('details.model-original');
+    if(modelFrame&&disclosure){
+      const openModel=()=>{
+        if(!disclosure.open||modelFrame.getAttribute('src'))return;
+        modelFrame.setAttribute('src',modelFrame.dataset.src);
+        cancelReportFrame=watchFrame(modelFrame,disclosure.querySelector('.frame-status'),'Loading model…','The model did not load.',()=>{const link=document.createElement('a');link.setAttribute('href',modelFrame.dataset.download);link.download='';link.textContent='Download original HTML';return link;},'This model\'s file could not be found. Reload the library to refresh the list.');
+      };
+      disclosure.addEventListener('toggle',openModel);
+    }
     if(frame)cancelReportFrame=watchFrame(frame,$('content').querySelector('.frame-status'),'Loading report…','The report did not load.',()=>{const link=document.createElement('a');link.setAttribute('href',window.DESIGN_WORKSPACE.reports.find(r=>r.id===next.section).download);link.download='';link.textContent='Download original HTML';return link;},'This report\'s file could not be found. Reload the library to refresh the list.');
     if(!showsCodes(next))nameCodes($('content'));
     $('content').scrollTop=readingPositions.get(`${next.context}:${next.output||next.module}:${next.section}`)||0;
@@ -405,6 +417,7 @@ function renderRoute() {
     const creating=next.module==='W-NewRun';
     $('content').hidden=creating;
     $('new-run').hidden=!creating;
+    if(typeof presentRun==='function')presentRun();
     if(previous) {
       const report=isReportRoute(next.module,next.section),library=appDestinations.has(next.module)||!contexts[next.context];
       const restored=!report&&!library&&focusId&&$(focusId);
@@ -448,7 +461,8 @@ document.addEventListener('click',event=>{
   const toggle=event.target.closest('.run-toggle');
   if(toggle){
     const open=toggle.getAttribute('aria-expanded')!=='true',issuer=toggle.closest('tbody').dataset.group;
-    if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
+    if(libraryFilters.query.trim()!=='')searchOpen.set(issuer,open);
+    else if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
     toggle.setAttribute('aria-expanded',String(open));toggle.getAttribute('aria-controls').split(' ').forEach(id=>{$(id).hidden=!open;});return;
   }
   const unset=event.target.closest('[data-library-unset]');

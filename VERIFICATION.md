@@ -10,6 +10,59 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Issuer Library: Impeccable polish of the run lifecycle surfaces (branch `claude/app-sections-skill-use-d9996f`)
+
+Scope: New run progress, Run activity and the run strip, after the critique fixes below (start `b8a3d391`); macOS only; a synthetic
+scratch workspace (one budget stop in CP-1 after CP-0 accepted, one complete run) and jsdom fakes, no provider call.
+- The module where a run stopped shows amber "Stopped here"; a stop between modules (`stopped_during: accepted`) keeps the accepted
+  module ticked and reads "Stopped after <module> (n of N)."; the strip is hidden on that run's own Run activity and New run progress
+  view (not a dismissal); Resume is the one primary action for a resumable run; the short run id badge with the full id in its title;
+  "Run record · WEB-…" heading; the module sentence on its own line with a full stop; event dates only on the first row and when the
+  day changes; no link after "0 saved outputs" or when no report exists; strip text up to 120ch, card radius, 24px action targets.
+- Reviews: mx-precise on `4f9fd8a6` (one Medium: the stop-between-modules case above; one Low: a loose test, tightened); one fix
+  round `15e0d9fd`; scoped mx-precise re-review of the fix PASS (its new test fails on `4f9fd8a6`, exit 1).
+- Gates at `15e0d9fd`, exit 0: `node --test` over validate.py NODE_TESTS 353/353; the review's three probes; `tools/quality_gate.py
+  --base 5740af30` 0 findings. No Python or Go file changed since the pytest/go run in the entry below. Impeccable detector: no finding
+  on a line this pass changed. Browser check in the in-app pane at 1366×768 and 720×900.
+Not verified: Windows/Edge rendering; a real engine run producing a stop between modules; real screen readers; the weekly full suite;
+nothing pushed.
+
+## 2026-11-08 — Issuer Library: fixes from the Impeccable critique of the new sections (branch `claude/app-sections-skill-use-d9996f`)
+
+Scope: `apps/issuer-library` sections added after the 2026-11-06 layout pass (critique
+`apps/issuer-library/.impeccable/critique/2026-11-08T11-36-19Z__web-index-html.md`, 22/40, 3 P1); start `5740af30`; macOS only;
+retained workspace and jsdom fakes, no provider call.
+- Cash flow grid: no "—" cell; every gap is n.a. with a reason ("printed as — in the source" / "the model's source table has no
+  value for this period"); n.a./n.m. cells carry aria-labels; period-named "Why cells show n.a." lines; total rows; ratio tooltips at
+  4 dp with ≈; labelled scroll region; 32px rows; the published model behind a closed disclosure. Built from gains Run, plain role
+  words, "Matches publication" and a different-attempts note; candidate reports use the grey badge; "Analytical qualification: not run".
+- Run lifecycle: a run-state strip on every screen (running / complete / stopped / failed / interrupted; amber only for the last three;
+  View activity, View reports, Resume, Dismiss per viewer); the rail mark coloured by state and unaffected by Dismiss; a Report delivery
+  progress step; plain state words and module names for codes.
+- Resume and Run activity: a resumed run has its own cap (prefilled from the stopped run's recorded `progress.cap_usd`, never a draft
+  value); not offered after a ruling stop; Run activity falls back to the retained record on a 404 ("No live progress is recorded for this
+  run in this workspace."), shows the log in a labelled card with dated times and offers Resume; Recent runs newest first with id and
+  start date (`jobView` gains `started_at`); browser and native notices name the issuer and the stop reason.
+- Library, form, Help: runs newest first, "<shown> of <total> runs", groups open while searching without changing the remembered
+  state; context form on the 11–14px ramp with a grey Default tag; Help entries for run notices, resuming and n.a./n.m.
+- Answer keys: `designs/forecast-answer-key.json` and `designs/library-answer-key.json` updated by a separate oracle author from source
+  bytes (`5b6d07a5`, `9066c7c0`, `aadab2eb`); implementers never edited them.
+- Reviews: mx-precise per task; mx-adversary on Task 4 (one Medium: resume cap fell back to the draft budget, fixed); fix rounds:
+  Task 3 one, Task 4 one, Task 5 one; mx-architect on the branch (two Mediums: Dismiss hid the rail mark, the retained view denied a
+  recorded cost; one fix wave, re-review clean; confidence review and rewrite tournament included).
+- Gates at `f3b9f9bd`, exit 0: `node --test` over validate.py NODE_TESTS 344/344; pytest over validate.py PYTHON_TESTS 607 passed;
+  `go vet`, `go test`; `tools/quality_gate.py --base 5740af30` 0 findings. Impeccable detector 81 → 84 advisories (three literal colours:
+  two in `web/context-embed.css`, which mirror screen.css tokens because the sandboxed form cannot read them, and one in `screen.css`,
+  tokenised in this entry's commit). Browser check in the in-app pane at 1366 and 720 (32px rows, no page overflow, Built from, grey
+  candidate badges, retained Run activity, "4 of 24 runs").
+- Open for the owner: the server accepts a resume of a ruling stop (client refuses); quarter values present in `quarter.md` (capex,
+  cash interest, cash taxes, Q1 closing cash and debt) show as n.a. in the grid; a retained web run's `progress.json` spend is not shown;
+  `actions.js` reconnect `catch{}` is unlogged; the native toast keeps the PowerShell identity and has no click action; Ford Otosan and
+  Ford Otomotiv Sanayi A.S. stay separate issuer IDs; the branch is 1,816 changed lines (658 without tests and keys), over the 800-line
+  PR gate — split at PR time.
+Not verified: Windows/Edge rendering and the native toast; live-job states (running, stop, finish notice, Resume) beyond jsdom; real
+screen readers; the Playwright browser walk; the weekly full suite; nothing pushed.
+
 ## 2026-11-08 — Codex review of `ac22d9d7`: Quit race and handoff Excel reads (branch `claude/exciting-darwin-pb4frw`)
 
 Scope: four review findings, each reproduced on main `9838968` before the fix; Linux, offline, no provider call.

@@ -166,7 +166,7 @@ test('at 720px and below the section bar outranks every sticky table cell and ca
   const cells = [...screen.matchAll(/position:sticky[^}]*z-index:(\d+)/g)].map((m) => Number(m[1]));
   assert.ok(cells.length > 0);
   assert.ok(cells.every((z) => z < bar), `a sticky cell reaches ${Math.max(...cells)}, bar is ${bar}`);
-  assert.match(mobile, /\.cashflow tbody th\[scope=row\]\{[^}]*white-space:normal[^}]*max-width:9\.5rem/);
+  assert.match(mobile, /\.cashflow tbody th\[scope=row\]\{[^}]*white-space:normal[^}]*min-width:12rem[^}]*max-width:12rem/);
 });
 
 test('every custom property screen.css reads without a fallback is defined in screen.css', () => {
@@ -184,4 +184,29 @@ test('the amber run mark glyph and the amber strip text hold 4.5:1 on their back
   assert.ok(mark, 'amber mark rule');
   assert.ok(contrast(token(mark[2]), token(mark[1])) >= 4.5, `${mark[2]} on ${mark[1]}`);
   assert.ok(contrast(token('amber'), token('amber-bg')) >= 4.5);
+});
+
+test('cash flow rows are 32px, row labels hold 12rem, column groups are ruled and scenarios sit on --quiet', () => {
+  const cell = screen.match(/\.cashflow tbody th,\.cashflow tbody td\{([^}]*)\}/);
+  assert.ok(cell, 'no cash flow cell rule');
+  assert.match(cell[1], /height:32px/);
+  // 5px above and below a 20px line leaves the 1px rule inside the 32px row.
+  assert.match(cell[1], /padding-top:5px/);assert.match(cell[1], /padding-bottom:5px/);assert.match(cell[1], /line-height:20px/);
+  const label = screen.match(/\.cashflow tbody th\[scope=row\]\{([^}]*min-width:12rem[^}]*)\}/);
+  assert.ok(label, 'row labels have no 12rem minimum');
+  assert.match(label[1], /white-space:normal/);
+  assert.doesNotMatch(screen, /\.cashflow[^{]*\{[^}]*text-overflow:ellipsis/);
+  assert.match(screen, /\.cashflow \.group-start\{border-left:1px solid var\(--rule\)\}/);
+  assert.match(screen, /\.cashflow td\.scenario\{background:var\(--quiet\)\}/);
+});
+
+test('the published model disclosure and the cash flow region are styled as a quiet disclosure', () => {
+  assert.match(screen, /\.model-original>summary\{[^}]*cursor:pointer[^}]*min-height:32px/);
+});
+
+test('the run strip uses the card radius, a wide supporting line and 24px action targets', () => {
+  const rule = (selector) => screen.match(new RegExp(`(?:^|\\})${selector.replace(/[.[\]]/g, '\\$&')}\\{([^}]*)\\}`, 'm'))?.[1] ?? '';
+  assert.match(rule('.run-strip'), /border-radius:var\(--radius-card\)/);
+  assert.match(rule('.strip-text'), /max-width:120ch/);
+  assert.match(rule('.strip-actions a'), /min-height:24px/);
 });

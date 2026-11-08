@@ -419,7 +419,7 @@ test('Grey text: run pages drop state narration, hash notes, design specs and em
   assert.equal(c.querySelector('.report-row small'),null);
   c=at('W-Reports/tdg-fy2024-snapshot-3?c=tdg-002');assert.ok(!c.textContent.includes('remains selected'));
   c=at('CP-OS/activity?c=tdg-002');
-  assert.ok(c.textContent.includes('No live progress or cost recorded for this run.'));assert.ok(c.textContent.includes('9 saved outputs'));
+  assert.ok(c.textContent.includes('No live progress is recorded for this run in this workspace.'));assert.ok(c.textContent.includes('9 saved outputs'));
   assert.ok(!/source identity|SHA-256|historical selection/.test(c.textContent));
   c=at('W-Calendar/unavailable?c=tdg-003');assert.equal(c.querySelector('.context-note'),null);assert.equal(c.querySelector('.matrix-note'),null);
   c=at('CP-1?c=tdg-002');assert.ok(!c.textContent.includes('Source order preserved'));

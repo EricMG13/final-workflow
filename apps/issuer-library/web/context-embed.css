@@ -36,4 +36,5 @@ body>details { margin:var(--rb-s-5); }
 .rtag.req { background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; }
 .rtag.rec { background:transparent; border:1px solid #CFD3DD; color:#3A4056; }
 .rtag.opt { background:transparent; border:1px solid #E4E6EC; color:#4F566B; }
-.tag.def { background:#E7ECFF; color:#0017E5; }
+/* Default tag: the grey .badge-gray of screen.css (--gray-50 #F8F9FB, --border-secondary #E4E6EC, --text-secondary #3A4056); this sandboxed form cannot read the app's variables. */
+.tag.def { background:#F8F9FB; border:1px solid #E4E6EC; color:#3A4056; text-transform:none; font-weight:500; }

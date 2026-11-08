@@ -1050,3 +1050,76 @@ func TestManifestTermErrorNamesSortedFirstKey(t *testing.T) {
 		}
 	}
 }
+
+func TestWriterKeyIsAdmittedWithItsChecklist(t *testing.T) {
+	cases, _ := filepath.Glob(filepath.Join(manifestFixtures, "writer", "*", "expected-library.json"))
+	if len(cases) == 0 {
+		t.Fatal("no writer answer keys found")
+	}
+	for _, keyFile := range cases {
+		dir := filepath.Dir(keyFile)
+		t.Run(filepath.Base(dir), func(t *testing.T) {
+			root := t.TempDir()
+			base := filepath.Join(dir, "workspace")
+			_ = filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+				if err == nil && !d.IsDir() {
+					rel, _ := filepath.Rel(base, p)
+					copyFile(t, p, root, filepath.ToSlash(rel))
+				}
+				return err
+			})
+			var plan []struct{ From, To string }
+			if raw, err := os.ReadFile(filepath.Join(dir, "copy.json")); err == nil {
+				if err := json.Unmarshal(raw, &plan); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for _, c := range plan {
+				from := filepath.Join("..", "..", filepath.FromSlash(c.From))
+				if _, err := os.Stat(from); err != nil {
+					t.Skip(c.From + " not present")
+				}
+				copyFile(t, from, root, c.To)
+			}
+			raw, err := os.ReadFile(keyFile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var key struct {
+				Run       struct{ ID string }
+				Checklist struct{ Requirements []struct{ Done bool } }
+			}
+			if err := json.Unmarshal(raw, &key); err != nil {
+				t.Fatal(err)
+			}
+			put(t, root, "runs/"+key.Run.ID+"/library.json", raw)
+			cat := discover(root, Catalogue{})
+			for _, issue := range cat.Issues {
+				if strings.Contains(issue, key.Run.ID) {
+					t.Fatalf("issue names the run: %s", issue)
+				}
+			}
+			for _, run := range cat.Real {
+				if run.ID != key.Run.ID {
+					continue
+				}
+				done := 0
+				for _, r := range key.Checklist.Requirements {
+					if r.Done {
+						done++
+					}
+				}
+				for _, gap := range run.Gaps {
+					if strings.HasPrefix(gap, "Run metadata rejected") {
+						t.Fatal(gap)
+					}
+				}
+				if run.Checkpoints == nil || run.Checkpoints.Done != done || run.Checkpoints.Total != len(key.Checklist.Requirements) {
+					t.Fatalf("checkpoints %v, want %d/%d", run.Checkpoints, done, len(key.Checklist.Requirements))
+				}
+				return
+			}
+			t.Fatalf("run %s not served", key.Run.ID)
+		})
+	}
+}

@@ -389,9 +389,7 @@ def _checklist(run: _Run, run_id: str, sink: _Sink) -> Json:
 def _identity(ctx: Json, sink: _Sink, run: Json) -> Json:
     ident = _need(ctx, "identity", dict, "context")
     name = _need(ident, "issuer_name", str, "context identity")
-    out: Json = {
-        "issuer": ident.get("ticker") or _need(ident, "issuer_id", str, "context identity")
-    }
+    out: Json = {"issuer": _need(ident, "issuer_id", str, "context identity")}
     source = sink.ctx("ctx_identity", "identity", "issuer_name")
     if source is None:
         raise ManifestError("context: issuer_name is not on exactly one line")

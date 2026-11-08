@@ -456,19 +456,17 @@ function libraryArtifactLink(artifact,key,text,cls,aria='') {
 }
 const libraryOpenText=artifact=>artifact.kind==='model'?'Open model':artifact.relationship==='related'?'Related report':'Open report';
 function libraryRows() {
-  const runs=catalogueRuns(),f={...libraryFilters},coverage=LibraryLogic.coverage(runs,f);
+  const runs=catalogueRuns(),f={...libraryFilters};
+  // Search also reads the issuer name and terms the store recorded for the joined run, appended to the title the search reads; counts, hidden rows and the list all see the same text.
+  const shadows=runs.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,title:[run.title,held?.issuer,...(held?.issuerTerms||[])].filter(Boolean).join(' ')};});
+  const original=new Map(runs.map(run=>[run.id,run])),back=list=>list.map(run=>original.get(run.id));
+  const coverage=LibraryLogic.coverage(shadows,f);
   if(!Object.hasOwn(coverage,libraryState.hidden))libraryState.hidden='';
-  const entries=LibraryLogic.screened(runs,{...f,search:''}),skipped=new Set(entries.filter(e=>e.notScreened).map(e=>e.run.id));
-  let matching=LibraryLogic.hiddenBy(runs,f,libraryState.hidden); // "Show them" lists exactly the logic's hidden rows
-  if(!libraryState.hidden) {
-    // Search also reads the issuer name and terms the store recorded for the joined run, appended after the served fields.
-    const base=entries.map(e=>e.run),shadows=base.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,workflow:[run.workflow,held?.issuer,...(held?.issuerTerms||[])].filter(Boolean).join(' ')};});
-    const found=new Set(LibraryLogic.filterRuns(shadows,{runs:'any',search:f.search}).map(r=>r.id));
-    matching=base.filter(r=>found.has(r.id));
-  }
-  const rows=libraryState.sortKey?LibraryLogic.sortRuns(matching,libraryState.sortKey,libraryState.direction):matching;
+  const entries=LibraryLogic.screened(shadows,f),skipped=new Set(entries.filter(e=>e.notScreened).map(e=>e.run.id));
+  const matching=back(libraryState.hidden?LibraryLogic.hiddenBy(shadows,f,libraryState.hidden):entries.map(e=>e.run)); // "Show them" lists exactly the logic's hidden rows
+  const rows=libraryState.sortKey?LibraryLogic.sortRuns(matching,libraryState.sortKey,libraryState.direction,f):matching;
   if(!rows.some(r=>r.id===libraryState.selected))libraryState.selected=rows[0]?.id??'';
-  const unscreened=f.runs==='any'?0:runs.length-LibraryLogic.screened(runs,{}).filter(e=>!e.notScreened).length;
+  const unscreened=f.runs==='any'?0:runs.length-LibraryLogic.screened(runs,{}).length; // rows Any run would add
   return {runs,rows,skipped,coverage,unscreened,hidden:libraryState.hidden};
 }
 const libraryCount=({runs,rows,hidden})=>hidden?`${plural(rows.length,'run')} hidden by ${COVERAGE_NAMES[hidden]} · not matching these filters`:`${rows.length} of ${plural(runs.length,'run')} · ${plural(new Set(rows.map(r=>r.issuer)).size,'issuer')}`;

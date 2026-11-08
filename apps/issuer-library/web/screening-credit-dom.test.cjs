@@ -69,7 +69,7 @@ test('default Latest view shows the key rows, tags what Latest does not screen a
   const tagged=sorted(p.logic('LibraryLogic.screened(window.DESIGN_CATALOGUE.real,{}).filter(e=>e.notScreened).map(e=>e.run.id)'));
   assert.deepEqual(sorted(p.ids().filter(id=>p.row(id).includes('No report · not screened'))),tagged);
   assert.ok(tagged.includes('aldermoor-2025-001'),'the stopped run is tagged');
-  const left=total-p.logic('LibraryLogic.screened(window.DESIGN_CATALOGUE.real,{}).filter(e=>!e.notScreened).length');
+  const left=total-p.logic('LibraryLogic.screened(window.DESIGN_CATALOGUE.real,{}).length'); // rows Any run adds
   assert.match(text(p.d.getElementById('library-coverage')),new RegExp(`${left} runs not screened.*Any run`));
   p.set('library-runs','any');
   assert.deepEqual(sorted(p.ids()),byName('runs any, no other filter').expected_ids);
@@ -185,4 +185,21 @@ test('narrow screens stack the panel, table and detail',()=>{
     return css.slice(start,i-1);}).join('');
   assert.match(block(900),/\.library-screen\{grid-template-columns:minmax\(0,1fr\)\}/);
   assert.match(block(720),/\.library-filters,\.metric-grid,\.detail-layout\{grid-template-columns:minmax\(0,1fr\)\}/);
+});
+
+test('Rating sort follows the Rating scope the column shows (probe-13d-rating-sort-scope)',t=>{
+  const p=page(t,'W-Library/cases?runs=any&ratingScope=any&sort=rating&dir=asc');
+  const shown=p.ids().map(id=>p.cell(id,'Rating').startsWith('—'));
+  assert.ok(shown.includes(false)&&shown.includes(true));
+  assert.equal(shown.lastIndexOf(false)<shown.indexOf(true),true,'rated rows sort before unrated rows');
+});
+
+test('cash and undrawn sort as metrics, missing last',t=>{
+  const p=page(t),rows=catalogue.real,fig=(r,k)=>{const v=Number(r.metrics[k]?.value);return r.metrics[k]&&String(r.metrics[k].value).trim()!==''&&v>=0?v:null;};
+  for(const k of ['cash','undrawn']) {
+    const out=p.logic(`LibraryLogic.sortRuns(window.DESIGN_CATALOGUE.real,'${k}','desc').map(r=>r.id)`);
+    const have=out.filter(id=>fig(rows.find(r=>r.id===id),k)!==null).map(id=>fig(rows.find(r=>r.id===id),k));
+    assert.deepEqual(have,[...have].sort((a,b)=>b-a),k);
+    assert.equal(out.findIndex(id=>fig(rows.find(r=>r.id===id),k)===null)>=have.length-0||have.length===out.length,true,`${k}: missing last`);
+  }
 });

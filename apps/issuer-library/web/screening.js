@@ -1,4 +1,4 @@
-/* Pure screening operations for the Library screen; no analysis or metric calculations. Ported unchanged from the approved example (examples/issuer-library/logic.js). */
+/* Pure screening operations for the Library screen; no analysis or metric calculations. Ported from the approved example (examples/issuer-library/logic.js), extended by Plan 4. */
 const LibraryLogic = (() => {
   const numberOf = metric => {
     if (metric == null || metric.value == null || String(metric.value).trim() === '') return null;
@@ -144,9 +144,9 @@ const LibraryLogic = (() => {
       hidden: hiddenBy(runs, filters, name).length
     }]));
   }
-  function sortRuns(runs, key, direction) {
-    const metrics = ['leverage', 'net_leverage', 'coverage'];
-    const value = run => metrics.includes(key) ? figure(run.metrics?.[key]) : key === 'rating' ? lowestRank(run, {}) : run[key];
+  function sortRuns(runs, key, direction, filters = {}) {
+    const metrics = ['leverage', 'net_leverage', 'coverage', 'cash', 'undrawn'];
+    const value = run => metrics.includes(key) ? figure(run.metrics?.[key]) : key === 'rating' ? lowestRank(run, filters) : run[key];
     return [...runs].sort((left, right) => {
       const a = value(left), b = value(right);
       if (a == null && b == null) return left.id.localeCompare(right.id);

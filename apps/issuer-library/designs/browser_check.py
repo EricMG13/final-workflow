@@ -305,12 +305,14 @@ def library_credit(page: Any, name: str) -> None:
     page.click("#limit-filters summary")
     options = "els => els.map(e => e.value)"
     gaps = page.eval_on_selector_all("#library-limitation option", options)
-    page.select_option("#library-limitation", gaps[1] if len(gaps) > 1 else "")
-    note(
-        len(gaps) < 2
-        or (row_ids(page) != [] and "recorded for" in coverage_line(page, "limitation")),
-        f"{name}: an accepted limitation taken from the served list keeps its runs",
-    )
+    if len(gaps) < 2:
+        print(f"SKIP {name}: accepted-limitation step, the workspace serves no gap text")
+    else:
+        page.select_option("#library-limitation", gaps[1])
+        note(
+            row_ids(page) != [] and "recorded for" in coverage_line(page, "limitation"),
+            f"{name}: an accepted limitation taken from the served list keeps its runs",
+        )
     reset_library(page)
     for column in ("net_leverage", "rating"):
         page.locator(f"[data-library-sort='{column}']").click()
@@ -328,19 +330,23 @@ def library_credit(page: Any, name: str) -> None:
         "Net leverage" in detail and "Classification" in detail and "Currency" in detail,
         f"{name}: a run detail shows the credit rows",
     )
-    # The query restores the state after a reload.
+    # The query restores the state after a reload, on Plan 1's leverage minimum case.
+    case = KEY["filter_cases"]["a_leverage_min"]
     reset_library(page)
     page.click("#metric-filters summary")
-    page.locator("[data-library-sort='rating']").click()  # an empty result has no sort buttons
-    page.fill("#library-netLeverageMax", "4")
+    page.locator("[data-library-sort='leverage']").click()
+    page.fill("#library-leverageMin", case["filters"]["leverageMin"])
     before = row_ids(page)
     page.reload()
-    page.wait_for_selector("#library-results tbody tr, .library-empty")
+    page.wait_for_selector("#library-results tbody tr")
+    sort = page.locator("[data-library-sort='leverage']")
     note(
         page.input_value("#library-runs") == "any"
-        and page.input_value("#library-netLeverageMax") == "4"
-        and row_ids(page) == before,
-        f"{name}: a reload from the Library query restores the controls and the rows",
+        and page.input_value("#library-leverageMin") == case["filters"]["leverageMin"]
+        and sorted(before) == sorted(case["expected_ids"])
+        and row_ids(page) == before
+        and sort.evaluate("e => e.closest('th').getAttribute('aria-sort')") == "ascending",
+        f"{name}: a reload from the Library query restores the controls, the sort and the key rows",
     )
     reset_library(page)
 

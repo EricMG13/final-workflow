@@ -1,7 +1,12 @@
 """Paid walk through the app: TDG, the real engine, a spend cap. Run explicitly; never by a gate.
 
     <playwright python> live_check.py --cap USD [--config sol-medium] [--modules "CP-1 CP-1A"]
-        [--minutes 60] [--out DIR] [--rehearse]
+        [--minutes 60] [--out DIR] [--rehearse] [--case DIR [--accept-limitations]]
+
+--case DIR runs a frozen case (cases/live-tdg-fy2024/<case>: case.json, context.json,
+expected-outcomes.json, answer-key.json) through the app and checks every required output that
+exists at this stage; --cap, --config and --modules default to the case's. Records only Stage 2
+creates are reported "not applicable before Stage 2" when absent and checked when present.
 
 Needs FW_PYTHON and ISSUER_LIBRARY_BINARY. --rehearse serves the fake engine (no provider, no
 key) and skips the flow and evidence checks, saying so in its scope. Provider keys are popped from
@@ -16,6 +21,7 @@ import math
 import os
 import re
 import runpy
+import shutil
 import signal
 import subprocess
 import sys
@@ -61,6 +67,171 @@ KEY_RUNNER = (
 
 class Refusal(Exception):
     pass
+
+
+STAGE2 = "not applicable before Stage 2"
+# Worst first. A forecast agrees with the actual classes listed for it; `ran` (an accepted handoff
+# that states no status) only contradicts will_refuse. Handoff status -> actual class (one table):
+#   BLOCKED, or no accepted handoff   -> will_refuse     READY_WITH_LIMITATIONS -> limited
+#   READY                             -> ready           accepted, no status    -> ran
+SEVERITY = ("will_refuse", "gap", "limited", "check", "information", "ready")
+STATUS = {"BLOCKED": "will_refuse", "READY_WITH_LIMITATIONS": "limited", "READY": "ready"}
+COMPATIBLE = {
+    "will_refuse": {"will_refuse"},
+    "gap": {"limited", "will_refuse"},
+    "limited": {"limited"},
+    "ready": {"ready"},
+    "check": {"ready", "limited"},
+    "information": {"ready", "limited"},
+}
+BUNDLE = ("report.html", "view.json", "report-view.json", "delivery.json")
+
+
+def load_case(folder: str) -> dict[str, Any]:
+    """The frozen case's files; a missing file or source is a refusal, named."""
+    base = Path(folder)
+    found: dict[str, Any] = {}
+    for name in ("case", "context", "answer-key", "expected-outcomes"):
+        try:
+            found[name] = json.loads((base / f"{name}.json").read_text())
+        except (OSError, ValueError) as error:
+            raise Refusal(f"--case {folder}: cannot read {name}.json: {error}") from error
+    if found["case"].get("schema") != "live-case/1":
+        raise Refusal(f"--case {folder}: case.json is not schema live-case/1")
+    found["files"] = [R / s for s in found["case"]["sources"]]
+    if missing := [str(f) for f in found["files"] if not f.is_file()]:
+        raise Refusal(f"--case {folder}: sources not found: {missing[0]}")
+    found["context_path"] = base / "context.json"
+    return found
+
+
+def forecast_of(items: list[dict[str, Any]], ordered: list[str]) -> dict[str, str]:
+    """Each module's worst forecast outcome among its items; `ready` when it has none."""
+    return {
+        m: min(
+            (i["outcome"] for i in items if i["scope"] == m), key=SEVERITY.index, default="ready"
+        )
+        for m in ordered
+    }
+
+
+def expected_items(expected: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        {"scope": m, "outcome": r["outcome"]}
+        for m, rules in expected["modules"].items()
+        for r in rules
+    ]
+
+
+def actual_of(module: str, run: Path) -> tuple[str, str]:
+    """The module's outcome class and how it ended, from the run folder (see the table above)."""
+    handoff = run / f"{module}.md"
+    if not handoff.exists():
+        return "will_refuse", "no accepted handoff"
+    pattern = re.compile(
+        rf"\b{re.escape(module)}\b(?:(?!CP-)[^\n]){{0,70}}?\b({'|'.join(STATUS)})\b"
+    )
+    for path in (handoff, run / "CP-0.md"):
+        if path.exists() and (found := pattern.search(path.read_text())):
+            return STATUS[found[1]], f"{found[1]} in {path.name}"
+    return "ran", "accepted, no status stated"
+
+
+def outcome_faults(forecast: dict[str, str], run: Path) -> tuple[list[str], dict[str, str]]:
+    """Every module whose actual outcome disagrees with its forecast; and what each one did."""
+    found, did = [], {}
+    for module, wanted in forecast.items():
+        actual, how = actual_of(module, run)
+        did[module] = f"{actual} ({how})"
+        agrees = wanted != "will_refuse" if actual == "ran" else actual in COMPATIBLE[wanted]
+        if not agrees:
+            found.append(f"{module}: forecast {wanted}, run did {actual} ({how})")
+    return found, did
+
+
+def required_outputs(
+    args: argparse.Namespace, ws: Path, run: Path, review: dict[str, Any]
+) -> list[str]:
+    """Faults in the run folder, delivery bundle and Stage 2 records; absent Stage 2 records are
+    reported, never skipped."""
+    found = [f"run folder lacks {n}" for n in ("workflow.json",) if not (run / n).exists()]
+    found += [
+        f"instructions/{m}.md missing"
+        for m in review["modules"]
+        if not (run / f"instructions/{m}.md").exists()
+    ]
+    found += [] if intake_status(ws) else ["intake status.json missing"]
+    found += (
+        [] if list(run.glob("completed-*.json")) else ["no completion receipt (completed-*.json)"]
+    )
+    delivery = next(run.glob("deliveries/*"), None)
+    if delivery is None:
+        return [*found, "no delivery bundle"]
+    found += [f"delivery bundle lacks {n}" for n in BUNDLE if not (delivery / n).exists()]
+    for handoff in sorted(delivery.glob("CP-*.md")):
+        accepted = run / handoff.name
+        if not accepted.exists() or accepted.read_bytes() != handoff.read_bytes():
+            found.append(f"delivered {handoff.name} differs from the accepted handoff")
+    intake = max((ws / "intake").glob("*/start-authorization.md"), default=None)
+    records = {"expectations.json": run / "expectations.json", "context.json": run / "context.json"}
+    for name, path in records.items():
+        print(f"{name}: " + ("present" if path.exists() else STAGE2), flush=True)
+    stated = bool(intake and "accepted:" in intake.read_text())
+    print(f"start receipt accepted ids: {'present' if stated else STAGE2}", flush=True)
+    if (
+        records["context.json"].exists()
+        and records["context.json"].read_bytes() != args.case_data["context_path"].read_bytes()
+    ):
+        found.append("run context.json is not byte-identical to the case context")
+    if records["expectations.json"].exists():
+        kept = json.loads(records["expectations.json"].read_text())
+        shown = {
+            k: review[k]
+            for k in ("issue_classification", "documents", "expectations", "counted", "without")
+        }
+        if kept != shown | {"review_id": review["review_id"]}:
+            found.append("expectations.json differs from the approved review")
+    print(
+        "HTML Model / calculation.json: not published by app runs (known beta limitation)",
+        flush=True,
+    )
+    return found
+
+
+def case_outcomes(
+    bc: Any, args: argparse.Namespace, ws: Path, summary: dict[str, Any], stopped: str = ""
+) -> None:
+    """Forecast (the shown review, the frozen outcomes) against what the run did."""
+    run = max((ws / "runs").glob("web-*"), default=None)
+    review = json.loads(max((ws / "intake").glob("*/review.json")).read_text())
+    expected = args.case_data["expected-outcomes"]
+    shown = forecast_of(review.get("expectations", []), review["modules"])
+    frozen = forecast_of(expected_items(expected), expected["ordered_modules"])
+    summary.update(forecast_shown=shown, forecast_frozen=frozen, stopped=stopped or None)
+    for module in sorted(set(shown) | set(frozen)):
+        if shown.get(module, "ready") != frozen.get(module, "ready"):
+            bc.note(
+                False,
+                f"review forecast {module} {shown.get(module)} != frozen {frozen.get(module)}",
+                kind="forecast",
+            )
+    if len(review.get("counted", [])) != expected["counted_total"]:
+        bc.note(
+            False,
+            f"review counts {len(review.get('counted', []))} items, "
+            f"frozen {expected['counted_total']}",
+            kind="forecast",
+        )
+    if run is None:
+        return
+    found, did = outcome_faults(shown, run)
+    summary["outcomes"] = did
+    for line in found:
+        bc.note(False, f"forecast vs outcome: {line}", kind="forecast")
+    bc.note(not found, f"forecast equals outcome for {len(shown)} modules: {did}")
+    if not stopped:
+        for line in required_outputs(args, ws, run, review):
+            bc.note(False, f"required output: {line}", kind="outputs")
 
 
 def config_models() -> dict[str, str]:
@@ -190,14 +361,25 @@ def parse(argv: list[str]) -> argparse.Namespace:
 
     p = One(add_help=False)
     p.add_argument("--cap")
-    p.add_argument("--config", default="sol-medium")
-    p.add_argument("--modules", default="CP-1 CP-1A")
+    p.add_argument("--config")
+    p.add_argument("--modules")
+    p.add_argument("--case")
+    p.add_argument("--accept-limitations", action="store_true")
     p.add_argument("--minutes", type=float, default=60)
     p.add_argument("--out")
     p.add_argument("--rehearse", action="store_true")
     args = p.parse_args(argv)
+    args.case_data = load_case(args.case) if args.case else None
+    if args.accept_limitations:  # no acceptance control before Stage 2 (Task 7): never faked
+        raise Refusal("--accept-limitations: acceptance step not available yet (Stage 2)")
+    if (case := args.case_data) and not args.modules:
+        args.modules = " ".join(case["case"]["requested_modules"])
+    args.config = args.config or (case["case"]["config"] if case else "sol-medium")
+    args.modules = args.modules or "CP-1 CP-1A"
+    args.context, args.sources = (case["context_path"], SOURCES) if case else (CONTEXT, SOURCES)
+    cap_text = args.cap if args.cap is not None else (case["case"]["cap_usd"] if case else None)
     try:
-        cap = Decimal(args.cap) if args.cap is not None else None
+        cap = Decimal(cap_text) if cap_text is not None else None
     except InvalidOperation:
         cap = None
     if cap is None or not cap.is_finite() or cap <= 0:
@@ -347,14 +529,16 @@ def fill_form(page: Any, args: argparse.Namespace) -> None:
     page.click("#library-new-run")
     frame = page.frame_locator("#context-editor")
     frame.locator("#load").wait_for(state="attached", timeout=15000)
-    frame.locator("#load").set_input_files(str(CONTEXT))
+    frame.locator("#load").set_input_files(str(args.context))
     expect(page.locator("#context-readiness")).to_contain_text(
         "Required fields complete", timeout=15000
     )
     page.click("#use-context")
     page.wait_for_selector("#source-step:not([hidden])")
-    page.set_input_files("#run-sources", str(SOURCES))
-    expect(page.locator("#upload-list")).to_contain_text(f"{len(list(SOURCES.iterdir()))} files")
+    page.set_input_files("#run-sources", str(args.sources))
+    expect(page.locator("#upload-list")).to_contain_text(
+        f"{len(list(args.sources.iterdir()))} files"
+    )
     page.select_option("#run-model", args.config)
     page.fill("#run-budget", str(args.cap))
     page.locator("details.run-advanced summary").click()
@@ -389,7 +573,9 @@ def walk(
         "#open-run:not([hidden]), #another-run:not([hidden])", timeout=int(args.minutes * 60000)
     )
     status = page.inner_text("#run-progress")
-    if not status.startswith("complete"):
+    if not status.lower().startswith("complete"):
+        if args.case_data:  # a stop is a recorded result (what ended where), then still a fault
+            case_outcomes(bc, args, ws, summary, stopped=status[:300])
         raise RuntimeError(f"run did not complete: {status[:300]}")
     bc.note(True, f"run finished: {status[:120]}")
     check_run(bc, page, args, ws, summary)
@@ -412,7 +598,7 @@ def check_run(
     state = json.loads(status_file.read_text())
     summary["report"] = str(next(run.glob("deliveries/*/report.html"), ""))
     note(
-        shown_spend == f"Recorded spend: USD {state.get('spent_usd')}",
+        shown_spend.startswith(f"Recorded spend: USD {state.get('spent_usd')}"),
         f"app spend {shown_spend!r} equals status.json {state.get('spent_usd')!r}",
     )
     accepted = {p.stem for p in run.glob("CP-*.md")}
@@ -422,6 +608,11 @@ def check_run(
         count is not None and int(count[1]) == len(accepted),
         f"{built!r} vs {len(accepted)} accepted",
     )
+    if args.case_data:
+        case_outcomes(bc, args, ws, summary)
+        summary["real_workspace_walk"] = (
+            "not run: browser_check.real_workspace asserts the repo store's rows (KEY counts)"
+        )
     if args.rehearse:
         return
     shown = report.locator("#view-root").evaluate(
@@ -429,7 +620,7 @@ def check_run(
         " return c.textContent; }"
     )
     handoffs = [p.read_text() for p in sorted(run.glob("deliveries/*/CP-*.md"))]
-    problems = flow_check.run_faults(run, SOURCES) + flow_check.report_faults(shown, handoffs)
+    problems = flow_check.run_faults(run, args.sources) + flow_check.report_faults(shown, handoffs)
     problems += live_evidence(run, args.cap, str(state.get("spent_usd")), accepted, args.config)
     problems += [f"report lacks filed value {n}" for n in LITERALS if n not in shown]
     problems += [
@@ -453,6 +644,11 @@ def run_walk(
     sync_playwright = importlib.import_module("playwright.sync_api").sync_playwright
     ws = out / "ws"
     ws.mkdir()
+    if args.case_data:  # the case's files as one folder, the form's own upload path
+        args.sources = out / "sources"
+        args.sources.mkdir()
+        for source in args.case_data["files"]:
+            shutil.copyfile(source, args.sources / source.name)  # a browser upload skips symlinks
     engine = HERE / "fake_engine" if args.rehearse else R / "apps/issuer-library/engine"
     server = dog = None
     try:
@@ -497,13 +693,17 @@ def ignore_signals() -> None:
         signal.signal(sig, signal.SIG_IGN)
 
 
+def case_label(args: argparse.Namespace) -> str:
+    return args.case_data["case"]["label"] if args.case_data else CASE
+
+
 def finish(bc: Any, args: argparse.Namespace, out: Path, summary: dict[str, Any]) -> int:
     passed = sum(ok for ok, _ in bc.results)
     mode = "rehearsal" if args.rehearse else "live"
     scope = (
-        REHEARSAL
+        (f"{REHEARSAL} ({case_label(args)})" if args.case_data else REHEARSAL)
         if args.rehearse
-        else f"live provider: {args.config}, {CASE}, modules {args.modules}, "
+        else f"live provider: {args.config}, {case_label(args)}, modules {args.modules}, "
         f"spend USD {summary['spent_usd']}; answer key {summary.get('answer_key', 'not reached')}"
     )
     secrets = bc.secrets()
@@ -538,7 +738,7 @@ def main(argv: list[str]) -> int:
     mode = "REHEARSAL (fake engine, no provider)" if args.rehearse else "PAID RUN"
     print(
         f"{mode}: config={args.config}, modules={args.modules} (dependencies added by the "
-        f"launcher), cap=USD {args.cap}, case={CASE}, workspace={out / 'ws'}",
+        f"launcher), cap=USD {args.cap}, case={case_label(args)}, workspace={out / 'ws'}",
         flush=True,
     )
     summary: dict[str, Any] = {"run_id": None, "spent_usd": None, "report": None}

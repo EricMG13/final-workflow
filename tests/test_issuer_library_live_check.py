@@ -289,3 +289,41 @@ def test_a_failure_before_the_signal_keeps_its_kind(monkeypatch, tmp_path) -> No
         for sig, handler in saved.items():
             signal.signal(sig, handler)
     assert [f.kind for f in bc.FAULTS.items] == ["exception", "interrupted"]
+
+
+A_LIVE = ROOT / "cases/live-tdg-fy2024/a-live"
+
+
+def test_accept_limitations_fails_fast_until_stage_2(tmp_path: Path) -> None:
+    done = refuse(tmp_path, "--case", str(A_LIVE), "--accept-limitations", "--rehearse")
+    assert done.returncode == 2 and "Stage 2" in done.stderr and len(done.stderr.splitlines()) == 1
+
+
+def test_case_defaults_come_from_the_frozen_case_and_missing_files_refuse(tmp_path: Path) -> None:
+    case = live_check.load_case(str(A_LIVE))
+    assert case["case"]["cap_usd"] == "25" and len(case["files"]) == 5
+    done = refuse(tmp_path, "--case", str(tmp_path / "nope"), "--rehearse")
+    assert done.returncode == 2 and "case.json" in done.stderr
+
+
+def test_forecast_against_outcome_reports_every_disagreement(tmp_path: Path) -> None:
+    (tmp_path / "CP-0.md").write_text(
+        "| CP-0 — source | READY |\n| CP-1 — figures | READY_WITH_LIMITATIONS |\n"
+    )
+    (tmp_path / "CP-1.md").write_text("# CP-1\n")
+    (tmp_path / "CP-2.md").write_text("# CP-2\n")  # accepted, states no status
+    forecast = {"CP-0": "ready", "CP-1": "ready", "CP-2": "will_refuse", "CP-4": "will_refuse"}
+    found, did = live_check.outcome_faults(forecast, tmp_path)
+    assert found == [
+        "CP-1: forecast ready, run did limited (READY_WITH_LIMITATIONS in CP-0.md)",
+        "CP-2: forecast will_refuse, run did ran (accepted, no status stated)",
+    ]
+    assert did["CP-4"].startswith("will_refuse (no accepted handoff)")
+
+
+def test_forecast_takes_the_worst_item_per_module() -> None:
+    items = [{"scope": "CP-4", "outcome": "limited"}, {"scope": "CP-4", "outcome": "will_refuse"}]
+    assert live_check.forecast_of(items, ["CP-0", "CP-4"]) == {
+        "CP-0": "ready",
+        "CP-4": "will_refuse",
+    }

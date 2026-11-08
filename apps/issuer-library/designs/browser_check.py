@@ -567,6 +567,11 @@ def new_run(  # noqa: PLR0915, RUF100
     frame = page.frame_locator("#context-editor")
     frame.locator("#load").wait_for(state="attached", timeout=15000)
     frame.locator("#load").set_input_files(str(S / "context.json"))
+    # The user states the two required choices by clicking their cards; nothing is preselected.
+    # The walk's folder holds no legal documents, so the declaration is "None".
+    frame.locator("label[for='issue_classification-high_yield']").click()
+    frame.locator("summary", has_text="Attachments").click()
+    frame.locator("label[for='legal_documents-none']").click()
     expect(page.locator("#context-readiness")).to_contain_text(
         "Required fields complete", timeout=15000
     )

@@ -13,16 +13,16 @@ const rows = [
 ];
 test('missing values never become zero',()=>{
  assert.equal(numberOf(null),null); assert.equal(numberOf({value:''}),null); assert.equal(numberOf({value:'NaN'}),null); assert.equal(numberOf({value:'0'}),0);
- assert.deepEqual(Array.from(filterRuns(rows,{leverageMax:'0'}),r=>r.id),['zero']);
+ assert.deepEqual(Array.from(filterRuns(rows,{runs:'any',leverageMax:'0'}),r=>r.id),['zero']);
 });
 test('combined filters retain basis and period identity',()=>{
- assert.deepEqual(Array.from(filterRuns(rows,{sector:'Auto',basis:'Gross',leverageMin:'4',coverageMin:'3',period:'Actual'}),r=>r.id),['gross']);
- assert.equal(filterRuns(rows,{sector:'Auto',basis:'Net',leverageMin:'4'}).length,0);
+ assert.deepEqual(Array.from(filterRuns(rows,{runs:'any',sector:'Auto',basis:'Gross',leverageMin:'4',coverageMin:'3',period:'Actual'}),r=>r.id),['gross']);
+ assert.equal(filterRuns(rows,{runs:'any',sector:'Auto',basis:'Net',leverageMin:'4'}).length,0);
 });
 test('unknown completeness, zero score and invalid threshold stay distinct',()=>{
- assert.deepEqual(Array.from(filterRuns(rows,{completion:'unassessed'}),r=>r.id),['missing']);
- assert.deepEqual(Array.from(filterRuns(rows,{completion:'75'}),r=>r.id),['gross','net']);
- assert.equal(filterRuns(rows,{leverageMin:'bad'}).length,0);
+ assert.deepEqual(Array.from(filterRuns(rows,{runs:'any',completion:'unassessed'}),r=>r.id),['missing']);
+ assert.deepEqual(Array.from(filterRuns(rows,{runs:'any',completion:'75'}),r=>r.id),['gross','net']);
+ assert.equal(filterRuns(rows,{runs:'any',leverageMin:'bad'}).length,0);
 });
 test('numeric sort keeps missing last in both directions without mutating input',()=>{
  assert.deepEqual(Array.from(sortRuns(rows,'leverage','asc'),r=>r.id),['zero','net','gross','missing']);
@@ -30,6 +30,6 @@ test('numeric sort keeps missing last in both directions without mutating input'
  assert.equal(rows[0].id,'missing');
 });
 test('search and report availability are conjunctive',()=>{
- assert.equal(filterRuns(rows,{search:'beta',availability:'report'}).length,1);
- assert.equal(filterRuns(rows,{search:'alpha',availability:'report'}).length,0);
+ assert.equal(filterRuns(rows,{runs:'any',search:'beta',availability:'report'}).length,1);
+ assert.equal(filterRuns(rows,{runs:'any',search:'alpha',availability:'report'}).length,0);
 });

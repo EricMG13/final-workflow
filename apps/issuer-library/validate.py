@@ -27,6 +27,7 @@ NODE_TESTS = (
     "web/context-embed.test.cjs",
     "web/report-renderer.test.cjs",
     "web/screening.test.cjs",
+    "web/screening-credit.test.cjs",
     "web/screens.test.cjs",
     "web/library-workspace.test.cjs",
     "web/screening-dom.test.cjs",

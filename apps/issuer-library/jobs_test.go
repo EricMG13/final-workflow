@@ -39,6 +39,7 @@ if sys.argv[1]=='review':
  print(json.dumps({'ok':True,'review_id':'review-fingerprint','id':job['id'],'provider_ready':True,'cap_usd':job['cap_usd']}))
 else:
  with (folder/'synthetic-starts.txt').open('a') as stream: stream.write('one\n')
+ while (folder/'hold').exists(): time.sleep(.02)
  time.sleep(.15)
  (folder/'status.json').write_text(json.dumps({'state':'stopped','message':'Synthetic worker seam only; no provider called.'}))
 `
@@ -1644,77 +1645,88 @@ print(json.dumps({'run':n}))
 	}
 }
 
-// notifyRecorder swaps notifyNatively for a recorder and clock for a settable time.
-type notifyRecorder struct {
-	mu    sync.Mutex
-	calls [][2]string
-	now   time.Time
+// fakeClock is a settable clock for one app, safe for the goroutines that read it.
+type fakeClock struct {
+	mu  sync.Mutex
+	now time.Time
 }
 
-func (r *notifyRecorder) install(t *testing.T) {
-	t.Helper()
-	oldNotify, oldClock := notifyNatively, clock
-	notifyNatively = func(title, body string) error {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.calls = append(r.calls, [2]string{title, body})
-		return nil
-	}
-	clock = func() time.Time {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		return r.now
-	}
-	t.Cleanup(func() { notifyNatively, clock = oldNotify, oldClock })
+func (c *fakeClock) read() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.now }
+func (c *fakeClock) add(d time.Duration) {
+	c.mu.Lock()
+	c.now = c.now.Add(d)
+	c.mu.Unlock()
 }
-func (r *notifyRecorder) set(now time.Time) { r.mu.Lock(); r.now = now; r.mu.Unlock() }
-func (r *notifyRecorder) count() int        { r.mu.Lock(); defer r.mu.Unlock(); return len(r.calls) }
 
 func TestAFinishedRunNotifiesNativelyOnlyWhenNoTabWatches(t *testing.T) {
-	origin := time.Now()
-	for _, tab := range []struct {
-		name     string
-		watching bool
-	}{{"A tab is watching", true}, {"B no tab", false}} {
-		t.Run(tab.name, func(t *testing.T) {
-			recorder := &notifyRecorder{now: origin}
-			recorder.install(t)
+	origin := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
+	cases := []struct {
+		name      string
+		pollFirst bool // a list request before the finish (a tab that was open and then closed)
+		pollAfter bool // a list request while finishJob waits (a throttled hidden tab)
+		want      int
+	}{
+		{"A poll after the finish gives no native notice", true, true, 0},
+		{"No poll at all gives one native notice", false, false, 1},
+		{"A poll only before the finish gives one native notice", true, false, 1},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
 			app, root := testApp(t)
 			app.engine = fakeEngine(t)
+			clock := &fakeClock{now: origin}
+			app.now = clock.read
+			var mu sync.Mutex
+			var calls [][2]string
+			app.notifier = func(title, body string) error {
+				mu.Lock()
+				defer mu.Unlock()
+				calls = append(calls, [2]string{title, body})
+				return nil
+			}
+			pauses := 0
+			app.pause = func(d time.Duration) {
+				pauses++ // only the finishJob goroutine calls pause
+				if c.pollAfter && pauses == 3 {
+					clock.add(d)
+					call(app, "GET", "/api/runs/list", "")
+					return
+				}
+				clock.add(d)
+			}
+			done := make(chan struct{})
+			app.onFinished = func(string) { close(done) }
 			var review map[string]any
 			_ = json.Unmarshal(reviewRequest(t, app, `["annual.txt"]`).Body.Bytes(), &review)
 			id := review["id"].(string)
-			start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`)
-			if start.Code != 202 {
+			hold := filepath.Join(root, "intake", id, "hold")
+			if err := os.WriteFile(hold, nil, 0600); err != nil {
+				t.Fatal(err)
+			}
+			if start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`); start.Code != 202 {
 				t.Fatal(start.Code)
 			}
-			if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
-				t.Fatal(list.Code)
-			}
-			if !tab.watching {
-				recorder.set(origin.Add(16 * time.Second))
-			}
-			deadline := time.Now().Add(5 * time.Second)
-			for time.Now().Before(deadline) {
-				app.mu.RLock()
-				active := len(app.activeJobs)
-				app.mu.RUnlock()
-				if active == 0 && (!tab.watching && recorder.count() == 1 || tab.watching) {
-					break
+			if c.pollFirst {
+				if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
+					t.Fatal(list.Code)
 				}
-				time.Sleep(20 * time.Millisecond)
 			}
-			// finishJob again, synchronously: the job's status is final, so this is the
-			// deterministic check that a watched tab suppresses the notice.
-			if tab.watching {
-				app.finishJob(filepath.Join(root, "intake", id), id)
-				if recorder.count() != 0 {
-					t.Fatalf("native notice with a tab watching: %v", recorder.calls)
-				}
-				return
+			clock.add(time.Second) // time passes between that poll and the finish
+			if err := os.Remove(hold); err != nil {
+				t.Fatal(err)
 			}
-			if recorder.count() != 1 || recorder.calls[0] != [2]string{"Issuer Library", "Run stopped"} {
-				t.Fatalf("calls: %v", recorder.calls)
+			select {
+			case <-done:
+			case <-time.After(10 * time.Second):
+				t.Fatal("finishJob did not return")
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			if len(calls) != c.want {
+				t.Fatalf("%d native notices, want %d: %v", len(calls), c.want, calls)
+			}
+			if c.want == 1 && calls[0] != [2]string{"Issuer Library", "Run stopped"} {
+				t.Fatalf("notice %v", calls[0])
 			}
 		})
 	}

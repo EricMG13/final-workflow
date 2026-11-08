@@ -150,15 +150,28 @@ func privateFolder(name string) error {
 // access comes from the state folder, which privateFolder has checked.
 func ownerOnly(info fs.FileInfo) bool { return info.Mode().IsRegular() }
 
-// powershellPath is the system PowerShell by absolute path, else whatever PATH resolves.
-func powershellPath() (string, error) {
-	if root := os.Getenv("SystemRoot"); root != "" {
-		path := filepath.Join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
-		}
+// systemDirectory is the Windows system folder from GetSystemDirectoryW, not from the environment.
+func systemDirectory() (string, error) {
+	buffer := make([]uint16, syscall.MAX_PATH)
+	length, _, err := syscall.NewLazyDLL("kernel32.dll").NewProc("GetSystemDirectoryW").Call(uintptr(unsafe.Pointer(&buffer[0])), uintptr(len(buffer)))
+	if length == 0 || int(length) >= len(buffer) {
+		return "", fmt.Errorf("Windows system folder lookup failed: %v", err)
 	}
-	return exec.LookPath("powershell.exe")
+	return syscall.UTF16ToString(buffer[:length]), nil
+}
+
+// powershellPath is the system PowerShell by absolute path. There is no PATH fallback: if it is
+// missing the notice fails, and the caller logs that.
+func powershellPath() (string, error) {
+	directory, err := systemDirectory()
+	if err != nil {
+		return "", err
+	}
+	path := filepath.Join(directory, "WindowsPowerShell", "v1.0", "powershell.exe")
+	if _, err = os.Stat(path); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 // platformNotify shows a toast through PowerShell running the fixed toastScript; the text goes
@@ -171,7 +184,7 @@ func platformNotify(title, body string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, program, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", toastScript)
-	cmd.Env = append(os.Environ(), "ISSUER_LIBRARY_TOAST_TITLE="+title, "ISSUER_LIBRARY_TOAST_BODY="+body)
+	cmd.Env = toastEnv(os.Environ(), title, body)
 	configureWorkerCommand(cmd)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		log.Printf("PowerShell toast output: %s", output)

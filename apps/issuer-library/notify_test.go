@@ -57,23 +57,49 @@ func TestToastScriptIsFixedAndReadsOnlyTheTwoVariables(t *testing.T) {
 	}
 }
 
-func TestTabWatchingWindow(t *testing.T) {
+func TestTabWatchingWaitsForAPollAfterTheFinish(t *testing.T) {
 	origin := time.Date(2026, 11, 8, 12, 0, 0, 0, time.UTC)
 	now := origin
-	old := clock
-	clock = func() time.Time { return now }
-	t.Cleanup(func() { clock = old })
-	app := &Application{}
+	app := &Application{now: func() time.Time { return now }}
+	app.pause = func(d time.Duration) { now = now.Add(d) }
+	app.finished.Store(origin.UnixNano())
+
+	// Never polled: waits the whole 75 s, then false.
 	if app.tabWatching() {
 		t.Fatal("never watched counted as watching")
 	}
-	app.watched.Store(origin.UnixNano())
-	now = origin.Add(15 * time.Second)
-	if !app.tabWatching() {
-		t.Fatal("exactly at the grace edge should still watch")
+	if now != origin.Add(75*time.Second) {
+		t.Fatalf("waited until %v, want 75 s after the finish", now)
 	}
-	now = origin.Add(15*time.Second + time.Nanosecond)
+	// A poll before the finish does not count.
+	now = origin
+	app.watched.Store(origin.Add(-time.Second).UnixNano())
 	if app.tabWatching() {
-		t.Fatal("past the grace should not watch")
+		t.Fatal("a poll before the finish counted")
+	}
+	// A poll at the finish instant does not count either; only a later one does.
+	now = origin
+	app.watched.Store(origin.UnixNano())
+	if app.tabWatching() {
+		t.Fatal("a poll at the finish instant counted")
+	}
+	// A poll arriving during the wait (60 s in) counts and ends the wait there.
+	now = origin
+	app.pause = func(d time.Duration) {
+		now = now.Add(d)
+		if now == origin.Add(60*time.Second) {
+			app.watched.Store(now.UnixNano())
+		}
+	}
+	if !app.tabWatching() || now != origin.Add(60*time.Second) {
+		t.Fatalf("late poll not seen; clock %v", now)
+	}
+}
+
+func TestToastEnvKeepsOnlyTheAllowedNames(t *testing.T) {
+	got := toastEnv([]string{"OPENAI_API_KEY=k1", "Path=C:\\bin", "systemroot=C:\\Windows", "GH_TOKEN=k2", "USERNAME=eg", "BAD"}, "T", "B")
+	want := []string{"Path=C:\\bin", "systemroot=C:\\Windows", "USERNAME=eg", "ISSUER_LIBRARY_TOAST_TITLE=T", "ISSUER_LIBRARY_TOAST_BODY=B"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("got %q", got)
 	}
 }

@@ -25,6 +25,7 @@ func testApp(t *testing.T) (*Application, string) {
 	}
 	app.host = "127.0.0.1:54321"
 	app.stop = func() {}
+	app.notifier = func(string, string) error { return nil } // tests never launch PowerShell
 	return app, root
 }
 

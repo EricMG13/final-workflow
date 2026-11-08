@@ -213,13 +213,17 @@ the run. `flow_check.py` runs on every live run.
 | **L2** app end-to-end (B) | TDG FY2024, Secondary, high yield, one TDG notes facility row and one observed quote labelled "synthetic user entry"; through the app UI; CP-0, CP-1, CP-1A, CP-2, CP-3 | 10 | Start without acceptance returns 400 with no claim and no ledger entry; with acceptance, `expectations.json` and the receipt exist before the first ledger entry; one `review_id` across review, receipt and expectations; each module's actual outcome equals its forecast or the rule is fixed; coupon and maturity are used only as "entered by user", never cited as filing evidence; CP-3 treats the row as terms, not talk; CP-1 chart values match retained `cpos-launch-cp2-reader-001` or the variance is recorded; the library shows "with accepted limitations" |
 | **C1** CP-4 Provisional (C) | Public proxy case (Task 9); CP-0, CP-1, CP-4 | 10 | CP-4 does not stop at the gate; the register lists each document with status and authority rank; `DRAFT_LIMITATION` appears verbatim; at least 8 keyed covenant terms match the key, each labelled Provisional; no document is called executed; the Reader summary's main limitation names Provisional |
 | **C1n** control (C) | Proxy case without its legal and offering documents; CP-0, CP-1, CP-4 | 10 | Blocked, as forecast |
-| **C1r** control (C) | Retained TDG executed-notes sources (`runs/tdg-004`, read-only), "older source"; CP-0, CP-1, CP-4 | 10 | Completed with no draft limitation |
+| **C1r** control (C) | The same deal after closing: the executed Term Loan and ABL Credit Agreements, as a Secondary run, "older source"; CP-0, CP-1, CP-4. Fallback: retained TDG executed-notes sources (`runs/tdg-004`, read-only) | 10 | Completed with no draft limitation. Each C1 term marked TBD or indicative is compared with the executed term, e.g. margin "TBD" before closing against LIBOR + 4.00–4.25% after |
 | **C2** pro forma (C) | Proxy case; CP-0, CP-1, CP-1A, CP-1D, CP-2 | 15 | Sources and uses and pro forma debt equal the key; cash row, one balance-sheet date and one LTM period; base EBITDA equals the key with no double count; As marketed equals management's quoted figure, any difference shown with its explanation, never plugged; CP-2's pro forma debt cites CP-1A's total |
 | **C3** full Primary with delivery (C) | Proxy case; Credit Snapshot plus CP-1D | 25 | The report shows both pro forma tables or an explicit gap; every report section drawing on CP-4 says Provisional; CP-6 never treats a draft term as executed; CP-5 flags claims that depend on drafts |
 | **D-live** (D) | `store.py` over a workspace holding the actual L2 and C3 runs and the retained runs with fixed chart tables | 0 | Each library value equals a hand key from the actual handoff lines, including pro forma rows, facilities and quotes as entered; evidence links open the exact line; Not recorded counts are right. Labelled "actual retained model output, downstream consumption" |
 
-Caps total at most USD 100; expected spend is far lower. The proxy case needs `www.sec.gov` allowed
-in the environment's network settings, or the files supplied by the owner.
+Caps total at most USD 100; expected spend is far lower.
+
+**EDGAR access:** granted on 2026-11-08 through the owner's personal environment `final-workflow`
+(www.sec.gov, efts.sec.gov and data.sec.gov). Requests identify themselves as "final-workflow
+research" with the owner's email, as EDGAR requires and as the owner authorised. They stay well
+under EDGAR's 10 requests per second.
 
 ## Review Focus
 
@@ -457,15 +461,32 @@ from `data/public-corpus/v1/TDG`; add a dated entry to `VERIFICATION.md`.
 **Files:** create `cases/primary-proxy-<issuer>-<date>/` (sources, context, frozen key); add a dated
 entry to `VERIFICATION.md`.
 
-- [ ] **Choose the case with the owner.** Candidates (public, pre-closing):
-  - a 424B preliminary prospectus supplement ("Subject to Completion") with its Description of Notes;
-  - an 8-K Regulation FD lender presentation or preliminary-offering-memorandum excerpt (search
-    results 2026-11-08: TransDigm 2013, Mattress Firm 2014, Everi 2017, Summit Materials 2023, AAR
-    November 2026);
-  - an M&A 8-K commitment letter with its Summary of Terms.
+- [ ] **Confirm the case with the owner.** Recommended (screened 2026-11-08 from EDGAR): Mattress
+      Firm Holding Corp. (CIK 1419852), an acquisition financing.
+  - **Pre-closing:** the Public Lender Presentation of 11 September 2014 (8-K Item 7.01, Exhibit
+    99.1, accession 0001104659-14-065798). It holds:
+    - sources and uses of USD 821m, including Sleep Train at USD 440m and bolt-ons at USD 66m;
+    - pro forma capitalisation from 1.9x to 3.5x total debt / Adjusted EBITDA;
+    - acquired EBITDA (USD 32m and USD 5m), USD 17m of synergies (USD 12.5m of USD 20m expected
+      within 18 months) and a USD 17m new-store adjustment;
+    - a Pro Forma EBITDA reconciliation;
+    - summary terms for a USD 720m Term Loan B: 7 years, margin and OID "TBD", 1.00% LIBOR floor,
+      101 soft call for 6 months, 1% amortisation, excess-cash-flow sweep with step-downs, no
+      financial covenants, USD 250m incremental plus unlimited at 4.0x secured net leverage, and
+      50 bps MFN with an 18-month sunset.
+  - **Financial base:** 10-K for the year ended 28 January 2014 (0001047469-14-003037); 10-Qs for
+    29 April 2014 (0001104659-14-044836) and 29 July 2014 (0001558370-14-000163), the presentation's
+    LTM basis.
+  - **Context support:** merger 8-K of 29 August 2014 (0001104659-14-064027).
+  - **After closing, for C1r:** 8-K of 21 October 2014 (0001104659-14-072654). Exhibit 10.1 is the
+    ABL Credit Agreement and Exhibit 10.2 the Term Loan Credit Agreement, both dated 20 October
+    2014; margin LIBOR + 4.00–4.25%, maturity 20 October 2021.
 
-  Each comes with the issuer's latest filed financials. Needs `www.sec.gov` allowed, or the owner's
-  files.
+  The Confidential Information Memorandum and Marketing Term Sheet that the presentation refers to
+  are not public, and the case says so.
+
+  **Second case, without an acquisition (optional):** Everi Holdings' 2017 refinancing lender
+  presentation (0001558370-17-002593), not yet screened in detail.
 - [ ] Label the case "public proxy for a private primary deal", with issuer, date and "older source"
       where relevant.
 - [ ] Hand-write the key before any run:

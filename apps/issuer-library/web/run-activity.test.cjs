@@ -15,14 +15,15 @@ const EVENTS=[
   {at:'2026-11-08T09:00:04Z',event:'delivery_started'},
   {at:'2026-11-08T09:00:05Z',event:'delivered'},
 ];
-async function page(t,{key=ID,run={status:status(),events:{events:EVENTS,complete:true}}}={}){
+async function page(t,{key=ID,gate=null,run={status:status(),events:{events:EVENTS,complete:true}}}={}){
   const errors=[],calls=[];const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
   const dom=new JSDOM(html,{url:`http://127.0.0.1:54321/#CP-OS/activity?c=${key}`,runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.focus=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};
   win.fetch=async url=>{
     calls.push(url);
+    if(gate&&url.startsWith('/api/runs/status')){await gate;return{ok:false,status:404,text:async()=>'404 page not found',json:async()=>({})};}
     const body=url.startsWith('/api/runs/status')?run.status:url.startsWith('/api/runs/events')?run.events:[];
-    if(body instanceof Error)return{ok:false,text:async()=>body.message,json:async()=>({})};
+    if(body instanceof Error)return{ok:false,status:body.httpStatus,text:async()=>body.message,json:async()=>({})};
     return{ok:true,json:async()=>body};
   };
   win.eval(`window.DESIGN_DATA={runs:{${JSON.stringify(key)}:{run:${JSON.stringify(key)},title:'Northbridge Group',period:'as of 31 March 2025',issuerKey:'id:nbg',issuer:'Northbridge Group',modules:{},first:null}},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};`);
@@ -36,12 +37,12 @@ const rows=doc=>[...doc.querySelectorAll('.activity-log tbody tr')].map(text);
 test('the run activity page lists each event in order with its text',async t=>{
   const p=await page(t);
   assert.deepEqual(rows(p.doc),[
-    '09:00:00Started Title CP-0',
-    '09:00:01Turn 1 of 24 · spend USD 0.00 of USD 10; this call holds USD 5.73',
-    '09:00:02Draft of Title CP-0 rejected · 2 writes left',
-    '09:00:03Accepted Title CP-0',
-    '09:00:04Delivery started',
-    '09:00:05Report delivered',
+    '8 November 2026 · 09:00:00 UTCStarted Title CP-0',
+    '8 November 2026 · 09:00:01 UTCTurn 1 of 24 · spend USD 0.00 of USD 10; this call holds USD 5.73',
+    '8 November 2026 · 09:00:02 UTCDraft of Title CP-0 rejected · 2 writes left',
+    '8 November 2026 · 09:00:03 UTCAccepted Title CP-0',
+    '8 November 2026 · 09:00:04 UTCDelivery started',
+    '8 November 2026 · 09:00:05 UTCReport delivered',
   ]);
   assert.equal(text(p.doc.querySelector('.activity-summary')),'Running · running Title CP-1, turn 1 of 24');
   assert.equal(text(p.doc.querySelector('#run-activity h2')),'Run activity · '+ID);
@@ -55,15 +56,15 @@ test('one write left reads in the singular and an unknown event is shown as writ
     {at:'2026-11-08T09:00:03Z',event:'<b>odd</b>'},
     {at:'2026-11-08T09:00:04Z',event:'stopped',reason:'other'},
   ],complete:true}}});
-  assert.deepEqual(rows(p.doc),['09:00:02Draft of Title CP-1 rejected · 1 write left','09:00:03<b>odd</b>','09:00:04Stopped (other)']);
+  assert.deepEqual(rows(p.doc),['8 November 2026 · 09:00:02 UTCDraft of Title CP-1 rejected · 1 write left','8 November 2026 · 09:00:03 UTC<b>odd</b>','8 November 2026 · 09:00:04 UTCStopped (other)']);
   assert.equal(p.doc.querySelector('.activity-log b'),null);
 });
 test('a stopped run leads with its stop sentence',async t=>{
   const p=await page(t,{run:{status:status({state:'stopped',reason:'budget',message:'cap reached',spent_usd:'9.90'}),events:{events:[{at:'2026-11-08T09:00:00Z',event:'stopped',reason:'budget'}],complete:true}}});
   const first=text(p.doc.querySelector('#run-activity p'));
   assert.ok(first.startsWith(p.vm.budget),first);
-  assert.deepEqual(rows(p.doc),['09:00:00'+p.vm.budget]);
-  assert.equal(text(p.doc.querySelectorAll('#run-activity p')[1]),'Recorded spend: USD 9.90');
+  assert.deepEqual(rows(p.doc),['8 November 2026 · 09:00:00 UTC'+p.vm.budget]);
+  assert.equal(text(p.doc.querySelectorAll('#run-activity p')[1]),'Recorded spend: USD 9.90 of a USD 10 cap');
 });
 test('an incomplete log says so',async t=>{
   const p=await page(t,{run:{status:status(),events:{events:EVENTS.slice(0,2),complete:false}}});
@@ -75,10 +76,73 @@ test('a run without a log shows the no-events line',async t=>{
   assert.equal(p.doc.querySelector('.activity-log'),null);
   assert.equal(text(p.doc.querySelector('#run-activity .hint')),'No events were recorded for this run.');
 });
-test('a failed fetch says the record could not be loaded',async t=>{
-  const p=await page(t,{run:{status:status(),events:new Error('boom')}});
-  assert.equal(text(p.doc.querySelector('#run-activity .caution')),'Could not load the run record. Details: boom');
+const httpError=(message,httpStatus)=>Object.assign(new Error(message),{httpStatus});
+test('a failed fetch says the record could not be loaded and keeps the raw detail closed',async t=>{
+  const p=await page(t,{run:{status:status(),events:httpError('boom',500)}});
+  const note=p.doc.querySelector('#run-activity .caution');
+  assert.equal(text(note.querySelector('p')||note.firstChild),'Could not load this run\'s live record. Reload the library to try again.');
+  const details=p.doc.querySelector('#run-activity details');
+  assert.equal(details.open,false);assert.equal(text(details.querySelector('summary')),'Technical detail');
+  assert.match(text(details),/boom/);
+  assert.doesNotMatch(note.textContent.replace(details.textContent,''),/boom/);
   assert.equal(p.doc.querySelector('.activity-log'),null);
+});
+test('a 404 for the live record shows the retained-record view, never the raw 404 text',async t=>{
+  const p=await page(t,{run:{status:httpError('404 page not found\n',404),events:{events:[],complete:true}}});
+  const content=p.doc.getElementById('content').textContent;
+  assert.match(content,/Retained record · /);assert.match(content,/No live progress or cost recorded for this run\./);
+  assert.doesNotMatch(content,/404|page not found|Could not load/);
+  assert.equal(p.doc.getElementById('run-activity'),null);
+  assert.ok(p.doc.querySelector('.activity-flow'),'the flow stays');
+});
+test('a 404 status with a recorded event log shows the retained heading, the log and the last recorded spend',async t=>{
+  const events={events:[EVENTS[0],EVENTS[1],{at:'2026-11-08T09:10:00Z',event:'turn',module:'CP-0',turn:2,max_turns:24,spent_usd:'2.40',held_usd:'1.00',cap_usd:'10'}],complete:true};
+  const p=await page(t,{run:{status:httpError('404 page not found\n',404),events}});
+  const content=p.doc.getElementById('content').textContent;
+  assert.match(content,/Retained record · /);
+  assert.doesNotMatch(content,/No live progress or cost recorded/);
+  assert.equal(p.doc.querySelectorAll('.activity-log tbody tr').length,3);
+  assert.ok(p.doc.querySelector('#content .table-scroll .activity-log'));
+  assert.match(content,/Last recorded spend: USD 2\.40/);
+  assert.doesNotMatch(content,/404|page not found/);
+  const none=await page(t,{run:{status:httpError('404',404),events:{events:[],complete:true}}});
+  assert.match(none.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+  const lost=await page(t,{run:{status:httpError('404',404),events:httpError('boom',500)}});
+  assert.match(lost.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+});
+test('a 404 that lands after the reader left Run activity neither throws nor writes onto the new page',async t=>{
+  const rejections=[];const onRejection=error=>rejections.push(error);process.on('unhandledRejection',onRejection);t.after(()=>process.off('unhandledRejection',onRejection));
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const p=await page(t,{run:{status:null,events:{events:[],complete:true}},gate});
+  p.win.location.hash='#W-Library/cases';await settle();
+  release();await new Promise(resolve=>setTimeout(resolve,50));
+  assert.deepEqual(rejections,[]);
+  assert.doesNotMatch(p.doc.getElementById('content').textContent,/Live progress and spend are recorded only/);
+});
+test('a 404 on the events request alone is also the retained record',async t=>{
+  const p=await page(t,{run:{status:status(),events:httpError('404 page not found',404)}});
+  assert.match(p.doc.getElementById('content').textContent,/No live progress or cost recorded/);
+  assert.doesNotMatch(p.doc.getElementById('content').textContent,/404/);
+});
+test('the log sits in the bordered content-table card and only the summary line is live',async t=>{
+  const p=await page(t);
+  const card=p.doc.querySelector('#run-activity .table-scroll');
+  assert.ok(card&&card.querySelector('table.activity-log'),'the log is inside the card');
+  assert.equal(card.tabIndex,0);
+  assert.equal(p.doc.getElementById('run-activity').hasAttribute('aria-live'),false);
+  assert.equal(p.doc.querySelector('.activity-summary').getAttribute('aria-live'),'polite');
+  assert.equal(p.doc.querySelectorAll('#run-activity [aria-live]').length,1);
+  assert.equal(text(p.doc.querySelector('.activity-log td')),'8 November 2026 · 09:00:00 UTC');
+});
+test('a stopped app run offers Resume this run through New run\'s resume route; other runs do not',async t=>{
+  const stopped=(over={})=>({run:{status:status({state:'stopped',reason:'budget',spent_usd:'9.90',...over}),events:{events:EVENTS.slice(0,1),complete:true}}});
+  const p=await page(t,stopped());
+  const link=[...p.doc.querySelectorAll('#run-activity a')].find(a=>text(a)==='Resume this run');
+  assert.ok(link);assert.equal(link.getAttribute('href'),`#W-NewRun/run?resume=${ID}`);
+  for(const over of [{reason:'ruling',state:'failed'},{state:'running'},{state:'complete'}]){
+    const q=await page(t,stopped(over));
+    assert.equal([...q.doc.querySelectorAll('#run-activity a')].some(a=>/Resume/.test(text(a))),false,JSON.stringify(over));
+  }
 });
 test('a retained run keeps the retained-record text',async t=>{
   const p=await page(t,{key:'tdg-002'});

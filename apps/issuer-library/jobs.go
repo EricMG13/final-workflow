@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -143,6 +144,9 @@ func jobView(workspace, id string) (map[string]any, bool) {
 	if value, ok := runProgress(workspace, id); ok {
 		status["progress"] = value
 	}
+	if started := runStarted(workspace, id); started != "" {
+		status["started_at"] = started
+	}
 	status["id"] = id
 	info, statErr := os.Stat(filepath.Join(workspace, "runs", id))
 	status["run_available"] = statErr == nil && info.IsDir()
@@ -227,6 +231,22 @@ func runProgress(workspace, id string) (map[string]any, bool) {
 		return nil, false
 	}
 	return value, true
+}
+
+// runStarted is the time of the first event the run recorded, or "" when there is no log or its
+// first line has no time. It is the only start time the app knows; nothing else stands in for it.
+func runStarted(workspace, id string) string {
+	file, err := os.Open(filepath.Join(workspace, "runs", id, "events.jsonl"))
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	first, err := bufio.NewReader(io.LimitReader(file, 8192)).ReadBytes('\n')
+	var event runEvent
+	if (err != nil && len(first) == 0) || json.Unmarshal(first, &event) != nil {
+		return ""
+	}
+	return event.At
 }
 
 func parseEvents(raw []byte) (events []runEvent, ok, dropped bool) {

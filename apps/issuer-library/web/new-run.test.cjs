@@ -5,8 +5,8 @@ const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const context=JSON.parse(fs.readFileSync(path.resolve(__dirname,'../../../cases/context/research-minimal.json'),'utf8'));
 const settle=()=>new Promise(resolve=>setTimeout(resolve,10));
 const ID='web-'+'a'.repeat(32),ID2='web-'+'c'.repeat(32);
-const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'started',spent_usd:'0.10'}};
-const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
+const ROW_RUNNING={id:ID,state:'running',message:'Working',run_available:true,started_at:'2026-11-08T09:00:00Z',issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'started',spent_usd:'0.10'}};
+const ROW_DONE={id:'web-'+'b'.repeat(32),state:'complete',message:'Done',run_available:true,started_at:'2026-11-07T08:00:00Z',issuer:'Southport Holdings',pathway:'credit_snapshot',as_of:'2025-06-30',spent_usd:'3.10'};
 const IDENTITY=`Northbridge Group · Covenant Refinancing · as of 31 March 2025 · ${ID}`;
 function reviewReply(ready){return{ok:true,id:ID,review_id:'b'.repeat(64),issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness',purpose:'Check issuer files'},{id:'CP-1',title:'Financial analysis',purpose:'Read financial statements'}],config:'sol-medium',provider:'openai',model:'gpt-6.1-sol',effort:'medium',cap_usd:'10.00',hold_usd:'1.86',max_turns:7,prices_as_of:'2026-11-01',provider_ready:ready,provider_key:'OPENAI_API_KEY',sources:[{path:'filings/annual.txt',sha256:'c'.repeat(64)}],ignored:['chart.png'],report_sections:['liquidity-runway'],omitted:['lme-chart'],scope:'User-launched run; analytical accuracy has not been independently reviewed.'};}
 async function page(t,{hash='#W-NewRun/run',ready=true,startFails=false,resume=null,list=[],status={state:'running',message:'Working',progress:{module:'CP-0',step:'accepted',spent_usd:'0.42'},run_available:true}}={}){
@@ -119,14 +119,14 @@ test('recent runs are a table, active first, and a row reopens its run',async t=
   const rows=[...table.querySelectorAll('tbody tr')];
   assert.equal(rows.length,2);
   const button=rows[0].querySelector('th[scope="row"] button.text-button');
-  assert.equal(button.textContent,'Northbridge Group');assert.equal(button.title,ID);
+  assert.equal(button.textContent,'Northbridge Group · WEB-AAAAAAAA · 8 November 2026');assert.equal(button.title,ID);
   const first=[...rows[0].querySelectorAll('td')];
   assert.equal(first[0].textContent,'Covenant Refinancing');assert.ok(first[0].querySelector('.badge.badge-blue'));
   assert.equal(first[1].textContent,'running Financial analysis (2 of 2)');
   assert.equal(first[2].textContent,'running');assert.ok(first[2].querySelector('.badge').classList.contains('badge-blue'));
   assert.equal(first[3].textContent,'0.10');
   const second=[...rows[1].querySelectorAll('td')];
-  assert.equal(rows[1].querySelector('th').textContent,'Southport Holdings');
+  assert.equal(rows[1].querySelector('th').textContent,'Southport Holdings · WEB-BBBBBBBB · 7 November 2026');
   assert.equal(second[1].textContent,'—');assert.equal(second[2].textContent,'complete');
   assert.ok(second[2].querySelector('.badge').classList.contains('badge-navy'));assert.equal(second[3].textContent,'3.10');
   assert.equal(p.doc.querySelector('.recent-runs').open,true);
@@ -137,6 +137,16 @@ test('recent runs are a table, active first, and a row reopens its run',async t=
   assert.equal(bar.hidden,false);assert.equal(bar.querySelectorAll('li').length,3);
   assert.equal(bar.querySelectorAll('li')[1].getAttribute('aria-current'),'step');
   assert.equal(p.doc.getElementById('run-progress').textContent,'Running · running Financial analysis (2 of 2)');
+});
+test('recent runs are newest started first whatever their state, and a run with no start time follows the dated ones',async t=>{
+  const older={...ROW_RUNNING,id:'web-'+'1'.repeat(32),started_at:'2026-11-06T09:00:00Z'};
+  const newest={...ROW_DONE,id:'web-'+'2'.repeat(32),started_at:'2026-11-09T09:00:00Z'};
+  const undated={...ROW_DONE,id:'web-'+'3'.repeat(32),started_at:undefined,issuer:'Undated Co'};
+  const p=await page(t,{list:[older,undated,ROW_DONE,newest]});
+  await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
+  assert.deepEqual([...p.doc.querySelectorAll('#recent-jobs tbody th button')].map(b=>b.title),[newest.id,ROW_DONE.id,older.id,undated.id]);
+  assert.equal(p.doc.querySelector('#recent-jobs tbody th button').textContent,'Southport Holdings · WEB-22222222 · 9 November 2026');
+  assert.equal([...p.doc.querySelectorAll('#recent-jobs tbody th button')].at(-1).textContent,'Undated Co · WEB-33333333');
 });
 test('a list refresh keeps the focused row',async t=>{
   const list=[{...ROW_RUNNING}];
@@ -160,7 +170,8 @@ test('a run without a saved review still lists and opens by id',async t=>{
   const p=await page(t,{list:[{id:ID,state:'stopped',message:'Halted',run_available:true,progress:{module:'CP-1',step:'started',spent_usd:'0.10'}}]});
   await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
   const row=p.doc.querySelector('#recent-jobs tbody tr'),tds=[...row.querySelectorAll('td')];
-  assert.equal(row.querySelector('th').textContent,ID);
+  assert.equal(row.querySelector('th').textContent,'WEB-AAAAAAAA','no start time is recorded, so no date is shown');
+  assert.equal(row.querySelector('button').title,ID);
   assert.equal(tds[0].textContent,'—');assert.equal(tds[1].textContent,'stopped during CP-1');
   assert.equal(p.doc.querySelector('.recent-runs').open,false);
   row.querySelector('button').click();await settle();
@@ -289,22 +300,104 @@ test('a status reply for a run the reader has left changes neither the screen no
   assert.ok(asked.slice(before).includes(OTHER),'B is still polled');
 });
 
-const ROW_STOPPED={id:ID,state:'stopped',reason:'budget',message:'CP-1 stopped.',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',cap_usd:'10.00',max_turns:32,modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'stopped',accepted:1,spent_usd:'4.00'}};
+const ROW_STOPPED={id:ID,state:'stopped',reason:'budget',message:'CP-1 stopped.',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',spent_usd:'4.00',modules:['CP-0','CP-1'],module_details:[{id:'CP-0',title:'Source readiness'},{id:'CP-1',title:'Financial analysis'}],progress:{module:'CP-1',step:'stopped',accepted:1,turn:2,max_turns:32,spent_usd:'3.10',held_usd:'1.60',cap_usd:'10.00'}};
 async function openRow(p){
   await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
   p.doc.querySelector('#recent-jobs button.text-button').click();await settle();
 }
+const type=(p,value)=>{const field=p.doc.getElementById('resume-budget');field.value=value;field.dispatchEvent(new p.win.Event('input',{bubbles:true}));};
+const HINT=spent=>spent?`This cap applies to the resumed run's own model calls; the USD ${spent} recorded for the stopped run is not counted against it.`:"This cap applies to the resumed run's own model calls; spend recorded for the stopped run is not counted against it.";
+test('after a budget stop the cap starts at the previous cap and is not compared with the recorded spend',async t=>{
+  const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
+  await openRow(p);
+  const button=p.doc.getElementById('resume-run'),field=p.doc.getElementById('resume-budget');
+  assert.equal(field.value,'10.00');assert.equal(button.disabled,false);
+  assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
+  assert.equal(p.doc.getElementById('resume-hint').hidden,false);
+  assert.equal(field.getAttribute('aria-describedby'),'resume-hint');
+  for(const [value,enabled] of [['',false],['0',false],['0.00',false],['-5',false],['1e1',false],['abc',false],['3',true],['4.00',true],['0.01',true],['12.50',true]]){
+    type(p,value);assert.equal(button.disabled,!enabled,`value ${JSON.stringify(value)}`);
+  }
+  type(p,'3');await p.click('resume-run');
+  assert.deepEqual(JSON.parse(p.calls.find(call=>call.url==='/api/runs/resume').options.body).cap_usd,'3');
+});
+test('the hint says so when the recorded spend cannot be read',async t=>{
+  for(const spent of ['unknown',undefined]){
+    const row={...ROW_STOPPED,spent_usd:spent};
+    const p=await page(t,{list:[row],status:row});
+    await openRow(p);
+    assert.equal(p.doc.getElementById('resume-hint').textContent,HINT(''),String(spent));
+    assert.equal(p.doc.getElementById('resume-run').disabled,false);
+  }
+});
+test('the cap starts at the stopped run\'s recorded cap, never at the draft budget; with none recorded it is empty',async t=>{
+  const row={...ROW_STOPPED,progress:{...ROW_STOPPED.progress,cap_usd:'25.00',max_turns:12}};
+  const p=await page(t,{list:[row],status:row});
+  p.doc.getElementById('run-budget').value='3.00';p.doc.getElementById('run-turns').value='40';
+  await openRow(p);
+  assert.equal(p.doc.getElementById('resume-budget').value,'25.00');
+  await p.click('resume-run');
+  assert.deepEqual(JSON.parse(p.calls.find(call=>call.url==='/api/runs/resume').options.body),{id:ID,cap_usd:'25.00',max_turns:12});
+  const bare={...ROW_STOPPED,progress:{module:'CP-1',step:'stopped',accepted:1}};
+  const q=await page(t,{list:[bare],status:bare});
+  q.doc.getElementById('run-budget').value='3.00';
+  await openRow(q);
+  assert.equal(q.doc.getElementById('resume-budget').value,'');
+  assert.equal(q.doc.getElementById('resume-run').disabled,true,'Review waits for a cap the analyst enters');
+  type(q,'7');assert.equal(q.doc.getElementById('resume-run').disabled,false);
+});
+test('reopening a stopped run after another run shows its field and hint again; the hint is outside the label',async t=>{
+  const other={...ROW_DONE};
+  const p=await page(t,{list:[ROW_STOPPED,other],status:ROW_STOPPED});
+  await p.win.eval("window.dispatchEvent(new Event('hashchange'))");
+  const open=id=>[...p.doc.querySelectorAll('#recent-jobs tbody th button')].find(b=>b.title===id);
+  open(ID).click();await settle();
+  assert.equal(p.doc.getElementById('resume-hint').hidden,false);
+  assert.equal(p.doc.getElementById('resume-hint').closest('label'),null,'not part of the input\'s accessible name');
+  p.win.__status={...other};open(other.id).click();await settle();
+  assert.equal(p.doc.getElementById('resume-field').hidden,true);assert.equal(p.doc.getElementById('resume-hint').hidden,true);
+  p.win.__status=null;open(ID).click();await settle();
+  assert.equal(p.doc.getElementById('resume-field').hidden,false);assert.equal(p.doc.getElementById('resume-hint').hidden,false);
+  assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
+  assert.equal(p.doc.getElementById('resume-budget').getAttribute('aria-describedby'),'resume-hint');
+});
+test('a resume request while a run is in progress is said, and the query is dropped',async t=>{
+  const row={...ROW_STOPPED};
+  const p=await page(t,{list:[ROW_RUNNING,row],status:ROW_RUNNING});
+  await openRow(p);
+  p.win.location.hash=`#W-NewRun/run?resume=${ID}`;await settle();await settle();
+  assert.equal(p.doc.getElementById('new-run-message').textContent,'Another run is in progress. Resume this run after it finishes.');
+  assert.equal(p.win.location.hash,'#W-NewRun/run');
+});
+test('a stop for another reason starts at the previous cap with the same hint',async t=>{
+  for(const reason of ['checker','provider','interrupted',undefined]){
+    const row={...ROW_STOPPED,state:'failed',reason};
+    const p=await page(t,{list:[row],status:row});
+    await openRow(p);
+    const field=p.doc.getElementById('resume-budget'),button=p.doc.getElementById('resume-run');
+    assert.equal(field.value,'10.00',String(reason));assert.equal(button.disabled,false);
+    assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
+    type(p,'0');assert.equal(button.disabled,true);type(p,'');assert.equal(button.disabled,true);type(p,'2.50');assert.equal(button.disabled,false);
+  }
+});
+test('Resume is not offered after a ruling stop',async t=>{
+  const row={...ROW_STOPPED,state:'failed',reason:'ruling'};
+  const p=await page(t,{list:[row],status:row});
+  await openRow(p);
+  assert.equal(p.doc.getElementById('resume-run').hidden,true);assert.equal(p.doc.getElementById('resume-field').hidden,true);
+  assert.equal(p.doc.getElementById('resume-hint').hidden,true);
+});
 test('a stopped run offers a resume that goes through review and confirmation',async t=>{
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
   await openRow(p);
   const budget=p.doc.getElementById('resume-budget');
-  assert.equal(p.doc.getElementById('resume-run').hidden,false);assert.equal(budget.value,'10.00');
-  budget.value='12.50';await p.click('resume-run');
+  assert.equal(p.doc.getElementById('resume-run').hidden,false);assert.equal(budget.value,'10.00','a budget stop starts at the previous cap');
+  type(p,'12.50');assert.equal(p.doc.getElementById('resume-run').disabled,false);await p.click('resume-run');
   const posted=p.calls.filter(call=>call.url==='/api/runs/resume');
   assert.equal(posted.length,1);
   assert.deepEqual(JSON.parse(posted[0].options.body),{id:ID,cap_usd:'12.50',max_turns:32});
   assert.equal(p.doc.getElementById('review-step').hidden,false);
-  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. Retained without a new model call: Source readiness.`));
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run WEB-AAAAAAAA. Retained without a new model call: Source readiness.`));
   assert.equal(p.starts(),0);assert.equal(p.doc.getElementById('start-run').disabled,true);
   p.confirm();assert.equal(p.doc.getElementById('start-run').disabled,false);
   await p.click('start-run');
@@ -321,27 +414,27 @@ test('a complete or running run offers no resume',async t=>{
 });
 test('a resume with nothing accepted says every module runs again',async t=>{
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:[]}});
-  await openRow(p);await p.click('resume-run');
-  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. No module of it was accepted; every module runs again.`));
+  await openRow(p);type(p,'12.50');await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run WEB-AAAAAAAA. No module of it was accepted; every module runs again.`));
 });
 test('a refused resume shows its problems and stays on progress',async t=>{
   const refusal="The stopped run's inputs are no longer in the workspace";
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{ok:false,problems:[refusal]}});
-  await openRow(p);await p.click('resume-run');
+  await openRow(p);type(p,'12.50');await p.click('resume-run');
   assert.equal(p.doc.getElementById('new-run-message').textContent,refusal);
   assert.equal(p.doc.getElementById('progress-step').hidden,false);assert.equal(p.doc.getElementById('review-step').hidden,true);
 });
 test('a resume that stops its retained work early says why',async t=>{
   const note='Retained work stops before Financial analysis: its instructions changed since the stopped run.';
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:['CP-0'],retained_note:note}});
-  await openRow(p);await p.click('resume-run');
-  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. Retained without a new model call: Source readiness. ${note}`));
+  await openRow(p);type(p,'12.50');await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run WEB-AAAAAAAA. Retained without a new model call: Source readiness. ${note}`));
 });
 test('a resume that keeps nothing says why and that every module runs again',async t=>{
   const note='Retained work stops before Source readiness: its sources or context changed since the stopped run.';
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED,resume:{...reviewReply(true),id:ID2,resume_of:ID,retained_modules:[],retained_note:note}});
-  await openRow(p);await p.click('resume-run');
-  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. ${note} Every module runs again.`));
+  await openRow(p);type(p,'12.50');await p.click('resume-run');
+  assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run WEB-AAAAAAAA. ${note} Every module runs again.`));
 });
 test('the page list poll never speaks for a tab that can notify; only the watcher does',async t=>{
   const p=await page(t,{list:[ROW_RUNNING],status:ROW_RUNNING});

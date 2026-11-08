@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -111,7 +114,7 @@ func TestMetricCannotLoseBasisOrInventValue(t *testing.T) {
 }
 
 func TestMetricProvenanceIsOnlyProducerDeclared(t *testing.T) {
-	for _, kind := range []string{"", "cited", "calculated", "synthetic", "unknown", "C1"} {
+	for _, kind := range []string{"", "cited", "calculated", "synthetic", "user", "unknown", "C1"} {
 		t.Run("classification_"+kind, func(t *testing.T) {
 			root, manifest := fixture(t)
 			manifest.Run.Metrics["revenue"].Provenance = kind
@@ -766,5 +769,245 @@ func TestAPublishedModelAloneDoesNotRestoreARunsCompleteness(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("run case-a not discovered")
+	}
+}
+
+// Task 12: admission of classification, private side, facilities and user provenance, checked
+// against the hand-written answer key in tests/fixtures/library-manifest (not edited here).
+const manifestFixtures = "../../tests/fixtures/library-manifest"
+
+func readFixtureJSON(t *testing.T, name string) any {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(manifestFixtures, filepath.FromSlash(name)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func copyFile(t *testing.T, from, root, name string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, name, raw)
+	return raw
+}
+
+const retainedRun = "runs/web-04cd5a5d02ea7d1dea714a8a6632cd21"
+
+// fixtureWorkspace builds a temp workspace for the named fixture and returns it with the run id.
+func fixtureWorkspace(t *testing.T, name string) (root, id string) {
+	t.Helper()
+	root = t.TempDir()
+	switch name {
+	case "synthetic":
+		base := filepath.Join(manifestFixtures, "synthetic/workspace")
+		err := filepath.WalkDir(base, func(p string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			rel, _ := filepath.Rel(base, p)
+			copyFile(t, p, root, filepath.ToSlash(rel))
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return root, "synthetic-hy-001"
+	case "retained-cp1":
+		repo := filepath.Join("..", "..", filepath.FromSlash(retainedRun))
+		if _, err := os.Stat(filepath.Join(repo, "CP-1.md")); err != nil {
+			t.Skip("retained CP-1.md not present")
+		}
+		raw := copyFile(t, filepath.Join(repo, "CP-1.md"), root, retainedRun+"/CP-1.md")
+		sum := sha256.Sum256(raw)
+		if got := hex.EncodeToString(sum[:]); got != "7f0578c02be6bce6849863c7105d17f6d09674ed595b86626286e57d61268e3a" {
+			t.Fatalf("retained CP-1.md changed: %s", got)
+		}
+		input := "inputs/ec0a711fe74781d81973060c2e34ae47b1129e9ff5aea9f5ef6218a082b4f984"
+		copyFile(t, filepath.Join(repo, filepath.FromSlash(input)), root, retainedRun+"/"+input)
+		return root, "web-04cd5a5d02ea7d1dea714a8a6632cd21"
+	}
+	t.Fatalf("unknown fixture %s", name)
+	return "", ""
+}
+
+// setPointer sets an RFC 6901 location, replacing the member or adding it when the parent object
+// lacks it. Array elements are replaced in place; only what the case files use is supported.
+func setPointer(t *testing.T, doc any, pointer string, value any) any {
+	t.Helper()
+	parts := strings.Split(strings.TrimPrefix(pointer, "/"), "/")
+	for i := range parts {
+		parts[i] = strings.ReplaceAll(strings.ReplaceAll(parts[i], "~1", "/"), "~0", "~")
+	}
+	node := doc
+	for _, part := range parts[:len(parts)-1] {
+		switch n := node.(type) {
+		case map[string]any:
+			node = n[part]
+		case []any:
+			var index int
+			if _, err := fmt.Sscanf(part, "%d", &index); err != nil || index >= len(n) {
+				t.Fatalf("bad array index %q in %s", part, pointer)
+			}
+			node = n[index]
+		default:
+			t.Fatalf("pointer %s leaves the document at %q", pointer, part)
+		}
+	}
+	last := parts[len(parts)-1]
+	switch n := node.(type) {
+	case map[string]any:
+		n[last] = value
+	case []any:
+		var index int
+		if _, err := fmt.Sscanf(last, "%d", &index); err != nil || index >= len(n) {
+			t.Fatalf("bad array index %q in %s", last, pointer)
+		}
+		n[index] = value
+	default:
+		t.Fatalf("pointer %s has no container", pointer)
+	}
+	return doc
+}
+
+func discoverFixture(t *testing.T, name string, change func(doc any) any) (Catalogue, Run) {
+	t.Helper()
+	root, id := fixtureWorkspace(t, name)
+	doc := readFixtureJSON(t, name+"/library.json")
+	if change != nil {
+		doc = change(doc)
+	}
+	putJSON(t, root, "runs/"+id+"/library.json", doc)
+	cat := discover(root, Catalogue{})
+	for _, run := range cat.Real {
+		if run.ID == id {
+			return cat, run
+		}
+	}
+	t.Fatalf("run %s not served", id)
+	return cat, Run{}
+}
+
+// subsetDiff returns the first place served differs from want: every key and element the answer
+// key holds must be present and equal; arrays must have the same length.
+func subsetDiff(want, got any, where string) string {
+	switch w := want.(type) {
+	case map[string]any:
+		g, ok := got.(map[string]any)
+		if !ok {
+			return where + ": not an object"
+		}
+		for key, value := range w {
+			have, present := g[key]
+			if !present {
+				return where + "/" + key + ": missing"
+			}
+			if diff := subsetDiff(value, have, where+"/"+key); diff != "" {
+				return diff
+			}
+		}
+	case []any:
+		g, ok := got.([]any)
+		if !ok || len(g) != len(w) {
+			return fmt.Sprintf("%s: array length differs (%v)", where, got)
+		}
+		for i := range w {
+			if diff := subsetDiff(w[i], g[i], fmt.Sprintf("%s/%d", where, i)); diff != "" {
+				return diff
+			}
+		}
+	default:
+		if want != got {
+			return fmt.Sprintf("%s: want %v got %v", where, want, got)
+		}
+	}
+	return ""
+}
+
+func servedJSON(t *testing.T, run Run) map[string]any {
+	t.Helper()
+	raw, err := json.Marshal(run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var served map[string]any
+	if err := json.Unmarshal(raw, &served); err != nil {
+		t.Fatal(err)
+	}
+	return served
+}
+
+func TestManifestAdmitsAnswerKey(t *testing.T) {
+	for _, name := range []string{"synthetic", "retained-cp1"} {
+		t.Run(name, func(t *testing.T) {
+			cat, run := discoverFixture(t, name, nil)
+			if len(cat.Issues) != 0 {
+				t.Fatalf("answer-key manifest rejected: %v", cat.Issues)
+			}
+			served := servedJSON(t, run)
+			want := readFixtureJSON(t, name+"/expected-served.json").(map[string]any)
+			if diff := subsetDiff(want, served, ""); diff != "" {
+				t.Fatal(diff)
+			}
+			// A key the answer key does not hold must be absent or empty when served.
+			for _, key := range []string{"classification", "classification_source", "private_side", "private_side_source", "facilities"} {
+				if _, held := want[key]; held {
+					continue
+				}
+				v := served[key]
+				if list, isList := v.([]any); (isList && len(list) != 0) || (!isList && v != nil && v != false && v != "") {
+					t.Fatalf("%s served but not in the answer key: %v", key, v)
+				}
+			}
+			if facilities, ok := served["facilities"].([]any); !ok || (len(want["facilities"].([]any)) == 0 && len(facilities) != 0) {
+				t.Fatalf("facilities must be served as an array: %v", served["facilities"])
+			}
+		})
+	}
+}
+
+func caseChange(t *testing.T, c map[string]any) func(any) any {
+	return func(doc any) any { return setPointer(t, doc, c["pointer"].(string), c["value"]) }
+}
+
+func TestManifestRejectCases(t *testing.T) {
+	for _, item := range readFixtureJSON(t, "reject-cases.json").([]any) {
+		c := item.(map[string]any)
+		t.Run(c["name"].(string), func(t *testing.T) {
+			cat, run := discoverFixture(t, c["fixture"].(string), caseChange(t, c))
+			if len(run.Gaps) == 0 || !strings.HasPrefix(run.Gaps[len(run.Gaps)-1], "Run metadata rejected:") || len(cat.Issues) == 0 {
+				t.Fatalf("not rejected (%s): gaps %v issues %v", c["why"], run.Gaps, cat.Issues)
+			}
+			if run.Classification != "" || run.ClassificationSource != "" || run.PrivateSide || run.PrivateSideSource != "" || run.Facilities == nil || len(run.Facilities) != 0 || len(run.Metrics) != 0 {
+				t.Fatalf("rejected run still serves new fields: %+v", run)
+			}
+			for key := range cat.Sources {
+				if strings.HasPrefix(key, run.ID+".") {
+					t.Fatalf("rejected manifest published source %s", key)
+				}
+			}
+		})
+	}
+}
+
+func TestManifestAcceptCases(t *testing.T) {
+	for _, item := range readFixtureJSON(t, "accept-cases.json").([]any) {
+		c := item.(map[string]any)
+		t.Run(c["name"].(string), func(t *testing.T) {
+			cat, run := discoverFixture(t, c["fixture"].(string), caseChange(t, c))
+			if len(cat.Issues) != 0 {
+				t.Fatalf("rejected (%s): %v", c["why"], cat.Issues)
+			}
+			if len(run.Metrics) == 0 || run.Facilities == nil {
+				t.Fatalf("admitted run lost metrics or served null facilities: %+v", run)
+			}
+		})
 	}
 }

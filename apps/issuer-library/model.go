@@ -32,6 +32,15 @@ type Metric struct {
 	Source     string `json:"source"`
 	Provenance string `json:"provenance,omitempty"`
 }
+type Facility struct {
+	FacilityID string             `json:"facility_id"`
+	Terms      map[string]*Metric `json:"terms"`
+	Quotes     []FacilityQuote    `json:"quotes"`
+}
+type FacilityQuote struct {
+	Kind  string             `json:"kind"`
+	Terms map[string]*Metric `json:"terms"`
+}
 type Rating struct {
 	Label  string `json:"label"`
 	Date   string `json:"date"`
@@ -56,29 +65,34 @@ type FileLink struct {
 	Href string `json:"href"`
 }
 type Run struct {
-	ID              string             `json:"id"`
-	Issuer          string             `json:"issuer"`
-	Name            string             `json:"name"`
-	Title           string             `json:"title"`
-	Workflow        string             `json:"workflow"`
-	Sector          string             `json:"sector"`
-	Date            string             `json:"date"`
-	Period          string             `json:"period"`
-	PeriodKind      string             `json:"period_kind"`
-	Currency        string             `json:"currency"`
-	Summary         string             `json:"summary"`
-	Gaps            []string           `json:"gaps"`
-	Metrics         map[string]*Metric `json:"metrics"`
-	Completion      *int               `json:"completion"`
-	Checkpoints     *Counts            `json:"checkpoints"`
-	Ratings         []Rating           `json:"ratings"`
-	IdentitySource  string             `json:"identity_source"`
-	SectorSource    string             `json:"sector_source"`
-	Handoff         string             `json:"handoff"`
-	HandoffHref     string             `json:"handoff_href"`
-	Artifacts       []Artifact         `json:"artifacts"`
-	Files           []FileLink         `json:"files"`
-	DeliveryClaimed bool               `json:"-"`
+	ID                   string             `json:"id"`
+	Issuer               string             `json:"issuer"`
+	Name                 string             `json:"name"`
+	Title                string             `json:"title"`
+	Workflow             string             `json:"workflow"`
+	Sector               string             `json:"sector"`
+	Date                 string             `json:"date"`
+	Period               string             `json:"period"`
+	PeriodKind           string             `json:"period_kind"`
+	Currency             string             `json:"currency"`
+	Summary              string             `json:"summary"`
+	Gaps                 []string           `json:"gaps"`
+	Metrics              map[string]*Metric `json:"metrics"`
+	Completion           *int               `json:"completion"`
+	Checkpoints          *Counts            `json:"checkpoints"`
+	Ratings              []Rating           `json:"ratings"`
+	Classification       string             `json:"classification,omitempty"`
+	ClassificationSource string             `json:"classification_source,omitempty"`
+	PrivateSide          bool               `json:"private_side,omitempty"`
+	PrivateSideSource    string             `json:"private_side_source,omitempty"`
+	Facilities           []Facility         `json:"facilities"`
+	IdentitySource       string             `json:"identity_source"`
+	SectorSource         string             `json:"sector_source"`
+	Handoff              string             `json:"handoff"`
+	HandoffHref          string             `json:"handoff_href"`
+	Artifacts            []Artifact         `json:"artifacts"`
+	Files                []FileLink         `json:"files"`
+	DeliveryClaimed      bool               `json:"-"`
 }
 type Catalogue struct {
 	Real         []Run             `json:"real"`
@@ -168,7 +182,7 @@ func fileURL(name string) string {
 func pinnedURL(name, hash string) string { return fileURL(name) + "?sha256=" + hash }
 
 func blankRun(id string) Run {
-	return Run{ID: id, Issuer: "Unclassified", Name: id, Title: "Discovered run", Workflow: "Unclassified", Sector: "Unclassified", Period: "Not established", PeriodKind: "Unclassified", Summary: "This folder has been discovered. Structured issuer and screening metadata have not been supplied.", Gaps: []string{}, Metrics: map[string]*Metric{}, Ratings: []Rating{}, Artifacts: []Artifact{}, Files: []FileLink{}}
+	return Run{ID: id, Issuer: "Unclassified", Name: id, Title: "Discovered run", Workflow: "Unclassified", Sector: "Unclassified", Period: "Not established", PeriodKind: "Unclassified", Summary: "This folder has been discovered. Structured issuer and screening metadata have not been supplied.", Gaps: []string{}, Metrics: map[string]*Metric{}, Ratings: []Rating{}, Facilities: []Facility{}, Artifacts: []Artifact{}, Files: []FileLink{}}
 }
 
 func folders(root *os.Root, parent string) ([]string, error) {

@@ -40,6 +40,112 @@ func verifySource(root *os.Root, source Source) (Source, error) {
 	return source, nil
 }
 
+// checkMetric is the one exact-value rule for every metric the library serves: a finite exact
+// number stated in its pinned quote, with unit, period and basis.
+func checkMetric(metric *Metric, verified map[string]Source) error {
+	switch metric.Provenance {
+	case "", "cited", "calculated", "synthetic", "user":
+	default:
+		return fmt.Errorf("metric provenance must be cited, calculated, synthetic, user or omitted")
+	}
+	value, err := strconv.ParseFloat(metric.Value, 64)
+	source, ok := verified[metric.Source]
+	if err != nil || math.IsInf(value, 0) || math.IsNaN(value) || !ok || metric.Unit == "" || metric.Period == "" || metric.Basis == "" {
+		return fmt.Errorf("metric requires finite exact value, unit, period, basis and pinned source")
+	}
+	if !slices.Contains(statedNumbers(source.Quote), metric.Value) {
+		return fmt.Errorf("metric value absent from source excerpt")
+	}
+	return nil
+}
+
+var (
+	facilityTermKeys = []string{"size_m", "tenor_years", "talk_spread_bps_low", "talk_spread_bps_high", "talk_oid_low", "talk_oid_high", "floor_pct", "coupon_pct", "margin_bps"}
+	quoteTermKeys    = []string{"bid", "ask", "price", "yield_pct", "spread_bps"}
+)
+
+// facilityMetrics lists every term metric of a facility, its quotes included.
+func facilityMetrics(facility Facility) []*Metric {
+	var all []*Metric
+	for _, metric := range facility.Terms {
+		all = append(all, metric)
+	}
+	for _, quote := range facility.Quotes {
+		for _, metric := range quote.Terms {
+			all = append(all, metric)
+		}
+	}
+	return all
+}
+
+// checkTerms admits only the allowed term keys, each a user-provenance metric passing checkMetric.
+func checkTerms(terms map[string]*Metric, allowed []string, verified map[string]Source) error {
+	for key, metric := range terms {
+		if !slices.Contains(allowed, key) {
+			return fmt.Errorf("facility term %q is not an allowed term", key)
+		}
+		if metric == nil || metric.Provenance != "user" {
+			return fmt.Errorf("facility term %q must be a user-entered metric", key)
+		}
+		if err := checkMetric(metric, verified); err != nil {
+			return fmt.Errorf("facility term %q: %w", key, err)
+		}
+	}
+	return nil
+}
+
+// checkQuotedSource requires a verified source whose quote holds the value in double quotes.
+func checkQuotedSource(name, key, value string, verified map[string]Source) error {
+	source, ok := verified[key]
+	if !ok || !strings.Contains(source.Quote, `"`+value+`"`) {
+		return fmt.Errorf("%s needs a pinned source stating %q", name, value)
+	}
+	return nil
+}
+
+// checkCreditKeys admits classification, private side and facilities under the same rule as
+// metrics: each is backed by an exact value in a pinned quote.
+func checkCreditKeys(run Run, verified map[string]Source) error {
+	if run.Classification == "" && run.ClassificationSource != "" {
+		return fmt.Errorf("classification_source needs a classification")
+	}
+	if run.Classification != "" {
+		if run.Classification != "investment_grade" && run.Classification != "high_yield" {
+			return fmt.Errorf("classification must be investment_grade or high_yield")
+		}
+		if err := checkQuotedSource("classification", run.ClassificationSource, run.Classification, verified); err != nil {
+			return err
+		}
+	}
+	if !run.PrivateSide && run.PrivateSideSource != "" {
+		return fmt.Errorf("private_side_source needs private_side")
+	}
+	if run.PrivateSide {
+		if err := checkQuotedSource("private_side", run.PrivateSideSource, "private", verified); err != nil {
+			return err
+		}
+	}
+	seen := map[string]bool{}
+	for _, facility := range run.Facilities {
+		if facility.FacilityID == "" || seen[facility.FacilityID] {
+			return fmt.Errorf("facility_id must be non-empty and unique within the run")
+		}
+		seen[facility.FacilityID] = true
+		if err := checkTerms(facility.Terms, facilityTermKeys, verified); err != nil {
+			return err
+		}
+		for _, quote := range facility.Quotes {
+			if quote.Kind != "observed" && quote.Kind != "indicative_talk" {
+				return fmt.Errorf("facility quote kind must be observed or indicative_talk")
+			}
+			if err := checkTerms(quote.Terms, quoteTermKeys, verified); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Admission preserves explicit metadata; it does not interpret arbitrary prose
 // or infer an issuer, period, ratio definition or completion from a filename.
 func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run, error) {
@@ -80,24 +186,17 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 		if metric == nil {
 			continue
 		}
-		switch metric.Provenance {
-		case "", "cited", "calculated", "synthetic":
-		default:
-			return run, fmt.Errorf("metric provenance must be cited, calculated, synthetic or omitted")
-		}
-		value, err := strconv.ParseFloat(metric.Value, 64)
-		source, ok := verified[metric.Source]
-		if err != nil || math.IsInf(value, 0) || math.IsNaN(value) || !ok || metric.Unit == "" || metric.Period == "" || metric.Basis == "" {
-			return run, fmt.Errorf("metric requires finite exact value, unit, period, basis and pinned source")
-		}
-		if !slices.Contains(statedNumbers(source.Quote), metric.Value) {
-			return run, fmt.Errorf("metric value absent from source excerpt")
+		if err := checkMetric(metric, verified); err != nil {
+			return run, err
 		}
 	}
 	for _, rating := range run.Ratings {
 		if _, ok := verified[rating.Source]; !ok {
 			return run, fmt.Errorf("rating requires pinned source")
 		}
+	}
+	if err := checkCreditKeys(run, verified); err != nil {
+		return run, err
 	}
 	run.Completion = nil
 	run.Checkpoints = nil
@@ -126,6 +225,9 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 	}
 	if run.Artifacts == nil {
 		run.Artifacts = []Artifact{}
+	}
+	if run.Facilities == nil {
+		run.Facilities = []Facility{}
 	}
 	run.HandoffHref = ""
 	if run.Sector == "" {
@@ -160,6 +262,17 @@ func admitRun(root *os.Root, manifest Manifest, id string, cat *Catalogue) (Run,
 	}
 	for i := range run.Ratings {
 		run.Ratings[i].Source = id + "." + run.Ratings[i].Source
+	}
+	if run.ClassificationSource != "" {
+		run.ClassificationSource = id + "." + run.ClassificationSource
+	}
+	if run.PrivateSideSource != "" {
+		run.PrivateSideSource = id + "." + run.PrivateSideSource
+	}
+	for i := range run.Facilities {
+		for _, metric := range facilityMetrics(run.Facilities[i]) {
+			metric.Source = id + "." + metric.Source
+		}
 	}
 	if run.IdentitySource != "" {
 		run.IdentitySource = id + "." + run.IdentitySource

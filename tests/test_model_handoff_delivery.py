@@ -602,6 +602,27 @@ def test_an_unclassified_register_row_gives_no_secured_total() -> None:
     assert multiple["amount"] is None and multiple["reason"] == "UNCLASSIFIED_ROW"
 
 
+def test_a_repeated_label_beats_an_unclassified_row_whatever_the_row_order() -> None:
+    # The store resolves after its loop: repeated label > unclassified row > incomplete row.
+    # Here the unclassified revolver (carrying 910) comes first and the repeat later.
+    run, specs, raw, layout = derived_layout(
+        b"| Revolving credit facility | Commitment 910;",
+        b"| Revolving credit facility | carrying 910;",
+    )
+    old = b"| 4.875% senior subordinated notes due 2029 | Principal 750; carrying 746 |"
+    assert old in raw["annual"]
+    raw["annual"] = raw["annual"].replace(
+        old, b"| Term loans aggregate | Principal 750; carrying 746 |", 1
+    )
+    specs["annual"] = HandoffInput(path="changed.md", sha256=sha256(raw["annual"]).hexdigest())
+    published = build_model(run, specs, raw, layout)
+    debt = json.loads(published.files["calculation.json"])["values"]["FY2024"][
+        "senior_secured_debt"
+    ]
+    assert debt["amount"] is None and debt["reason"] == "UNCLASSIFIED_ROW"
+    assert debt["note"] == "repeated row label: Term loans aggregate"
+
+
 def test_the_model_page_lists_the_derived_table() -> None:
     published, _ = derived_values()
     view = json.loads(published.files["model-view.json"])

@@ -363,15 +363,14 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     seen: set[str] = set()
     exact: set[str] = set()
     incomplete = False
+    repeated: str | None = None
+    unclassified: str | None = None
     for number, quote, values in rows:
         label = values[0]
         low = label.casefold()
         carrying = CARRYING.search(values[1]) if len(values[1]) <= CELL_LIMIT else None
-        if low in seen and carrying is not None:
-            return _Register(
-                when,
-                Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{label[:LABEL_LIMIT]}"),
-            )
+        if low in seen and carrying is not None and repeated is None:
+            repeated = label[:LABEL_LIMIT]
         seen.add(low)
         if label in exact:
             continue  # a later row of a label is dropped, as the store does
@@ -381,8 +380,8 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         unsecured = "subordinated" in low or "unsecured" in low
         secured = low in required or (SECURED_NOTES.search(low) and not unsecured)
         if not secured:
-            if carrying is not None and not unsecured:
-                return _Register(when, Cell(None, "UNCLASSIFIED_ROW", note=label[:LABEL_LIMIT]))
+            if carrying is not None and not unsecured and unclassified is None:
+                unclassified = label[:LABEL_LIMIT]
             continue
         if carrying is None:
             incomplete = True
@@ -395,6 +394,10 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         amount = Decimal(carrying.group(1).replace(",", ""))
         parts.append((Cell(amount, basis="REPORTED", sources=(ref,)), 1))
         named.add(low)
+    if repeated is not None:
+        return _Register(when, Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{repeated}"))
+    if unclassified is not None:
+        return _Register(when, Cell(None, "UNCLASSIFIED_ROW", note=unclassified))
     if incomplete or not required <= named:
         return _Register(
             when,

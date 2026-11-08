@@ -1531,7 +1531,7 @@ def test_recorded_derived_reasons_read_in_words(tmp_path):
     senior = "Senior secured leverage (secured debt / Adj EBITDA)"
     expected = {
         "NOT_STATED": "a component is not in the handoffs",
-        "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero",
+        "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero or negative",
     }
     for code, words in expected.items():
         record = calculation_record()

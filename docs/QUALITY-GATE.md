@@ -2,8 +2,9 @@
 
 `tools/quality_gate.py` holds new and changed Python code to a readability,
 maintainability, complexity and typing standard without requiring a rewrite of the
-existing code. It runs on pull requests (`.github/workflows/quality-gate.yml`) and
-locally:
+existing code. It runs on pull requests (`.github/workflows/quality-gate.yml`), by hand
+("Run workflow": off a PR it checks the last commit, `HEAD~1`; the PR manager starts it, and the
+browser walk, on `main` every hour) and locally:
 
 ```bash
 uv run python tools/quality_gate.py            # compares with origin/main

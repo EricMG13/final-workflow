@@ -657,6 +657,21 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     return _quarter_register_rows(headers, rows, anchor, end)
 
 
+def _repeated_quarter_label(
+    headers: list[str], rows: list[tuple[int, str, list[str]]], net: int
+) -> str | None:
+    """The first label (as `_plain` reads it, subtotal and `Less:` rows included) that comes
+    again with a Net value, as the annual register counts it; a first copy's value is not read."""
+    seen: set[str] = set()
+    for number, _, values in rows:
+        label = values[headers.index("Label")]
+        low = _plain(label)
+        if label and low in seen and _quarter_cell(number, values, net).value is not None:
+            return label[:LABEL_LIMIT]
+        seen.add(low)
+    return None
+
+
 def _quarter_register_rows(
     headers: list[str], rows: list[tuple[int, str, list[str]]], anchor: str, end: date
 ) -> Cell:
@@ -670,8 +685,7 @@ def _quarter_register_rows(
     if when != end:
         return Cell(None, "REGISTER_DATE_DIFFERS", note=f"recorded at {when.isoformat()}")
     parts: list[tuple[Cell, int]] = []
-    seen: set[str] = set()
-    repeated: str | None = None
+    repeated = _repeated_quarter_label(headers, rows, net)
     unclassified: str | None = None
     incomplete = False
     named: set[str] = set()
@@ -688,9 +702,6 @@ def _quarter_register_rows(
             and kind is None
             and ("securitization" in low or low.startswith("term loans") or "secured notes" in low)
         )
-        if amount.value is not None and low in seen and repeated is None:
-            repeated = label[:LABEL_LIMIT]
-        seen.add(low)
         if secured:
             incomplete |= amount.value is None
             parts.append((amount, 1))
@@ -751,7 +762,10 @@ def _quarter_cells(
     first day of its twelve months (the day after the prior-year window ends; None without one)."""
     lines = physical_lines(quarter.decode("utf-8"))
     headers, rows = _table_at(lines, str(derived.quarter_bridge), "quarter")
-    found_rows = [r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL]
+    if "Label" not in headers:
+        raise ValueError("model_columns: the quarter bridge needs a Label column")
+    wanted = _plain(ADJUSTED_EBITDA_LABEL)
+    found_rows = [r for r in rows if _plain(r[2][headers.index("Label")]) == wanted]
     if len(found_rows) != 1:
         raise ValueError(f"model_row: expected one {ADJUSTED_EBITDA_LABEL}")
     row = found_rows[0]

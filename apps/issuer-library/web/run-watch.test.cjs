@@ -281,3 +281,26 @@ test('plain state words replace raw states, and bare module codes are named',asy
   assert.equal(text('failed','Financial analysis (CP-1) rejected'),'Failed: Financial analysis (CP-1) rejected','an already named code is left alone');
   assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap; a new run needs a higher cap. x');
 });
+test('Fix 1: dismissing a running strip hides it (and the mark) until the run changes state',async t=>{
+  const p=await page(t,{list:[job()]});
+  await p.watch();
+  strip(p).querySelector('.strip-close').click();
+  assert.equal(strip(p).hidden,true);assert.equal(p.doc.getElementById('run-mark').hidden,true);
+  assert.deepEqual(JSON.parse(p.win.localStorage.getItem(KEY)),{[ID]:'running'});
+  p.state.list=[job({progress:{module:'CP-3',step:'running',accepted:3}})];await p.watch();
+  assert.equal(strip(p).hidden,true,'a poll in the same state keeps it hidden');
+  p.state.list=[job({state:'stopped',reason:'budget',message:''})];await p.watch();
+  assert.equal(strip(p).hidden,false,'the stop shows it again');
+});
+test('Fix 1: a running job left dismissed does not hide a newer state of another job',async t=>{
+  const p=await page(t,{list:[job()],stored:{[ID]:'running'}});
+  await p.watch();assert.equal(strip(p).hidden,true);
+  p.state.list=[job({id:ID2})];await p.watch();assert.equal(strip(p).hidden,false);
+});
+test('Fix 2: an unchanged state with no supporting text updates in place and does not rebuild',async t=>{
+  const p=await page(t,{list:[job({modules:undefined,module_details:undefined,progress:{}})]});
+  await p.watch();
+  const title=strip(p).querySelector('.strip-title');
+  await p.watch();await p.watch();
+  assert.equal(strip(p).querySelector('.strip-title'),title);
+});

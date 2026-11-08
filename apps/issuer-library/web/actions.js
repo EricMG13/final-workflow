@@ -126,9 +126,10 @@ function dismissRun(job){
 // The active job if any; otherwise the most recently started job that is not running, unless dismissed
 // in its present state. The list is newest first, and a job that left it keeps the last one seen.
 function chooseShown(jobs){
-  const active=jobs.find(job=>WORKFLOW_ACTIVE.includes(job.state));
-  if(active)return active;
-  const dismissed=readDismissed(),candidate=jobs.find(job=>STATE_WORD[job.state])||runWatch.last;
+  const dismissed=readDismissed(),running=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
+  // Dismissal applies to an active job too; while any run is active a dismissed one never gives way to an old stopped run.
+  if(running.length)return running.find(job=>dismissed[job.id]!==job.state)||null;
+  const candidate=jobs.find(job=>STATE_WORD[job.state])||runWatch.last;
   return candidate&&STATE_WORD[candidate.state]&&dismissed[candidate.id]!==candidate.state?candidate:null;
 }
 const jobRoute=(place,job)=>`#${place}?c=${encodeURIComponent(job.id)}`;
@@ -154,7 +155,11 @@ function showRunStrip(job){
   const view=stripView(job),key=`${job.id}|${job.state}`;
   // Only a change of state is announced: a poll that moves the count rewrites the quiet line in place.
   const line=strip.querySelector('.strip-text');
-  if(strip.dataset.key===key&&!strip.hidden&&line&&view.lines.length){line.textContent=view.lines[0];return;}
+  if(strip.dataset.key===key&&!strip.hidden){
+    if(line&&view.lines.length){line.textContent=view.lines[0];return;}
+    if(line){line.remove();return;}
+    if(!view.lines.length)return;
+  }
   strip.dataset.key=key;strip.dataset.tone=view.tone;strip.hidden=false;
   const icon=document.createElement('span');icon.className='strip-icon';icon.dataset.icon=view.icon;icon.setAttribute('aria-hidden','true');
   const body=document.createElement('div');body.className='strip-body';
@@ -303,7 +308,7 @@ function installNewRun(){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
       const deliveryStop=step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length);
       // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
-      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=deliveryStop||(step==='delivering'&&!active&&!runComplete);
+      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=deliveryStop||(!active&&!runComplete&&(step==='delivering'||(modules.length>0&&status.progress?.accepted>=modules.length)));
       const modulesDone=runComplete||deliveryStop||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{
         const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';

@@ -392,3 +392,11 @@ test('the strip Resume link works while New run is already open',async t=>{
   p.win.location.hash=`#W-NewRun/run?resume=${ID}`;await settle();await settle();
   assert.equal(p.doc.getElementById('progress-step').hidden,false);assert.equal(p.win.location.hash,'#W-NewRun/run');
 });
+
+test('Fix 3: a stop after the last module was accepted, with progress step accepted, is the delivery step\'s Stopped',async t=>{
+  const status={state:'interrupted',message:'cut',progress:{module:'CP-1',step:'accepted',accepted:2},run_available:true,id:ID};
+  const p=await page(t,{status});p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
+  const items=[...p.doc.querySelectorAll('#module-stages li')],step=items.at(-1);
+  assert.deepEqual(items.slice(0,2).map(li=>li.dataset.status),['complete','complete']);
+  assert.equal(step.hasAttribute('data-stopped'),true);assert.equal(step.querySelector('span:not(.step-marker)').textContent,'Stopped');assert.equal(step.querySelector('img'),null);
+});

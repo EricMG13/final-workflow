@@ -11,7 +11,9 @@
   const identity = $('sec2'), grid = identity.querySelector('.grid');
   const extra = disclosure('Additional issuer details');
   [...grid.children].slice(2).forEach(item => extra.append(item));
-  [...identity.children].filter(item => item.tagName === 'FIELDSET' || (item.className === 'grid' && item !== grid)).forEach(item => extra.append(item));
+  // The issue classification is required, so it stays visible beside the issuer name and ID.
+  const classification = $('classf');
+  [...identity.children].filter(item => item !== classification && (item.tagName === 'FIELDSET' || (item.className === 'grid' && item !== grid))).forEach(item => extra.append(item));
   identity.append(extra);
   form.prepend(identity);
   for (let number = 4; number <= 10; number++) {

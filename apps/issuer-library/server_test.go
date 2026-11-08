@@ -207,13 +207,13 @@ func TestConcurrentRefreshAndReaders(t *testing.T) {
 	app, _ := testApp(t)
 	var group sync.WaitGroup
 	for i := 0; i < 20; i++ {
-		group.Go(func() {
+		spawn(&group, func() {
 			response := call(app, "GET", "/api/catalogue", "")
 			if response.Code != http.StatusOK {
 				t.Errorf("reader: %d", response.Code)
 			}
 		})
-		group.Go(func() {
+		spawn(&group, func() {
 			response := call(app, "POST", "/api/refresh", "{}")
 			if response.Code != http.StatusOK {
 				t.Errorf("refresh: %d", response.Code)
@@ -861,7 +861,7 @@ func TestConcurrentWorkspaceReadsShareOneStore(t *testing.T) {
 	app.engine, counter, _ = countingEngine(t)
 	var group sync.WaitGroup
 	for range 8 {
-		group.Go(func() {
+		spawn(&group, func() {
 			if r := call(app, "GET", "/api/workspace", ""); r.Code != 200 {
 				t.Errorf("workspace: %d", r.Code)
 			}

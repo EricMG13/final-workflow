@@ -5,6 +5,8 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
+import sys
 import time
 from dataclasses import replace
 from decimal import Decimal
@@ -780,7 +782,9 @@ def test_a_method_change_since_the_stop_ends_the_retained_work(tmp_path, provide
     monkeypatch.setattr(
         test_cpos_launch.cpos_launch,
         "_instructions",
-        lambda run, module, routes: original(run, module, routes) + b"\nMethod revision 2.\n",
+        lambda run, module, routes, **kw: (
+            original(run, module, routes, **kw) + b"\nMethod revision 2.\n"
+        ),
     )
     result = bridge.review(resumed(folder, request))
     assert result["retained_modules"] == []
@@ -854,3 +858,66 @@ def test_a_resume_whose_run_folder_is_gone_is_refused(tmp_path, provider):
     shutil.rmtree(run_dir)
     with pytest.raises(ValueError, match="has no retained work in the workspace"):
         bridge.review(second)
+
+
+EXPECTATION_KEYS = {"issue_classification", "documents", "expectations", "counted", "without"}
+
+
+def test_review_adds_the_expectations_to_its_unchanged_keys(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    folder, _ = job(tmp_path)
+    result = bridge.review(folder)
+    assert EXPECTATION_KEYS <= set(result)
+    assert result["issue_classification"] == ""  # The fixture context does not state one.
+    assert {d["source"] for d in result["documents"]} == {"annual.txt", "filings/notes.md"}
+    ids = [item["id"] for item in result["expectations"]]
+    assert len(ids) == len(set(ids))
+    assert result["counted"] == [i["id"] for i in result["expectations"] if i["counted"]]
+    assert result["without"] == {}  # Legal documents are declared executed: nothing will refuse.
+
+
+def test_review_offers_run_without_for_a_declared_none(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    folder, _ = job(tmp_path)
+    context = json.loads((folder / "context.json").read_text())
+    context["attachments"]["legal_documents"] = "none"
+    context["identity"]["issue_classification"] = "investment_grade"
+    (folder / "context.json").write_text(json.dumps(context))
+    result = bridge.review(folder)
+    assert result["issue_classification"] == "investment_grade"
+    assert result["without"] == {"CP-4": ["CP-4"]}
+    assert "CP-4:cp4-declared-none" in result["counted"]
+    assert not (folder / "start-authorization.md").exists()
+
+
+def test_review_id_does_not_cover_the_expectations(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    folder, value = job(tmp_path)
+    first = bridge.review(folder)
+    prepared = bridge.launch(value, folder, tmp_path / "again")
+    assert prepared.expectations and prepared.documents
+    bare = replace(prepared, expectations=(), documents=())
+    assert bridge.review_id(value, first["engine_revision"], bare) == first["review_id"]
+
+
+def test_the_fake_engine_bridge_returns_the_same_review_keys(tmp_path, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    folder, _ = job(tmp_path)
+    real = bridge.review(folder)
+    fake = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "apps/issuer-library/designs/fake_engine/bridge.py"),
+            "review",
+            str(folder),
+        ],
+        env={**os.environ, "CHECK_ROOT": str(ROOT)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=120,
+    )
+    assert fake.returncode == 0, fake.stderr
+    review = json.loads(fake.stdout)
+    assert set(review) == set(real) and EXPECTATION_KEYS <= set(review)
+    assert review["expectations"] == real["expectations"]

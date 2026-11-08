@@ -736,11 +736,11 @@ func TestStartRacingAQuitRequestNeverOrphansAWorker(t *testing.T) {
 		var stopped bool
 		gate := make(chan struct{})
 		var group sync.WaitGroup
-		group.Go(func() {
+		spawn(&group, func() {
 			<-gate
 			code = call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`).Code
 		})
-		group.Go(func() {
+		spawn(&group, func() {
 			<-gate
 			time.Sleep(time.Duration(round%8) * 100 * time.Microsecond)
 			stopped = app.answerQuitRequest()

@@ -684,7 +684,7 @@ Blocked message stands. Outside that scope instructions and checks are unchanged
 This repository's revision: the change sits on commit 93c3478b (Plan 3 Task 10).
 Widening: the plan tells CP-3, CP-5 and CP-6 to label Provisional terms "on Primary
 runs". The consumer sentence is written in the whole Provisional scope (Primary, or
-legal documents "draft") whenever CP-4 is in the run, because instructions must match
+legal documents "draft"), with or without CP-4 in the run, because instructions must match
 what the checker enforces: it requires "Provisional" from any consumer whose upstream
 CP-4 handoff holds `DRAFT_LIMITATION` or the final-offering-memorandum reason
 (coordinator ruling, 2026-11-08).

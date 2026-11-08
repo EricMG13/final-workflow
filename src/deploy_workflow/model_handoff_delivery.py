@@ -166,11 +166,53 @@ class ModelPublication(NamedTuple):
     files: dict[str, bytes]
 
 
-def _table_at(lines: list[str], anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-    positions = [i for i, line in enumerate(lines) if line == anchor]
+class _NoTable(ValueError):
+    """The anchor has no table before the next Markdown heading."""
+
+
+ONE_LINE_COMMENT = re.compile(r"<!--.*-->")
+
+
+def _refuse_interrupted(
+    shown: list[str], hidden_lines: list[bool], begin: int, end: int, anchor: str
+) -> None:
+    """Refuse a table that comment text interrupts: rows that follow only comments or blank lines
+    would otherwise be dropped without a word."""
+    hidden = False
+    for i in range(begin, end):
+        if shown[i].startswith("|"):
+            if hidden:
+                raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
+            return
+        if shown[i].strip() == "":
+            hidden |= hidden_lines[i]
+        elif ONE_LINE_COMMENT.fullmatch(shown[i].strip()):
+            hidden = True
+        else:
+            return
+
+
+def _table_at(
+    lines: list[str], anchor: str, source: str
+) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
+    """The table under `anchor` that begins before the next Markdown heading, read from the lines
+    as a Markdown viewer shows them (comments and fenced text hidden)."""
+    commented = hide_comments(lines, source)
+    shown = hide_fenced(commented)
+    positions = [i for i, line in enumerate(shown) if line == anchor]
     if len(positions) != 1:
         raise ValueError(f"model_anchor: expected one {anchor}")
-    headers, rows = table([(i + 1, lines[i]) for i in range(positions[0] + 1, len(lines))])
+    start = positions[0] + 1
+    end = next((i for i in range(start, len(shown)) if shown[i].startswith("#")), len(shown))
+    first = next((i for i in range(start, end) if shown[i].startswith("|")), None)
+    if first is None:
+        raise _NoTable(f"no table under {anchor}")
+    last = first
+    while last + 1 < end and shown[last + 1].startswith("|"):
+        last += 1
+    hidden = [c.strip() == "" and r.strip() != "" for r, c in zip(lines, commented, strict=True)]
+    _refuse_interrupted(shown, hidden, last + 1, end, anchor)
+    headers, rows = table([(i + 1, shown[i]) for i in range(first, end)])
     if len(headers) != len(set(headers)):
         raise ValueError("model_columns: selected source columns are ambiguous")
     return headers, rows
@@ -186,7 +228,7 @@ class _AnnualReader:
         return self.table_at(self.layout.anchors[name])
 
     def table_at(self, anchor: str) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-        return _table_at(self.lines, anchor)
+        return _table_at(self.lines, anchor, "annual")
 
     def validate(self) -> None:
         required = set(INPUT_KEYS + DEBT_KEYS + ADJUSTMENT_KEYS)
@@ -359,13 +401,32 @@ def _register_date(text: str) -> date | None:
         return None
 
 
+EMPHASIS = re.compile(r"(\*\*|__|\*|_)(.+)\1")
+SUBTOTAL_END = re.compile(r"[ ,]total$")
+
+
+def _plain(label: str) -> str:
+    """A register row label as classified: trimmed, with whole-label emphasis removed."""
+    text = label.strip()
+    found = EMPHASIS.fullmatch(text)
+    return found[2].strip() if found else text
+
+
+def _is_subtotal(low: str) -> bool:
+    """A lower-case plain label that starts with total, holds subtotal or ends with ` total`."""
+    return low.startswith("total") or "subtotal" in low or SUBTOTAL_END.search(low) is not None
+
+
 def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     """Sum the secured carrying values of the register under `anchor`, classified as the store does.
 
     Total rows are skipped. A row with a carrying value that is neither secured nor named
     unsecured gives no total (UNCLASSIFIED_ROW, noted with its label); so does a repeated label.
     """
-    headers, rows = reader.table_at(anchor)
+    try:
+        headers, rows = reader.table_at(anchor)
+    except _NoTable as error:
+        return _Register(None, Cell(None, "NOT_SOURCED", note=str(error)))
     when = _register_date(headers[1])
     if when is None:
         return _Register(None, Cell(None, "NOT_SOURCED", note="Register date not readable"))
@@ -379,7 +440,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
     unclassified: str | None = None
     for number, quote, values in rows:
         label = values[0]
-        low = label.casefold()
+        low = _plain(label).casefold()
         carrying = CARRYING.search(values[1]) if len(values[1]) <= CELL_LIMIT else None
         if low in seen and carrying is not None and repeated is None:
             repeated = label[:LABEL_LIMIT]
@@ -387,7 +448,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         if label in exact:
             continue  # a later row of a label is dropped, as the store does
         exact.add(label)
-        if low.startswith("total"):
+        if _is_subtotal(low):
             continue
         unsecured = "subordinated" in low or "unsecured" in low
         secured = low in required or (SECURED_NOTES.search(low) and not unsecured)
@@ -532,7 +593,16 @@ def _kind_of(name: str, low: str) -> bool:
 
 def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     """Quarter-end senior secured debt from the `Net` column, classified as the annual one is."""
-    headers, rows = _table_at(lines, anchor)
+    try:
+        headers, rows = _table_at(lines, anchor, "quarter")
+    except _NoTable as error:
+        return Cell(None, "NOT_SOURCED", note=str(error))
+    return _quarter_register_rows(headers, rows, anchor, end)
+
+
+def _quarter_register_rows(
+    headers: list[str], rows: list[tuple[int, str, list[str]]], anchor: str, end: date
+) -> Cell:
     nets = [i for i, h in enumerate(headers) if h.startswith("Net")]
     if len(nets) != 1 or "Label" not in headers:
         raise ValueError("model_columns: the quarter register needs one Net and a Label column")
@@ -550,8 +620,8 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
     named: set[str] = set()
     for number, _, values in rows:
         label = values[headers.index("Label")]
-        low = label.casefold()
-        if not label or low.startswith(("total", "less:", "long-term debt")):
+        low = _plain(label).casefold()
+        if not label or _is_subtotal(low) or low.startswith(("less:", "long-term debt")):
             continue
         amount = _quarter_cell(number, values, net)
         unsecured = "subordinated" in low or "unsecured" in low
@@ -581,7 +651,11 @@ def _quarter_register(lines: list[str], anchor: str, end: date) -> Cell:
 def _annual_adjusted(lines: list[str], year: str) -> Cell:
     """The fiscal year's As Defined total, read from the one annual table holding its row."""
     lines = hide_fenced(hide_comments(lines, "annual"))
-    holding = [i for i, line in enumerate(lines) if line.startswith(f"| {ADJUSTED_EBITDA_LABEL} |")]
+    holding = [
+        i
+        for i, line in enumerate(lines)
+        if line.startswith("|") and line[1:].split("|")[0].strip() == ADJUSTED_EBITDA_LABEL
+    ]
     if len(holding) != 1:
         return Cell(
             None, "WINDOW_MISSING", note="fiscal-year Adj EBITDA As Defined is not in one row"
@@ -614,8 +688,8 @@ def _quarter_cells(
 ) -> dict[_Window, tuple[dict[str, Cell], date | None]]:
     """The LTM and quarter-end rows of every window that starts a fiscal year, each with the
     first day of its twelve months (the day after the prior-year window ends; None without one)."""
-    lines = hide_fenced(hide_comments(physical_lines(quarter.decode("utf-8")), "quarter"))
-    headers, rows = _table_at(lines, str(derived.quarter_bridge))
+    lines = physical_lines(quarter.decode("utf-8"))
+    headers, rows = _table_at(lines, str(derived.quarter_bridge), "quarter")
     found_rows = [r for r in rows if r[2][headers.index("Label")] == ADJUSTED_EBITDA_LABEL]
     if len(found_rows) != 1:
         raise ValueError(f"model_row: expected one {ADJUSTED_EBITDA_LABEL}")

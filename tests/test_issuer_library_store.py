@@ -2842,6 +2842,62 @@ def test_a_repeated_debt_label_that_drops_a_carrying_value_still_voids_it():
     assert found is not None and found[2] == "the debt register repeats a row label: Of which"
 
 
+def test_an_escaped_pipe_does_not_split_a_register_cell():
+    escaped = DEBT_ROWS.replace(
+        "Principal 1,100; carrying 1,000", r"Principal 1,100 \| carrying 1,000"
+    )
+    tables = store.markdown_tables("### Debt\n\n" + DEBT_HEAD + escaped, "annual.md")
+    found = store.secured_debt(tables)
+    assert found is not None and found[1] == 1620  # 120 + 1,000 + 500, by hand
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        "Secured notes subtotal",
+        "Subtotal secured notes",
+        "Secured notes, total",
+        "Term loans, total",
+        "**Total secured notes**",
+        "_Total secured notes_",
+    ],
+)
+def test_a_subtotal_labelled_register_row_is_not_summed(label):
+    found = secured_of(f"| {label} | carrying 600 | x |\n")
+    assert found is not None and found[1] == 1620 and found[2] is None
+
+
+def test_an_emphasised_register_label_is_classified_by_its_words():
+    found = secured_of("| **6.5% secured notes due 2031** | carrying 100 | x |\n")
+    assert found is not None and found[1] == 1720
+    found = secured_of("| **Term loans aggregate** | carrying 7 | x |\n")
+    assert found is not None and found[1] is None
+    assert found[2] == "the debt register repeats a row label: **Term loans aggregate**"
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        "<!-- reviewer note -->\n| 7% secured notes due 2033 | carrying 100 | x |\n",
+        (
+            "<!-- restated\n| 7% secured notes due 2033 | carrying 50 | x |\n-->\n"
+            "| 7% secured notes due 2034 | carrying 100 | x |\n"
+        ),
+        (
+            "| 7% secured notes due 2033 | carrying 50 | x |<!-- restated\n"
+            "| 7% secured notes due 2033 | carrying 1 | x |\n-->\n"
+            "| 7% secured notes due 2034 | carrying 100 | x |\n"
+        ),
+    ],
+)
+def test_a_register_interrupted_by_a_comment_gives_no_total_naming_its_table(extra):
+    found = secured_of(extra)
+    assert found is not None and found[1] is None
+    assert found[2] == (
+        "the debt register (Sep 30, 2024 amount / status) is interrupted by a comment"
+    )
+
+
 def test_the_budget_goes_first_to_a_model_a_run_lists_through_its_sources(tmp_path, monkeypatch):
     def record_issuer():
         manifest = {"issuer_name": "Alpha Holdings", "issuer_id": "ALP"}

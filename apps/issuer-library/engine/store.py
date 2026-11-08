@@ -990,6 +990,7 @@ class Table(TypedDict):
     rows: dict[str, list[str]]
     periods: dict[PeriodKey, int]
     repeated: str | None
+    interrupted: bool
 
 
 class Column(TypedDict):
@@ -1119,7 +1120,26 @@ def source_cell(text: str, kind: str) -> Cell:
 
 
 def table_cells(line: str) -> list[str]:
-    return [cell.strip() for cell in line.strip().removeprefix("|").removesuffix("|").split("|")]
+    """The cells of a table row; an escaped pipe (backslash, pipe) is text inside a cell."""
+    inner = line.strip().removeprefix("|").removesuffix("|")
+    return [cell.strip().replace("\\|", "|") for cell in re.split(r"(?<!\\)\|", inner)]
+
+
+EMPHASIS = re.compile(r"(\*\*|__|\*|_)(.+)\1")
+SUBTOTAL_END = re.compile(r"[ ,]total$")
+
+
+def plain_label(label: str) -> str:
+    """A register row label as classified: trimmed, with whole-label emphasis removed."""
+    text = label.strip()
+    found = EMPHASIS.fullmatch(text)
+    return found[2].strip() if found else text
+
+
+def is_subtotal(low: str) -> bool:
+    """A lower-case plain label that starts with total, holds subtotal or ends with ` total`."""
+    prefix = CASHFLOW_LABELS["total_prefix"].casefold()
+    return low.startswith(prefix) or "subtotal" in low or SUBTOTAL_END.search(low) is not None
 
 
 def period_key(header: str) -> PeriodKey | None:
@@ -1156,31 +1176,66 @@ def markdown_table(lines: list[str], file: str) -> Table:
             # A later row of a label already seen is dropped by `rows`: that matters when it holds a
             # carrying value, not for a blank label or a note row.
             label = row[label_column]
-            dropped = label.casefold() in folded and label != ""
+            dropped = plain_label(label).casefold() in folded and label != ""
             if dropped and repeated is None and holds_carrying_value(row):
                 repeated = label
-            folded.add(label.casefold())
+            folded.add(plain_label(label).casefold())
             rows.setdefault(row[label_column], row)
     periods: dict[PeriodKey, int] = {}
     for index, name in enumerate(header):
         key = period_key(name)
         if key is not None:
             periods.setdefault(key, index)
-    return {"header": header, "rows": rows, "periods": periods, "repeated": repeated}
+    return {
+        "header": header,
+        "rows": rows,
+        "periods": periods,
+        "repeated": repeated,
+        "interrupted": False,
+    }
+
+
+def comment_follows(lines: list[str], at: int) -> bool:
+    """Whether only blank lines and at least one comment lie between line `at` and a '|' line:
+    hidden text that interrupts a table, whose later rows are then another table."""
+    seen = False
+    while at < len(lines):
+        text = lines[at].strip()
+        if text.startswith("<!--"):
+            seen = True
+            while "-->" not in lines[at] and at + 1 < len(lines):
+                at += 1
+        elif text:
+            return seen and text.startswith("|")
+        at += 1
+    return False
 
 
 def markdown_tables(text: str, file: str) -> list[Table]:
-    """The tables of a Markdown text, read line by line; `file` names it in a limit error."""
+    """The tables of a Markdown text, read line by line; `file` names it in a limit error.
+
+    A table is `interrupted` when a comment opens inside one of its rows or separates it from the
+    '|' lines that follow: its rows are then not all read as one table.
+    """
     tables: list[Table] = []
+    lines = text.split("\n")
     run: list[str] = []
-    for line in text.split("\n"):
+
+    def close(after: int) -> None:
+        table = markdown_table(run, file)
+        table["interrupted"] = comment_follows(lines, after) or any(
+            row.rfind("<!--") > row.rfind("-->") for row in run
+        )
+        tables.append(table)
+
+    for number, line in enumerate(lines):
         if line.lstrip().startswith("|"):
             run.append(line)
         elif run:
-            tables.append(markdown_table(run, file))
+            close(number)
             run = []
     if run:
-        tables.append(markdown_table(run, file))
+        close(len(lines))
     return tables
 
 
@@ -1230,7 +1285,10 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     """
     names = CASHFLOW_LABELS
     anchor = names["secured_term_loans"].casefold()
-    debt = next((t for t in tables if any(label.casefold() == anchor for label in t["rows"])), None)
+    debt = next(
+        (t for t in tables if any(plain_label(label).casefold() == anchor for label in t["rows"])),
+        None,
+    )
     if debt is None or len(debt["header"]) < 2:
         return None
     when = register_date(debt["header"][1])
@@ -1241,8 +1299,8 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
     total, incomplete, unclassified = decimal.Decimal(0), False, None
     named: set[str] = set()
     for label, row in debt["rows"].items():
-        low = label.casefold()
-        if low.startswith(names["total_prefix"].casefold()):
+        low = plain_label(label).casefold()
+        if is_subtotal(low):
             continue
         unsecured = names["unsecured_notes"] in low or names["unsecured"] in low
         secured = low in required or (secured_notes.search(low) and not unsecured)
@@ -1256,6 +1314,12 @@ def secured_debt(tables: list[Table]) -> SecuredDebt | None:
             continue
         total += decimal.Decimal(carrying.group(1).replace(",", ""))
         named.add(low)
+    if debt["interrupted"]:
+        return (
+            when,
+            None,
+            f"the debt register ({debt['header'][1][:LABEL_LIMIT]}) is interrupted by a comment",
+        )
     if debt["repeated"] is not None:
         return (
             when,

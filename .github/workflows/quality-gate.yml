@@ -2,6 +2,8 @@ name: quality-gate
 
 on:
   pull_request:
+  # Started hourly on main by the PR manager; off a PR the changed-code gate checks the last merge.
+  workflow_dispatch:
 
 jobs:
   changed-code:
@@ -15,7 +17,7 @@ jobs:
         with:
           version: "0.12.5"
       - run: uv sync --group dev
-      - run: uv run python tools/quality_gate.py --base "origin/${{ github.base_ref }}"
+      - run: uv run python tools/quality_gate.py --base "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}"
 
   issuer-library-quick:
     name: issuer library quick gate (fixture, node, python tests)

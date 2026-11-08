@@ -452,8 +452,8 @@ function libraryArtifactLink(artifact,key,text,cls,aria='') {
 const libraryOpenText=artifact=>artifact.kind==='model'?'Open model':artifact.relationship==='related'?'Related report':'Open report';
 function libraryRows() {
   const runs=catalogueRuns(),base=LibraryLogic.filterRuns(runs,{...libraryFilters,search:''});
-  // Search also reads the issuer name and terms the store recorded for the joined run; the displayed issuer stays as served.
-  const shadows=base.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,issuer:[run.issuer,held?.issuer,...(held?.issuerTerms||[])].join(' ')};});
+  // Search also reads the issuer name and terms the store recorded for the joined run, appended after the served fields.
+  const shadows=base.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,workflow:[run.workflow,held?.issuer,...(held?.issuerTerms||[])].filter(Boolean).join(' ')};});
   const found=new Set(LibraryLogic.filterRuns(shadows,{search:libraryFilters.search}).map(r=>r.id)),matching=base.filter(r=>found.has(r.id));
   const rows=libraryState.sortKey?LibraryLogic.sortRuns(matching,libraryState.sortKey,libraryState.direction):matching;
   if(!rows.some(r=>r.id===libraryState.selected))libraryState.selected=rows[0]?.id??'';

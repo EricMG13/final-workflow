@@ -12,6 +12,7 @@ import pytest
 
 from deploy_workflow.handoff_delivery import (
     DeliveryRequest,
+    DerivedRows,
     HandoffInput,
     ModelRow,
     verify_delivery,
@@ -499,3 +500,117 @@ def test_ratio_places_widen_only_to_keep_a_nonzero_ratio_from_reading_zero(value
     from deploy_workflow.model_handoff_delivery import _ratio_decimals
 
     assert _ratio_decimals(value) == places
+
+
+REGISTER = "### T4.18 — Debt/facility register"
+
+
+def derived_layout(before: bytes | None = None, after: bytes | None = None):
+    run, specs, raw, layout = annual_only(before, after)
+    layout = layout.model_copy(update={"derived": DerivedRows(debt_register=REGISTER)})
+    return run, specs, raw, layout
+
+
+def derived_values(*args):
+    published = build_model(*derived_layout(*args))
+    return published, json.loads(published.files["calculation.json"])["values"]
+
+
+def rounded(exact: Fraction) -> Decimal:
+    with localcontext(Context(prec=38, rounding=ROUND_HALF_EVEN)):
+        return Decimal(exact.numerator) / Decimal(exact.denominator)
+
+
+DERIVED_KEYS = (
+    "revenue_growth",
+    "gross_margin",
+    "adj_ebitda_margin",
+    "adj_ebitda_growth",
+    "senior_secured_debt",
+    "senior_secured_multiple",
+)
+
+
+def test_derived_rows_are_absent_without_the_request() -> None:
+    published = build_model(*annual_only())
+    values = json.loads(published.files["calculation.json"])["values"]
+    assert not set(DERIVED_KEYS) & set(values["FY2024"])
+    view = json.loads(published.files["model-view.json"])
+    assert "derived" not in [t["table_id"] for t in view["modules"][0]["tables"]]
+
+
+def test_derived_rows_follow_the_record_rules() -> None:
+    _, values = derived_values()
+    growth = {
+        "FY2024": Fraction(271, 1317),
+        "FY2023": Fraction(1156, 5429),
+    }
+    for period, exact in growth.items():
+        assert Decimal(values[period]["revenue_growth"]["amount"]) == rounded(exact)
+    assert values["FY2022"]["revenue_growth"]["amount"] is None
+    assert values["FY2022"]["revenue_growth"]["reason"] == "PRIOR_PERIOD_MISSING"
+    assert values["FY2022"]["adj_ebitda_growth"]["reason"] == "PRIOR_PERIOD_MISSING"
+    fy24 = values["FY2024"]
+    for key, exact in (
+        ("gross_margin", Fraction(1168, 1985)),
+        ("adj_ebitda_margin", Fraction(4173, 7940)),
+        ("adj_ebitda_growth", Fraction(778, 3395)),
+        ("senior_secured_multiple", Fraction(1540, 321)),
+    ):
+        assert Decimal(fy24[key]["amount"]) == rounded(exact)
+    debt = fy24["senior_secured_debt"]
+    assert debt["amount"] == "20020" and debt["unit"] == "MILLIONS"
+    assert [s["locator"] for s in debt["sources"]] == [
+        "line 367",
+        "line 368",
+        "line 375",
+        "line 377",
+        "line 379",
+        "line 380",
+        "line 381",
+        "line 382",
+    ]
+    assert [s["cell_text"] for s in debt["sources"]] == [
+        "carrying 486",
+        "carrying 8,642",
+        "carrying 2,077",
+        "carrying 2,727",
+        "carrying 1,438",
+        "carrying 984",
+        "carrying 2,180",
+        "carrying 1,486",
+    ]
+    assert fy24["senior_secured_multiple"]["unit"] == "MULTIPLE"
+    other = values["FY2023"]["senior_secured_multiple"]
+    assert other["amount"] is None and other["reason"] == "REGISTER_DATE_DIFFERS"
+    assert "2024-09-30" in other["note"]
+    for key in ("revenue_growth", "gross_margin", "adj_ebitda_margin", "adj_ebitda_growth"):
+        entry = fy24[key]
+        assert entry["unit"] == "FRACTION" and entry["quantity_family"] == "dimensionless"
+        assert entry["currency"] is None and entry["scale"] == "1"
+
+
+def test_an_unclassified_register_row_gives_no_secured_total() -> None:
+    _, values = derived_values(
+        b"| Revolving credit facility | Commitment 910;",
+        b"| Revolving credit facility | carrying 910;",
+    )
+    debt = values["FY2024"]["senior_secured_debt"]
+    assert debt["amount"] is None and debt["reason"] == "UNCLASSIFIED_ROW"
+    assert debt["note"] == "Revolving credit facility"
+    multiple = values["FY2024"]["senior_secured_multiple"]
+    assert multiple["amount"] is None and multiple["reason"] == "UNCLASSIFIED_ROW"
+
+
+def test_the_model_page_lists_the_derived_table() -> None:
+    published, _ = derived_values()
+    view = json.loads(published.files["model-view.json"])
+    tables = {t["table_id"]: t for t in view["modules"][0]["tables"]}
+    assert [r["row_id"] for r in tables["derived"]["rows"]] == list(DERIVED_KEYS)
+    page = published.files["model.html"].decode()
+    assert "Senior secured leverage (secured carrying debt / Adj EBITDA As Defined)" in page
+    assert "FRACTION" not in page
+    growth = next(r for r in tables["derived"]["rows"] if r["row_id"] == "revenue_growth")
+    facts = {f["fact_id"]: f for f in view["modules"][0]["facts"]}
+    assert facts[growth["fact_ids"][0]]["unit"] == "decimal_fraction"
+    assert "20.58%" in page

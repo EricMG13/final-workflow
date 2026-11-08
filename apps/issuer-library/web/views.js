@@ -459,10 +459,10 @@ function libraryResults(records) {
   const keys=[...new Set(records.map(r=>r.issuerKey))].sort((a,b)=>a===null?1:b===null?-1:heading(a).localeCompare(heading(b),undefined,{sensitivity:'base'}));
   const groups=keys.map(issuer=>{
     // Newest first: as-of date descending, runs with none recorded last, ties by run id.
-    const runs=records.filter(r=>r.issuerKey===issuer).sort((a,b)=>(b.asOf!==null)-(a.asOf!==null)||(a.asOf!==null&&b.asOf!==null&&(b.asOf<a.asOf?-1:b.asOf>a.asOf?1:0))||a.key.localeCompare(b.key)),sectors=[...new Set(runs.map(r=>r.sector).filter(v=>v!=='Unclassified'))];
+    const runs=records.filter(r=>r.issuerKey===issuer).sort((a,b)=>(b.asOf??'').localeCompare(a.asOf??'')||a.key.localeCompare(b.key)),sectors=[...new Set(runs.map(r=>r.sector).filter(v=>v!=='Unclassified'))];
     const name=`<th scope="rowgroup"><h2>${esc(heading(issuer))}</h2>${badge('gray',sectors.length===1?sectors[0]:sectors.length?'Sectors vary':'Sector not recorded')}</th>`;
     if(runs.length===1)return `<tbody class="run-list"><tr class="issuer-row">${name}${runCells(runs[0])}</tr></tbody>`;
-    const groupKey=issuer??'unrecorded',open=expandedIssuers.has(groupKey)||searching,total=totals.get(issuer),periods=[...new Set(runs.map(r=>shortPeriod(r.period)))];
+    const groupKey=issuer??'unrecorded',open=searching?searchOpen.get(groupKey)??true:expandedIssuers.has(groupKey),total=totals.get(issuer),periods=[...new Set(runs.map(r=>shortPeriod(r.period)))];
     return `<tbody class="run-list" data-group="${esc(groupKey)}"><tr class="issuer-row">${name}<td data-label="Run"><button class="run-toggle" type="button" aria-expanded="${open}" aria-controls="${runs.map((_,i)=>`run-row-${rowNumber+i+1}`).join(' ')}">${runs.length<total?`${runs.length} of ${plural(total,'run')}`:plural(runs.length,'run')}${icon('chevron-down')}</button></td><td data-label="Workflow">${workflowCell(runs.map(r=>r.workflow))}</td><td data-label="Period">${periods.length===1?esc(periods[0]):'<span class="muted">Varies</span>'}</td><td data-label="Reports">${reportCell(runs)}</td><td class="row-open"></td></tr>${runs.map(r=>`<tr class="run-row" id="${rowId()}" ${open?'':'hidden'}><td></td>${runCells(r)}</tr>`).join('')}</tbody>`;
   });
   return `<table class="case-list"><thead><tr><th scope="col">Issuer</th><th scope="col">Run</th><th scope="col">Workflow</th><th scope="col">Period</th><th scope="col">Reports</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>${groups.join('')}</table>`;
@@ -483,6 +483,7 @@ function libraryView() {
 function updateLibraryResults() {
   $('library-filters').querySelectorAll('[data-library-filter]').forEach(control=>{libraryFilters[control.dataset.libraryFilter]=control.value;});
   const records=filterLibrary(libraryRecords(),libraryFilters);
+  if(libraryFilters.query.trim()==='')searchOpen.clear();
   $('library-results').innerHTML=libraryResults(records);
   $('library-count').textContent=libraryCount(records);
   $('library-chips').innerHTML=libraryChips();
@@ -570,7 +571,7 @@ function summaryView(context) {
 }
 // The retained-record wording for a run with no live record: the heading, and the note and link that follow the flow.
 function retainedRecordHtml(ctx,withRecord=false) {
-  return {head:`<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2>${withRecord?'':'<p>No live progress or cost recorded for this run.</p>'}</div>`,tail:`<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`};
+  return {head:`<div class="missing-state"><h2>Retained record · ${esc(ctx.run)}</h2>${withRecord?'':'<p>No live progress is recorded for this run in this workspace.</p>'}</div>`,tail:`<p class="caution">Live progress and spend are recorded only for runs started from New run in this workspace.</p>${moduleLink('W-NewRun','Open New run')}`};
 }
 function workspaceView(module,section) {
   const context=current?.context,ctx=contexts[context],available=ctx?contextModules(context):[];

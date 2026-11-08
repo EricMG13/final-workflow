@@ -90,7 +90,7 @@ test('a failed fetch says the record could not be loaded and keeps the raw detai
 test('a 404 for the live record shows the retained-record view, never the raw 404 text',async t=>{
   const p=await page(t,{run:{status:httpError('404 page not found\n',404),events:{events:[],complete:true}}});
   const content=p.doc.getElementById('content').textContent;
-  assert.match(content,/Retained record · /);assert.match(content,/No live progress or cost recorded for this run\./);
+  assert.match(content,/Retained record · /);assert.match(content,/No live progress is recorded for this run in this workspace\./);
   assert.doesNotMatch(content,/404|page not found|Could not load/);
   assert.equal(p.doc.getElementById('run-activity'),null);
   assert.ok(p.doc.querySelector('.activity-flow'),'the flow stays');
@@ -100,15 +100,15 @@ test('a 404 status with a recorded event log shows the retained heading, the log
   const p=await page(t,{run:{status:httpError('404 page not found\n',404),events}});
   const content=p.doc.getElementById('content').textContent;
   assert.match(content,/Retained record · /);
-  assert.doesNotMatch(content,/No live progress or cost recorded/);
+  assert.doesNotMatch(content,/No live progress is recorded for this run in this workspace\./);
   assert.equal(p.doc.querySelectorAll('.activity-log tbody tr').length,3);
   assert.ok(p.doc.querySelector('#content .table-scroll .activity-log'));
   assert.match(content,/Last recorded spend: USD 2\.40/);
   assert.doesNotMatch(content,/404|page not found/);
   const none=await page(t,{run:{status:httpError('404',404),events:{events:[],complete:true}}});
-  assert.match(none.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+  assert.match(none.doc.getElementById('content').textContent,/No live progress is recorded for this run in this workspace\./);
   const lost=await page(t,{run:{status:httpError('404',404),events:httpError('boom',500)}});
-  assert.match(lost.doc.getElementById('content').textContent,/No live progress or cost recorded for this run\./);
+  assert.match(lost.doc.getElementById('content').textContent,/No live progress is recorded for this run in this workspace\./);
 });
 test('a 404 that lands after the reader left Run activity neither throws nor writes onto the new page',async t=>{
   const rejections=[];const onRejection=error=>rejections.push(error);process.on('unhandledRejection',onRejection);t.after(()=>process.off('unhandledRejection',onRejection));
@@ -121,7 +121,7 @@ test('a 404 that lands after the reader left Run activity neither throws nor wri
 });
 test('a 404 on the events request alone is also the retained record',async t=>{
   const p=await page(t,{run:{status:status(),events:httpError('404 page not found',404)}});
-  assert.match(p.doc.getElementById('content').textContent,/No live progress or cost recorded/);
+  assert.match(p.doc.getElementById('content').textContent,/No live progress is recorded for this run in this workspace\./);
   assert.doesNotMatch(p.doc.getElementById('content').textContent,/404/);
 });
 test('the log sits in the bordered content-table card and only the summary line is live',async t=>{
@@ -146,7 +146,19 @@ test('a stopped app run offers Resume this run through New run\'s resume route; 
 });
 test('a retained run keeps the retained-record text',async t=>{
   const p=await page(t,{key:'tdg-002'});
-  assert.match(p.doc.getElementById('content').textContent,/No live progress or cost recorded/);
+  assert.match(p.doc.getElementById('content').textContent,/No live progress is recorded for this run in this workspace\./);
   assert.equal(p.doc.getElementById('run-activity'),null);
   assert.deepEqual(p.calls,[]);
+});
+test('Final 2: the retained-record sentence makes no claim about cost',async t=>{
+  const p=await page(t,{run:{status:httpError('404 page not found',404),events:httpError('404 page not found',404)}});
+  const content=p.doc.getElementById('content').textContent;
+  assert.match(content,/No live progress is recorded for this run in this workspace\./);
+  assert.doesNotMatch(content,/No live progress or cost/);
+});
+test('Final 4: the activity log card is a named region',async t=>{
+  const p=await page(t);
+  const card=p.doc.querySelector('#run-activity .table-scroll');
+  assert.equal(card.getAttribute('role'),'region');
+  assert.equal(card.getAttribute('aria-label'),'Run events');
 });

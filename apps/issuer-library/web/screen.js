@@ -54,6 +54,7 @@ const readingPositions = new Map(), expandedGroups = new Map();
 const LIBRARY_DEFAULTS = {query:'',sector:'all',workflow:'all',year:'all',content:'all',module:'all'};
 const libraryFilters = {...LIBRARY_DEFAULTS};
 const expandedIssuers = new Set(); // Issuers whose run list is open; kept for the page session.
+const searchOpen = new Map(); // Groups opened or closed by hand during a search; the search view only, cleared when it ends.
 let current = null, returnTrigger = null, returnScroll = 0, returnContentScroll = 0;
 installDestinations();
 const appDestinations=new Set(['W-Library','W-NewRun','W-Settings','W-Help']); // These need no selected run.
@@ -459,7 +460,8 @@ document.addEventListener('click',event=>{
   const toggle=event.target.closest('.run-toggle');
   if(toggle){
     const open=toggle.getAttribute('aria-expanded')!=='true',issuer=toggle.closest('tbody').dataset.group;
-    if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
+    if(libraryFilters.query.trim()!=='')searchOpen.set(issuer,open);
+    else if(open)expandedIssuers.add(issuer);else expandedIssuers.delete(issuer);
     toggle.setAttribute('aria-expanded',String(open));toggle.getAttribute('aria-controls').split(' ').forEach(id=>{$(id).hidden=!open;});return;
   }
   const unset=event.target.closest('[data-library-unset]');

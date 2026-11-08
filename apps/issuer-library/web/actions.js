@@ -87,7 +87,7 @@ function activityLog(events,titleOf){
   const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
   const body=table.appendChild(document.createElement('tbody'));
   for(const event of events){const row=document.createElement('tr');row.append(textNode('td',eventTime(event.at)),textNode('td',eventText(event,titleOf)));body.append(row);}
-  const card=document.createElement('div');card.className='table-scroll';card.tabIndex=0;card.append(table);
+  const card=document.createElement('div');card.className='table-scroll';card.tabIndex=0;card.setAttribute('role','region');card.setAttribute('aria-label','Run events');card.append(table);
   return card;
 }
 // A run with no live status (404) is a retained record, the page's wording for runs not started from New run. If its
@@ -173,14 +173,15 @@ function dismissRun(job){
   try{localStorage.setItem(DISMISS_KEY,JSON.stringify(readDismissed()));}
   catch(error){console.warn('Run notice dismissal could not be saved; the notice shows again after a reload',error);}
 }
-// The active job if any; otherwise the most recently started job that is not running, unless dismissed
-// in its present state. The list is newest first, and a job that left it keeps the last one seen.
+// The active job if any; otherwise the most recently started job that is not running. The rail mark and title follow
+// that job; the strip shows it unless it was dismissed in its present state (Dismiss hides only the strip, and never falls back
+// to an older job). The list is newest first, and a job that left it keeps the last one seen.
 function chooseShown(jobs){
-  const dismissed=readDismissed(),running=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
-  // Dismissal applies to an active job too; while any run is active a dismissed one never gives way to an old stopped run.
-  if(running.length)return running.find(job=>dismissed[job.id]!==job.state)||null;
+  const dismissed=readDismissed(),open=job=>dismissed[job.id]!==job.state,running=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
+  if(running.length){const live=running.find(open);return{mark:live||running[0],strip:live||null};}
   const candidate=jobs.find(job=>STATE_WORD[job.state])||runWatch.last;
-  return candidate&&STATE_WORD[candidate.state]&&dismissed[candidate.id]!==candidate.state?candidate:null;
+  if(!candidate||!STATE_WORD[candidate.state])return{mark:null,strip:null};
+  return{mark:candidate,strip:open(candidate)?candidate:null};
 }
 const jobRoute=(place,job)=>`#${place}?c=${encodeURIComponent(job.id)}`;
 function stripView(job){
@@ -198,6 +199,7 @@ function stripView(job){
   if(resumable(job))actions.push({label:'Resume',href:`#W-NewRun/run?resume=${encodeURIComponent(job.id)}`,reload:false});
   return{tone:'amber',icon:'triangle-alert',title,lines:[stopText(job),spendText(job)],actions};
 }
+function stripLine(line,i){const node=textNode('p',line);node.className=i===0?'strip-text':'strip-text strip-spend';node.setAttribute('aria-live','off');return node;}
 function showRunStrip(job){
   const strip=document.getElementById('run-strip');
   if(!strip)return;
@@ -209,12 +211,14 @@ function showRunStrip(job){
     if(line&&view.lines.length){line.textContent=view.lines[0];return;}
     if(line){line.remove();return;}
     if(!view.lines.length)return;
+    // Supporting lines first appearing in an unchanged state are added after the title, without a rebuild or a new announcement.
+    strip.querySelector('.strip-title').after(...view.lines.map(stripLine));return;
   }
   strip.dataset.key=key;strip.dataset.tone=view.tone;strip.hidden=false;
   const icon=document.createElement('span');icon.className='strip-icon';icon.dataset.icon=view.icon;icon.setAttribute('aria-hidden','true');
   const body=document.createElement('div');body.className='strip-body';
   const title=textNode('strong',view.title);title.className='strip-title';body.append(title);
-  view.lines.forEach((line,i)=>{const node=textNode('p',line);node.className=i===0?'strip-text':'strip-text strip-spend';node.setAttribute('aria-live','off');body.append(node);});
+  body.append(...view.lines.map(stripLine));
   const actions=document.createElement('div');actions.className='strip-actions';
   for(const action of view.actions){const link=textNode('a',action.label);link.href=action.href;link.dataset.stripLink=action.reload?'reload':'go';actions.append(link);}
   body.append(actions);
@@ -234,17 +238,17 @@ function showRunMark(job){
   }
   applyTitle();
 }
-// The Run activity rail link goes to the job the strip shows; null leaves the selected run's link.
+// The Run activity rail link goes to the job the mark shows; null leaves the selected run's link.
 function shownRunHref(){return runWatch.shown?jobRoute('CP-OS/activity',runWatch.shown):null;}
 function presentRun(){
-  const shown=chooseShown(runWatch.jobs);
-  runWatch.shown=shown;
-  if(shown&&!WORKFLOW_ACTIVE.includes(shown.state))runWatch.last=shown;
-  showRunMark(shown);showRunStrip(shown);
+  const {mark,strip}=chooseShown(runWatch.jobs);
+  runWatch.shown=mark;runWatch.strip=strip;
+  if(mark&&!WORKFLOW_ACTIVE.includes(mark.state))runWatch.last=mark;
+  showRunMark(mark);showRunStrip(strip);
 }
 document.addEventListener('click',event=>{
   const close=event.target.closest?.('#run-strip .strip-close'),link=event.target.closest?.('#run-strip a[data-strip-link]');
-  if(close&&runWatch.shown){dismissRun(runWatch.shown);presentRun();return;}
+  if(close&&runWatch.strip){dismissRun(runWatch.strip);presentRun();return;}
   if(!link)return;
   event.preventDefault();
   if(!mayDiscardDraft())return;
@@ -369,10 +373,9 @@ function installNewRun(){
     bar.hidden=!modules.length;
     if(modules.length){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
-      const deliveryStop=step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length);
-      // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
-      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=deliveryStop||(!active&&!runComplete&&(step==='delivering'||(modules.length>0&&status.progress?.accepted>=modules.length)));
-      const modulesDone=runComplete||deliveryStop||deliveryStopped||step==='delivering'||step==='delivered';
+            // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
+      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=(step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length))||(!active&&!runComplete&&(step==='delivering'||status.progress?.accepted>=modules.length));
+      const modulesDone=runComplete||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{
         const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
         const li=document.createElement('li');li.dataset.status=isComplete?'complete':isCurrent?'current':'incomplete';li.title=id;

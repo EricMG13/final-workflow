@@ -629,6 +629,21 @@ test('A filter that hides some of a group runs shows shown of total; a search op
   assert.equal(back.querySelector('tr.run-row').hidden,true);
 });
 
+test('Final 3: a group toggle clicked during a search changes the view only, never the remembered state',t=>{
+  const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  const group=()=>[...d.querySelectorAll('#library-results tbody.run-list[data-group]')].find(g=>text(g.querySelector('h2'))==='TransDigm Group Incorporated');
+  const box=d.getElementById('library-query');
+  box.value='cpos-tdg-';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  group().querySelector('.run-toggle').click();
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
+  assert.equal(group().querySelector('tr.run-row').hidden,true);
+  group().querySelector('.run-toggle').click();
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'true');
+  assert.equal(w.eval('expandedIssuers.size'),0);
+  box.value='';box.dispatchEvent(new w.Event('input',{bubbles:true}));
+  assert.equal(group().querySelector('.run-toggle').getAttribute('aria-expanded'),'false');
+});
+
 test('Help explains run notices, resuming a stopped run and n.a. and n.m. in the cash flow model',t=>{
   const w=screens(workspace,'W-Help/help').window,d=w.document;t.after(()=>w.close());
   const heads=[...d.querySelectorAll('.help-copy h2')].map(text);

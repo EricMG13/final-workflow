@@ -252,11 +252,11 @@ test('a poll that only moves the count does not rebuild the strip; a change of s
   p.state.list=[job({state:'stopped',reason:'budget',message:''})];await p.watch();
   assert.notEqual(strip(p).querySelector('.strip-title'),title);assert.equal(strip(p).dataset.tone,'amber');
 });
-test('dismissing hides the strip and mark for that job until its state changes, and is stored per viewer',async t=>{
+test('dismissing hides only the strip for that job until its state changes, and is stored per viewer',async t=>{
   const p=await page(t,{list:[job({state:'stopped',reason:'budget',message:''})]});
   await p.watch();
   strip(p).querySelector('.strip-close').click();
-  assert.equal(strip(p).hidden,true);assert.equal(p.doc.getElementById('run-mark').hidden,true);assert.equal(p.mark(),'');
+  assert.equal(strip(p).hidden,true);assert.equal(p.doc.getElementById('run-mark').hidden,false,'the rail mark is not affected by Dismiss');assert.notEqual(p.mark(),'');
   assert.deepEqual(JSON.parse(p.win.localStorage.getItem(KEY)),{[ID]:'stopped'});
   await p.watch();assert.equal(strip(p).hidden,true);
   p.state.list=[job({state:'failed',reason:'provider',message:''})];await p.watch();
@@ -309,11 +309,11 @@ test('plain state words replace raw states, and bare module codes are named',asy
   assert.equal(text('failed','Financial analysis (CP-1) rejected'),'Failed: Financial analysis (CP-1) rejected','an already named code is left alone');
   assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap. x');
 });
-test('Fix 1: dismissing a running strip hides it (and the mark) until the run changes state',async t=>{
+test('Fix 1: dismissing a running strip hides only the strip until the run changes state',async t=>{
   const p=await page(t,{list:[job()]});
   await p.watch();
   strip(p).querySelector('.strip-close').click();
-  assert.equal(strip(p).hidden,true);assert.equal(p.doc.getElementById('run-mark').hidden,true);
+  assert.equal(strip(p).hidden,true);
   assert.deepEqual(JSON.parse(p.win.localStorage.getItem(KEY)),{[ID]:'running'});
   p.state.list=[job({progress:{module:'CP-3',step:'running',accepted:3}})];await p.watch();
   assert.equal(strip(p).hidden,true,'a poll in the same state keeps it hidden');
@@ -331,4 +331,30 @@ test('Fix 2: an unchanged state with no supporting text updates in place and doe
   const title=strip(p).querySelector('.strip-title');
   await p.watch();await p.watch();
   assert.equal(strip(p).querySelector('.strip-title'),title);
+});
+test('Final 1: dismissing the strip keeps the rail mark and the title prefix of the active run',async t=>{
+  const p=await page(t,{list:[job()]});
+  await p.watch();
+  strip(p).querySelector('.strip-close').click();
+  assert.equal(strip(p).hidden,true);
+  assert.equal(p.doc.getElementById('run-mark').hidden,false);
+  assert.equal(p.mark(),'● 2/4 · ');
+});
+test('Final 1: with the newest stopped run dismissed the mark still follows it and the strip does not fall back',async t=>{
+  const older=job({id:ID2,state:'failed',message:'x'});
+  const p=await page(t,{list:[job({state:'stopped',reason:'budget',message:''}),older]});
+  await p.watch();
+  strip(p).querySelector('.strip-close').click();
+  assert.equal(strip(p).hidden,true);
+  assert.equal(p.doc.getElementById('run-mark').hidden,false);
+  assert.match(p.doc.querySelector('.rail [data-place="Run activity"]').getAttribute('href'),new RegExp(ID));
+});
+test('Final 5: a poll that adds the first supporting line on the same id and state keeps the strip nodes',async t=>{
+  const p=await page(t,{list:[job({modules:[],progress:{}})]});
+  await p.watch();
+  const title=strip(p).querySelector('.strip-title');
+  p.state.list=[job()];await p.watch();
+  assert.equal(strip(p).querySelector('.strip-title'),title);
+  assert.match(strip(p).querySelector('.strip-text').textContent,/2 of 4 modules accepted/);
+  assert.ok(strip(p).querySelector('.strip-actions'));
 });

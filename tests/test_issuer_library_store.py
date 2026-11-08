@@ -3191,8 +3191,29 @@ def test_a_comment_before_the_term_loans_row_names_the_interruption():
     )
 
 
-def test_a_row_indented_up_to_three_spaces_is_a_row_and_four_is_code():
+def test_a_row_indented_up_to_three_spaces_is_a_row_and_four_splits_the_table():
     found = secured_of("   | 7% secured notes due 2033 | carrying 100 | x |\n")
     assert found is not None and found[1] == 1720
     found = secured_of("    | 7% secured notes due 2033 | carrying 100 | x |\n")
-    assert found is not None and found[1] == 1620
+    assert found is not None and found[1] is None  # code under the rows: a split, never a partial
+
+
+@pytest.mark.parametrize("gap", ["\n<!-- note -->\n", "\n<!-- a\n\nb -->\n", "\n", "\t", ""])
+def test_a_register_split_by_a_blank_line_or_hidden_text_gives_no_total(gap):
+    row = "| 7% secured notes due 2033 | carrying 100 | x |\n"
+    extra = {"\t": "\t" + row, "": row[1:]}.get(gap, gap + row)
+    found = secured_of(extra)
+    assert found is not None and found[1] is None
+    words = "interrupted by a comment" if "<!--" in gap else "split by a blank line or a comment"
+    assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
+
+
+def test_a_table_after_hidden_text_is_its_own_table_and_a_plural_total_is_a_subtotal():
+    text = (
+        "| Label | FY2024 | FY2023 |\n|---|---|---|\n| Total X | 4,300 | 3,900 |\n<!-- c -->\n"
+        "| Label | FY2023 | FY2022 |\n|---|---|---|\n| Gain on sale | 30 | 25 |\n"
+    )
+    table = store.table_holding(store.markdown_tables(text, "annual.md"), "Gain on sale")
+    assert store.table_cell(table, "Gain on sale", ("fy", "FY2024"))["exact"] is None  # absent
+    assert store.table_cell(table, "Gain on sale", ("fy", "FY2023"))["exact"] == "30"
+    assert secured_of("| Totals, secured notes | carrying 600 | x |\n")[1] == 1620

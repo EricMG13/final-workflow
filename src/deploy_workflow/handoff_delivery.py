@@ -213,16 +213,9 @@ def comment_opener(line: str) -> int | None:
     after the last `-->`, anywhere in the line (a later nested one is inside the comment). Inline
     code spans are blanked first, as Markdown reads `<!--` inside them literally."""
     plain_text = re.sub(r"(`+).+?\1", lambda m: "x" * len(m[0]), line)
-    position = 0
-    while (opener := plain_text.find("<!--", position)) >= 0:
-        tail = plain_text[opener + 4 :]
-        if tail.startswith((">", "->")):  # `<!-->` and `<!--->` are whole comments
-            position = opener + (5 if tail.startswith(">") else 6)
-        elif (closed := plain_text.find("-->", opener + 4)) >= 0:
-            position = closed + 3
-        else:
-            return opener
-    return None
+    closed = plain_text.rfind("-->")
+    opener = plain_text.find("<!--", 0 if closed < 0 else closed + 3)
+    return None if opener < 0 else opener
 
 
 def hide_comments(lines: list[str], name: str) -> list[str]:

@@ -1156,10 +1156,10 @@ def test_labels_that_differ_only_in_inner_spacing_are_one_repeated_label(space: 
 @pytest.mark.parametrize("shape", ["<!-->", "<!--->", "<!-- reviewer note --> see PDF 46"])
 def test_every_comment_shape_between_register_rows_is_refused(shape: str) -> None:
     edits = [(ADVANCES, b""), (LEASES, b""), (NOTES_2033, NOTES_2033 + shape.encode() + b"\n")]
-    with pytest.raises(ValueError, match="hidden text interrupts"):
+    with pytest.raises(ValueError, match="model_table|never closed"):
         edited_quarters(quarter=edits, register=True)
     tail = LAST_NOTE + shape.encode() + b"\n"
-    with pytest.raises(ValueError, match="hidden text interrupts"):
+    with pytest.raises(ValueError, match="model_table|never closed"):
         derived_values(LAST_NOTE, tail)
 
 
@@ -1167,7 +1167,7 @@ def test_a_comment_opened_at_a_row_end_and_closed_after_the_table_is_refused() -
     opened = NOTES_2033[:-1] + b"<!-- restated\n"
     long_term = b"| 19 | Long-term debt | 24,479 | (130) | (47) | 24,302 |\n"
     edits = [(NOTES_2033, opened), (long_term, long_term + b"-->\n")]
-    with pytest.raises(ValueError, match="hidden text interrupts"):
+    with pytest.raises(ValueError, match="model_table|never closed"):
         edited_quarters(quarter=[(ADVANCES, b""), (LEASES, b""), *edits], register=True)
 
 
@@ -1205,3 +1205,30 @@ def test_the_ltm_start_and_the_missing_table_message_follow_the_accepted_window(
     edit = [(block.encode(), block.replace("2023-12-30", "2023-12-21").encode())]
     ltm = edited_quarters(quarter=edit)[WINDOW]["ltm_adj_ebitda"]
     assert ltm["amount"] is None and ltm["start_date"] is None
+
+
+SPLITS = (
+    NOTES_2033 + b"\n<!-- note -->\n",
+    NOTES_2033 + b"\n<!-- a\n\nb -->\n",
+    NOTES_2033 + b"\n",
+    b"\t" + NOTES_2033,  # indented by a tab: not a row, but it holds a pipe
+    NOTES_2033[2:],  # without its leading pipe
+)
+
+
+@pytest.mark.parametrize("replacement", SPLITS)
+def test_a_register_split_by_a_blank_line_or_hidden_text_is_refused(replacement: bytes) -> None:
+    edits = [(ADVANCES, b""), (LEASES, b""), (NOTES_2033, replacement)]
+    with pytest.raises(ValueError, match="model_table"):
+        edited_quarters(quarter=edits, register=True)
+
+
+def test_a_plural_total_label_is_a_subtotal() -> None:
+    row = b"| Subtotals: secured notes | carrying 12,892 | x |\n"
+    assert annual_debt(LAST_NOTE, LAST_NOTE + row)["amount"] == "20020"
+
+
+@pytest.mark.parametrize("underline", [b"-", b"="])
+def test_a_setext_heading_ends_the_anchor_search(underline: bytes) -> None:
+    got = quarter_debt((QUARTER_ANCHOR, QUARTER_ANCHOR + b"Next\n" + underline * 9 + b"\n"))
+    assert (got["reason"], got["amount"]) == ("NOT_SOURCED", None)

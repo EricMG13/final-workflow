@@ -224,26 +224,46 @@ def _shown(lines: list[str], source: str) -> list[str]:
     return shown
 
 
+SEPARATOR = re.compile(r"[ \t]*(?=[^-]*-)(?=.*\|)[ \t:|-]+")
+SETEXT = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
+
+
+def _starts_section(shown: list[str], i: int) -> bool:
+    """An ATX heading line, or a text line underlined by a setext heading's `=` or `-` line."""
+    if HEADING_START.match(shown[i]):
+        return True
+    return bool(shown[i].strip()) and SETEXT.fullmatch("".join(shown[i + 1 : i + 2])) is not None
+
+
 def _table_at(
     lines: list[str], anchor: str, source: str
 ) -> tuple[list[str], list[tuple[int, str, list[str]]]]:
-    """The table under `anchor` that begins before the next Markdown heading, read from the lines
-    as shown. If hiding changed any line from its header through the run of rows and hidden-text
-    lines that follows, rows may have been dropped: refused."""
+    """The table under `anchor` that begins before the next heading, read as shown. Hidden text
+    among its rows, or more `|` text past a blank line or hidden text without its own separator
+    row, means rows may be lost: refused."""
     shown = _shown(lines, source)
     positions = [i for i, line in enumerate(shown) if line == anchor]
     if len(positions) != 1:
         raise ValueError(f"model_anchor: expected one {anchor}")
     start = positions[0] + 1
-    end = next((i for i in range(start, len(shown)) if HEADING_START.match(shown[i])), len(shown))
+    end = next((i for i in range(start, len(shown)) if _starts_section(shown, i)), len(shown))
     first = next((i for i in range(start, end) if table_row(shown[i]) is not None), None)
     if first is None:
         raise _NoTable(anchor)
-    last = first
-    while last < end and (table_row(shown[last]) is not None or shown[last] != lines[last]):
+    last = first + 1
+    while last < end and table_row(lines[last]) is not None:
         last += 1
     if any(shown[i] != lines[i] for i in range(first, last)):
         raise ValueError(f"model_table: hidden text interrupts the table under {anchor}")
+    more = next((i for i in range(last, end) if shown[i].strip() and shown[i] == lines[i]), end)
+    if (
+        more < end
+        and "|" in shown[more]
+        and not SEPARATOR.fullmatch("".join(shown[more + 1 : more + 2]))
+    ):
+        raise ValueError(
+            f"model_table: the table under {anchor} is split by a blank line or hidden text"
+        )
     headers, rows = table([(i + 1, shown[i]) for i in range(first, last)])
     if len(headers) != len(set(headers)):
         raise ValueError("model_columns: selected source columns are ambiguous")
@@ -434,8 +454,8 @@ def _register_date(text: str) -> date | None:
 
 
 MARKS = re.compile(r"[*_()]")
-TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?total\b.*|.*\b(?:sub)?total)")
-TOTAL_WORD = re.compile(r"\b(?:sub)?total\b")
+TOTAL_AT_EDGE = re.compile(r"(?:(?:sub)?totals?\b.*|.*\b(?:sub)?totals?)")
+TOTAL_WORD = re.compile(r"\b(?:sub)?totals?\b")
 
 
 def _plain(label: str) -> str:

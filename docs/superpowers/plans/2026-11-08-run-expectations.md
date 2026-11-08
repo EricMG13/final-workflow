@@ -29,9 +29,16 @@ filters on those values, links each module figure to its evidence, and never cal
 
 **Tech Stack:** Python 3.13 (stdlib, pydantic), Go, plain browser JavaScript; jsdom test-only.
 
-**Delivery:** four PRs, one per phase, each at most 800 changed lines excluding fixtures. Phase 4
-does not wait for Phase 3's live checkpoints, except its pro forma basis, which ships only after
-live check C2 passes.
+**Delivery:**
+- Four PRs, one per phase, each at most 800 changed lines excluding fixtures.
+- Phase 4 does not wait for Phase 3's live checkpoints, except its pro forma basis, which ships only
+  after live check C2 passes.
+
+**Beta V1:** these four PRs are the final UX changes before the first beta release.
+- Scope is frozen. Any other UX change waits until after the beta.
+- Every merged PR leaves `main` releasable, and nothing half-built is visible to a beta user.
+- Phase 3 merges only after C3 passes, so unproven method instructions never reach the beta.
+- The release gate at the end decides readiness.
 
 ## Decisions
 
@@ -44,7 +51,7 @@ live check C2 passes.
 | App runs send every file to every module (`owners/cpos.py:404`) and the whole context as source `context`. The review already lists ignored files and omitted sections (`bridge.py:283-285`) | Expectations inform; they never block a run or filter sources |
 | Several outcomes cited in the first draft come from owner-path code that app runs never execute: `cp2h.py` "Rating register not found", `cp3_relative_value.py` (imported only by the owner path), `cp3d.py` and `cp1d.py`. On app runs each module is a model reading `instructions/<module>.md`, checked by `cpos_launch.checker` | Every rule is derived from the instruction text a module is actually sent, plus the launcher checker. A rule taken from owner code is labelled as such. Rules are labelled **per method**, **observed offline** or **observed live** |
 | Only 4 retained runs are launcher runs with a context: `cpos-launch-live-001`, `cpos-launch-live-002`, `cpos-launch-cp2-reader-001` and `web-04cd…`. All are TDG as of 2024-09-30, Credit Snapshot, with at most CP-0, CP-1, CP-1A and CP-2. The other 17 runs with `workflow.json` are host or replay campaigns without a context | The back-test reports its true sample. It adds contexts reconstructed for campaign cases with real outcomes, labelled "reconstructed context": LMI intercreditor, ARCC executed indenture, TDG executed notes and Ford ratings. Live checks carry the proof |
-| `READER_PERSONA` ("specialising in high yield credit and leveraged loans", `cpos_launch.py:214-223`) goes to every module; the methods sent are leveraged-finance framed; none mentions investment grade. The context file, which will include the classification, reaches every module | Investment grade gives one **information** item for the whole run ("methods and persona are written for high-yield and leveraged-loan credit"), not counted as a limitation. Whether the classification changes conclusions is tested live (L1c), not asserted |
+| `READER_PERSONA` ("specialising in high yield credit and leveraged loans", `cpos_launch.py:214-223`) goes to every module; the methods sent are leveraged-finance framed; none mentions investment grade. The context file, which will include the classification, reaches every module | Investment grade gives one **information** item for the whole run ("methods and persona are written for high-yield and leveraged-loan credit"), not counted as a limitation. Whether the classification changes conclusions is tested live (A-ab), not asserted |
 | The launcher omits `what-changed` in every pathway except Covenant & Refinancing (computed from `_layout`) | Structural omissions are information, not counted limitations, so acceptance does not fire on every run |
 | `Run` has no run type (`contracts.py:83-96`); `_instructions` and `checker` see only `Run` and the layout | Pass the run type and legal-documents declaration from `prepare` into `_instructions`. Primary-only checks follow from Primary-only layout routes, which `checker` already receives. `Run` is unchanged |
 | No general per-module instruction mechanism exists beyond `OPENING`, `READER_STANDARD_MODULES` and route selectors. Chart routes accept only S.1–S.4 and RV.1 in x, US$m or % (`handoff_delivery.py:108-142`) | Add a per-module instruction mapping in the same style. New fixed tables get their own route and checker, copying the `chart_issues` pattern (plain numbers or `Not supplied:`) |
@@ -52,6 +59,8 @@ live check C2 passes.
 | 78 files in `cases/` carry `schema: context/1`, 35 of them named `context*.json`; `Contract` forbids unknown keys and requires declared ones; `_omit_absent_cutoff` (`context.py:82-89`) shows how an optional field keeps older files byte-identical | New fields are optional in the reader and omitted from the dump when empty, so fixtures, pins and goldens stay byte-identical. A file that uses a new field needs this version or later; the README says so |
 | `store.py` recognises the shape of any `Chart data:` table (title, first row's unit, line, column indexes) but parses no values; chart tables hold one row per period; units are fixed at x, US$m or % | Value reading is new code in Task 13. "Latest" means the last annual or LTM row. A non-USD issuer's monetary chart rows are `Not supplied`, and a rule says so |
 | `tests/test_run_expectations.py` and `tests/product/test_context.py` are not in `validate.py`'s `PYTHON_TESTS` | Each task adds its tests there |
+| A launcher run's delivery bundle must hold `report.html`, `view.json`, `report-view.json` and `delivery.json`, plus byte-identical copies of each handoff. When the HTML Model is published it adds `model.html`, `model-view.json`, `model-report-view.json` and `calculation.json` (`owners/cpos.py:648-691`). App runs drop CP-MODEL, and the retained web run records `cp_model_published: false` | Live checks require the report bundle. On app runs the HTML Model and `calculation.json` are recorded as **not published**, which is a known beta limitation; it is not a failure. Publishing them from app runs is an owner decision outside these UX changes |
+| `designs/browser_check.py` already walks the library, reports, every section, deliveries and settings, fitted screens, chart style, the data-flow check and New run, and records every console, page, HTTP and exception fault in `faults.json`. `designs/flow_check.py` traces hashes and numbers from sources to handoffs, deliveries and the report | Every live run is followed by the browser walk over a workspace holding it, plus `flow_check`. Each phase extends the walk for its own screens; no new test tool |
 
 ### Owner decisions (2026-11-08)
 
@@ -186,10 +195,11 @@ cover, saved named filter views.
 |---|---|---|
 | Every task | Named focused tests, registered in `validate.py` `PYTHON_TESTS`, each under `timeout 300` | New test seen failing for the stated cause, then exit 0 |
 | Every commit | `uv run python tools/quality_gate.py`, `python3 apps/issuer-library/validate.py quick` | Exit 0 |
-| **Checkpoint A** (after Task 5) | Offline: back-test report. **Live: L1b** (and L1c if the owner wants it) | Every disagreement explained or its rule fixed; the meaning of `Will refuse` set from L1b |
-| **Checkpoint B** (after Task 8) | Offline: `validate.py full`, `validate.py browser`. **Live: L2** | All live pass criteria below; owner accepts the Context and Review screens |
-| **Checkpoint C** (Tasks 9-11, one module at a time) | **Live: C1** with controls C1n and C1r after Task 10; **C2** after Task 11; **C3** after both | Live pass criteria below. Without them, Phase 3 is reported as "instructions only, unproven" |
-| **Checkpoint D** (after Task 15) | Offline: `validate.py full`, `validate.py browser`. **D-live** (no provider cost) | Exit 0; library values equal the hand key; owner accepts the Library screen |
+| **Checkpoint A** (after Task 5) | Offline: back-test report. **Live: A-live** (and A-ab if the owner wants it) | Every disagreement explained or its rule fixed; the meaning of `Will refuse` set from A-live; required outputs present |
+| **Checkpoint B** (after Task 8) | Offline: `validate.py full`, `validate.py browser`. **Live: B-live** | Live pass criteria and required outputs below; owner accepts the Context and Review screens |
+| **Checkpoint C** (Tasks 9-11, one module at a time) | **Live: C1** and control C1n after Task 10; **C2** after Task 11; then the pathway runs **C1r** and **C3** | Live pass criteria and required outputs below. Without them, Phase 3 is reported as "instructions only, unproven" and does not merge |
+| **Checkpoint D** (after Task 15) | Offline: `validate.py full`, `validate.py browser`. **D-live** (no provider cost) | Exit 0; library values equal the hand key; required frontend outputs present; owner accepts the Library screen |
+| **Release gate** (after Checkpoint D) | See "Release gate (beta V1)" | All items pass |
 
 Before each checkpoint: confidence-review (doubts, causes, adversarial cases, fixes) and
 rewrite-tournament in post-edit mode on `guess_kind`, `expectations`, the Review renderer, the CP-4
@@ -201,29 +211,67 @@ go to the owner with both outcomes. Never loosen a test to pass.
 
 ## Live checkpoints
 
-All live runs use `apps/issuer-library/designs/live_check.py`, extended in Task 5 with `--case`, on
-sol-medium unless the owner names another config. Each cap exceeds the per-call hold (USD 5.73 on
-sol-medium). For scale, a recorded CP-0 + CP-1 run spent USD 0.59. Every answer key is frozen before
-the run. `flow_check.py` runs on every live run.
+**How every live check runs:**
+- Each paid check runs a **whole pathway related to the change**, through the app as a beta user
+  would: `apps/issuer-library/designs/live_check.py`, extended in Task 5 with `--case`, on the real
+  engine.
+- Exceptions: C1, C1n and C2 are single-module gates, because `AGENTS.md` requires changing one
+  module at a time against its actual output. The pathway runs follow them.
+- Config is sol-medium unless the owner names another. Each cap exceeds the per-call hold (USD 5.73
+  on sol-medium).
+- For scale: a CP-0 + CP-1 run spent USD 0.59, and a multi-module, multi-issuer campaign about
+  USD 14-20.
+- Every answer key is frozen before its run. Each run needs the owner's go-ahead at its checkpoint.
 
-| Check | Case and modules | Cap (USD) | Passes when |
+**Required outputs, checked after every live run:**
+
+| Side | Output | Passes when |
+|---|---|---|
+| Backend | Run folder | `workflow.json`, `instructions/<module>.md` and an accepted `<module>.md` for every requested module, or a recorded stop reason; the completion receipt; spend within the cap in `status.json` and the event log |
+| Backend | New records (Phases 2-3) | `expectations.json`, the context snapshot, and the Start receipt with the accepted item ids, all written before the first provider call, with one `review_id` across them |
+| Backend | Delivery bundle | `report.html`, `view.json`, `report-view.json`, `delivery.json`, with delivered handoffs byte-identical to the accepted ones. HTML Model and `calculation.json`: recorded as published or as "not published by app runs" (known beta limitation) |
+| Backend | Data flow | `flow_check` reports no fault: every upstream hash and text received, every source hash, every handoff number traced to what the module read, every report number found in a handoff |
+| Frontend | New run | The walk completes: Context (new fields), Issuer folder & budget, Review (expected outcomes, acceptance), Progress, Open run; the Review's module list equals the run's |
+| Frontend | Reading the run | `browser_check`'s real-workspace walk over a workspace holding the run: Library row, Overview, every module section renders, Reports opens the report, Built from hashes match, evidence inspector opens the cited line, Run activity lists events and spend, fitted screens, chart style |
+| Frontend | Faults | `faults.json` holds no console, page, HTTP or exception fault outside the documented list, in Chromium and the walk's second engine |
+
+**The checks:**
+
+| Check | Pathway and case | Cap (USD) | Passes when (besides required outputs) |
 |---|---|---|---|
-| **L1b** refusal semantics (A) | TDG FY2024 public filings, "older source"; no legal files; legal documents declared `none`; modules CP-0, CP-1, CP-4 | 10 | Records whether CP-4 ends as an accepted Blocked handoff or a stopped run, at what cost; `Will refuse` text and the "Run without" fix are set from it; forecast equals outcome |
-| **L1c** classification A/B (A, optional) | Same files; investment grade versus high yield; CP-0, CP-1, CP-1A, CP-2 | 10 | Conclusions unchanged, or the "information only" decision is revised |
-| **L2** app end-to-end (B) | TDG FY2024, Secondary, high yield, one TDG notes facility row and one observed quote labelled "synthetic user entry"; through the app UI; CP-0, CP-1, CP-1A, CP-2, CP-3 | 10 | Start without acceptance returns 400 with no claim and no ledger entry; with acceptance, `expectations.json` and the receipt exist before the first ledger entry; one `review_id` across review, receipt and expectations; each module's actual outcome equals its forecast or the rule is fixed; coupon and maturity are used only as "entered by user", never cited as filing evidence; CP-3 treats the row as terms, not talk; CP-1 chart values match retained `cpos-launch-cp2-reader-001` or the variance is recorded; the library shows "with accepted limitations" |
-| **C1** CP-4 Provisional (C) | Public proxy case (Task 9); CP-0, CP-1, CP-4 | 10 | CP-4 does not stop at the gate; the register lists each document with status and authority rank; `DRAFT_LIMITATION` appears verbatim; at least 8 keyed covenant terms match the key, each labelled Provisional; no document is called executed; the Reader summary's main limitation names Provisional |
-| **C1n** control (C) | Proxy case without its legal and offering documents; CP-0, CP-1, CP-4 | 10 | Blocked, as forecast |
-| **C1r** control (C) | The same deal after closing: the executed Term Loan and ABL Credit Agreements, as a Secondary run, "older source"; CP-0, CP-1, CP-4. Fallback: retained TDG executed-notes sources (`runs/tdg-004`, read-only) | 10 | Completed with no draft limitation. Each C1 term marked TBD or indicative is compared with the executed term, e.g. margin "TBD" before closing against LIBOR + 4.00–4.25% after |
-| **C2** pro forma (C) | Proxy case; CP-0, CP-1, CP-1A, CP-1D, CP-2 | 15 | Sources and uses and pro forma debt equal the key; cash row, one balance-sheet date and one LTM period; base EBITDA equals the key with no double count; As marketed equals management's quoted figure, any difference shown with its explanation, never plugged; CP-2's pro forma debt cites CP-1A's total |
-| **C3** full Primary with delivery (C) | Proxy case; Credit Snapshot plus CP-1D | 25 | The report shows both pro forma tables or an explicit gap; every report section drawing on CP-4 says Provisional; CP-6 never treats a draft term as executed; CP-5 flags claims that depend on drafts |
-| **D-live** (D) | `store.py` over a workspace holding the actual L2 and C3 runs and the retained runs with fixed chart tables | 0 | Each library value equals a hand key from the actual handoff lines, including pro forma rows, facilities and quotes as entered; evidence links open the exact line; Not recorded counts are right. Labelled "actual retained model output, downstream consumption" |
+| **A-live** refusal through a pathway (A) | **Covenant & Refinancing** on TDG FY2024 public filings, "older source"; no legal files; legal documents declared `none` | 25 | Records whether CP-4 ends as an accepted Blocked handoff or stops the run, what downstream modules and the report then show, and what it cost; the `Will refuse` wording and "Run without" fix are set from it; forecast equals outcome for every module |
+| **A-ab** classification A/B (A, optional) | **Credit Snapshot** on the same files, twice: investment grade, then high yield | 25 each | Conclusions unchanged, or the "information only" decision is revised |
+| **B-live** Secondary through the app (B) | **Relative Value** on TDG FY2024, Secondary, high yield, one TDG notes facility row and one observed quote labelled "synthetic user entry", through the app UI with acceptance | 30 | Start without acceptance returns 400 with no claim and no ledger entry; each module's outcome equals its forecast or the rule is fixed; coupon and maturity are used only as "entered by user", never cited as filing evidence; CP-3 treats the row as terms, not talk; CP-1 chart values match retained `cpos-launch-cp2-reader-001` or the variance is recorded; the Library shows "with accepted limitations" |
+| **C1** CP-4 Provisional gate (C) | Mattress Firm pre-closing (Task 9); CP-0, CP-1, CP-4 | 10 | CP-4 does not stop at the gate; the register lists each document with status and authority rank; `DRAFT_LIMITATION` appears verbatim; at least 8 keyed terms match the key, each labelled Provisional; no document is called executed; the main limitation names Provisional |
+| **C1n** control (C) | The same case without its lender presentation; CP-0, CP-1, CP-4 | 10 | Blocked, as forecast |
+| **C2** pro forma gate (C) | Mattress Firm pre-closing; CP-0, CP-1, CP-1A, CP-1D, CP-2 | 15 | Sources and uses and pro forma debt equal the key; cash row, one balance-sheet date and one LTM period; base EBITDA equals the key with no double count; As marketed equals management's quoted figure, any difference explained, never plugged; CP-2's pro forma debt cites CP-1A's total |
+| **C1r** after-closing control (C) | **Covenant & Refinancing** on Mattress Firm after closing: the executed Term Loan and ABL Credit Agreements, Secondary, "older source". Fallback: retained TDG executed notes (`runs/tdg-004`, read-only) | 30 | CP-4 Completed with no draft limitation; each C1 term marked TBD or indicative is compared with the executed term (e.g. margin "TBD" against LIBOR + 4.00-4.25%) |
+| **C3** Primary through the app (C) | **Credit Snapshot plus CP-1D** on Mattress Firm pre-closing, Primary, through the app UI | 30 | The report shows both pro forma tables or an explicit gap; every report section drawing on CP-4 says Provisional; CP-6 never treats a draft term as executed; CP-5 flags claims that depend on drafts |
+| **D-live** library (D) | No new run: the workspace holding the A, B and C runs and the retained runs with fixed chart tables | 0 | Each library value equals a hand key from the actual handoff lines, including pro forma rows and facilities and quotes as entered; filters and evidence links behave as specified; Not recorded counts are right. Labelled "actual retained model output, downstream consumption" |
 
-Caps total at most USD 100; expected spend is far lower.
+Caps total USD 150, or USD 200 with A-ab; expected spend is far lower.
 
 **EDGAR access:** granted on 2026-11-08 through the owner's personal environment `final-workflow`
 (www.sec.gov, efts.sec.gov and data.sec.gov). Requests identify themselves as "final-workflow
 research" with the owner's email, as EDGAR requires and as the owner authorised. They stay well
 under EDGAR's 10 requests per second.
+
+## Release gate (beta V1)
+
+Run once after Checkpoint D, on the `main` commit to be released:
+
+1. All four PRs merged, and each phase's checkpoint recorded in `VERIFICATION.md`.
+2. `validate.py full`, `validate.py browser` and `validate.py suite`. No failure beyond
+   `tests/nightly-known-failures.txt`. While GitHub Actions starts no jobs, these local runs stand
+   in for CI, and the record says so.
+3. **RC-live:** if code changed after C3, one more whole-pathway run on the release candidate
+   (Credit Snapshot, TDG FY2024, cap USD 30), with every required output checked.
+4. The packaged app on Windows: the owner runs `Smoke-test.ps1`, then opens the app in Edge, creates a
+   run up to the Review step, opens a live run's report and the Library filters.
+5. Help and README describe exactly what the beta does, including known limitations: the HTML Model
+   and `calculation.json` are not published by app runs; Primary terms are Provisional before
+   closing; metrics are Not recorded for older runs.
+6. Owner sign-off.
 
 ## Review Focus
 
@@ -359,7 +407,7 @@ under EDGAR's 10 requests per second.
 | CP-3 | Talk but no observed quote in the context or files | Limited |
 | CP-3 | No quotes and no talk in the context, and no quotes file recognised | Gap |
 | CP-3D | No quotes in the context and no quotes file recognised | Gap |
-| CP-4 | Legal documents declared `none` | Will refuse (outcome text set from L1b) |
+| CP-4 | Legal documents declared `none` | Will refuse (outcome text set from A-live) |
 | CP-4 | Declared `executed`, none recognised as executed | Check |
 | CP-4 | Declared `draft`, or Primary run, with no executed agreement recognised | Limited: Provisional |
 | CP-4 | Only an amendment recognised | Limited: base agreement not recognised |
@@ -395,13 +443,16 @@ from `data/public-corpus/v1/TDG`; add a dated entry to `VERIFICATION.md`.
 - [ ] **`live_check.py --case DIR`:**
   - The case folder holds a context, a source list, the modules, a frozen answer key and the
     expected outcomes.
+  - It runs a whole pathway through the app UI, then checks every required output (Live
+    checkpoints): run folder, delivery bundle, `flow_check`, and `browser_check`'s
+    real-workspace walk over a workspace holding the run.
   - `--accept-limitations` drives the acceptance step once Phase 2 exists.
-  - With `--rehearse` it runs free on the fake engine.
+  - With `--rehearse` it runs free on the fake engine, and its scope string says so.
 - [ ] **Back-test:**
   - Covers the 4 launcher runs, plus the reconstructed-context campaign cases, labelled.
   - Reports per rule: agreed, disagreed or not testable, with issuer and date. Labelled
     "deterministic retained-data report".
-- [ ] **Checkpoint A:** offline gates, then **L1b** (and **L1c** if wanted) on the owner's go-ahead.
+- [ ] **Checkpoint A:** offline gates, then **A-live** (and **A-ab** if wanted) on the owner's go-ahead.
       Set `Will refuse` wording and the rule labels from the results.
 
 ## Phase 2 (PR 2): acceptance and the Review screen
@@ -452,7 +503,9 @@ from `data/public-corpus/v1/TDG`; add a dated entry to `VERIFICATION.md`.
 
 - [ ] Describe the declarations, outcomes as forecasts, counted items, acceptance and the context
       snapshot.
-- [ ] Checkpoint B: offline gates, then **L2** on the owner's go-ahead.
+- [ ] Extend `browser_check`'s New run walk: the new context fields, the expected-outcomes table, the
+      acceptance gating and "Run without". Rehearse it on the fake engine.
+- [ ] Checkpoint B: offline gates, then **B-live** on the owner's go-ahead.
 
 ## Phase 3 (PR 3): Primary transactions, one module at a time
 
@@ -496,7 +549,7 @@ entry to `VERIFICATION.md`.
   - at least 8 covenant terms;
   - each add-back's claimed, realised and in-LTM amounts as the documents state them.
 
-### Task 10: CP-4 Provisional review (then C1, C1n, C1r)
+### Task 10: CP-4 Provisional review (then C1 and C1n)
 
 **Files:** modify `src/deploy_workflow/owners/cpos_launch.py`, `tests/test_cpos_launch.py`,
 `METHODOLOGY-REVIEW.md`.
@@ -522,7 +575,7 @@ entry to `VERIFICATION.md`.
   - An executed-only answer needs no limitation.
   - A Blocked answer with no legal documents passes.
   - Non-Primary runs without a draft declaration are unchanged.
-- [ ] **Live:** C1, then controls C1n and C1r.
+- [ ] **Live:** C1, then control C1n.
 
 ### Task 11: Pro forma capitalisation and leverage (then C2)
 
@@ -550,8 +603,9 @@ entry to `VERIFICATION.md`.
 - [ ] **Delivery:** table routes for both pro forma tables on Primary runs, through the dense-table
       renderer; a delivery test from an actual handoff.
 - [ ] **Tests:** Review Focus 14-16; non-Primary runs need none of the tables.
-- [ ] **Live:** C2, then **C3** (full Primary with delivery) once Tasks 10 and 11 have both passed
-      their checks.
+- [ ] **Live:** C2. Once Tasks 10 and 11 have both passed their gates, run the pathway checks **C1r**
+      (Covenant & Refinancing, after closing) and **C3** (Credit Snapshot plus CP-1D, Primary, through
+      the app). Phase 3 merges only after both pass.
 
 ## Phase 4 (PR 4): credit and market filters in the Issuer Library
 
@@ -635,6 +689,8 @@ add focused tests, registered in `PYTHON_TESTS`.
       enabled only once C2 has passed.
 - [ ] All text goes through `textContent`, and the hash is validated. Tests: Review Focus 17-21 and 23,
       keyboard and screen-reader labels, narrow screens.
+- [ ] Extend `browser_check`'s real-workspace walk: Library columns, the facility sub-table, each filter
+      group, coverage and hidden counts, and hash restore.
 
 ### Task 15: Help, README and Checkpoint D
 
@@ -659,10 +715,13 @@ add focused tests, registered in `PYTHON_TESTS`.
     CP-6 and the report.
   - CP-2 reports the pro forma capitalisation, EBITDA ladder and leverage on three bases, with
     unrealised and unresolved add-backs shown and never counted.
-  - C1, C1n, C1r, C2 and C3 have passed, recorded with their actual scope.
+  - C1, C1n, C1r, C2 and C3 have passed, with every required output, recorded with their actual
+    scope.
 - **Library:** filters by classification, rating, leverage on a chosen basis, interest cover, cash,
   undrawn facilities, currency, completeness and the facility and quote terms. Module figures link to
   their handoff line, user values show as entered, and missing values never match. D-live has passed.
+- **Beta V1:** the release gate has passed on the released `main` commit, including the Windows
+  smoke test and the owner's sign-off.
 
 ## Review record (2026-11-08)
 
@@ -677,4 +736,4 @@ with reasons, under **Rejected** above.
 | Primary | Provisional scope and propagation to report and downstream modules; final offering memorandum reason; ranks 2-5 as kinds; EBITDA ladder without double counting; structural checks instead of an equality; cash row, dates and FX rule; report table routes |
 | Compatibility | Empty new fields omitted on dump; form blanks hidden talk; resume keeps context bytes; a context snapshot at Start |
 | Library | Last annual or LTM row; negative leverage not meaningful; cash and undrawn filtered separately; latest run defined; rating-scale edge cases; private-side label; hash validation |
-| Process | Live checkpoints L1b, L1c, L2, C1, C1n, C1r, C2, C3, D-live; Phase 3 one module at a time; four PRs; tests registered in `PYTHON_TESTS` |
+| Process | Live checkpoints A-live, A-ab, B-live, C1, C1n, C2, C1r, C3, D-live, each a related whole pathway except the single-module gates, with frontend and backend required outputs; beta V1 release gate; Phase 3 one module at a time; four PRs; tests registered in `PYTHON_TESTS` |

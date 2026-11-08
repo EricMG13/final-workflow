@@ -591,8 +591,8 @@ function workspaceView(module,section) {
   }
   if(module==='W-Forecast')return forecastView(context,section);
   if(module==='CP-OS') {
-    const flow=`<ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${moduleLink('W-Evidence','Inspect retained outputs')}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${moduleLink('W-Reports','View reports')}</li></ol>`;
-    if(/^web-[a-f0-9]{32}$/.test(context||''))return `<section id="run-activity" data-run="${esc(context)}"><h2>Run activity · ${esc(ctx.run)}</h2><p class="hint">Loading run activity…</p></section>${flow}`;
+    const flow=`<ol class="activity-flow"><li><h3>Analytical outputs</h3><p>${plural(outputCount(context),'saved output')}</p>${outputCount(context)?moduleLink('W-Evidence','Inspect retained outputs'):''}</li><li><h3>Delivery</h3><p>${reportsBuiltFrom(context).length?`${plural(reportsBuiltFrom(context).length,'report')} built from this run’s files.`:'No report was built from this run’s files.'}</p>${reportsBuiltFrom(context).length?moduleLink('W-Reports','View reports'):''}</li></ol>`;
+    if(/^web-[a-f0-9]{32}$/.test(context||''))return `<section id="run-activity" data-run="${esc(context)}"><h2>Run record · ${esc(ctx.run)}</h2><p class="hint">Loading run activity…</p></section>${flow}`;
     const retained=retainedRecordHtml(ctx);
     return `${retained.head}${flow}${retained.tail}`;
   }

@@ -53,6 +53,19 @@ function describeModule(status,modules,nameOf){
   if(p.step==='stopped')return `stopped during ${nameOf(moduleId)}${where}`;
   return '';
 }
+// The module description as its own sentence: capitalised, ended with a full stop, and the counts kept whole across a line break.
+function descSentence(desc){
+  if(!desc)return '';
+  const kept=desc.replace(/ \((\d+) of (\d+)\)/g,'\u00a0($1\u00a0of\u00a0$2)').replace(/turn (\d+) of (\d+)/g,'turn\u00a0$1\u00a0of\u00a0$2');
+  return `${kept[0].toUpperCase()}${kept.slice(1)}.`;
+}
+// The status sentence and the module description, each on its own line.
+function summaryLines(head,desc){
+  const lines=[textNode('span',head)];
+  if(desc)lines.push(textNode('span',descSentence(desc)));
+  for(const line of lines)line.className='summary-line';
+  return lines;
+}
 function spendText(status){
   const p=status.progress||{},spent=status.spent_usd??p.spent_usd;
   if(spent==null)return 'Spend appears after CP-OS records a completed model response.';
@@ -74,11 +87,14 @@ function eventText(event,titleOf){
     default:return String(event.event);
   }
 }
-// "8 November 2026 · 09:00:00 UTC" from an event's ISO time; a missing or malformed time is a dash, never a guess.
-function eventTime(at){
+// "8 November 2026 · 09:00:00" from an event's ISO time (the table says UTC), the date only when it differs from the row above;
+// a missing or malformed time is a dash, never a guess.
+function eventTime(at,previousDay=''){
   const match=/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/.exec(String(at||''));
-  return match?`${displayDate(match[1])} · ${match[2]} UTC`:'—';
+  if(!match)return '—';
+  return match[1]===previousDay?match[2]:`${displayDate(match[1])} · ${match[2]}`;
 }
+const eventDay=at=>/^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}:\d{2}/.exec(String(at||''))?.[1]||'';
 // The events table in its bordered card, shared by the live view and the retained one.
 function activityLog(events,titleOf){
   const table=document.createElement('table');table.className='activity-log';
@@ -86,7 +102,8 @@ function activityLog(events,titleOf){
   const headRow=document.createElement('tr');headRow.append(textNode('th','Time'),textNode('th','Event'));
   const thead=table.appendChild(document.createElement('thead'));thead.append(headRow);
   const body=table.appendChild(document.createElement('tbody'));
-  for(const event of events){const row=document.createElement('tr');row.append(textNode('td',eventTime(event.at)),textNode('td',eventText(event,titleOf)));body.append(row);}
+  let day='';
+  for(const event of events){const row=document.createElement('tr');row.append(textNode('td',eventTime(event.at,day)),textNode('td',eventText(event,titleOf)));body.append(row);day=eventDay(event.at)||day;}
   const card=document.createElement('div');card.className='table-scroll';card.tabIndex=0;card.setAttribute('role','region');card.setAttribute('aria-label','Run events');card.append(table);
   return card;
 }
@@ -116,8 +133,8 @@ async function loadRunActivity(section){
     const modules=Array.isArray(status.modules)?status.modules:[],details=Array.isArray(status.module_details)?status.module_details:[];
     const titleOf=code=>details.find(item=>item?.id===code)?.title||code||'';
     const desc=describeModule(status,modules,titleOf),head=stopText(status,!!desc),events=Array.isArray(record.events)?record.events:[];
-    const parts=[textNode('p',desc?`${head} · ${desc}`:head),textNode('p',spendText(status))];
-    parts[0].className='activity-summary';parts[0].setAttribute('aria-live','polite');
+    const parts=[textNode('p',''),textNode('p',spendText(status))];
+    parts[0].append(...summaryLines(head,desc));parts[0].className='activity-summary';parts[0].setAttribute('aria-live','polite');
     if(resumable(status)){
       const resume=textNode('a','Resume this run');resume.className='text-action';resume.href=`#W-NewRun/run?resume=${encodeURIComponent(id)}`;
       resume.addEventListener('click',event=>{if(!mayDiscardDraft())event.preventDefault();});
@@ -240,8 +257,15 @@ function showRunMark(job){
 }
 // The Run activity rail link goes to the job the mark shows; null leaves the selected run's link.
 function shownRunHref(){return runWatch.shown?jobRoute('CP-OS/activity',runWatch.shown):null;}
+// The job whose own page is open: its Run activity page, or New run's progress panel showing it. Its stop sentence is already
+// on that page, so the strip stays away there (not a dismissal; it returns on other screens).
+let panelRunId=null;
+function viewShowsRun(job){
+  if(current?.module==='CP-OS'&&current.section==='activity'&&current.context===job.id)return true;
+  return current?.module==='W-NewRun'&&panelRunId===job.id;
+}
 function presentRun(){
-  const {mark,strip}=chooseShown(runWatch.jobs);
+  const chosen=chooseShown(runWatch.jobs),mark=chosen.mark,strip=chosen.strip&&!viewShowsRun(chosen.strip)?chosen.strip:null;
   runWatch.shown=mark;runWatch.strip=strip;
   if(mark&&!WORKFLOW_ACTIVE.includes(mark.state))runWatch.last=mark;
   showRunMark(mark);showRunStrip(strip);
@@ -297,6 +321,7 @@ function installNewRun(){
   function message(value){$('new-run-message').textContent=value;}
   function stage(name){
     for(const id of ['context','source','review','progress'])$(id+'-step').hidden=id!==name;
+    panelRunId=name==='progress'?review?.id||null:null;presentRun();
     document.querySelectorAll('[data-stage]').forEach(item=>{if(item.dataset.stage===name)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');});
     message('');$(name+'-step').querySelector('h2').focus();
   }
@@ -377,7 +402,7 @@ function installNewRun(){
       const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=(step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length))||(!active&&!runComplete&&(step==='delivering'||status.progress?.accepted>=modules.length));
       const modulesDone=runComplete||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{
-        const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
+        const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&(['started','running','repairing'].includes(step)||(step==='stopped'&&!deliveryStopped)),isStopped=isCurrent&&!active&&status.state!=='complete';
         const li=document.createElement('li');li.dataset.status=isComplete?'complete':isCurrent?'current':'incomplete';li.title=id;
         if(isStopped)li.setAttribute('data-stopped','');
         const marker=document.createElement('span');marker.className='step-marker';marker.setAttribute('aria-hidden','true');
@@ -401,8 +426,11 @@ function installNewRun(){
       if(mark)mark.setAttribute('aria-current','step');
     }
     const desc=describeModule(status,modules,titleOf),head=stopText(status,!!desc);
-    $('run-progress').textContent=desc?`${head} · ${desc}`:head;
-    $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${displayDate(review.as_of)} · ${review.id}`:review?.id||'';
+    $('run-progress').replaceChildren(...summaryLines(head,desc));
+    // The short id in the grey run badge as elsewhere; the full id stays in its title.
+    const idBadge=review?.id?textNode('span',shortRunId(review.id)):null;
+    if(idBadge){idBadge.className='code';idBadge.title=review.id;}
+    $('run-identity').replaceChildren(...[review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${displayDate(review.as_of)} · `:'',idBadge].filter(Boolean));
     $('run-spend').textContent=spendText(status);
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
@@ -422,6 +450,9 @@ function installNewRun(){
     // Set once per run, so a poll never overwrites what the reader typed. The previous cap is the run's recorded one, never the
     // draft's budget; with none recorded the field stays empty and Review waits for the analyst's amount.
     if(canResume&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=status.progress?.cap_usd??review?.cap_usd??'';}
+    // One primary action per view: Resume when the run can be resumed, otherwise Open.
+    $('resume-run').className=canResume?'primary-action':'secondary-action';
+    $('open-run').className=canResume?'secondary-action':'primary-action';
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
     $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});

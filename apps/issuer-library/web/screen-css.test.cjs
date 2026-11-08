@@ -203,3 +203,10 @@ test('cash flow rows are 32px, row labels hold 12rem, column groups are ruled an
 test('the published model disclosure and the cash flow region are styled as a quiet disclosure', () => {
   assert.match(screen, /\.model-original>summary\{[^}]*cursor:pointer[^}]*min-height:32px/);
 });
+
+test('the run strip uses the card radius, a wide supporting line and 24px action targets', () => {
+  const rule = (selector) => screen.match(new RegExp(`(?:^|\\})${selector.replace(/[.[\]]/g, '\\$&')}\\{([^}]*)\\}`, 'm'))?.[1] ?? '';
+  assert.match(rule('.run-strip'), /border-radius:var\(--radius-card\)/);
+  assert.match(rule('.strip-text'), /max-width:120ch/);
+  assert.match(rule('.strip-actions a'), /min-height:24px/);
+});

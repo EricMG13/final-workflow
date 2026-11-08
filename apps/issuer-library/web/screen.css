@@ -326,7 +326,7 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 #run-activity .table-scroll{margin:12px 0}.activity-log{margin:0;font-size:var(--fs-compact)}.activity-log caption{text-align:left;color:var(--muted);font-size:var(--fs-label);padding:12px 16px 0}.activity-log td:first-child{font-family:'Red Hat Mono',monospace;white-space:nowrap}.activity-log td{font-size:var(--fs-compact)}#run-activity .text-action{margin:4px 0 0}.caution details{margin-top:6px}.caution summary{cursor:pointer}
 
 /* Run-state strip: the Untitled UI full-width alert anatomy (icon, title, supporting text, actions, close) in the app's tokens. Amber carries attention with its words; grey is neutral. */
-.run-strip{display:grid;grid-template-columns:20px minmax(0,1fr) 32px;gap:12px;align-items:start;margin:0 0 12px;padding:12px 16px;border:1px solid var(--border-secondary);border-radius:var(--radius-control);background:var(--gray-50);color:var(--text-primary)}
+.run-strip{display:grid;grid-template-columns:20px minmax(0,1fr) 32px;gap:12px;align-items:start;margin:0 0 12px;padding:12px 16px;border:1px solid var(--border-secondary);border-radius:var(--radius-card);background:var(--gray-50);color:var(--text-primary)}
 .run-strip[hidden]{display:none}
 .run-strip[data-tone=brand]{background:var(--blue-50);border-color:var(--blue-100)}
 .run-strip[data-tone=amber]{background:var(--amber-bg);border-color:var(--amber-border)}
@@ -334,8 +334,8 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .run-strip[data-tone=brand] .strip-icon{background-color:var(--blue-700)}.run-strip[data-tone=amber] .strip-icon{background-color:var(--amber)}
 .run-strip .strip-icon[data-icon=activity]{--strip-icon:url(icons/activity.svg)}.run-strip .strip-icon[data-icon=triangle-alert]{--strip-icon:url(icons/triangle-alert.svg)}.run-strip .strip-icon[data-icon=circle-check]{--strip-icon:url(icons/circle-check.svg)}
 .strip-title{display:block;font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif}
-.strip-text{margin:2px 0 0;font-size:var(--fs-body);line-height:1.5;color:var(--text-secondary);max-width:75ch}.run-strip[data-tone=amber] .strip-text{color:var(--amber)}
-.strip-actions{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px}.strip-actions a{font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--blue-700);text-decoration:underline}.run-strip[data-tone=amber] .strip-actions a{color:var(--amber)}
+.strip-text{margin:2px 0 0;font-size:var(--fs-body);line-height:1.5;color:var(--text-secondary);max-width:120ch}.run-strip[data-tone=amber] .strip-text{color:var(--amber)}
+.strip-actions{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px}.strip-actions a{display:inline-flex;align-items:center;min-height:24px;font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--blue-700);text-decoration:underline}.run-strip[data-tone=amber] .strip-actions a{color:var(--amber)}
 .strip-close{display:grid;place-items:center;width:32px;height:32px;margin:-6px -6px 0 0;padding:0;border:0;border-radius:var(--radius-control);background:none;cursor:pointer}.strip-close:hover{background:rgba(0,5,51,.07)}.strip-close img{width:16px;height:16px}
 @media(max-width:720px){.run-strip{padding:10px 12px}}
 /* Cash flow rows are 32px (a 20px line, 5px above and below, the 1px rule inside the height); a wrapped label grows its row. Each column group opens with a 1px --rule line, and the scenario columns sit on --quiet. */
@@ -345,3 +345,4 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 /* The published model is the original deliverable, kept behind a disclosure so the cash flow model leads. */
 .model-original{margin:20px 0}.model-original>summary{cursor:pointer;font-weight:600;font-size:var(--fs-control);color:var(--text-secondary);min-height:32px;padding:6px 0}
 .model-original[open]>summary{margin-bottom:8px}
+.summary-line{display:block}

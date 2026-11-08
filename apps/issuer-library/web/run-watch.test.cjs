@@ -7,7 +7,7 @@ const settle=()=>new Promise(resolve=>setTimeout(resolve,10));
 const ID='web-'+'a'.repeat(32),ID2='web-'+'d'.repeat(32),KEY='issuer-library.run-strip-dismissed';
 const MODULES=['CP-0','CP-1','CP-2','CP-3'];
 const job=(over={})=>({id:ID,state:'running',message:'Working',run_available:true,issuer:'Northbridge Group',pathway:'covenant_refinancing',as_of:'2025-03-31',modules:MODULES,module_details:MODULES.map(id=>({id,title:'Title '+id})),progress:{module:'CP-2',step:'running',turn:2,max_turns:24,spent_usd:'0.42',held_usd:'1.86',cap_usd:'10.00',accepted:2},...over});
-async function page(t,{permission='granted',list=[],stored=null,broken=[]}={}){
+async function page(t,{permission='granted',list=[],stored=null,broken=[],runs=[]}={}){
   const errors=[],built=[];const virtualConsole=new VirtualConsole();virtualConsole.on('jsdomError',error=>errors.push(error));
   const dom=new JSDOM(html,{url:'http://127.0.0.1:54321/#W-Library/cases',runScripts:'outside-only',virtualConsole});
   const win=dom.window;win.scrollTo=()=>{};win.focus=()=>{};win.HTMLElement.prototype.scrollIntoView=function(){};
@@ -19,7 +19,7 @@ async function page(t,{permission='granted',list=[],stored=null,broken=[]}={}){
   if(stored)win.localStorage.setItem(KEY,JSON.stringify(stored));
   for(const method of broken)win.Storage.prototype[method]=()=>{throw new Error('storage unavailable');};
   const warnings=[];win.console.warn=(...args)=>warnings.push(args[0]);
-  win.eval('window.DESIGN_DATA={runs:{},outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
+  const known=Object.fromEntries(runs.map(id=>[id,{run:id,title:'Northbridge Group',period:'as of 31 March 2025',issuerKey:'id:nbg',issuer:'Northbridge Group',modules:{},first:null}]));win.eval('window.DESIGN_DATA={runs:'+JSON.stringify(known)+',outputs:{},inputs:{},pins:{}};window.DESIGN_WORKSPACE={reports:[],models:[],visuals:[]};window.DESIGN_APP={workspace:"/research",policy_locked:false,issues:[],problem:""};');
   for(const name of ['views.js','actions.js','screen.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,name),'utf8'),dom.getInternalVMContext());
   await settle();
   t.after(()=>{win.close();assert.deepEqual(errors.map(error=>error.message),[]);});
@@ -357,4 +357,17 @@ test('Final 5: a poll that adds the first supporting line on the same id and sta
   assert.equal(strip(p).querySelector('.strip-title'),title);
   assert.match(strip(p).querySelector('.strip-text').textContent,/2 of 4 modules accepted/);
   assert.ok(strip(p).querySelector('.strip-actions'));
+});
+
+test('the strip is hidden on the Run activity page of its own job and returns elsewhere',async t=>{
+  const p=await page(t,{list:[job({state:'stopped',reason:'budget'})],runs:[ID]});
+  await p.watch();
+  const strip=p.doc.getElementById('run-strip');
+  assert.equal(strip.hidden,false);
+  await p.go(`#CP-OS/activity?c=${ID}`);
+  assert.equal(strip.hidden,true);
+  assert.equal(p.doc.getElementById('run-mark').hidden,false,'the rail mark stays');
+  assert.match(p.doc.title,/^! /,'the title prefix stays');
+  await p.go('#W-Help/help');
+  assert.equal(strip.hidden,false);
 });

@@ -417,6 +417,7 @@ function renderRoute() {
     const creating=next.module==='W-NewRun';
     $('content').hidden=creating;
     $('new-run').hidden=!creating;
+    if(typeof presentRun==='function')presentRun();
     if(previous) {
       const report=isReportRoute(next.module,next.section),library=appDestinations.has(next.module)||!contexts[next.context];
       const restored=!report&&!library&&focusId&&$(focusId);

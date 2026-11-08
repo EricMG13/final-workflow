@@ -40,6 +40,11 @@ each module figure to its evidence; it never calculates a figure.
 | Retained handoffs show some predicted outcomes ("Insufficient Information" in 300 files, "not calculable" in 58) and not others ("Rating register not found" in 0) | Back-test the rules against the 21 retained launcher runs (`runs/*/workflow.json`), read-only, and report agreement with its actual scope |
 | The context form's "What this run will do" panel holds a separate JS copy of some rules | Leave the form's other rules unchanged; a test fails if the overlapping rules (quotes/talk, legal documents, ratings, non-USD, issue classification) disagree |
 | `startRun` accepts only `{id, review_id, confirm}` (`jobs.go:716-751`) | Add `accept_limitations`; required only when the review lists any limitation |
+| Run type reaches modules only as data: owner-path prompts carry `run_type` (`prompts/fence.py:146`); app runs send the whole context as a source; no selected method mentions run type. Its effects come from the default pathway and from what the user can supply at that stage | Expectations state run-type effects explicitly; no module changes |
+| The CP-4 method sent on app runs blocks without an executed credit agreement or indenture ("Blocked: No executed governing document… STOP", `REF_CP-4_STEPS.md:18,31`). Credit Snapshot, Primary's default pathway, includes CP-4. New issues normally have only a draft credit agreement, a preliminary offering memorandum's description of notes, a term sheet or a lender presentation until closing | CP-4 `Will refuse` whenever no executed governing document is recognised, with the reason (none, or drafts and offering documents only) and a **Run without CP-4** fix that drops CP-4 and the modules that require it. Evidence: per method only; no retained run holds draft legal documents |
+| The owner path admits drafts with a stated limitation when the context declares draft legal documents (`readiness.py:412-438`, `cp4_legal.py:89-96`); the app path neither applies that check nor passes the declaration to CP-4, and the method's own confidence scale names "Provisional (partial evidence or draft documents)" (`REF_CP-4_STEPS.md:373`) | Expectations describe the app path as it is. Whether app runs should review drafts provisionally is an owner methodology decision, listed below |
+| No module builds a pro forma capital structure from the new debt; only CP-3 reads deal terms, for talk (`cp3_relative_value.py`, `context_cites.py`) | Primary runs get a **This run** item: leverage, coverage and liquidity are reported figures before the new debt. The library labels a Primary run's figures "reported, before this transaction" |
+| CP-0's method treats issuer, management and sponsor presentations as attributed supporting claims that cannot override filings (`methods/cp0.md:31-33`); private new issues are often marketed on a lender presentation alone | When no filed financial report is recognised but a lender presentation is, a **This run** item says the financials come from marketing material and are treated as management claims |
 | The context has no investment-grade/high-yield field (`context.py:92-103`) | Add `identity.issue_classification`: `investment_grade` or `high_yield`, chosen in the issuer identity section |
 | The selected methods are written for high-yield and leveraged-loan issuers (e.g. `cp-2d…/SKILL.md:161`, `cp-2g…/SKILL.md:181`, `cp-3…/SKILL.md:361`, `CP-4_RUNBOOK.md:15`, `cp-6…/SKILL.md:176`); none branches on investment grade | The classification changes expectations, not analysis: for an investment-grade issuer, each module whose method is framed for high yield shows `Limited` with that reason. Adapting methods for investment grade is a separate methodology decision (`METHODOLOGY-REVIEW.md`), out of scope |
 | Facility rows hold instrument, currency, size, tenor, talk spread and OID (low-high ranges), floor; nothing holds a coupon, a contractual margin or a maturity (`context.py:106-121`) | Add optional `deal_terms[].coupon_pct` (fixed rate), `margin_bps` (floating rate) and `maturity` (date) to the form's facility row and the reader; each is one value, not a range |
@@ -74,6 +79,17 @@ CP-OS (`AGENTS.md`: no competing orchestration layer); a new schema version or a
 field (saved files and pinned fixtures must load unchanged); inferring the classification from
 ratings; checking user entries against each other or against the filings (user-derived issues are
 the user's to resolve); parsing documents or handoffs for values the user already supplies.
+
+**Owner decisions this plan does not take (methodology, `METHODOLOGY-REVIEW.md`):**
+1. Draft review on app runs: let CP-4 analyse draft agreements and offering-memorandum covenant
+   descriptions as Provisional, as the owner path already does, instead of blocking.
+2. Pro forma capitalisation for Primary runs: add the new debt from the facility rows to reported
+   figures, labelled pro forma.
+3. Expected ratings: a status on context rating rows ("expected, new issue") so provisional
+   ratings such as "(P)B2" are recorded as such.
+4. A Primary functional proof: no retained case holds draft legal documents or an offering
+   memorandum; one is needed (an alternative issuer, labelled by case and date) before any rule
+   about them is called observed.
 
 **Out of scope (later plans):** files-first run check with pathway ratings, phased context stages,
 context prefill from filings, post-run expected-versus-actual reporting in Run activity,
@@ -117,7 +133,8 @@ owner with both outcomes. Never loosen a test to pass.
 ## Review Focus
 
 1. **A 10-K whose exhibit index names the credit agreement:** classed financial report, not credit
-   agreement; CP-4 shows `Check`, not `Ready` (Task 2).
+   agreement; CP-4 shows `Will refuse` ("no executed credit agreement or indenture recognised; if
+   one is included, ignore this"), not `Ready` (Tasks 2, 3).
 2. **A draft credit agreement only:** CP-4 `Will refuse`, with "drafts are refused" and the fix (Task 3).
 3. **Earnings update with one period's statements:** CP-1B `Limited` naming the missing period, not
    `Ready` (Task 3).
@@ -145,6 +162,15 @@ owner with both outcomes. Never loosen a test to pass.
     those of the same context without the facility row (Tasks 1, 10).
 16. **Floating-rate loan:** margin 375 matches "margin 350-400"; it does not match a margin-talk
     filter, which reads talk only (Task 10).
+17. **Public new issue:** Primary, Credit Snapshot, with a 10-K, a preliminary offering memorandum
+    and a draft credit agreement: CP-4 `Will refuse` ("drafts and offering documents only"); This
+    run says figures are before the new debt; **Run without CP-4** lists the pathway's modules
+    without CP-4 (Tasks 3, 4, 7).
+18. **Private new issue:** Primary with a lender presentation and term sheet only: CP-1 `Check`
+    (no financial report), This run says financials are management claims, CP-4 `Will refuse`
+    ("no legal documents") (Task 3).
+19. **Secondary loan after closing:** the executed credit agreement is recognised; CP-4 `Ready`;
+    no pre-transaction item (Task 3).
 
 ---
 
@@ -189,12 +215,16 @@ owner with both outcomes. Never loosen a test to pass.
 - [ ] Hand-label the key first: at least 20 real files from `data/public-corpus/` and
       `runs/*/sources/` (annual reports, 10-K/10-Q, an HTML filing, a non-English report, peer
       filings, a portfolio PDF), plus synthetic text fixtures for kinds the corpus lacks (credit
-      agreement executed/draft, indenture, ratings letter, quotes sheet, management bridge,
-      prior decision), each labelled synthetic.
+      agreement executed/draft, indenture, preliminary and final offering memorandum, lender
+      presentation, term sheet, ratings letter, quotes sheet, management bridge, prior decision),
+      each labelled synthetic.
 - [ ] `guess_kind(name, first_pages) -> Guess(kind, signal, executed)` where `kind` is one of
-      `financial_report, earnings_release, credit_agreement, indenture, ratings, market_quotes,
-      peer_data, management_bridge, portfolio, prior_decision, unrecognised`; `signal` names the
-      matched phrase and page; `executed` is `True/False/None` from "EXECUTION VERSION"/"DRAFT" marks.
+      `financial_report, earnings_release, credit_agreement, indenture, offering_memorandum,
+      lender_presentation, term_sheet, ratings, market_quotes, peer_data, management_bridge,
+      portfolio, prior_decision, unrecognised`; `signal` names the matched phrase and page;
+      `executed` is `True/False/None` from marks such as "EXECUTION VERSION", "DRAFT",
+      "Preliminary" and "Subject to completion". An offering memorandum, lender presentation or
+      term sheet is never an executed governing document.
 - [ ] Cover-page phrases outrank later pages and file names; ambiguity returns `unrecognised`.
 - [ ] Tests: key accuracy reported per kind; adversarial cases from Review Focus 1, a misleading
       file name, an empty-text page, an `.xlsx` workbook.
@@ -223,16 +253,18 @@ create `tests/fixtures/run-expectations/hy-framed-methods.json`.
 | CP-3 | No observed quotes (file or context), talk only | Limited |
 | CP-3 | No quotes and no talk | Gap |
 | CP-3D | No quotes file and no context quotes | Gap |
-| CP-4 | No credit agreement or indenture | Gap |
-| CP-4 | Drafts only | Will refuse |
+| CP-4 | No legal documents recognised | Will refuse (method blocks) |
+| CP-4 | Only drafts, offering memoranda, term sheets or lender presentations recognised | Will refuse (method blocks; executed only after closing) |
+| Run | Primary run | Limited: reported figures, before the new debt |
+| Run | No filed financial report recognised, lender presentation recognised | Limited: financials are management claims |
 | Portfolio pathway | No portfolio workbook | Gap |
 | Run | Report section omitted by this pathway (`prepared.omitted`) | Gap |
 
 - [ ] `expectations(ordered, guesses, context, edges) -> tuple[Expectation]`; run-level items first,
       then modules in `ordered`; dependency inheritance as in Decisions. Context values are read
       as entered; no rule compares one user entry with another.
-- [ ] Tests: hand-written expected outcomes for Review Focus 2-5 and one clean case per pathway for
-      each classification, each labelled synthetic.
+- [ ] Tests: hand-written expected outcomes for Review Focus 2-5 and 17-19, and one clean case per
+      pathway for each run type and classification, each labelled synthetic.
 
 ### Task 4: Launcher and bridge carry the expectations
 
@@ -244,6 +276,8 @@ create `tests/fixtures/run-expectations/hy-framed-methods.json`.
 - [ ] `Prepared` gains `documents` and `expectations` (defaulted, so other callers are unaffected).
 - [ ] `review()` adds `issue_classification`, `documents`, `expectations`, `limitations` (count
       below Ready) and includes the expectations in `review_id` material.
+- [ ] For each module expected to `Will refuse`, `review()` adds `without`: the run's modules minus
+      that module and every module that requires it (registry edges), for the "Run without" fix.
 - [ ] Tests: review output shape; unchanged refusals; changed expectations change `review_id`.
 
 ### Task 5: Back-test against retained launcher runs (Checkpoint A)
@@ -252,7 +286,8 @@ create `tests/fixtures/run-expectations/hy-framed-methods.json`.
 
 - [ ] For each of the 21 retained runs with `workflow.json`, compute expectations from its pinned
       sources and context, read-only, and compare with what its accepted handoffs actually state.
-      Their contexts predate the classification, so its rule is reported as not testable.
+      Their contexts predate the classification, and none holds draft legal documents or offering
+      documents, so those rules are reported as not testable.
 - [ ] Report per rule: agreed, disagreed, not testable. Label it "deterministic retained-data
       report", with issuer and date per run; never call it live proof.
 - [ ] Fix or relabel every disagreeing rule (`evidence: per method only`) before Phase 2.
@@ -283,7 +318,10 @@ create `tests/fixtures/run-expectations/hy-framed-methods.json`.
       "High yield" / "Not stated").
 - [ ] An "Expected outcomes" table opens the Review step: **This run** items, then module title,
       outcome, reason, fix, and a "Why we expect this" disclosure with the rule's basis and evidence label.
-- [ ] "Files recognised" list: each file's likely kind and signal, or "Not recognised".
+- [ ] "Files recognised" list: each file's likely kind, draft or executed where marked, and signal,
+      or "Not recognised".
+- [ ] A **Run without <module>** action on each `Will refuse` row fills Advanced → Modules with that
+      row's `without` list and returns to Issuer folder & budget, so the next review drops it.
 - [ ] A second checkbox, "I accept these N limitations", appears only when N > 0; Start is enabled
       only when both boxes are ticked. "Edit folder & budget" and "Edit context" stay one click away.
 - [ ] All text set through `textContent`. Tests: rendering, checkbox gating, inert hostile text.
@@ -301,7 +339,8 @@ create `tests/fixtures/run-expectations/hy-framed-methods.json`.
 **Library layout.** One table, one row per issuer showing its latest run, expandable to all runs
 as today. Columns: Issuer · Classification · Lowest rating · Net leverage · Interest cover ·
 Currency · As of · Completeness · Facilities · Report. Module figures show their period
-("4.2x · FY2025") and open the evidence inspector on the handoff line they came from. Columns sort;
+("4.2x · FY2025") and open the evidence inspector on the handoff line they came from. On Primary
+runs they also say "reported, before this transaction". Columns sort;
 Not recorded sorts last. "Open report" is the row's main action, for readers who only want the
 report.
 

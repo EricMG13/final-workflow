@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -91,4 +92,19 @@ func privateFolder(name string) error {
 func ownerOnly(info fs.FileInfo) bool {
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	return info.Mode().IsRegular() && ok && int(stat.Uid) == os.Getuid() && info.Mode().Perm()&0o077 == 0
+}
+
+func platformNotify(title, body string) error {
+	log.Printf("No tab is open; native run notices are Windows-only (%s)", body)
+	return nil
+}
+
+// systemDirectory is the Windows system folder. This build never launches PowerShell; the folder
+// comes from SystemRoot so tests can run the Windows launch code against a scratch tree.
+func systemDirectory() (string, error) {
+	root := os.Getenv("SystemRoot")
+	if root == "" {
+		return "", errors.New("SystemRoot is not set")
+	}
+	return filepath.Join(root, "System32"), nil
 }

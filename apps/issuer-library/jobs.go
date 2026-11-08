@@ -347,6 +347,7 @@ func (app *Application) serveRunAPI(w http.ResponseWriter, r *http.Request) {
 		workspace := app.config.Workspace
 		app.mu.RUnlock()
 		if r.URL.Path == "/api/runs/list" {
+			app.watched.Store(app.now().UnixNano())
 			jsonResponse(w, recentJobs(workspace, 30))
 			return
 		}
@@ -668,11 +669,22 @@ func settleJob(folder string) {
 
 // finishJob settles a job whose worker has ended, ends its activity and refreshes the library.
 func (app *Application) finishJob(folder, id string) {
+	if app.onFinished != nil {
+		defer app.onFinished(id)
+	}
 	settleJob(folder)
+	app.finished.Store(app.now().UnixNano())
 	app.mu.Lock()
 	delete(app.activeJobs, id)
 	app.mu.Unlock()
 	app.refresh()
+	if !app.tabWatching() {
+		if title, body, ok := finishNotice(folder); ok {
+			if err := app.notifier(title, body); err != nil {
+				log.Printf("Run %s: native notice failed: %v", id, err)
+			}
+		}
+	}
 }
 
 // adoptJobsLocked settles the jobs an earlier instance of the app left running in workspace. A

@@ -204,3 +204,29 @@ test('cash and undrawn sort as metrics, missing last',t=>{
     assert.ok(firstMissing===-1||firstMissing===have.length,`${k}: missing last`);
   }
 });
+
+test('a change event after the input event applied the value rebuilds nothing, so the click that caused the blur lands',t=>{
+  const p=page(t);p.through({runs:'any'});
+  const box=p.d.getElementById('library-netLeverageMax');box.value='4';box.dispatchEvent(new p.w.Event('input',{bubbles:true}));
+  const button=p.d.querySelector('[data-library-hidden="net_leverage"]');
+  box.dispatchEvent(new p.w.Event('change',{bubbles:true}));
+  assert.equal(button.isConnected,true);
+});
+
+test('query numbers the number box would blank are dropped',t=>{
+  const p=page(t,'W-Library/cases?runs=any&netLeverageMax=%2B4&cashMin=4.&undrawnMax=.5');
+  assert.deepEqual(['netLeverageMax','cashMin','undrawnMax'].map(k=>p.d.getElementById(`library-${k}`).value),['','','.5']);
+});
+
+test('the Latest line counts what Any run adds under the active filters, from the key',t=>{
+  const p=page(t),latest=byName('RF17 net leverage max 4, latest'),any=byName('RF17 net leverage max 4, any');
+  p.through({netLeverageMax:'4'});
+  const added=any.expected_ids.length-latest.expected_ids.length;
+  assert.match(text(p.d.getElementById('library-coverage')),new RegExp(`${added} runs not screened by the Latest run rule`));
+});
+
+test('the Private-side detail row appears only for a private-side run',t=>{
+  const p=page(t);
+  p.d.querySelector('[data-library-select="brackenfell-hy-001"]').click();assert.ok(p.detail().includes('Private-side · Yes'));
+  p.d.querySelector('[data-library-select="dunmore-001"]').click();assert.ok(!p.detail().includes('Private-side'));
+});

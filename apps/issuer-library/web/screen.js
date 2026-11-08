@@ -350,12 +350,13 @@ function moduleBody({module,context,output}) {
 let cancelReportFrame=null;
 // A number box with text it cannot read is 'invalid', which excludes every run rather than being ignored.
 function readLibraryFilters() {
+  const before=JSON.stringify(libraryFilters);
   $('library-filters').querySelectorAll('[data-library-filter]').forEach(control=>{libraryFilters[control.dataset.libraryFilter]=control.validity?.badInput?'invalid':control.value;});
-  updateLibrary();
+  if(JSON.stringify(libraryFilters)!==before)updateLibrary(); // a change event after the input event adds nothing and must not swallow the click that blurred the box
 }
 // The Library route keeps its filter state in the query. Only a known key with a valid value is applied (a select key one of its options, a number key a finite number, search up to 200 characters); anything else is dropped.
 const LIBRARY_QUERY_KEYS=[...Object.keys(LIBRARY_DEFAULTS),'sort','dir'];
-const libraryNumber=value=>/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(value)&&Number.isFinite(Number(value));
+const libraryNumber=value=>/^-?(\d+(\.\d+)?|\.\d+)([eE][-+]?\d+)?$/.test(value)&&Number.isFinite(Number(value));
 function readLibraryHash() {
   const query=location.hash.split('?')[1];
   if(!query)return false;

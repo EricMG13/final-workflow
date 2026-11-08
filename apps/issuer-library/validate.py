@@ -29,6 +29,7 @@ NODE_TESTS = (
     "web/screening.test.cjs",
     "web/screens.test.cjs",
     "web/library-workspace.test.cjs",
+    "web/screening-dom.test.cjs",
     "web/screen-css.test.cjs",
     "web/escape-sinks.test.cjs",
     "web/run-spend.test.cjs",

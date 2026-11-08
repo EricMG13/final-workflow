@@ -22,15 +22,22 @@ def append_event(directory: Path, event: str, **fields: str | int) -> None:
 
     Documented fail-open: the log is advisory, so an OSError (disk full, permissions) is
     surfaced as a RuntimeWarning and the write is skipped; it never stops or fails a run.
+    A write that fails part-way is cut back to the file's size before it, so the next event
+    starts on its own line and the log stays readable.
     """
     record = {"at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "event": event, **fields}
     line = (json.dumps(record) + "\n").encode("ascii")
     try:
         directory.mkdir(parents=True, exist_ok=True)
-        with (directory / EVENTS).open("ab") as handle:
-            handle.write(line)
-            handle.flush()
-            os.fsync(handle.fileno())
+        with (directory / EVENTS).open("ab", buffering=0) as handle:
+            before = handle.tell()  # append mode opens at the end
+            try:
+                if handle.write(line) != len(line):  # unbuffered: a short write is a torn line
+                    raise OSError("short write")
+                os.fsync(handle.fileno())
+            except OSError:
+                handle.truncate(before)
+                raise
     except OSError as error:
         warnings.warn(f"run event not recorded: {event}: {error}", RuntimeWarning, stacklevel=2)
 

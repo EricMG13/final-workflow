@@ -61,7 +61,7 @@ from deploy_workflow.owner_workflow import (
     verify_owner_run_receipt,
 )
 from deploy_workflow.run_events import append_event, stop_reason
-from deploy_workflow.run_pathway import _single_writer
+from deploy_workflow.run_pathway import RunDirBusy, _single_writer
 from deploy_workflow.run_scopes import PUBLIC_S1A_MODULES
 from deploy_workflow.workflow import _put
 
@@ -586,7 +586,8 @@ def run_live_handoffs(  # noqa: PLR0913 -- the explicit paid entry point takes e
     except BaseException as stop:
         # Documented fail-open: a release failure must not mask the stop it follows; it is
         # recorded as a note on the propagating exception.
-        if isinstance(stop, Exception):
+        if isinstance(stop, Exception) and not isinstance(stop, RunDirBusy):
+            # A refused second invocation never held the folder; the running run owns its log.
             append_event(directory, "stopped", reason=stop_reason(stop))
         try:
             _release(adapter)

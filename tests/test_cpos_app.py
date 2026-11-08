@@ -727,6 +727,25 @@ def test_a_corrupt_verdict_is_not_offered_and_says_so(tmp_path, provider, verdic
     )
 
 
+@pytest.mark.skipif(
+    os.name == "nt" or os.geteuid() == 0, reason="needs a mode-000 file to be unreadable"
+)
+def test_an_unreadable_verdict_is_not_offered_and_says_so(tmp_path, provider):
+    folder, run_dir, request, _ = stopped_after_the_first_module(tmp_path, provider)
+    (fp,) = (run_dir / "requests" / "CP-0").iterdir()
+    verdict = fp / "1.review.json"
+    verdict.chmod(0)
+    try:
+        result = bridge.review(resumed(folder, request))
+    finally:
+        verdict.chmod(0o644)
+    assert result["retained_modules"] == []
+    assert result["retained_note"] == (
+        "Retained work stops before Source readiness: its record in the stopped run could not "
+        "be read."
+    )
+
+
 def test_a_module_the_stopped_run_never_reached_says_so(tmp_path, provider):
     folder, _, request, _ = stopped_after_the_first_module(tmp_path, provider)
     result = bridge.review(resumed(folder, request))

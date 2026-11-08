@@ -1243,6 +1243,27 @@ def test_a_live_run_that_fails_logs_its_stop_reason(tmp_path, monkeypatch):
     assert (event["event"], event["reason"]) == ("stopped", "checker")
 
 
+def test_a_second_invocation_refused_as_busy_logs_no_stop(tmp_path, monkeypatch):
+    from deploy_workflow.model.adapter import LiveAdapter
+    from deploy_workflow.owners import cpos
+    from deploy_workflow.run_events import EVENTS, append_event, read_events
+
+    monkeypatch.setattr(LiveAdapter, "complete", lambda *a, **k: pytest.fail("called"))
+    state = tmp_path / "state"
+    state.mkdir()
+    with _single_writer(state):  # run A holds the folder and has logged its first module
+        append_event(state, "module_started", module="CP-0")
+        with pytest.raises(RunDirBusy):
+            cpos.run_live_handoffs(
+                live_job(tmp_path),
+                state,
+                ruling=ROOT / "docs/rulings/2026-11-05-live-loop-tests.md",
+                check=checked,
+                environ={},
+            )
+    assert [e["event"] for e in read_events(state / EVENTS)] == ["module_started"]
+
+
 def test_a_run_without_an_events_folder_writes_no_events(tmp_path):
     path = job(tmp_path)
     state = tmp_path / "state"

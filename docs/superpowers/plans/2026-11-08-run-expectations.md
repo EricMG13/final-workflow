@@ -23,9 +23,10 @@ step. Start requires a separate acceptance of the counted items, which is record
 before any provider call. No new orchestration layer and no model call before Start. Primary method
 changes are launcher instructions plus fixed handoff tables, checked in each module's own repair
 loop. The selected method files are not edited, and each correction is recorded in
-`METHODOLOGY-REVIEW.md`. The workspace reader (`engine/store.py`) gathers per-run credit and market
-facts from the run's own context snapshot, the modules' fixed tables and the run folder. The library
-filters on those values, links each module figure to its evidence, and never calculates a figure.
+`METHODOLOGY-REVIEW.md`. Each finished run writes a `library.json` manifest pinning its credit and
+market facts to exact lines of its handoffs and context snapshot. The app's existing discovery admits
+it under the approved example's rules, and the Library ports that example's screening design. The
+library filters on admitted values, links each to its pinned line, and never calculates a figure.
 
 **Tech Stack:** Python 3.13 (stdlib, pydantic), Go, plain browser JavaScript; jsdom test-only.
 
@@ -57,7 +58,8 @@ filters on those values, links each module figure to its evidence, and never cal
 | No general per-module instruction mechanism exists beyond `OPENING`, `READER_STANDARD_MODULES` and route selectors. Chart routes accept only S.1–S.4 and RV.1 in x, US$m or % (`handoff_delivery.py:108-142`) | Add a per-module instruction mapping in the same style. New fixed tables get their own route and checker, copying the `chart_issues` pattern (plain numbers or `Not supplied:`) |
 | `review_id` already covers the context bytes, the job and every engine source file | Expectations are not added to `review_id` |
 | 78 files in `cases/` carry `schema: context/1`, 35 of them named `context*.json`; `Contract` forbids unknown keys and requires declared ones; `_omit_absent_cutoff` (`context.py:82-89`) shows how an optional field keeps older files byte-identical | New fields are optional in the reader and omitted from the dump when empty, so fixtures, pins and goldens stay byte-identical. A file that uses a new field needs this version or later; the README says so |
-| `store.py` recognises the shape of any `Chart data:` table (title, first row's unit, line, column indexes) but parses no values; chart tables hold one row per period; units are fixed at x, US$m or % | Value reading is new code in Task 13. "Latest" means the last annual or LTM row. A non-USD issuer's monetary chart rows are `Not supplied`, and a rule says so |
+| The app already admits per-run manifests `runs/<id>/library.json` under the approved example's rules and serves them at `/api/catalogue` (`discovery.go:45-130, 261-296`; `model.go`). The Library screen ignores them (`boot.js:11-15`), and app runs write none. `store.py` only recognises the shape of `Chart data:` tables | The bridge writes the manifest for each finished app run (Task 12), and the Library ports the example's screening onto those records (Task 13). `store.py` is unchanged for the library |
+| CP-1's chart tables hold one row per period, with units fixed at x, US$m or % | Manifest metrics come from the last annual or LTM row. A non-USD issuer's monetary rows are `Not supplied` and write no metric; a rule says so |
 | `tests/test_run_expectations.py` and `tests/product/test_context.py` are not in `validate.py`'s `PYTHON_TESTS` | Each task adds its tests there |
 | A launcher run's delivery bundle must hold `report.html`, `view.json`, `report-view.json` and `delivery.json`, plus byte-identical copies of each handoff. When the HTML Model is published it adds `model.html`, `model-view.json`, `model-report-view.json` and `calculation.json` (`owners/cpos.py:648-691`). App runs drop CP-MODEL, and the retained web run records `cp_model_published: false` | Live checks require the report bundle. On app runs the HTML Model and `calculation.json` are recorded as **not published**, which is a known beta limitation; it is not a failure. Publishing them from app runs is an owner decision outside these UX changes |
 | `designs/browser_check.py` already walks the library, reports, every section, deliveries and settings, fitted screens, chart style, the data-flow check and New run, and records every console, page, HTTP and exception fault in `faults.json`. `designs/flow_check.py` traces hashes and numbers from sources to handoffs, deliveries and the report | Every live run is followed by the browser walk over a workspace holding it, plus `flow_check`. Each phase extends the walk for its own screens; no new test tool |
@@ -73,6 +75,8 @@ filters on those values, links each module figure to its evidence, and never cal
 5. Live testing at each checkpoint of the applied changes: **yes**; each paid run still needs the
    owner's go-ahead at that checkpoint (Global Constraints).
 6. User-entered values are used as entered; user-derived issues are the user's to resolve.
+7. Library: **reuse the approved `examples/issuer-library` screening design and logic** in the app
+   (Phase 4), not new filter code.
 
 ### Outcome semantics
 
@@ -198,7 +202,7 @@ cover, saved named filter views.
 | **Checkpoint A** (after Task 5) | Offline: back-test report. **Live: A-live** (and A-ab if the owner wants it) | Every disagreement explained or its rule fixed; the meaning of `Will refuse` set from A-live; required outputs present |
 | **Checkpoint B** (after Task 8) | Offline: `validate.py full`, `validate.py browser`. **Live: B-live** | Live pass criteria and required outputs below; owner accepts the Context and Review screens |
 | **Checkpoint C** (Tasks 9-11, one module at a time) | **Live: C1** and control C1n after Task 10; **C2** after Task 11; then the pathway runs **C1r** and **C3** | Live pass criteria and required outputs below. Without them, Phase 3 is reported as "instructions only, unproven" and does not merge |
-| **Checkpoint D** (after Task 15) | Offline: `validate.py full`, `validate.py browser`. **D-live** (no provider cost) | Exit 0; library values equal the hand key; required frontend outputs present; owner accepts the Library screen |
+| **Checkpoint D** (after Task 14) | Offline: `validate.py full`, `validate.py browser`. **D-live** (no provider cost) | Exit 0; library values equal the hand key; required frontend outputs present; owner accepts the Library screen |
 | **Release gate** (after Checkpoint D) | See "Release gate (beta V1)" | All items pass |
 
 Before each checkpoint: confidence-review (doubts, causes, adversarial cases, fixes) and
@@ -247,7 +251,7 @@ go to the owner with both outcomes. Never loosen a test to pass.
 | **C2** pro forma gate (C) | Mattress Firm pre-closing; CP-0, CP-1, CP-1A, CP-1D, CP-2 | 15 | Sources and uses and pro forma debt equal the key; cash row, one balance-sheet date and one LTM period; base EBITDA equals the key with no double count; As marketed equals management's quoted figure, any difference explained, never plugged; CP-2's pro forma debt cites CP-1A's total |
 | **C1r** after-closing control (C) | **Covenant & Refinancing** on Mattress Firm after closing: the executed Term Loan and ABL Credit Agreements, Secondary, "older source". Fallback: retained TDG executed notes (`runs/tdg-004`, read-only) | 30 | CP-4 Completed with no draft limitation; each C1 term marked TBD or indicative is compared with the executed term (e.g. margin "TBD" against LIBOR + 4.00-4.25%) |
 | **C3** Primary through the app (C) | **Credit Snapshot plus CP-1D** on Mattress Firm pre-closing, Primary, through the app UI | 30 | The report shows both pro forma tables or an explicit gap; every report section drawing on CP-4 says Provisional; CP-6 never treats a draft term as executed; CP-5 flags claims that depend on drafts |
-| **D-live** library (D) | No new run: the workspace holding the A, B and C runs and the retained runs with fixed chart tables | 0 | Each library value equals a hand key from the actual handoff lines, including pro forma rows and facilities and quotes as entered; filters and evidence links behave as specified; Not recorded counts are right. Labelled "actual retained model output, downstream consumption" |
+| **D-live** library (D) | No new run: the workspace holding the A, B and C runs and the retained runs with fixed chart tables, opened in the ported screening Library | 0 | Every live run's `library.json` is admitted with no rejection; each screened value equals a hand key from the actual handoff and context lines, including pro forma metrics and facilities and quotes as entered; the example's filters, sorting and run detail behave as specified, and their evidence links open the pinned line; coverage and hidden counts are right. Labelled "actual retained model output, downstream consumption" |
 
 Caps total USD 150, or USD 200 with A-ab; expected spend is far lower.
 
@@ -307,21 +311,24 @@ Run once after Checkpoint D, on the `main` commit to be released:
 16. **Bases never blend:** a ladder row missing its source or definition, or a pro forma debt not citing
     CP-1A, is sent back for repair (Task 11).
 17. **Missing is not a pass:** "Net leverage below 4x" excludes runs with no figure, `Not supplied` or
-    a negative value, and says how many it hid (Task 14).
-18. **Leverage basis:** the default basis reads only CP-1's chart rows and shows their basis text; the
-    pro forma basis reads only CP-2's table (Task 14).
+    a negative value, and says how many it hid (Task 13).
+18. **Leverage basis:** the Leverage column and filter read only CP-1's chart metric and show its basis
+    text. The pro forma keys never fill it. With "All bases" chosen, the panel says definitions
+    differ, as in the example (Task 13).
 19. **Latest run:** the latest as-of date among runs with a written report; a newer stopped run is
-    shown but used only under "Any run" (Task 14).
+    shown but used only under "Any run" (Task 13).
 20. **Ratings:** "(P)B2" and "B+(EXP)" place as B2 and B+ and keep their text; SD, RD and "/LD" place as
     D; NR, WD and WR are not on the scale; issuer scope by default; BBB- and Ba1 match "BB+/Ba1 or
-    below" (Task 14).
+    below" (Task 13).
 21. **Facilities:** two facilities never combine to match one filter; talk 325-375 matches "350-400";
     a Secondary bond with bid 98.50 / ask 99.00 and no price matches "price 98.75-100" and not
-    "above 99.50"; margin 375 matches a margin filter but not a margin-talk filter (Task 14).
+    "above 99.50"; margin 375 matches a margin filter but not a margin-talk filter (Task 13).
 22. **Context snapshot:** editing the intake context after a run does not change what the library
-    shows for that run (Tasks 6, 13).
+    shows for that run, because the manifest pins the run's own snapshot (Tasks 6, 12).
 23. **Private-side material:** a run whose context `case_kind` is private carries a "Private-side"
-    label in the library (Task 14).
+    label in the library (Task 13).
+24. **Manifest admission:** every live run's manifest is admitted with no "Run metadata rejected" gap;
+    a manifest value absent from its pinned line is rejected by the existing rule (Task 12).
 
 ---
 
@@ -607,99 +614,143 @@ entry to `VERIFICATION.md`.
       (Covenant & Refinancing, after closing) and **C3** (Credit Snapshot plus CP-1D, Primary, through
       the app). Phase 3 merges only after both pass.
 
-## Phase 4 (PR 4): credit and market filters in the Issuer Library
+## Phase 4 (PR 4): the approved screening library, ported into the app
 
-**Library layout:**
-- One row per issuer, showing its latest run (Review Focus 19), expandable to all runs.
-- Columns: Issuer · Classification · Lowest rating · Net leverage · Interest cover · Currency · As
-  of · Completeness · Facilities · Report.
-- Module figures show their period and basis text, and open the evidence inspector on their line.
-- Not recorded sorts last. "Open report" is the main action.
-- Runs whose context is private-side are labelled.
+**Source design (owner decision 7):** `examples/issuer-library`, the user-approved screening
+directory: "one local directory of issuer runs, searchable by identity, sector and credit metrics,
+with completeness and links to the existing reports". It is ported, not rewritten:
+- **Logic:** `logic.js` (`LibraryLogic`: `numberOf`, `hasReport`, `filterRuns`, `sortRuns`).
+  - A blank never satisfies a bound.
+  - Leverage filters by exact basis ("All bases · definitions differ").
+  - Missing values sort last.
+  - Nothing is calculated.
+- **Screens:** `template.html`, `app.js` and `style.css`.
+  - The screening panel: search; sector, workflow, completeness and deliverables; "Credit metrics &
+    period" (leverage basis, financial period, leverage and coverage minimum and maximum).
+  - The sortable results table: Issuer / run, Sector, Evidence date, Leverage, Coverage,
+    Completeness, Deliverable.
+  - The selected-run detail: each metric's value, unit, period, basis and pinned source; gaps;
+    report history.
+- **Tests:** `test_logic.cjs` and `test_dom.cjs` move with the code and keep passing.
+- **Style:** the example used the deliverables' Direction C shell. In the app the composition is kept
+  and restyled with the app's own tokens (`screen.css`); there is no second palette.
 
-**Facilities sub-table** (values labelled "entered by user"):
-- Facility ID · Instrument · Currency · Size (m) · Coupon · Margin · Floor · Maturity · Latest quote.
-- The latest quote shows price, or bid/ask, or bid or ask alone, labelled; plus yield, spread,
-  kind, date and provider.
-- On Primary runs it adds Tenor, Margin talk and OID talk.
-- Unattached quotes are listed separately.
+**Data path (already in the backend):**
+- Go discovery admits `runs/<id>/library.json` (`issuer-library-run/1`) under the example's rules
+  (`discovery.go:45-130, 261-296`):
+  - Every metric is an exact value present in its pinned source line (path, sha256, line, quote).
+  - Provenance is cited, calculated or synthetic.
+  - Ratings are pinned the same way.
+  - Completeness comes only from a five-stage checklist (sources, analysis, verification,
+    downstream, delivery) whose done items carry verified evidence.
+- `/api/catalogue` already serves these runs; the Library screen does not use them (`boot.js:11-15`).
+- Retained curated runs are seeded from the example's catalogue (`sync_assets.py:18-20`). App runs
+  write no manifest today, so they show nothing.
 
-**Filters:**
+**What this plan adds to the example:**
 
-| Group | Filter | Control | Source |
-|---|---|---|---|
-| Credit | Classification | Investment grade · High yield · Not stated | Context snapshot |
-| Credit | Lowest rating | At or above / at or below a notch; issuer scope by default, facility scope optional | Context ratings |
-| Credit | Leverage basis | CP-1 chart basis (default; basis text shown) · Pro forma, excluding unrealised add-backs (after C2) · As marketed (after C2) | CP-1 `Chart data: leverage`; CP-2 `Pro forma leverage` |
-| Credit | Net leverage, total leverage | Min / max (x), on the chosen basis | As above |
-| Credit | Interest cover | Min / max (x) | CP-1 `Chart data: interest cover` |
-| Credit | Cash; undrawn committed facilities | Min / max each, US$m (chart unit) | CP-1 `Chart data: liquidity` |
-| Market | Instrument; coupon; margin; maturity; floor | Values; min / max; from / to year | Context facility rows |
-| Market | Facility size | Min / max, after choosing a currency | Context facility rows |
-| Market | Margin talk, OID talk, tenor | Min / max; talk by overlap with the entered range | Context facility rows (Primary) |
-| Market | Quoted price, yield, spread; quote kind | Min / max on the latest-dated quote per facility; bid-ask by overlap when no price | Context quotes |
-| Coverage | Currency; completeness; as of; runs | Recorded values · Report written / with accepted limitations / stopped / partial · year · Latest run (default) / Any run | Context snapshot, run folder, `workflow.json` |
-| More filters | Sector, workflow, content, module | Existing | Existing |
+| Addition | How |
+|---|---|
+| Classification, currency, private-side label | Run fields from the context snapshot |
+| Lowest rating | Ratings pinned to context snapshot lines; the scale orders them |
+| Net and total leverage, interest cover, cash, undrawn facilities | Metrics from the latest annual or LTM row of CP-1's chart tables |
+| Pro forma leverage (excluding unrealised add-backs; as marketed) | Separate metric keys from CP-2's table, each with its own basis; never in the default Leverage column |
+| Facilities and quotes as entered | A new `facilities` field, provenance `user`, matched within one facility |
+| Accepted limitations | Gaps, from `expectations.json` |
+| Issuer grouping, latest run by default, Overview and Reports routes, URL hash state | Existing app behaviour, kept |
 
-Each numeric filter shows coverage per issuer and how many it hid, with a "Show them" link. Facility
-filters apply within one facility. The filter state lives in the URL hash, and only known controls
-and values are accepted from it.
+### Task 12: Run manifest for every finished app run
 
-### Task 12: Rating scale and keys
+**Files:** modify `apps/issuer-library/engine/bridge.py`, `apps/issuer-library/model.go`,
+`apps/issuer-library/discovery.go`, `apps/issuer-library/discovery_test.go`, `tests/test_cpos_app.py`;
+create `tests/fixtures/library-manifest/` (hand-written expected manifests).
 
-**Files:** create `tests/fixtures/library-credit/rating-scale.json` and
-`tests/fixtures/library-credit/expected.json`.
+- [ ] Hand-write the expected manifests first: one synthetic run and one from the retained CP-1 chart
+      handoff (`7f0578…`).
+- [ ] After delivery, `bridge.start` writes `runs/<id>/library.json`:
+  - **Identity:** identity and sector pinned to context-snapshot lines; date = as-of; currency;
+    classification; the private-side flag from `case_kind`.
+  - **Chart metrics:** `leverage`, `net_leverage`, `coverage`, `cash` and `undrawn`, from the latest
+    annual or LTM row of CP-1's chart tables.
+    - Each is pinned to its row's line, with provenance `calculated`.
+    - Its basis is the row's "Basis and limitation", its unit the Reporting unit, its period the Period.
+  - **Pro forma metrics:** on Primary runs, `leverage_pro_forma` and `leverage_as_marketed`, from
+    CP-2's Pro forma leverage rows.
+  - **No metric written:** for a `Not supplied` cell, a negative value or a missing table. The run then
+    shows Not recorded.
+  - **Ratings and facilities:** pinned to context-snapshot lines, with provenance `user`.
+  - **Gaps:** the accepted limitations' reasons, plus "HTML Model not published by app runs".
+  - **Checklist:**
+    - sources: the pinned sources in `workflow.json`;
+    - analysis: one item per requested module, done when accepted;
+    - verification: the launcher's completion receipt;
+    - downstream: delivered copies byte-identical per `delivery.json`;
+    - delivery: the verified `report.html`.
 
-- [ ] **Rating scale, hand-written:**
+    Each done item cites its evidence.
+- [ ] **Admission:** `model.go` and `discovery.go` gain `classification`, `private_side`, `facilities`
+      and provenance `user`, under the same rule (exact value in the pinned quote). Nothing else in
+      admission changes.
+- [ ] **Failure isolation:** a manifest failure never changes the run's outcome. It becomes a
+      Settings issue, and the run shows Not recorded.
+- [ ] **Tests:**
+  - Hand-written manifests are admitted unchanged.
+  - A changed value or line is rejected (existing rule).
+  - A Primary run.
+  - A run with no chart table.
+  - Review Focus 22 and 24.
+
+### Task 13: Port the screening frontend into the app's Library
+
+**Files:**
+- Create `apps/issuer-library/web/screening.js`, from `examples/issuer-library/logic.js`.
+- Move and adapt `test_logic.cjs` and `test_dom.cjs` into `apps/issuer-library/web/`.
+- Modify `web/boot.js` (expose the catalogue's runs), `web/views.js`, `web/screen.js`,
+  `web/screen.css`, `web/library-workspace.test.cjs`, `web/screens.test.cjs`,
+  `designs/browser_check.py`, `validate.py` (register the node tests).
+- Create `tests/fixtures/library-credit/rating-scale.json`.
+
+- [ ] **Port first:** `LibraryLogic` unchanged, with its existing tests passing in the app, before any
+      extension.
+- [ ] **Rating scale (hand-written fixture):**
   - S&P/Fitch `AAA`…`D` and Moody's `Aaa`…`C`, notch-aligned.
-  - Bottom-of-scale equivalences (Ca/C versus CC/C/D) marked approximate.
-  - `(P)` and `(EXP)` are read through, and their text kept.
+  - Bottom-of-scale equivalences marked approximate.
+  - `(P)` and `(EXP)` read through, with their text kept.
   - SD, RD and `/LD` map to D. NR, WD and WR are off the scale.
-- [ ] **Expected library values,** hand-written from named handoff lines (the one retained CP-1
-      chart handoff, `7f0578…`) and from synthetic runs labelled synthetic.
+- [ ] **Extend `filterRuns`** only for this plan's additions:
+  - classification, currency and lowest rating (issuer scope by default);
+  - the pro forma metric keys;
+  - facility and quote filters matched within one facility: single values inside the filter, talk
+    and bid-ask by overlap;
+  - accepted limitations;
+  - latest run per issuer (default) or any run.
+- [ ] **Library screen:**
+  - The example's screening panel, results table and selected-run detail, inside the app's rail and
+    workspace.
+  - Rows join the store's runs by folder id, so each keeps its Overview and Reports routes.
+  - Each figure shows value, unit, period and basis; its pinned line opens in the evidence inspector.
+- [ ] **Coverage and hidden counts** per filter ("Coverage recorded for 3 of 44 runs · 12 hidden · Show
+      them"). The filter state lives in the URL hash, which accepts only known controls and values.
+- [ ] **Tests:** all text through `textContent`. The example's tests, plus Review Focus 17-21 and 23,
+      keyboard and screen-reader labels, and narrow screens.
+- [ ] **Browser walk:** extend `browser_check`'s real-workspace walk to the screening panel, each filter
+      group, sorting, the run detail and hash restore.
 
-### Task 13: Credit and market facts in the workspace reader
-
-**Files:** modify `apps/issuer-library/engine/store.py`, `apps/issuer-library/designs/fake_engine/store.py`;
-add focused tests, registered in `PYTHON_TESTS`.
-
-- [ ] **Context:** read the run's context snapshot. A run without one falls back to `workflow.json`'s
-      context path, checked against its sha256; a mismatch shows "changed since run".
-- [ ] **Per run, a `credit` record:**
-  - classification and currency;
-  - ratings with notch and provisional flag;
-  - metrics by basis, from the last annual or LTM row, each with exact text, number, period, unit,
-    basis text, output id and line, or a reason state;
-  - completeness;
-  - the private-side flag.
-- [ ] **`facilities`:** read as entered, with quotes attached by Facility ID.
-- [ ] **Value reading:** chart cells are plain numbers or `Not supplied:`. A negative leverage value is
-      shown as written and marked not meaningful.
-- [ ] **Tests:** hand-written values; two-facility run; unattached quote; older run; Primary run with
-      three bases; Review Focus 22.
-
-### Task 14: Library columns, facilities and filters
-
-**Files:** modify `apps/issuer-library/web/views.js`, `apps/issuer-library/web/screen.js`,
-`apps/issuer-library/web/screen.css`, `apps/issuer-library/web/library-workspace.test.cjs`,
-`apps/issuer-library/web/screens.test.cjs`.
-
-- [ ] Columns, sorting, the facility sub-table and evidence links. Not recorded is grey, never 0.
-- [ ] `filterLibrary` gains the Credit, Market and Coverage filters as specified. The pro forma basis is
-      enabled only once C2 has passed.
-- [ ] All text goes through `textContent`, and the hash is validated. Tests: Review Focus 17-21 and 23,
-      keyboard and screen-reader labels, narrow screens.
-- [ ] Extend `browser_check`'s real-workspace walk: Library columns, the facility sub-table, each filter
-      group, coverage and hidden counts, and hash restore.
-
-### Task 15: Help, README and Checkpoint D
+### Task 14: Help, README, the example's status and Checkpoint D
 
 **Files:** modify Help in `apps/issuer-library/web/views.js`, `apps/issuer-library/README.md`,
-`VERIFICATION.md`.
+`examples/issuer-library/README.md`, `VERIFICATION.md`.
 
-- [ ] Explain each figure's source, the leverage bases, why unrealised add-backs stay out of the base,
-      that missing never matches, the latest-run rule, and that user-entered values show as entered.
-- [ ] Checkpoint D: offline gates and **D-live**.
+- [ ] **Help and README** explain:
+  - each figure's pinned line;
+  - the leverage bases, and why unrealised add-backs stay out of the base;
+  - that missing values never match;
+  - the latest-run rule;
+  - that user values show as entered;
+  - that completeness comes from the verified checklist.
+- [ ] **The example's README** says its screening now lives in the app's Library. The example stays as
+      the approved reference, and its tests keep running.
+- [ ] **Checkpoint D:** offline gates and **D-live**.
 
 ## Done when
 
@@ -717,9 +768,12 @@ add focused tests, registered in `PYTHON_TESTS`.
     unrealised and unresolved add-backs shown and never counted.
   - C1, C1n, C1r, C2 and C3 have passed, with every required output, recorded with their actual
     scope.
-- **Library:** filters by classification, rating, leverage on a chosen basis, interest cover, cash,
-  undrawn facilities, currency, completeness and the facility and quote terms. Module figures link to
-  their handoff line, user values show as entered, and missing values never match. D-live has passed.
+- **Library:** the approved example's screening design, ported into the app.
+  - Every finished app run writes a manifest that discovery admits.
+  - It filters by classification, rating, leverage on a chosen basis, interest cover, cash, undrawn
+    facilities, currency, completeness and the facility and quote terms.
+  - Each figure links to its pinned line, user values show as entered, and missing values never match.
+  - D-live has passed.
 - **Beta V1:** the release gate has passed on the released `main` commit, including the Windows
   smoke test and the owner's sign-off.
 
@@ -736,4 +790,5 @@ with reasons, under **Rejected** above.
 | Primary | Provisional scope and propagation to report and downstream modules; final offering memorandum reason; ranks 2-5 as kinds; EBITDA ladder without double counting; structural checks instead of an equality; cash row, dates and FX rule; report table routes |
 | Compatibility | Empty new fields omitted on dump; form blanks hidden talk; resume keeps context bytes; a context snapshot at Start |
 | Library | Last annual or LTM row; negative leverage not meaningful; cash and undrawn filtered separately; latest run defined; rating-scale edge cases; private-side label; hash validation |
+| Library | Owner chose the approved `examples/issuer-library` screening design and logic, fed by the existing manifest admission |
 | Process | Live checkpoints A-live, A-ab, B-live, C1, C1n, C2, C1r, C3, D-live, each a related whole pathway except the single-module gates, with frontend and backend required outputs; beta V1 release gate; Phase 3 one module at a time; four PRs; tests registered in `PYTHON_TESTS` |

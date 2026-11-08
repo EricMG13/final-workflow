@@ -18,7 +18,9 @@ import re
 import sys
 import tempfile
 import textwrap
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from types import MappingProxyType
+from typing import Any
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -53,7 +55,14 @@ from deploy_workflow.model.budget import Budget
 from deploy_workflow.model.handoff import Check, _pages
 from deploy_workflow.model.pricing import price_of, request_reservation_usd
 from deploy_workflow.model_testing.configs import CONFIGS
-from deploy_workflow.owners.cpos import HandoffPlan, HandoffTask, run_live_handoffs, with_notes
+from deploy_workflow.owners.cpos import (
+    HandoffPlan,
+    HandoffTask,
+    RetainedHandoff,
+    _checked_handoff,
+    run_live_handoffs,
+    with_notes,
+)
 from deploy_workflow.reader_summary import (
     BOTTOM_LINE_WORDS,
     CONFIDENCE,
@@ -237,6 +246,17 @@ class LaunchRefused(ValueError):
 
 
 @dataclass(frozen=True)
+class Accepted:
+    """A stopped run's accepted answer as CP-OS recorded it: the response bytes, the recorded
+    request it answered (run, instructions, source and upstream hashes) and the model selection
+    (provider, model, effort) the stopped run was reviewed with; None when unknown."""
+
+    response: bytes
+    request: Mapping[str, Any]
+    model: tuple[str, str, str] | None
+
+
+@dataclass(frozen=True)
 class Prepared:
     directory: Path
     manifest: Path
@@ -246,6 +266,8 @@ class Prepared:
     ignored: tuple[str, ...]  # Files in the folder that no module can read.
     omitted: tuple[str, ...]  # Pathway report sections this run does not produce.
     hold: Decimal  # What one call of the largest module counts against the cap while in flight.
+    retained_modules: tuple[str, ...] = ()  # Replayed from a stopped run; no model call.
+    retained_stop: tuple[str, str] = ("", "")  # The module the replay stopped before, and why.
 
 
 def _sha(raw: bytes) -> str:
@@ -550,7 +572,78 @@ def _instructions(run: Run, module: str, routes: Sequence[MarkdownRoute]) -> byt
     ).encode()
 
 
-def prepare(
+@dataclass(frozen=True)
+class _Now:
+    """What this run will ask: the facts a stopped run's answer is compared with."""
+
+    config: str
+    run: Run
+    ordered: tuple[str, ...]
+    texts: Mapping[str, bytes]
+    sources: Mapping[str, bytes]
+    layout: MarkdownLayout
+
+
+def _mismatch(
+    record: Accepted | None, module: str, now: _Now, kept: Mapping[str, bytes], position: int
+) -> str:
+    """Why a stopped run's answer cannot stand for this run's module, or "" when it can."""
+    if record is None:
+        return "the stopped run has no single, unchanged accepted answer for it"
+    chosen = CONFIGS[now.config]
+    asked = record.request
+    upstream = {prior: _sha(kept[prior]) for prior in now.ordered[:position]}
+    differences = (
+        (
+            record.model != (chosen.provider, chosen.model, chosen.effort),
+            "the stopped run used a different model setting",
+        ),
+        (
+            asked.get("run") != now.run.model_dump(mode="json"),
+            "the run's identity or scope changed",
+        ),
+        (
+            asked.get("sources") != {k: _sha(v) for k, v in now.sources.items()},
+            "its sources or context changed since the stopped run",
+        ),
+        (asked.get("handoffs") != upstream, "the modules before it differ from the stopped run's"),
+        (
+            asked.get("instructions") != now.texts[module].decode(),
+            "its instructions changed since the stopped run",
+        ),
+    )
+    if why := next((reason for differs, reason in differences if differs), ""):
+        return why
+    task = HandoffTask(
+        now.run,
+        module,
+        now.texts[module],
+        MappingProxyType(dict(now.sources)),
+        MappingProxyType({prior: kept[prior] for prior in upstream}),
+        1,
+        (),
+    )
+    refused = _checked_handoff(task, record.response, checker(now.layout))
+    return "the current checks no longer accept it" if refused else ""
+
+
+def _retained_prefix(
+    now: _Now, retained: Mapping[str, Accepted]
+) -> tuple[dict[str, Accepted], tuple[str, str]]:
+    """The longest prefix of the plan whose answers still stand, and where and why it ended.
+    CP-OS needs the whole upstream chain, so the first module that fails ends it."""
+    kept: dict[str, Accepted] = {}
+    for position, module in enumerate(now.ordered):
+        why = _mismatch(
+            retained.get(module), module, now, {m: r.response for m, r in kept.items()}, position
+        )
+        if why:
+            return kept, (module, why)
+        kept[module] = retained[module]
+    return kept, ("", "")
+
+
+def prepare(  # noqa: PLR0913 - one keyword per run setting; retained is the resume input
     context: Path,
     sources: Path,
     out: Path | None,
@@ -558,8 +651,13 @@ def prepare(
     config: str,
     cap: Decimal | str,
     modules: Sequence[str] | None = None,
+    retained: Mapping[str, Accepted] | None = None,
 ) -> Prepared:
-    """Check everything and write the manifest and instructions; a refusal writes nothing."""
+    """Check everything and write the manifest and instructions; a refusal writes nothing.
+
+    `retained` holds a stopped run's accepted answers. The longest prefix of the plan whose
+    answers still match this run's sources, instructions and model, and pass the current
+    checker, is pinned for replay; the first module that fails ends it and is named."""
     context_path = Path(context).expanduser().resolve()
     folder = Path(sources).expanduser().resolve()
     raw_context = context_path.read_bytes()
@@ -605,6 +703,27 @@ def prepare(
         max_attempts=1,
         provider_cap_usd=Decimal(cap),
     )
+    source_bytes = {
+        name: converted[spec.path]
+        if spec.path in converted
+        else Path(os.path.normpath(directory / spec.path)).read_bytes()
+        for name, spec in request.sources.items()
+    }
+    now = _Now(config, run, ordered, texts, source_bytes, layout)
+    kept, stop = _retained_prefix(now, retained or {})
+    request = request.model_copy(
+        update={
+            "retained_handoffs": {
+                m: RetainedHandoff(
+                    path=f"retained/{m}.md",
+                    sha256=_sha(kept[m].response),
+                    source_hashes=dict(kept[m].request["sources"]),
+                    upstream=dict(kept[m].request["handoffs"]),
+                )
+                for m in kept
+            }
+        }
+    )
     # The loop's own bound for the first call of the largest module; later calls hold more.
     hold = request_reservation_usd(
         price_of(config), max(map(len, texts.values())) + 4096, MAX_OUTPUT_TOKENS
@@ -619,8 +738,12 @@ def prepare(
         _put(directory / relative, content)
     for module, text in texts.items():
         _put(directory / "instructions" / f"{module}.md", text)
+    for module, record in kept.items():
+        _put(directory / "retained" / f"{module}.md", record.response)
     _put(manifest, raw)
-    return Prepared(directory, manifest, request, layout, ordered, ignored, omitted, hold)
+    return Prepared(
+        directory, manifest, request, layout, ordered, ignored, omitted, hold, tuple(kept), stop
+    )
 
 
 def checker(layout: MarkdownLayout) -> Check:

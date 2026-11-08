@@ -23,7 +23,14 @@ from deploy_workflow.model.providers import build
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
 from deploy_workflow.owners import cpos_launch
 from deploy_workflow.owners.cpos import HandoffTask, _checked_handoff
-from deploy_workflow.owners.cpos_launch import METHODS, LaunchRefused, checker, main, prepare
+from deploy_workflow.owners.cpos_launch import (
+    METHODS,
+    Accepted,
+    LaunchRefused,
+    checker,
+    main,
+    prepare,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 RULING = ROOT / "docs/rulings/2026-11-05-live-loop-tests.md"  # configs: sol-medium
@@ -1221,3 +1228,33 @@ def test_cp6_front_routes_lead_with_its_summary_then_its_action_bias():
         "Action Bias Determination",
         "Final Action Bias:",
     )
+
+
+def test_prepare_ends_the_retained_prefix_at_the_first_answer_that_does_not_match(tmp_path):
+    asked = {"run": {}, "sources": {}, "handoffs": {}, "instructions": "other method"}
+    prepared = prepare(
+        context_file(tmp_path),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+        retained={
+            "CP-0": Accepted(b"# first answer\n", asked, ("openai", "gpt-6.1-sol", "medium"))
+        },
+    )
+    assert prepared.ordered == COVENANT_MODULES
+    assert prepared.plan.retained_handoffs == {}
+    assert prepared.retained_modules == ()
+    assert prepared.retained_stop == ("CP-0", "the run's identity or scope changed")
+    assert not (tmp_path / "out" / "retained").exists()
+
+
+def test_prepare_with_nothing_retained_pins_nothing(tmp_path):
+    prepared = prepare(
+        context_file(tmp_path),
+        issuer_folder(tmp_path),
+        tmp_path / "out",
+        config="sol-medium",
+        cap="50",
+    )
+    assert prepared.retained_modules == () and prepared.plan.retained_handoffs == {}

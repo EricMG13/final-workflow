@@ -6,6 +6,7 @@ const app=path.resolve(__dirname,'..'),repo=path.resolve(app,'../..');
 const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const key=JSON.parse(fs.readFileSync(path.join(app,'designs/library-answer-key.json'),'utf8'));
 const forecast=JSON.parse(fs.readFileSync(path.join(app,'designs/forecast-answer-key.json'),'utf8'));
+const pinned=JSON.parse(fs.readFileSync(path.join(__dirname,'testdata/catalogue-2026-11-08.json'),'utf8'));
 const settle=(ms=10)=>new Promise(resolve=>setTimeout(resolve,ms));
 const text=el=>el.textContent.replace(/\s+/g,' ').trim();
 const PROVIDER_KEYS=['OPENAI_API_KEY','ANTHROPIC_API_KEY','OPENROUTER_API_KEY'];
@@ -53,8 +54,8 @@ async function readWorkspace(){
     const cookie=(launched.headers.get('set-cookie')||'').split(';')[0];
     assert.equal(launched.status,303,'the launch link was refused');assert.ok(cookie.includes('='),'no session cookie');
     const read=async url=>{const response=await fetch(base+url,{cache:'no-store',headers:{cookie}});if(!response.ok)assert.fail(`${url}: ${response.status} ${await response.text()}`);return response.json();};
-    const catalogue=await read('/api/catalogue'),store=await read('/api/workspace');
-    return {catalogue,store};
+    // The catalogue is the pinned 2026-11-08 response (the key describes it); only the store is read live.
+    return {catalogue:pinned,store:await read('/api/workspace')};
   }finally{
     child.kill();
     await gone;
@@ -90,7 +91,9 @@ test('Library lists every catalogue row; each run folder opens its Overview and 
   const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
   assert.equal(text(d.getElementById('library-count')),`${expected.row_count.value} of ${expected.row_count.value} runs · ${expected.issuer_count.value} issuers`);
   assert.deepEqual(sorted(rowIds(d)),sorted([...expected.run_folder_rows.ids,...expected.delivery_rows.ids]));
-  assert.deepEqual(renderedKeys(d),sorted(Object.keys(workspace.store.runs)),'one Overview link per run folder');
+  // The store is live; the pinned catalogue names the 44 run folders, and each opens the store run of that folder.
+  const folders=renderedKeys(d).map(k=>w.eval(`contexts[${JSON.stringify(k)}].folder`));
+  assert.deepEqual(sorted(folders),sorted(expected.run_folder_rows.ids),'one Overview link per run folder');
   for(const id of expected.delivery_rows.ids) {
     const link=d.querySelector(`#library-results tr:has([data-library-select="${id}"]) a.report-link`);
     assert.match(link?.getAttribute('href')||'',/^#W-(Reports|Forecast)\//,id);
@@ -104,8 +107,12 @@ test('Library search finds every run of the issuer searched',t=>{
     box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
     assert.deepEqual(renderedKeys(d),sorted(want),`search "${query}"`);
   }
-  box.value='TDG tdg-002';box.dispatchEvent(new w.Event('input',{bubbles:true}));
-  assert.ok(rowIds(d).includes('tdg-002'),'a query spanning issuer and id');
+  // Issuer then id, where the store's terms for the run do not end in the issuer: only a search that keeps the
+  // served issuer apart from the recorded terms finds these.
+  for(const [query,id] of [['FROTO ford-otosan-2024-001','ford-otosan-2024-001'],['LMI lmi-2014-001','lmi-2014-001']]) {
+    box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
+    assert.deepEqual(rowIds(d),[id],`a query spanning issuer and id: ${query}`);
+  }
   box.value=expected.filter_cases.c_search_issuer_name.filters.search;box.dispatchEvent(new w.Event('input',{bubbles:true}));
   assert.deepEqual(rowIds(d),expected.filter_cases.c_search_issuer_name.expected_ids);
 });

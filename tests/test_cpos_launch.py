@@ -21,8 +21,10 @@ from deploy_workflow.model.adapter import AdapterReply, LiveAdapter
 from deploy_workflow.model.handoff import _pages
 from deploy_workflow.model.providers import build
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
+from deploy_vii.registry import plan
 from deploy_workflow.owners import cpos_launch
 from deploy_workflow.owners.cpos import HandoffTask, _checked_handoff
+from deploy_workflow.run_expectations import Item
 from deploy_workflow.owners.cpos_launch import (
     METHODS,
     Accepted,
@@ -30,6 +32,7 @@ from deploy_workflow.owners.cpos_launch import (
     checker,
     main,
     prepare,
+    without_for,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -1258,3 +1261,145 @@ def test_prepare_with_nothing_retained_pins_nothing(tmp_path):
         cap="50",
     )
     assert prepared.retained_modules == () and prepared.plan.retained_handoffs == {}
+
+
+# --- Expectations carried by prepare ---------------------------------------------------
+KEY = json.loads((ROOT / "tests/fixtures/run-expectations/outcome-key.json").read_text())
+
+
+def declared_context(tmp_path: Path, pathway: str, **attachments: object) -> Path:
+    path = context_file(tmp_path, pathway)
+    data = json.loads(path.read_text())
+    data["attachments"].update(attachments)
+    data["identity"]["issue_classification"] = "high_yield"
+    path.write_text(json.dumps(data))
+    return path
+
+
+def report_folder(tmp_path: Path) -> Path:
+    folder = tmp_path / "issuer"
+    folder.mkdir()
+    (folder / "annual-report-10-K.txt").write_text("FORM 10-K\nAnnual report for 2024.\n")
+    return folder
+
+
+def prepared_with(tmp_path: Path, context: Path, folder: Path, **extra):
+    return prepare(context, folder, tmp_path / "out", config="sol-medium", cap="50", **extra)
+
+
+def test_prepared_carries_each_pinned_sources_guess_and_the_expectations(tmp_path):
+    folder = tmp_path / "issuer"
+    folder.mkdir()
+    (folder / "agreement.txt").write_text("CREDIT AGREEMENT\nExecution Version\n")
+    (folder / "misc.md").write_text("Net sales were 100.")
+    prepared = prepared_with(tmp_path, declared_context(tmp_path, "covenant_refinancing"), folder)
+    by_source = {d["source"]: d for d in prepared.documents}
+    assert set(by_source) == {"agreement.txt", "misc.md"}
+    assert set(by_source["agreement.txt"]) == {"source", "kind", "signal", "executed", "period_end"}
+    assert by_source["agreement.txt"]["kind"] == "credit_agreement"
+    assert by_source["agreement.txt"]["executed"] is True
+    assert by_source["misc.md"]["kind"] == "unrecognised"
+    assert by_source["misc.md"]["executed"] is None
+    assert all(i["id"] and i["outcome"] for i in prepared.expectations)
+
+
+def test_html_guess_is_keyed_by_the_pinned_text_source_and_skips_the_file_name_header(tmp_path):
+    folder = tmp_path / "issuer"
+    folder.mkdir()
+    (folder / "credit agreement.html").write_text("<html><body><p>Net sales were 100.</p></body>")
+    prepared = prepared_with(tmp_path, declared_context(tmp_path, "covenant_refinancing"), folder)
+    (document,) = prepared.documents
+    assert document["source"] == "credit agreement.html.jsonl"
+    # The name says "credit agreement"; the page header naming the file is not cover text, and the
+    # name is still a (weaker) signal.
+    assert document["signal"].startswith("file name contains")
+
+
+def test_only_the_first_three_pages_of_each_source_reach_the_guess(tmp_path, monkeypatch):
+    seen = {}
+
+    def spy(name, pages):
+        seen[name] = list(pages)
+        return real(name, pages)
+
+    real = cpos_launch.guess_kind
+    monkeypatch.setattr(cpos_launch, "guess_kind", spy)
+    folder = tmp_path / "issuer"
+    folder.mkdir()
+    # Text files are cut into 12,000-character pages: this one has five.
+    long = "".join(f"line {n} " + "x" * 3990 + "\n" for n in range(15))
+    (folder / "long.txt").write_text(long)
+    (folder / "short.md").write_text("Notes mature in 2030.")
+    prepared_with(tmp_path, declared_context(tmp_path, "covenant_refinancing"), folder)
+    assert len(_pages("long.txt", long.encode())) == 5
+    assert seen["long.txt"] == _pages("long.txt", long.encode())[:3]
+    assert seen["short.md"] == ["Notes mature in 2030."]
+
+
+def test_the_declarations_do_not_change_any_instruction_byte(tmp_path):
+    def instructions(legal: str, run_type: str) -> dict[str, bytes]:
+        out = tmp_path / legal / run_type
+        context = declared_context(tmp_path / legal, "covenant_refinancing", legal_documents=legal)
+        data = json.loads(context.read_text())
+        data["run"]["run_type"] = run_type
+        context.write_text(json.dumps(data))
+        prepared = prepare(
+            context, report_folder(tmp_path / legal), out, config="sol-medium", cap="50"
+        )
+        return {m: (out / "instructions" / f"{m}.md").read_bytes() for m in prepared.ordered}
+
+    (tmp_path / "executed").mkdir()
+    (tmp_path / "none").mkdir()
+    assert instructions("executed", "research") == instructions("none", "secondary")
+
+
+def without_of(prepared) -> list[dict]:
+    return [
+        {"module": m, "removes": r}
+        for m, r in without_for(prepared.ordered, prepared.expectations).items()
+    ]
+
+
+def test_legal_none_will_refuse_offers_run_without_exactly_as_the_key_has_it(tmp_path):
+    scenario = next(s for s in KEY["scenarios"] if s["id"] == "a-live-legal-none-will-refuse")
+    (tmp_path / "x").mkdir()
+    context = declared_context(tmp_path / "x", scenario["pathway"], legal_documents="none")
+    prepared = prepared_with(tmp_path, context, report_folder(tmp_path / "x"))
+    assert list(prepared.ordered) == scenario["modules"]
+    assert without_of(prepared) == scenario["expected"]["without"]
+    refusals = [i for i in prepared.expectations if i["outcome"] == "will_refuse"]
+    assert [i["scope"] for i in refusals] == ["CP-4"]
+    # Plan fact: the files and the refusal are unchanged by the forecast.
+    assert prepared.plan.run.pathway == scenario["pathway"]
+
+
+def test_without_removes_modules_that_require_the_refused_one(tmp_path):
+    (tmp_path / "x").mkdir()
+    context = declared_context(tmp_path / "x", "distressed_restructuring", legal_documents="none")
+    prepared = prepared_with(tmp_path, context, report_folder(tmp_path / "x"))
+    # methodology.json: CP-4C requires CP-4; CP-3 and CP-5 list CP-4 only as optional.
+    assert "CP-4C" in prepared.ordered
+    assert without_for(prepared.ordered, prepared.expectations) == {"CP-4": ["CP-4", "CP-4C"]}
+
+
+def test_without_follows_required_dependencies_transitively_and_in_run_order():
+    ordered = plan(("CP-0", "CP-1", "CP-2A", "CP-2G", "CP-2H", "CP-4C", "CP-5"))
+    refused = Item(
+        id="CP-2A:declared",
+        scope="CP-2A",
+        outcome="will_refuse",
+        reason="",
+        fix="",
+        basis="",
+        evidence="per method",
+        counted=True,
+        inherited_from=None,
+    )
+    # By hand from methodology.json `required`: CP-2G requires CP-2A; CP-2H and CP-4C require CP-2G.
+    # CP-5 lists them only as optional and stays.
+    expected = {"CP-2A", "CP-2G", "CP-2H", "CP-4C"}
+    result = without_for(ordered, [refused])
+    assert set(result["CP-2A"]) == expected
+    assert result["CP-2A"] == [m for m in ordered if m in expected]
+    inherited = Item(**{**refused, "id": "CP-2G:from:CP-2A", "inherited_from": ["CP-2A"]})
+    assert without_for(ordered, [inherited]) == {}

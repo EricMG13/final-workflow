@@ -1,10 +1,11 @@
 """The full test suite in shards, for the nightly run. Standard library only.
 
-    python tools/nightly_tests.py run --shard 0 --shards 6 --out results
-    python tools/nightly_tests.py report --shards 6 --known tests/nightly-known-failures.txt results
+    python tools/nightly_tests.py run --shard 0 --shards 16 --out out
+    python tools/nightly_tests.py report --shards 16 --known tests/nightly-known-failures.txt out
 
-``run`` gives each shard test files of roughly equal total size (largest first), runs pytest on
-them with the ``live`` and ``browser`` markers excluded and provider keys removed, and writes
+``run`` collects every test file in each shard and keeps every n-th test (the pytest hook in
+``tools/nightly_shard.py``), so slow tests spread evenly. It runs pytest with the ``live`` and
+``browser`` markers excluded and provider keys removed, and writes
 ``shard-<n>.log`` and ``shard-<n>.exit``, then prints the log's last lines (the failure summary,
 or a crash's trace) to the job log. ``report`` collects every FAILED and ERROR node id from
 the logs, compares them with the known list and prints a Markdown summary (also appended to
@@ -35,6 +36,7 @@ TEST_FILE = re.compile(r"(^|/)test_[^/]*\.py$")
 OUTCOME = re.compile(r"^(FAILED|ERROR) (\S+)")
 SUMMARY = re.compile(r"\d+ (passed|failed|errors?|skipped).* in [\d.]+s")
 RAN = {"0", "1"}  # pytest exits 0 or 1 only after it ran the tests
+SHARD_ENV = "NIGHTLY_SHARD"  # "<shard>/<shards>", read by tools/nightly_shard.py
 TAIL = 400  # log lines printed to the job log: -rfE lists every failure at the end
 
 
@@ -45,17 +47,6 @@ def test_files(root: Path) -> list[str]:
     return sorted(name for name in listed.stdout.split() if TEST_FILE.search(name))
 
 
-def shard_files(sizes: dict[str, int], shards: int, shard: int) -> list[str]:
-    """Largest file first onto the lightest shard; ties by name, so every shard agrees."""
-    loads = [0] * shards
-    owned: list[list[str]] = [[] for _ in range(shards)]
-    for name in sorted(sizes, key=lambda item: (-sizes[item], item)):
-        lightest = loads.index(min(loads))
-        loads[lightest] += sizes[name]
-        owned[lightest].append(name)
-    return sorted(owned[shard])
-
-
 def pytest_command(python: str, files: list[str]) -> list[str]:
     return [
         python,
@@ -64,6 +55,9 @@ def pytest_command(python: str, files: list[str]) -> list[str]:
         "-q",
         "-p",
         "no:cacheprovider",
+        "-p",
+        "tools.nightly_shard",
+        "--durations=30",
         "-m",
         "not live and not browser",
         "--continue-on-collection-errors",
@@ -80,17 +74,15 @@ def pytest_command(python: str, files: list[str]) -> list[str]:
 
 
 def run_shard(root: Path, shard: int, shards: int, out: Path, minutes: float) -> str:
-    files = test_files(root)
-    mine = shard_files({name: (root / name).stat().st_size for name in files}, shards, shard)
     env = {name: value for name, value in os.environ.items() if name not in KEYS}
     out.mkdir(parents=True, exist_ok=True)
     with (out / f"shard-{shard}.log").open("w") as log:
-        print(f"shard {shard}/{shards}: {len(mine)} files", file=log, flush=True)
+        print(f"shard {shard}/{shards}", file=log, flush=True)
         try:
             done = subprocess.run(
-                pytest_command(sys.executable, mine),
+                pytest_command(sys.executable, test_files(root)),
                 cwd=root,
-                env=env | {"PYTHONDONTWRITEBYTECODE": "1"},
+                env=env | {"PYTHONDONTWRITEBYTECODE": "1", SHARD_ENV: f"{shard}/{shards}"},
                 stdout=log,
                 stderr=subprocess.STDOUT,
                 stdin=subprocess.DEVNULL,

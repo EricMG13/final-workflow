@@ -47,7 +47,7 @@ test('the run activity page lists each event in order with its text',async t=>{
   assert.equal(text(p.doc.querySelector('#run-activity h2')),'Run activity · '+ID);
   assert.equal(text(p.doc.querySelector('.activity-log caption')),'Events (UTC)');
   assert.ok(p.doc.querySelector('.activity-flow'));
-  assert.equal(p.doc.querySelector('.incomplete'),null);
+  assert.equal(p.doc.querySelector('#run-activity .caution'),null);
 });
 test('one write left reads in the singular and an unknown event is shown as written',async t=>{
   const p=await page(t,{run:{status:status(),events:{events:[

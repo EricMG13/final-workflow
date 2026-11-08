@@ -26,6 +26,7 @@ NODE_TESTS = (
     "web/new-run.test.cjs",
     "web/context-embed.test.cjs",
     "web/report-renderer.test.cjs",
+    "web/screening.test.cjs",
     "web/screens.test.cjs",
     "web/library-workspace.test.cjs",
     "web/screen-css.test.cjs",

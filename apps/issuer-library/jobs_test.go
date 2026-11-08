@@ -1643,3 +1643,79 @@ print(json.dumps({'run':n}))
 		t.Fatalf("the pre-refresh body was cached: %d %s", next.Code, next.Body.String())
 	}
 }
+
+// notifyRecorder swaps notifyNatively for a recorder and clock for a settable time.
+type notifyRecorder struct {
+	mu    sync.Mutex
+	calls [][2]string
+	now   time.Time
+}
+
+func (r *notifyRecorder) install(t *testing.T) {
+	t.Helper()
+	oldNotify, oldClock := notifyNatively, clock
+	notifyNatively = func(title, body string) error {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.calls = append(r.calls, [2]string{title, body})
+		return nil
+	}
+	clock = func() time.Time {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		return r.now
+	}
+	t.Cleanup(func() { notifyNatively, clock = oldNotify, oldClock })
+}
+func (r *notifyRecorder) set(now time.Time) { r.mu.Lock(); r.now = now; r.mu.Unlock() }
+func (r *notifyRecorder) count() int        { r.mu.Lock(); defer r.mu.Unlock(); return len(r.calls) }
+
+func TestAFinishedRunNotifiesNativelyOnlyWhenNoTabWatches(t *testing.T) {
+	origin := time.Now()
+	for _, tab := range []struct {
+		name     string
+		watching bool
+	}{{"A tab is watching", true}, {"B no tab", false}} {
+		t.Run(tab.name, func(t *testing.T) {
+			recorder := &notifyRecorder{now: origin}
+			recorder.install(t)
+			app, root := testApp(t)
+			app.engine = fakeEngine(t)
+			var review map[string]any
+			_ = json.Unmarshal(reviewRequest(t, app, `["annual.txt"]`).Body.Bytes(), &review)
+			id := review["id"].(string)
+			start := call(app, "POST", "/api/runs/start", `{"id":"`+id+`","review_id":"review-fingerprint","confirm":true}`)
+			if start.Code != 202 {
+				t.Fatal(start.Code)
+			}
+			if list := call(app, "GET", "/api/runs/list", ""); list.Code != 200 {
+				t.Fatal(list.Code)
+			}
+			if !tab.watching {
+				recorder.set(origin.Add(16 * time.Second))
+			}
+			deadline := time.Now().Add(5 * time.Second)
+			for time.Now().Before(deadline) {
+				app.mu.RLock()
+				active := len(app.activeJobs)
+				app.mu.RUnlock()
+				if active == 0 && (!tab.watching && recorder.count() == 1 || tab.watching) {
+					break
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			// finishJob again, synchronously: the job's status is final, so this is the
+			// deterministic check that a watched tab suppresses the notice.
+			if tab.watching {
+				app.finishJob(filepath.Join(root, "intake", id), id)
+				if recorder.count() != 0 {
+					t.Fatalf("native notice with a tab watching: %v", recorder.calls)
+				}
+				return
+			}
+			if recorder.count() != 1 || recorder.calls[0] != [2]string{"Issuer Library", "Run stopped"} {
+				t.Fatalf("calls: %v", recorder.calls)
+			}
+		})
+	}
+}

@@ -40,6 +40,7 @@ type Application struct {
 	expires    time.Time  // when the ticket stops working; fixed at start
 	session    string     // this launch's session cookie value, in memory only; fixed at start
 	storeCache storeCache
+	watched    atomic.Int64 // clock().UnixNano() of the last GET /api/runs/list; zero when never
 }
 
 // storeCache holds the last workspace store output. mu is held while the store runs, so

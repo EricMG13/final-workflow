@@ -4,14 +4,17 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -146,3 +149,33 @@ func privateFolder(name string) error {
 // ownerOnly reports whether info describes a plain file (not a link or other reparse point). Its
 // access comes from the state folder, which privateFolder has checked.
 func ownerOnly(info fs.FileInfo) bool { return info.Mode().IsRegular() }
+
+// powershellPath is the system PowerShell by absolute path, else whatever PATH resolves.
+func powershellPath() (string, error) {
+	if root := os.Getenv("SystemRoot"); root != "" {
+		path := filepath.Join(root, "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return exec.LookPath("powershell.exe")
+}
+
+// platformNotify shows a toast through PowerShell running the fixed toastScript; the text goes
+// in environment variables only. A failure is returned for the caller to log, never to act on.
+func platformNotify(title, body string) error {
+	program, err := powershellPath()
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, program, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", toastScript)
+	cmd.Env = append(os.Environ(), "ISSUER_LIBRARY_TOAST_TITLE="+title, "ISSUER_LIBRARY_TOAST_BODY="+body)
+	configureWorkerCommand(cmd)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Printf("PowerShell toast output: %s", output)
+		return err
+	}
+	return nil
+}

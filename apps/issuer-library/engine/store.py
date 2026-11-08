@@ -932,7 +932,8 @@ TABLE_ROW_LIMIT = 2000
 QUARTER_DAYS = 100
 QUARTER_LENGTH_SLACK = 7
 FORECAST_CASES = (("REFERENCE", "Base case (reference illustration)"), ("DOWNSIDE", "Downside"))
-NOT_HELD = "\u2014"
+NO_VALUE = "the model's source table has no value for this period"
+PRINTED_DASH = "printed as \u2014 in the source"
 PRIOR_MISSING = "prior-year period not in the handoffs"
 COMPONENT_MISSING = "a component is not in the handoffs"
 REASON_PHRASES = {
@@ -945,7 +946,7 @@ REASON_PHRASES = {
     "UNCLASSIFIED_ROW": "the debt register has a row that cannot be classified",
     "WINDOW_MISSING": "last-twelve-months Adj EBITDA cannot be built from the handoffs",
 }
-LTM_NEEDED = "needs last-twelve-months Adj EBITDA, which the handoffs do not construct"
+LTM_NEEDED = "needs last-twelve-months Adj EBITDA for this quarter, which is not recorded"
 DEBT_TOTAL_NEEDED = "needs quarter-end total carrying debt, which the model does not derive"
 DEBT_SENIOR_NEEDED = (
     "needs quarter-end senior secured carrying debt, which the model does not derive"
@@ -984,7 +985,7 @@ REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
 
 
 class Cell(TypedDict):
-    """One grid cell. `status` is value, gap (a dash), na (not available) or nm (not modelled)."""
+    """One grid cell. `status` is value, na (not available, with a reason) or nm (not modelled)."""
 
     exact: str | None
     display: str
@@ -1079,7 +1080,7 @@ def amount_cell(exact: str, kind: str) -> Cell:
 
 
 def absent_cell() -> Cell:
-    return grid_cell(None, NOT_HELD, None, "gap")
+    return unavailable_cell(NO_VALUE)
 
 
 def unavailable_cell(reason: str | None) -> Cell:
@@ -1127,8 +1128,8 @@ def source_cell(text: str, kind: str) -> Cell:
     """A Markdown table cell as the handoff printed it."""
     if text == "":
         return absent_cell()
-    if text == NOT_HELD:
-        return grid_cell(None, NOT_HELD, "printed as — in the source", "gap")
+    if text == "\u2014":
+        return unavailable_cell(PRINTED_DASH)
     found = TABLE_NUMBER.fullmatch(text) if len(text) <= 40 else None
     if found is None or bool(found.group(1)) != bool(found.group(3)):
         return unavailable_cell("source cell is not a number")
@@ -1696,7 +1697,7 @@ def quarter_held(c: CellContext, key: str) -> dict[str, Any] | None:
 
 
 def op_quarter(c: CellContext, key: str, fallback: Spec | None = None) -> Cell:
-    """The record's quarter value for this column's window, else the fallback, else a dash."""
+    """The record's quarter value for this column's window, else the fallback, else n.a."""
     held = quarter_held(c, key)
     if held is not None:
         return held_cell(held, c.kind)
@@ -1737,7 +1738,7 @@ CELL_OPS: dict[str, Callable[..., Cell]] = {
 
 
 def spec_cell(spec: Spec | None, cell: CellContext) -> Cell:
-    """One cell from its row's spec for the column's kind (None: a dash, or n.m. in forecast)."""
+    """One cell from its row's spec for the column's kind (None: n.a., or n.m. in forecast)."""
     if spec is None:
         return not_modelled_cell() if cell.column["kind"] == "fc" else absent_cell()
     return CELL_OPS[spec[0]](cell, *spec[1:])
@@ -1747,8 +1748,26 @@ def every(spec: Spec) -> tuple[Spec, Spec, Spec]:
     return (spec, spec, spec)
 
 
+# Rows the grid shows as totals (the ones a reader adds up to): by row key.
+TOTAL_ROWS = frozenset(
+    (
+        "revenue",
+        "gp",
+        "ebit",
+        "ebitda",
+        "adj",
+        "cfo",
+        "fcf",
+        "closing-cash",
+        "liquidity",
+        "closing-debt",
+        "net-debt",
+    )
+)
+
+
 class RowSpec(NamedTuple):
-    """A grid row as data; a None spec shows a dash (history) or n.m. (forecast)."""
+    """A grid row as data; a None spec shows n.a. (history) or n.m. (forecast)."""
 
     key: RowKey
     band: str
@@ -2128,7 +2147,15 @@ def cashflow_of(
             spec_cell(pick[column["kind"]], CellContext(inputs, column, index, grid, spec.kind))
             for index, column in enumerate(columns)
         ]
-        rows.append({"band": spec.band, "label": spec.label, "cells": grid[spec.key]})
+        rows.append(
+            {
+                "band": spec.band,
+                "label": spec.label,
+                "kind": spec.kind,
+                "total": spec.key in TOTAL_ROWS,
+                "cells": grid[spec.key],
+            }
+        )
     year_to_date = any(column["ytd"] for column in columns)
     return {
         "units": cashflow_units(handoff) if handoff is not None else None,

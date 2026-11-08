@@ -350,13 +350,44 @@ const QUALIFICATIONS=['unrun','partial','qualified','blocked'];
 function reportAcceptance(report) {
   const candidate=report.mode==='candidate';
   const state=report.mode==='accepted'?'Accepted':candidate?'Candidate · not accepted':'Acceptance not recorded';
-  const qualification=QUALIFICATIONS.includes(report.qualification)?`Analytical qualification: ${report.qualification}`:'Analytical qualification not recorded';
-  return {state,qualification,html:`${badge(candidate?'attention':'gray',state)} <span class="muted">${esc(qualification)}</span>`};
+  const qualification=report.qualification==='unrun'?'Analytical qualification: not run':QUALIFICATIONS.includes(report.qualification)?`Analytical qualification: ${report.qualification}`:'Analytical qualification not recorded';
+  return {state,qualification,html:`<span class="acceptance">${badge('gray',state)} <span class="muted">${esc(qualification)}</span></span>`};
 }
 function forecastEmpty(context) {
   const ctx=contexts[context],others=publishedModels().filter(m=>sameIssuer(m.issuerKey,ctx.issuerKey)).sort(byModelId);
   const row=m=>{const run=modelRun(m);return `<li class="report-row">${run?`<a class="text-action" href="${routeHref('W-Forecast',m.id,null,run)}">${esc(m.id)}${icon('arrow-right')}</a>`:`<span>${esc(m.id)}</span>`} ${reportAcceptance(m).html}</li>`;};
   return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No forecast model was published from this run’s files</h2></div>${others.length?`<section class="forecast-other"><h2>Other ${esc(ctx.issuerHeading)} models</h2><ol class="report-list">${others.map(row).join('')}</ol></section>`:''}`;
+}
+// A percent or multiple cell's title: the value in its display unit at four decimals, half away from zero, "≈ " when rounding changed it.
+function ratioTitle(exact,kind) {
+  const found=/^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(exact);
+  if(!found||Math.abs(Number(found[4]||0))>400)return exact;
+  const frac=found[3]||'',shift=Number(found[4]||0)+(kind==='percent'?2:0);
+  const digits=BigInt(found[2]+frac),scale=frac.length-shift;
+  let units,exactly=true;
+  if(scale<=4)units=digits*10n**BigInt(4-scale);
+  else{const divisor=10n**BigInt(scale-4);units=digits/divisor;const rest=digits%divisor;exactly=rest===0n;if(rest*2n>=divisor)units+=1n;}
+  const negative=found[1]==='-'&&units!==0n,text=units.toString().padStart(5,'0');
+  return `${exactly?'':'≈ '}${negative?'-':''}${text.slice(0,-4)}.${text.slice(-4)}${kind==='percent'?'%':'x'}`;
+}
+// One cell's title: the exact amount (ratios in their display unit), else the reason it has no value.
+const cellTitle=(cell,kind)=>cell.exact!=null?(kind==='percent'||kind==='multiple'?ratioTitle(cell.exact,kind):cell.exact):cell.reason;
+// "Not available" lines: one per row and reason, naming the periods; a repeated column label takes its group's name.
+function notAvailableLines(c) {
+  const counts=new Map();
+  for(const col of c.columns)counts.set(col.label,(counts.get(col.label)||0)+1);
+  const period=col=>counts.get(col.label)>1?`${col.label} ${col.group.replace(/\s*\([^()]*\)$/,'')}`:col.label;
+  const lines=[];
+  for(const row of c.rows){
+    const pairs=new Map();
+    row.cells.forEach((cell,i)=>{
+      if(cell.status!=='na')return;
+      const list=pairs.get(cell.reason)||pairs.set(cell.reason,[]).get(cell.reason);
+      list.push(period(c.columns[i]));
+    });
+    for(const [reason,periods] of pairs)lines.push(`Not available: ${row.label} — ${periods.join(', ')}${reason==null?'':`: ${reason}`}`);
+  }
+  return lines;
 }
 // The calculation record as a line-item by period grid. The store formatted every cell; this only places it.
 function cashflowSection(model) {
@@ -365,18 +396,28 @@ function cashflowSection(model) {
   const groups=[];
   for(const col of c.columns){const last=groups[groups.length-1];if(last&&last.name===col.group)last.span++;else groups.push({name:col.group,span:1});}
   const head=`<tr><th scope="col" rowspan="2">Line item</th>${groups.map(g=>`<th scope="colgroup" colspan="${g.span}">${esc(g.name)}</th>`).join('')}</tr><tr>${c.columns.map(col=>`<th scope="col"${col.start==null||col.end==null?'':` title="${esc(`${displayDate(col.start)} to ${displayDate(col.end)}`)}"`}>${col.ytd&&col.label.endsWith(' (YTD)')?`${esc(col.label.slice(0,-6))} <span class="col-sub">(YTD)</span>`:esc(col.label)}</th>`).join('')}</tr>`;
-  const na=[],seen=new Set();
+  const td=(cell,kind)=>{
+    const title=cellTitle(cell,kind),label=cell.status==='na'?`n.a.${cell.reason==null?'':`: ${cell.reason}`}`:cell.status==='nm'?'n.m.: not modelled in the calculation record':null;
+    return `<td${title==null?'':` title="${esc(title)}"`}${label==null?'':` aria-label="${esc(label)}"`}>${esc(cell.display)}</td>`;
+  };
   let band=null,body='';
   for(const row of c.rows){
     if(row.band!==band){band=row.band;body+=`<tr class="band-row"><th scope="colgroup" colspan="${c.columns.length+1}">${esc(band)}</th></tr>`;}
-    body+=`<tr><th scope="row">${esc(row.label)}</th>${row.cells.map(cell=>`<td${cell.exact!=null?` title="${esc(cell.exact)}"`:cell.reason!=null?` title="${esc(cell.reason)}"`:''}>${esc(cell.display)}</td>`).join('')}</tr>`;
-    for(const cell of row.cells){
-      if(cell.status!=='na'||seen.has(`${row.label}\n${cell.reason}`))continue;
-      seen.add(`${row.label}\n${cell.reason}`);
-      na.push(`Not available: ${row.label}${cell.reason==null?'':` — ${cell.reason}`}`);
-    }
+    body+=`<tr${row.total?' class="total-row"':''}><th scope="row">${esc(row.label)}</th>${row.cells.map(cell=>td(cell,row.kind)).join('')}</tr>`;
   }
-  return `<section class="forecast-cashflow"><h2>Cash flow model</h2><p class="forecast-caption">${esc(`${c.units==null?'Units not recorded':c.units} · history as retained in the handoffs; forecasts are conditional illustrations from the calculation record`)}</p><div class="table-scroll"><table class="cashflow"><thead>${head}</thead><tbody>${body}</tbody></table></div>${c.notes.length?`<ul class="cashflow-notes">${c.notes.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}${na.length?`<ul class="cashflow-na">${na.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}</section>`;
+  const na=notAvailableLines(c),first=c.columns[0],last=c.columns[c.columns.length-1];
+  const caption=[c.units==null?'Units not recorded':c.units,...first?[`${first.label} to ${last.label}`]:[],'history as retained in the handoffs; forecasts are conditional illustrations from the calculation record'].join(' · ');
+  return `<section class="forecast-cashflow"><h2>Cash flow model</h2><p class="forecast-caption">${esc(caption)}</p><div class="table-scroll"><table class="cashflow"><thead>${head}</thead><tbody>${body}</tbody></table></div>${c.notes.length?`<ul class="cashflow-notes">${c.notes.map(line=>`<li>${esc(line)}</li>`).join('')}</ul>`:''}${na.length?`<details class="cashflow-na"><summary>Why cells show n.a. (${na.length} lines)</summary><ul>${na.map(line=>`<li>${esc(line)}</li>`).join('')}</ul></details>`:''}</section>`;
+}
+// The roles a delivery's sources are declared under; an unknown role shows its own token.
+const SOURCE_ROLES={annual:'Annual handoff',quarter:'Quarterly handoff',forecast:'Forecast handoff',forecast_exact:'Forecast calculations',current_synthesis:'Current synthesis'};
+const sourceFile=s=>(s.output||s.path||'').split('/').at(-1);
+// A fact, not a judgement: sources whose file names carry different attempt numbers.
+function attemptNote(sources) {
+  const named=[...new Set(sources.map(sourceFile).filter(f=>/-attempt-\d+/.test(f)))];
+  const attempt=f=>/-attempt-(\d+)/.exec(f)[1];
+  if(new Set(named.map(attempt)).size<2)return '';
+  return `<p class="forecast-attempts">${esc(`These files come from different attempts: ${named.map(f=>`${f} (attempt ${attempt(f)})`).join(', ')}`)}</p>`;
 }
 function forecastView(context,id) {
   const models=runModels(context);
@@ -389,7 +430,10 @@ function forecastView(context,id) {
   const full=forecast?.output?`<a class="text-action" href="${routeHref(data[forecast.output].module,modules[forecast.output].first,null,forecast.run,data[forecast.output].source)}">Open the full forward credit model output${icon('arrow-right')}</a>`:'';
   const assumptions=`<section class="forecast-assumptions"><h2>Assumptions and their rationale</h2>${register?`<h3>${esc(register.heading)}</h3>${register.intro==null?'':`<p class="register-intro">${esc(register.intro)}</p>`}${register.headers.length?`<div class="table-scroll"><table><thead><tr>${register.headers.map(c=>`<th scope="col">${esc(c)}</th>`).join('')}</tr></thead><tbody>${register.rows.map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:''}${full}`:'<p>This model’s forecast handoff has no assumption register.</p>'}</section>`;
   const source=s=>s.output?`<a href="${routeHref(data[s.output].module,modules[s.output].first,null,s.run,data[s.output].source)}">${esc(s.output.split('/').at(-1))}</a>`:esc(s.path);
-  const built=`<section class="forecast-built"><h2>Built from</h2><div class="table-scroll"><table><thead><tr><th scope="col">Role</th><th scope="col">Source</th><th scope="col">SHA-256 prefix</th><th scope="col">Status</th></tr></thead><tbody>${model.sources.map(s=>`<tr><th scope="row">${esc(s.role)}</th><td>${source(s)}</td><td>${s.sha256===null?'':esc(s.sha256.slice(0,12))}</td><td>${s.sha256===null?badge('attention','Invalid path or hash'):s.changed?badge('attention','Changed since publication'):''}</td></tr>`).join('')}</tbody></table></div></section>`;
+  // The run is the folder the delivery declares the file under, so every source names one the same way.
+  const run=s=>{const id=/^runs\/([^/]+)\//.exec(s.path||'')?.[1];return id?`<span class="code">${esc(id)}</span>`:'<span class="muted">Not recorded</span>';};
+  const status=s=>s.sha256===null?badge('attention','Invalid path or hash'):s.changed?badge('attention','Changed since publication'):badge('gray','Matches publication');
+  const built=`<section class="forecast-built"><h2>Built from</h2><div class="table-scroll"><table><thead><tr><th scope="col">Role</th><th scope="col">Run</th><th scope="col">Source</th><th scope="col">SHA-256 prefix</th><th scope="col">Status</th></tr></thead><tbody>${model.sources.map(s=>`<tr><th scope="row">${esc(Object.hasOwn(SOURCE_ROLES,s.role)?SOURCE_ROLES[s.role]:s.role)}</th><td>${run(s)}</td><td>${source(s)}</td><td>${s.sha256===null?'':esc(s.sha256.slice(0,12))}</td><td>${status(s)}</td></tr>`).join('')}</tbody></table></div>${attemptNote(model.sources)}</section>`;
   return `<div class="forecast"><div class="report-tools forecast-tools">${select}${acceptance.html}<a href="${esc(model.download)}" download>Download original HTML</a></div>${cashflowSection(model)}${assumptions}${model.cashflow?`<section class="forecast-limits"><h2>Model limitations</h2><ul>${model.cashflow.limits.map(l=>`<li>${esc(l)}</li>`).join('')}</ul></section>`:''}${why}${built}<div class="frame-host"><p class="frame-status" role="status">Loading model…</p><iframe id="model-preview" data-download="${esc(model.download)}" title="${esc(model.id)} · published model" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer" src="${esc(model.href)}"></iframe></div></div>`;
 }
 const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="muted">Not recorded</span>':`<span class="badge badge-blue"><i></i>${esc(workflowTitle(v))}</span>`).join(' ');

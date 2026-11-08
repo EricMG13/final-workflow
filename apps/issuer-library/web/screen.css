@@ -42,9 +42,8 @@ main{min-width:0;min-height:0;display:flex;flex-direction:column}#module-head{pa
 .module-catalogue>summary{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:var(--fs-compact);font-weight:600;color:var(--blue);padding:10px 4px;list-style:none;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}.module-catalogue>summary:after{content:'';width:6px;height:6px;border-right:1px solid currentColor;border-bottom:1px solid currentColor;transform:rotate(45deg);margin-right:5px}.module-catalogue[open]>summary:after{transform:rotate(225deg)}.outline-heading{font-size:var(--fs-compact);font-weight:600;margin:17px 4px 6px}.section-outline{margin-left:4px;padding-left:5px}.outline-group>summary{padding-top:4px;padding-bottom:5px}.vector-chart text{font-size:var(--fs-control)}.vector-chart .axis-label{font-size:var(--fs-control)}.vector-chart{max-width:580px}.analysis-call{padding:8px 13px}
 
 /* Issuer discovery: persistent controls, exact run counts and local filtering. */
-.library-discovery{position:sticky;top:-8px;z-index:3;background:#fff;padding:0 0 10px;border-bottom:1px solid var(--rule)}.library-empty{padding:38px 0 44px;max-width:68ch}.library-empty h2{font-size:21px;margin-bottom:12px}.library-empty p{color:var(--muted);line-height:1.7}
 
-@media(max-width:720px){.library-discovery{position:static}.library-workspace #content{padding:8px 15px 24px}.library-empty{padding:25px 0}}
+@media(max-width:720px){.library-workspace #content{padding:8px 15px 24px}}
 
 /* Per-run outputs, quoted bands, report lineage and deliverable comparison. */
 .output-select{display:flex;flex-direction:row;align-items:center;gap:8px;flex-shrink:0}.output-select select{height:32px;max-width:260px;padding:2px 6px;border:1px solid #aeb6c9;border-radius:var(--radius-inline);background:#fff;color:var(--navy);font-size:var(--fs-compact)}.output-choices{display:grid;gap:12px;margin:0 0 25px}.analysis-call .call-quote{font-size:var(--fs-control);line-height:1.55;color:#fff;margin:0;max-width:80ch}.analysis-call+.source-footer{margin:-6px 0 16px}.report-list{list-style:none;padding:0;margin:8px 0 24px}.report-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:10px 0;border-bottom:1px solid var(--rule)}.report-other h2,.report-built h2{font-size:17px}.built-from{flex-shrink:0;max-height:38dvh;overflow:auto;padding:7px 16px;border-bottom:1px solid var(--rule);font-size:var(--fs-compact)}.built-from summary{cursor:pointer;font-weight:600}.built-from table{margin-top:6px}.comparison-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;padding:12px 0;margin-bottom:16px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}.comparison-pair span{display:block;font-size:var(--fs-label);color:var(--muted);margin-bottom:3px}.comparison-pair p{grid-column:1/-1;font-size:var(--fs-label);color:var(--muted)}.recheck{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;background:var(--quiet);padding:10px 12px;margin-bottom:6px}.recheck p{width:100%;font-weight:600;font-size:var(--fs-compact)}
@@ -124,46 +123,55 @@ main{min-width:0;min-height:0;display:flex;flex-direction:column}#module-head{pa
 .badge-navy{background:var(--navy);border-color:var(--navy);color:#fff}
 .badge-attention{background:var(--amber-bg);border-color:var(--amber-border);color:var(--amber)}
 .muted{color:var(--text-quaternary)}
-/* Library: filter bar, chips and one row per issuer */
-.library-discovery{position:sticky;top:-8px;z-index:3;background:#fff;padding:4px 0 0}
-.library-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.library-search{position:relative;flex:1 1 260px;max-width:340px}
+/* Library: issuer navigator, screening panel, results table and selected-run detail */
+.library-screen{display:grid;grid-template-columns:216px minmax(0,1fr);gap:24px;align-items:start}
+.library-nav{display:flex;flex-direction:column;gap:4px;position:sticky;top:0}
+.nav-choice{display:flex;align-items:center;gap:8px;min-height:36px;padding:6px 10px;border-radius:var(--radius-control);color:var(--text-secondary);font-weight:500;text-align:left}
+.nav-choice>span:not(.monogram):not(.count){flex:1;min-width:0;overflow-wrap:anywhere}
+.nav-choice .count,.monogram{font:500 var(--fs-label)/16px 'Red Hat Mono',monospace;color:var(--text-quaternary)}
+.monogram{display:grid;place-items:center;width:30px;height:24px;border-radius:var(--radius-inline);background:var(--gray-100)}
+.nav-choice:hover{background:var(--gray-50)}
+.nav-choice.active{background:var(--blue-50);color:var(--blue-700)}
+.library-nav .eyebrow,.run-detail .eyebrow{margin:14px 10px 4px;font:600 var(--fs-label)/16px 'Red Hat Text',sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--text-tertiary)}
+.library-main{display:flex;flex-direction:column;gap:20px;min-width:0}
+.library-panel,.run-detail{padding:16px 18px;border:1px solid var(--border-secondary);border-radius:var(--radius-card);background:#fff;box-shadow:var(--shadow-xs)}
+.block-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:12px}
+.block-head h2,.run-detail h2{font-size:18px}
+.search-row{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+.library-search{position:relative;flex:1;max-width:420px}
 .library-search img{position:absolute;left:12px;top:10px;width:20px;height:20px;opacity:.55;pointer-events:none}
-.library-search input,.library-select select{width:100%;height:40px;border:1px solid var(--border-primary);border-radius:var(--radius-control);background:#fff;box-shadow:var(--shadow-xs);color:var(--text-primary)}
-.library-search input{padding:0 12px 0 40px;font-size:16px}
-.library-search input::placeholder{color:var(--text-quaternary);opacity:1}
-.library-select{flex:1 1 140px;min-width:0}
-.library-select select{appearance:none;padding:0 36px 0 12px;font-size:var(--fs-control);font-weight:500;color:var(--text-secondary);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' fill='none' stroke='%236b7287' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 7.5 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 10px center;text-overflow:ellipsis;cursor:pointer}
-.library-select select.active{border-color:var(--blue);background-color:var(--blue-50);color:var(--blue-700)}
-.library-search input:focus,.library-select select:focus{outline:none;border-color:var(--blue);box-shadow:var(--shadow-xs),var(--ring)}
-.library-status{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-height:56px;padding:8px 0;border-bottom:1px solid var(--border-secondary)}
-#library-count{margin:0 8px 0 0;font-size:var(--fs-control);color:var(--text-tertiary)}
-#library-chips{display:contents}
-.chip{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 4px 0 10px;border:1px solid var(--border-primary);border-radius:var(--radius-control);background:#fff;font-size:var(--fs-control);font-weight:500;color:var(--text-secondary)}
-.chip>span{color:var(--text-quaternary);font-weight:400}
-.chip button{display:grid;place-items:center;width:20px;height:20px;padding:0;border:0;border-radius:var(--radius-inline);background:none;cursor:pointer}
-.chip button img{width:14px;height:14px;opacity:.6}
-.chip button:hover{background:var(--gray-100)}
-table.case-list{width:100%;border-collapse:collapse;font-size:var(--fs-control);line-height:20px}
-.case-list thead th{background:var(--gray-50);border-bottom:1px solid var(--border-secondary);text-align:left;font-size:var(--fs-compact);line-height:18px;font-weight:600;color:var(--text-tertiary);padding:12px 16px;white-space:nowrap;position:sticky;top:var(--band-h,101px);z-index:2}
-.case-list td,.case-list th[scope=rowgroup]{padding:16px;border-bottom:1px solid var(--border-secondary);vertical-align:middle;text-align:left;font:400 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--text-primary)}
-.case-list th[scope=rowgroup] h2{margin:0 0 4px;font:600 16px/24px 'Red Hat Display',sans-serif;color:var(--text-primary)}
-.case-list td:nth-child(4){color:var(--text-secondary)}
-.case-list tr{position:relative}
-.case-list tr:hover>*{background:var(--gray-25)}
-.case-list tr:has(:focus-visible)>*{background:var(--blue-50)}
-.run-link{font:500 var(--fs-body)/20px 'Red Hat Mono',monospace;color:var(--text-primary);text-decoration:none}
-.run-link:focus-visible,.run-toggle:focus-visible{outline:none;box-shadow:var(--ring)}
-.run-link::after,.run-toggle::after{content:'';position:absolute;inset:0}
-.run-toggle{display:inline-flex;align-items:center;gap:4px;height:32px;padding:0 8px 0 10px;border:1px solid var(--border-primary);border-radius:var(--radius-control);background:#fff;box-shadow:var(--shadow-xs);font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--text-secondary);cursor:pointer}
-.run-toggle img{width:16px;height:16px;transition:transform .15s ease-out}
-.run-toggle[aria-expanded=true] img{transform:rotate(180deg)}
-.run-row>*{background:var(--gray-25)}
-.row-open{width:52px;text-align:right}
-.row-open img{width:20px;height:20px;opacity:.55}
-.case-list tr:hover .row-open img{opacity:1}
-.library-empty{padding:48px 0;max-width:68ch}
-@media(max-width:720px){.case-list td[data-label]::before{content:attr(data-label) ' ';font-size:var(--fs-label);font-weight:600;color:var(--text-tertiary)}.library-discovery{position:static}.case-list thead th{top:0}.library-search{max-width:none;flex-basis:100%}.library-select{flex:1 1 calc(50% - 6px)}.page-actions{margin-top:12px}.case-list thead{display:none}.case-list,.case-list tbody,.case-list td,.case-list th{display:block}.case-list tr{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 4px;border-bottom:1px solid var(--border-secondary)}.case-list td,.case-list th[scope=rowgroup]{padding:0;border:0}.case-list .row-open{grid-column:2;grid-row:1/span 5;align-self:center;width:auto}.case-list tr.run-row{padding-left:16px}.case-list tr.run-row>td:first-child{display:none}.case-list tr[hidden]{display:none}.case-list tr>*,.run-row>*,.case-list tr:hover>*,.case-list tr:has(:focus-visible)>*{background:none}.case-list tr.run-row,.case-list tr:hover{background:var(--gray-25)}.case-list tr:has(:focus-visible){background:var(--blue-50)}}
+.library-search input,.library-filters select,.library-filters input{width:100%;height:40px;border:1px solid var(--border-primary);border-radius:var(--radius-control);background:#fff;box-shadow:var(--shadow-xs);color:var(--text-primary);padding:0 12px}
+.library-search input{padding-left:40px;font-size:16px}
+.library-search input:focus,.library-filters select:focus,.library-filters input:focus{outline:none;border-color:var(--blue);box-shadow:var(--shadow-xs),var(--ring)}
+.library-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.library-filters label{display:flex;flex-direction:column;gap:4px;font-size:var(--fs-compact);font-weight:600;color:var(--text-tertiary)}
+.library-filters select,.library-filters input{font-size:var(--fs-control);font-weight:400}
+#metric-filters{margin-top:14px}
+#metric-filters summary{cursor:pointer;font-weight:600;margin-bottom:12px}
+#library-count{font-size:var(--fs-control);color:var(--text-tertiary);margin-bottom:8px}
+.library-table{width:100%;border-collapse:collapse;font-size:var(--fs-control);line-height:20px}
+.library-table th,.library-table td{padding:12px 16px;border-bottom:1px solid var(--border-secondary);text-align:left;vertical-align:top;color:var(--text-primary)}
+.library-table th{font-size:var(--fs-compact);font-weight:600;color:var(--text-tertiary);white-space:nowrap}
+.library-table th button{font:inherit;color:inherit;padding:0}
+.library-table tr.selected>td{background:var(--blue-50)}
+.issuer-title{display:block;padding:0;text-align:left;font:600 var(--fs-control)/20px 'Red Hat Text',sans-serif;color:var(--text-primary)}
+.ticker{display:block;font:500 var(--fs-label)/16px 'Red Hat Mono',monospace;color:var(--text-quaternary)}
+.cell-primary{display:block;font-weight:600}.cell-primary.missing{color:var(--text-quaternary);font-weight:400}
+.cell-secondary{display:block;font-size:var(--fs-compact);color:var(--text-tertiary)}
+.run-link,.report-link{font-size:var(--fs-compact);font-weight:600}
+.progress-track{display:block;height:6px;margin:4px 0;border-radius:var(--radius-inline);background:var(--gray-200)}.progress-track i{display:block;height:100%;border-radius:var(--radius-inline);background:var(--blue)}
+.library-empty{padding:32px 0;max-width:68ch}.library-empty h2{margin-bottom:10px}.library-empty .primary-action{margin-top:12px}
+.detail-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px}.detail-actions{display:flex;gap:12px;flex-wrap:wrap}
+.detail-layout{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.run-detail h3{margin:16px 0 6px}.gap-list{margin:0;padding-left:20px}
+.completion-box{margin-top:16px;padding:12px 14px;border:1px solid var(--amber-border);border-radius:var(--radius-control);background:var(--amber-bg);color:var(--amber)}.completion-box strong{display:block}
+.metric-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.metric-item{padding:10px 12px;border:1px solid var(--border-secondary);border-radius:var(--radius-control)}
+.metric-label{display:block;font-size:var(--fs-compact);color:var(--text-tertiary)}.metric-value{display:block;font:700 20px/28px 'Red Hat Display',sans-serif}.metric-value small{margin-left:4px;font:400 var(--fs-compact)/16px 'Red Hat Text',sans-serif}
+.metric-item p{font-size:var(--fs-compact);color:var(--text-tertiary)}
+.artifact-list{margin:0;padding-left:20px}.artifact-list small{display:block;color:var(--text-tertiary)}
+.source-details{margin-top:14px}.source-details summary{cursor:pointer;font-weight:600}.source-details>div{margin-top:10px;padding:8px 10px;border-left:3px solid var(--gray-300);overflow-wrap:anywhere}.source-details blockquote{margin:6px 0;font:var(--fs-compact)/1.5 'Red Hat Mono',monospace;white-space:pre-wrap}
+@media(max-width:900px){.library-screen{grid-template-columns:minmax(0,1fr)}.library-nav{position:static;flex-direction:row;flex-wrap:wrap}.search-row{flex-wrap:wrap}.library-search{max-width:none;flex-basis:100%}.page-actions{margin-top:12px}}
 /* Run header and underline tabs, after Untitled UI React (MIT): one title line, then tabs. */
 .issuer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 18px;background:#fff;border-radius:var(--radius-card) var(--radius-card) 0 0}
 .issuer-title{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;min-width:0;flex:1 1 auto}

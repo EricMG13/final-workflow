@@ -225,32 +225,19 @@ def real_workspace(browser: Any, name: str, port: int, full: bool) -> None:
     page.close()
 
 
-def expand_groups(page: Any, name: str) -> None:
-    """Open every collapsed issuer group through its toggle, asserting the toggle reports it."""
-    toggles = page.locator("#library-results .run-toggle")
-    for index in range(toggles.count()):
-        toggle = toggles.nth(index)
-        if toggle.get_attribute("aria-expanded") == "false":
-            toggle.click()
-        note(
-            toggle.get_attribute("aria-expanded") == "true",
-            f"{name}: issuer group {index + 1} opens with its run toggle",
-        )
-
-
 def library_and_report(page: Any, name: str, port: int) -> None:
     page.goto(f"http://127.0.0.1:{port}/")
-    page.wait_for_selector("#library-results .issuer-row", timeout=30000)
+    page.wait_for_selector("#library-results tbody tr", timeout=30000)
     want = sum(p.is_dir() for p in (R / "runs").iterdir())
-    # libraryResults renders exactly one a.run-link per run (single or grouped, hidden or not).
+    # Each run folder in the store has one Overview link; delivery rows sit beside them.
     note(
         page.locator("#library-results a.run-link").count() == want,
         f"{name}: library lists all {want} run folders, one link each",
     )
-    expand_groups(page, name)
+    pick = "#library-results [data-library-select"
     note(
-        "cpos-launch-live-002".upper() in page.inner_text("#library-results")
-        or "TransDigm Group Incorporated" in page.inner_text("#library-results"),
+        page.locator(pick + "='cpos-launch-live-002']").count() == 1
+        and page.locator(pick + "^='delivery:']").count() > 0,
         f"{name}: launcher run is in the library",
     )
     page.screenshot(path=str(S / f"{name}-library.png"))
@@ -380,7 +367,7 @@ def fitted_screens(page: Any, name: str, port: int) -> None:
     page.set_viewport_size({"width": 390, "height": 800})
     page.goto(f"http://127.0.0.1:{port}/#W-Library/cases")
     page.reload()
-    page.wait_for_selector("#library-results .issuer-row")
+    page.wait_for_selector("#library-results tbody tr")
     note(
         page.evaluate("document.documentElement.scrollWidth<=innerWidth"),
         f"{name}: no horizontal overflow at 390 wide (library)",
@@ -640,11 +627,14 @@ def new_run(  # noqa: PLR0915, RUF100
         page.screenshot(path=str(S / f"{name}-synthetic-summary-{width}.png"))
     page.set_viewport_size(size)
     page.click(".rail a[data-place='Issuer library']")
-    page.wait_for_selector("#library-results .issuer-row")
-    expand_groups(page, name)
+    page.wait_for_selector("#library-results tbody tr")
+    # The catalogue names a run by its folder; only the store knows its issuer.
+    find = "(issuer) => Object.keys(contexts).find(k => contexts[k].issuer === issuer)"
+    key = page.evaluate(find, ISSUER)
+    link = page.locator(f"#library-results a.run-link[href*='c={key}']")
     note(
-        ISSUER in page.inner_text("#library-results"),
-        f"{name}: the library lists the new run under its issuer",
+        key is not None and link.count() == 1,
+        f"{name}: the library lists the new run with its Overview link",
     )
     # A run that appears on disk while the app is open is offered, not forced.
     added = Path(workspace, "runs", "added-001")
@@ -652,10 +642,9 @@ def new_run(  # noqa: PLR0915, RUF100
     (added / "CP-0.md").write_text("# CP-0\n\nAdded later.\n")
     expect(page.locator("#workspace-updated")).to_be_visible(timeout=70000)
     page.click("#reload-workspace")
-    page.wait_for_selector("#library-results .issuer-row")
-    expand_groups(page, name)
+    page.wait_for_selector("#library-results tbody tr")
     note(
-        "ADDED-001" in page.inner_text("#library-results"),
+        page.locator("[data-library-select='added-001']").count() == 1,
         f"{name}: a run added on disk is offered, then listed after Reload",
     )
     note(not errors, f"{name}: no console errors {errors[:4]}")

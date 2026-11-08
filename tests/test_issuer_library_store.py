@@ -3218,3 +3218,40 @@ def test_a_register_whose_term_loans_row_follows_its_split_names_the_split(rows,
     assert found is not None and (found[0].isoformat(), found[1]) == ("2024-09-30", None)
     assert found[2] == f"the debt register (Sep 30, 2024 amount / status) is {words}"
     assert store.secured_debt(store.markdown_tables(COVENANTS, "annual.md")) is None
+
+
+ANNUAL_HANDOFF = ROOT / "runs/tdg-002/CP-1-attempt-2.md"
+PROSE = "This is reported issuer disclosure, not CP-1 independent compliance verification.\n"
+TRANCHES = (
+    "\n| Item / ID | Principal Sep 30, 2024 | Terms retained |\n|---|---|---|\n"
+    "| Tranche L / TL05 | 1,500 | January 19, 2032 |\n"
+)
+
+
+@pytest.mark.parametrize("newline", ["\r\n", "\r"])
+def test_the_store_reads_crlf_and_lone_cr_handoffs_as_it_reads_lf(newline):
+    # Hand key: the retained register totals 20020 at 2024-09-30; a later table stays its own.
+    lf = ANNUAL_HANDOFF.read_text("utf-8").replace(PROSE, PROSE + TRANCHES, 1)
+    assert TRANCHES in lf
+    text = lf.replace("\n", newline)
+    found = store.secured_debt(store.markdown_tables(text, "annual.md"))
+    assert found is not None
+    assert (found[0].isoformat(), found[1], found[2]) == ("2024-09-30", 20020, None)
+    lf_tables = store.markdown_tables(lf, "annual.md")
+    tables = store.markdown_tables(text, "annual.md")
+    tranche = next(t for t in tables if t["header"][:1] == ["Item / ID"])
+    assert tranche["interrupted"] is None  # its own table, not a continuation of the register
+    assert any(t["periods"] for t in tables)
+    assert [(t["header"], t["periods"], t["interrupted"]) for t in tables] == [
+        (t["header"], t["periods"], t["interrupted"]) for t in lf_tables
+    ]
+
+
+def test_the_grid_of_a_crlf_model_equals_the_lf_grid_cell_for_cell():
+    folder = ROOT / "deliverables/tdg-model-1"
+    lf = {name: (folder / name).read_bytes() for name in store.CASHFLOW_FILES}
+    crlf = {name: body.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n") for name, body in lf.items()}
+    handoff = ANNUAL_HANDOFF.read_text("utf-8")
+    grid, problem = store.read_cashflow(lf, handoff)
+    assert grid is not None and problem is None
+    assert store.read_cashflow(crlf, handoff.replace("\n", "\r\n")) == (grid, None)

@@ -743,7 +743,10 @@ class ToolLoop:
             message = self._redactor.exception(failure)
             stop = (error_class, self._named(failure))
         elif priced_failure is not None:  # the charge could not be priced: unknown, recorded, stop
-            stop = ("UnknownCharge", self._named(priced_failure))
+            stop = (
+                "BadTurn",
+                self._named(priced_failure),
+            )  # in LOOP_STOPS: the ok reply still exports
             error_class, message = stop
         elif stop is not None:
             error_class, message = stop

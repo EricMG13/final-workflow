@@ -1,15 +1,17 @@
 """Offline adversarial tests of the adapted cp-os loop; not live module proof."""
 
+import json
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from deploy_vii.contracts import Run
 from deploy_workflow.model.adapter import AdapterReply
-from deploy_workflow.model.handoff import HandoffExecutor, ModuleTools
+from deploy_workflow.model.handoff import REDACTION_FAILED, HandoffExecutor, ModuleTools
 from deploy_workflow.model.turn import ToolCall, Turn, Usage
 from deploy_workflow.owners.cpos import HandoffTask
 
@@ -419,7 +421,7 @@ def test_a_post_reply_fault_settles_the_hold_as_unknown_and_records_it(
     assert loop.budget.spent == marker.usd > 0  # the whole hold counts, never zero
     (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
     assert row["cost_status"] == "unknown" and row["settled_usd"] is None
-    assert "ArithmeticError" in row["error"] or "injected" in row["error"]
+    assert "ArithmeticError: injected post-send fault" in row["error"]
 
 
 def test_a_redactor_that_fails_on_an_adapter_error_still_settles_unknown(
@@ -435,3 +437,52 @@ def test_a_redactor_that_fails_on_an_adapter_error_still_settles_unknown(
     (marker,) = read_reservation_snapshot(tmp_path)
     assert marker.status is not None
     assert loop.budget.spent == marker.usd > 0
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert row["error"].startswith(REDACTION_FAILED) and row["cost_status"] == "unknown"
+
+
+def test_a_pricing_fault_stop_is_one_line_and_the_trace_stays_in_the_record(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model import handoff as handoff_module
+
+    monkeypatch.setattr(handoff_module, "price_usage", _boom)
+    adapter = Adapter(turn(ToolCall("w", "write_handoff", {"markdown": GOOD.decode()})))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    with pytest.raises(RuntimeError) as caught:
+        loop(task())
+    message = str(caught.value)
+    assert "\n" not in message and "Traceback" not in message
+    assert message.endswith("unusable reply: ArithmeticError: injected post-send fault")
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert "Traceback" in row["error"]
+
+
+@pytest.mark.parametrize("kind", ["not_sent", "sent_known"])
+def test_a_zero_cost_reply_with_a_pricing_fault_is_recorded_computed_and_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: Any
+) -> None:
+    from deploy_workflow.model import handoff as handoff_module
+
+    monkeypatch.setattr(handoff_module, "price_usage", _boom)
+    reply = AdapterReply(kind, None, None, None, "Refused", None, 1, 2, message="refused")
+    loop = HandoffExecutor(tmp_path, adapter=Adapter(reply), cap_usd=Decimal(10), check=check)
+    with pytest.raises(RuntimeError, match="cpos_live_stopped"):
+        loop(task())
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert row["settled_usd"] == "0" and row["cost_status"] == "computed"
+    assert loop.budget.spent == 0
+
+
+def test_an_adapter_failure_keeps_its_message_beside_a_pricing_fault(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model import handoff as handoff_module
+
+    monkeypatch.setattr(handoff_module, "price_usage", _boom)
+    adapter = Adapter(RuntimeError("socket gone after send"))
+    loop = HandoffExecutor(tmp_path, adapter=adapter, cap_usd=Decimal(10), check=check)
+    with pytest.raises(RuntimeError, match="cpos_live_stopped"):
+        loop(task())
+    (row,) = [json.loads(n) for n in (tmp_path / "calls.jsonl").read_text().splitlines()]
+    assert "socket gone after send" in row["error"] and "injected post-send fault" in row["error"]

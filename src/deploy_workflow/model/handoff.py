@@ -574,11 +574,13 @@ class HandoffExecutor:
                 message=self._fault_text(exc),
             )
         received, failure = _caught(partial(self._receive, reply))
-        fault: str | None = None
+        fault: str | None = None  # one line, for the stop message
+        fault_trace: str | None = None  # the redacted chain, kept in the record and response
         if received is None:
             # The reply may be paid for but cannot be redacted or priced: unusable, charge unknown.
             turn, usage, priced = None, reply.usage, None
-            fault = f"{type(failure).__name__}: {self._fault_text(failure or '')}"
+            fault = f"{type(failure).__name__}: {self._fault_text(str(failure))}"
+            fault_trace = self._fault_text(failure or RuntimeError(fault))
         else:
             turn, usage, priced = received
         if reply.kind in {"not_sent", "sent_known"}:
@@ -631,9 +633,11 @@ class HandoffExecutor:
                 reserved_usd=reserved,
                 settled_usd=actual,
                 cost_status="unknown"
-                if actual is None or priced is None
+                if actual is None
                 else (
-                    "computed" if reply.kind in {"not_sent", "sent_known"} else priced.cost_status
+                    "computed"
+                    if reply.kind in {"not_sent", "sent_known"} or priced is None
+                    else priced.cost_status
                 ),
                 tool_calls=[]
                 if turn is None
@@ -648,7 +652,9 @@ class HandoffExecutor:
                 ],
                 submit_sha256=None,
                 error_class=reply.error_class if fault is None else fault_class,
-                error=reply.message if fault is None else fault,
+                error=reply.message
+                if fault_trace is None
+                else "\n".join(filter(None, (reply.message, fault_trace))),
             )
         )
         if reply.raw is not None:
@@ -666,7 +672,9 @@ class HandoffExecutor:
                     "kind": reply.kind,
                     "turn": None if turn is None else turn_to_json(turn),
                     "error_class": reply.error_class,
-                    "error": self._fault_text(fault or reply.message or ""),
+                    "error": self._fault_text(
+                        "\n".join(filter(None, (reply.message, fault_trace)))
+                    ),
                     "reservation_id": call_id,
                 }
             ).encode(),

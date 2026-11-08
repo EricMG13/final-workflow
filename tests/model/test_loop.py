@@ -449,7 +449,7 @@ def test_a_failing_pricing_settles_the_hold_unknown_and_records_it(
 
     rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
     monkeypatch.setattr(loop_module, "price_usage", broken)
-    assert _stop(rig).reason == "UnknownCharge"
+    assert _stop(rig).reason == "BadTurn"
     (marker,) = read_reservation_snapshot(tmp_path / "store")
     assert marker.status is not None  # settled, not left held
     (record,) = rig.records()
@@ -1952,4 +1952,23 @@ def test_the_reopen_note_names_the_search_only_for_a_step_with_pack_tools() -> N
     narrative = spec("narrative", sources=False, inputs="projection")
     assert loop_module._reopen_note("narrative", narrative) == head + " and call read_inputs again."
     both = spec("x", sources=True, inputs="projection")
-    assert loop_module._reopen_note("x", both) == head + " and call read_inputs again" + SEARCH_AGAIN + "."
+    assert (
+        loop_module._reopen_note("x", both)
+        == head + " and call read_inputs again" + SEARCH_AGAIN + "."
+    )
+
+
+def test_a_stopped_pricing_failure_still_exports_as_the_ok_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model.record import LOOP_STOPS
+
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    rig = _live_with_sol_hold(tmp_path, monkeypatch, [_body(("search_pack", {"query": "x"}))])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    _stop(rig)
+    (record,) = rig.records()
+    assert record["error_class"] in LOOP_STOPS
+    assert _export(rig, tmp_path / "out.jsonl") == 1

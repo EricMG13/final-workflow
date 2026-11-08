@@ -10,6 +10,26 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-08 — Sweep follow-ups R14, R15, R17 (branch `claude/sweep-followups`)
+
+Scope: three register rows that predate the swept range, fixed on the owner's request from main `5740af30`; macOS;
+fakes and injected faults, no provider call.
+- R15 (money): a call whose post-reply redaction or pricing raised was neither settled nor released and vanished
+  from `status.json` and `calls.jsonl` (counted as zero). Now settled as unknown at its full hold, recorded with a
+  one-line stop message (traceback only in the call record), zero-cost replies keep a coherent `computed` row, and
+  the `loop.py` sibling settles unknown and keeps the provider's class. App path: `spent_usd` 0.00007 → 5.73007.
+  Reachable live only by injection; offline via a recording with an empty tool-call id.
+- R14: the store's section parser numbers lines like delivery's `physical_lines` (form feed, U+0085, U+2028).
+- R17: the New Run page's poll sends `notify=0`, so only the app-wide watcher speaks for the tab.
+- Reviews: mx-precise per task, mx-adversary on R15 (one fix round), mx-architect on the branch (approve; two Lows
+  fixed in a final batch). Probes r15-1/2b/3, review-f2*, review-ffinal-5, app-5, review-3a-5 exit 0.
+- Gates on `922fb03b`, exit 0: `tools/quality_gate.py`; targeted pytest (13 files, 1066 passed); `validate.py full`;
+  Go unchanged since `3fca4c08` (`go vet` darwin/windows, `go test -race` exit 0). 520 changed lines; one
+  suppression removed, none added.
+- Open for the owner: R18 (app spend for a hold left by a killed process); L8 (other unguarded `_named` sites).
+Not verified: Windows/Edge; a real provider reply that triggers R15; the export mismatch of a scripted
+`sent_usage` reply (L9); the browser walk and the weekly full suite (GitHub billing blocks CI).
+
 ## 2026-11-08 — Refactoring sweep of PRs #31-#43 (branch `claude/sweep-prepare-c802ee`)
 
 Scope: changed code in `e1a24112..0619a9be`, start `0619a9be`; macOS only; fakes and retained data, no provider call.

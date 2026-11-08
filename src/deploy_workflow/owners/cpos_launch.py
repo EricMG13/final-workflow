@@ -28,7 +28,7 @@ from typing import Any
 
 from deploy_vii.contracts import PATHWAY_MODULES, Run
 from deploy_vii.live.prompts import STEP_CONTRACTS
-from deploy_vii.registry import plan
+from deploy_vii.registry import modules, plan
 from deploy_vii.report_view import _spec_of, pathways
 from deploy_workflow.context import CONTEXT_SOURCE_ID, load_context
 from deploy_workflow.handoff_delivery import (
@@ -71,6 +71,7 @@ from deploy_workflow.reader_summary import (
     MAX_FINDINGS,
     reader_issues,
 )
+from deploy_workflow.run_expectations import Item, edges_for, expectations, guess_kind
 from deploy_workflow.workflow import _put
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -80,6 +81,8 @@ SOURCE_SUFFIXES = frozenset(
     {".pdf", ".htm", ".html", ".txt", ".md", ".xlsx", ".csv", ".json", ".jsonl"}
 )
 NOT_ANALYTICAL = frozenset({"CP-MODEL", "CP-8"})  # In the presets; each has its own route.
+FIRST_PAGES = 3  # Pages of each source kept for the offline document guess (page 1 is the cover).
+Cover = tuple[str, tuple[str, ...]]  # A source's file name and its first pages.
 MAX_OUTPUT_TOKENS = 32000  # What the retained live campaigns ran with.
 
 _SKILLS = "docs/reuse/selected-methods/skills/"
@@ -269,6 +272,8 @@ class Prepared:
     hold: Decimal  # What one call of the largest module counts against the cap while in flight.
     retained_modules: tuple[str, ...] = ()  # Replayed from a stopped run; no model call.
     retained_stop: tuple[str, str] = ("", "")  # The module the replay stopped before, and why.
+    documents: tuple[dict[str, Any], ...] = ()  # Each pinned source's guessed kind (offline).
+    expectations: tuple[Item, ...] = ()  # What the run is expected to do (offline forecast).
 
 
 def _sha(raw: bytes) -> str:
@@ -298,8 +303,9 @@ def _html_page_rows(name: str, raw: bytes) -> bytes:
 
 def _issuer_files(
     folder: Path, context: Path, directory: Path
-) -> tuple[dict[str, HandoffInput], dict[str, bytes], tuple[str, ...]]:
-    """Every readable file in ``folder``, the converted texts to write, and the files left out. A
+) -> tuple[dict[str, HandoffInput], dict[str, bytes], tuple[str, ...], dict[str, Cover]]:
+    """Every readable file in ``folder``, the converted texts to write, the files left out and each
+    pinned source's name and first pages (for the offline document guess). A
     file a module could not read stops the launch here, because the same failure during a run
     would come after the module was marked as started and could not be resumed."""
     if not folder.is_dir():
@@ -308,6 +314,7 @@ def _issuer_files(
     converted: dict[str, bytes] = {}
     ignored: list[str] = []
     origins: dict[str, str] = {}
+    covers: dict[str, Cover] = {}
     for path in sorted(folder.rglob("*")):
         name = path.relative_to(folder).as_posix()
         parts = path.relative_to(folder).parts
@@ -335,6 +342,7 @@ def _issuer_files(
             raise LaunchRefused(f"--sources: cannot read {name}: {error}") from error
         if not any(page.strip() for page in pages):
             raise LaunchRefused(f"--sources: {name} has no extractable text (scanned image?)")
+        covers[key] = (name, tuple(pages[:FIRST_PAGES]))
         if is_html:
             converted[f"source-text/{key}"] = readable
             pinned[key] = HandoffInput(path=f"source-text/{key}", sha256=_sha(readable))
@@ -342,7 +350,7 @@ def _issuer_files(
             pinned[key] = HandoffInput(path=os.path.relpath(path, directory), sha256=_sha(raw))
     if not pinned:
         raise LaunchRefused(f"--sources {folder}: no readable issuer file")
-    return pinned, converted, tuple(ignored)
+    return pinned, converted, tuple(ignored), covers
 
 
 # Fixed so any run's charts can be read without issuer-specific row selectors.
@@ -528,7 +536,14 @@ def _selector(route: MarkdownRoute) -> str:
     return f"- `### {route.heading}`: {what}"
 
 
-def _instructions(run: Run, module: str, routes: Sequence[MarkdownRoute]) -> bytes:
+def _instructions(
+    run: Run,
+    module: str,
+    routes: Sequence[MarkdownRoute],
+    *,
+    run_type: str,  # Plan 3 (Primary scope) reads these two; no instruction byte uses them yet.
+    legal_documents: str,
+) -> bytes:
     selectors = "\n".join(_selector(r) for r in routes if r.module_id == module)
     sections = [(path, (ROOT / path).read_text(encoding="utf-8")) for path in METHODS[module]]
     if module == "CP-1":
@@ -687,10 +702,33 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting; retained is the res
     directory = (ROOT / "runs" / run.run_id if out is None else Path(out)).expanduser().resolve()
     if directory.is_relative_to(folder):
         raise LaunchRefused(f"--out {directory}: must be outside the issuer folder")
-    pinned, converted, ignored = _issuer_files(folder, context_path, directory)
+    pinned, converted, ignored, covers = _issuer_files(folder, context_path, directory)
     aliases = tuple(a for a in settings.identity.aliases if a.strip())
     layout, omitted = _layout(run, ordered, aliases, config)
-    texts = {m: _instructions(run, m, layout.routes) for m in ordered}
+    texts = {
+        m: _instructions(
+            run,
+            m,
+            layout.routes,
+            run_type=settings.run.run_type,
+            legal_documents=settings.attachments.legal_documents,
+        )
+        for m in ordered
+    }
+    guesses = {key: guess_kind(name, pages) for key, (name, pages) in covers.items()}
+    items = expectations(
+        ordered, tuple(guesses.values()), settings, edges_for(ordered), omitted=omitted
+    )
+    documents = tuple(
+        {
+            "source": key,
+            "kind": g.kind,
+            "signal": g.signal,
+            "executed": g.executed,
+            "period_end": g.period_end,
+        }
+        for key, g in guesses.items()
+    )
     request = HandoffPlan(
         run=run,
         sources={
@@ -747,8 +785,40 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting; retained is the res
         _put(directory / "retained" / f"{module}.md", record.response)
     _put(manifest, raw)
     return Prepared(
-        directory, manifest, request, layout, ordered, ignored, omitted, hold, tuple(kept), stop
+        directory,
+        manifest,
+        request,
+        layout,
+        ordered,
+        ignored,
+        omitted,
+        hold,
+        tuple(kept),
+        stop,
+        documents,
+        tuple(items),
     )
+
+
+def without_for(ordered: Sequence[str], items: Sequence[Item]) -> dict[str, list[str]]:
+    """For each declaration-based Will refuse module: itself and, transitively, every ordered module
+    that requires it (a registry required dependency; optional and restricted consumers stay), in
+    run order. An inherited Will refuse offers nothing: its producer does."""
+    required = {m.module_id: set(m.required) for m in modules()}
+    result: dict[str, list[str]] = {}
+    for item in items:
+        if item["outcome"] != "will_refuse" or item["inherited_from"] or item["scope"] == "run":
+            continue
+        removed = {item["scope"]}
+        grew = True
+        while grew:
+            grew = False
+            for module in ordered:
+                if module not in removed and required.get(module, set()) & removed:
+                    removed.add(module)
+                    grew = True
+        result[item["scope"]] = [m for m in ordered if m in removed]
+    return result
 
 
 def checker(layout: MarkdownLayout) -> Check:

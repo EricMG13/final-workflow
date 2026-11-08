@@ -24,6 +24,7 @@ ENGINE_SRC = HERE / "src" if (HERE / "src").is_dir() else HERE.parents[2] / "src
 sys.path.insert(0, str(ENGINE_SRC))
 
 from deploy_vii.registry import modules
+from deploy_workflow.context import load_context
 from deploy_workflow.model.adapter import KEY_VARIABLES
 from deploy_workflow.model.budget import Budget
 from deploy_workflow.model.pricing import PRICES_AS_OF
@@ -36,8 +37,10 @@ from deploy_workflow.owners.cpos_launch import (
     Prepared,
     checker,
     prepare,
+    without_for,
 )
 from deploy_workflow.platform_io import replace
+from deploy_workflow.run_expectations import counted_ids
 from deploy_workflow.run_events import stop_reason
 
 RETAINED_NOTE = "Retained work is in the run folder; no automatic paid retry was made."
@@ -284,6 +287,13 @@ def review(directory: Path) -> dict[str, Any]:
         "report_sections": list(prepared.layout.blocks),
         "omitted": list(prepared.omitted),
         "scope": prepared.layout.scope,
+        "issue_classification": load_context(
+            (directory / "context.json").read_bytes()
+        ).identity.issue_classification,
+        "documents": list(prepared.documents),
+        "expectations": list(prepared.expectations),
+        "counted": counted_ids(prepared.expectations),
+        "without": without_for(prepared.ordered, prepared.expectations),
     }
 
 

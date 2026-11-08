@@ -64,5 +64,5 @@ plans, staff roles, pauses and approval records are evidence, not inherited auth
 - While working, run fast targeted tests only (each run within a few minutes; `timeout 300`).
   The full suite, slow tests included, runs weekly (Sunday 01:00 UTC) in GitHub Actions
   (docs/QUALITY-GATE.md); a failure there not in tests/nightly-known-failures.txt is new.
-- Keep one concise verification record. No review/brief/lease proliferation.
+- Keep one concise verification record. Entries older than two days move verbatim to docs/VERIFICATION-ARCHIVE.md; VERIFICATION.md stays under 1,000 lines. No review/brief/lease proliferation.
 - Never mutate predecessor repositories or historical live run directories.

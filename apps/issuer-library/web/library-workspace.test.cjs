@@ -651,8 +651,8 @@ test('Help states the credit and market screening rules',t=>{
   const head=[...d.querySelectorAll('.help-copy h2')].find(h=>text(h)==='Screening credit and market data');
   assert.ok(head,'section');
   let body='';for(let n=head.nextElementSibling;n&&n.tagName==='P';n=n.nextElementSibling)body+=text(n)+' ';
-  for(const phrase of [/pinned line/,/definitions differ/,/never satisfies a minimum or maximum/,/how many it hid/,/runs tied on that date all stay in/,/not screened/,/\(P\) and \(EXP\)/,/within one facility/,/negative spread-talk side is treated as missing/,/only a bid or only an ask has no price/,/Private-side tag appears only/,/as entered/,/verified checklist/])assert.match(body,phrase,String(phrase));
-  assert.ok(body.split(/\s+/).length<=300);
+  for(const phrase of [/pinned line/,/definitions differ/,/never satisfies a minimum or maximum/,/how many it hid/,/runs tied on that date all stay in/,/not screened/,/not older than the issuer’s latest reported run/,/in the run detail/i,/or at facility scope/,/\(P\) and \(EXP\)/,/within one facility/,/negative spread-talk side is treated as missing/,/bid without an ask, or an ask without a bid, gives no price range/,/Private-side tag appears only/,/as entered/,/verified checklist/])assert.match(body,phrase,String(phrase));
+  assert.ok(body.split(/\s+/).length<=340);
 });
 
 test('An Other models row opens the model under the run it was published for, not an earlier run that only supplied files',async t=>{

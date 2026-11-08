@@ -220,15 +220,15 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
   the value must equal a whole number in the quote, sign and scale included
   (thousands commas group three digits; an accounting `(12.3)` is `-12.3`). A
   fragment of a date, range, list or decimal-comma figure does not count.
-  Optional `provenance` is the producer's explicit `cited`, `calculated` or
-  `synthetic` classification. Omit it when unknown: the interface shows
+  Optional `provenance` is the producer's explicit `cited`, `calculated`,
+  `synthetic` or `user` classification (facility and quote terms must be `user`). Omit it when unknown: the interface shows
   **Not classified** beside the source link. A verified source alone does not
   establish provenance type, and the library never infers it from the value,
   basis or reference name.
 - `run.classification` is `investment_grade` or `high_yield`. `classification_source`
   must name a pinned source whose quote holds that token in double quotes, e.g.
   `"high_yield"`.
-- `run.private_side` is `true` or omitted. `private_side_source` must name a pinned
+- `run.private_side` is `true` or omitted (false is read as omitted). `private_side_source` must name a pinned
   source whose quote holds `"private"` in double quotes.
 - `run.facilities` lists facilities with a unique, non-empty `facility_id`. `terms`
   admits `size_m`, `tenor_years`, `talk_spread_bps_low`, `talk_spread_bps_high`,

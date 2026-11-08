@@ -11,7 +11,7 @@ const workflowTitle=value=>String(value).replace(/_/g,' ').replace(/\b[a-z]/g,le
 const STATE_BADGE={running:'blue',complete:'navy',stopped:'attention',failed:'attention',interrupted:'attention'};
 const textNode=(tag,value)=>{const node=document.createElement(tag);node.textContent=value;return node;};
 // Why a run stopped, in words a reader can act on. The redacted message follows the sentence.
-const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
+const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
 function stopSentence(status){return WORKFLOW_ACTIVE.includes(status.state)||status.state==='complete'?'':STOP_COPY[status.reason]||'';}
 // A raw state or engine prefix is never shown: the five states have plain words.
 const STATE_WORD={running:'Running',complete:'Complete',stopped:'Stopped',failed:'Failed',interrupted:'Interrupted'};
@@ -20,13 +20,8 @@ const stateWord=state=>STATE_WORD[state]||'Not running';
 function shortRunId(id){const match=/^web-([a-f0-9]{8})[a-f0-9]{24}$/.exec(String(id));return match?`WEB-${match[1].toUpperCase()}`:String(id);}
 // The day a run started, from the time of its first recorded event; '' when none was recorded (never guessed).
 function startedOn(job){const day=typeof job?.started_at==='string'?job.started_at.slice(0,10):'',shown=displayDate(day);return shown!==day?shown:'';}
-// Amounts are compared as decimal strings, never as floats: a cap one cent above the spend must read as above it.
+// A resumed run is a new execution with its own cap; the cap only has to be a positive decimal, as the engine requires.
 const DECIMAL=/^\d+(\.\d+)?$/;
-function decimalAbove(value,floor){
-  if(!DECIMAL.test(value)||!DECIMAL.test(floor))return false;
-  const places=Math.max(value.split('.')[1]?.length||0,floor.split('.')[1]?.length||0),scaled=text=>BigInt(text.replace('.','')+'0'.repeat(places-(text.split('.')[1]?.length||0)));
-  return scaled(value)>scaled(floor);
-}
 const positiveAmount=value=>DECIMAL.test(value)&&/[1-9]/.test(value);
 // A bare module code in an engine message becomes "<module name> (<code>)" where the run names it.
 function nameModuleCodes(text,details){
@@ -291,13 +286,8 @@ function installNewRun(){
     if(wanted&&!watch)watch=setInterval(poll,2000);
     if(!wanted&&watch){clearInterval(watch);watch=null;}
   }
-  // A budget stop needs a cap above what the run already recorded; any other stop needs a positive amount. The server
-  // only requires a non-empty cap (the engine a positive one), so this is stricter than it, never looser.
-  function resumeBudgetOk(){
-    const field=$('resume-budget'),value=field.value.trim();
-    if(!positiveAmount(value))return false;
-    return field.dataset.mode==='budget'?decimalAbove(value,field.dataset.floor||''):true;
-  }
+  // The server requires a non-empty cap and the engine a positive one; the resumed run's spend starts at zero, so the old spend is not compared.
+  const resumeBudgetOk=()=>positiveAmount($('resume-budget').value.trim());
   function titleOf(id){return (Array.isArray(review?.module_details)?review.module_details:[]).find(item=>item?.id===id)?.title||id;}
   // Shows one recorded run's progress panel: a Recent-runs click, or the run strip's Resume link.
   function openJob(job){
@@ -400,15 +390,9 @@ function installNewRun(){
     if(canResume&&field.dataset.run!==review?.id){
       field.dataset.run=review?.id;
       const hint=$('resume-hint'),spent=status.spent_usd??status.progress?.spent_usd;
-      if(status.reason==='budget'){
-        // The cap that stopped the run is not offered again: the reader chooses a higher one.
-        field.dataset.mode='budget';field.dataset.floor=DECIMAL.test(String(spent))?String(spent):'';field.value='';
-        hint.textContent=field.dataset.floor?`More than USD ${spent}, the spend this run already recorded`:'The recorded spend could not be read, so a higher cap cannot be checked here.';
-        hint.hidden=false;field.setAttribute('aria-describedby','resume-hint');
-      }else{
-        field.dataset.mode='cap';delete field.dataset.floor;field.value=review?.cap_usd||$('run-budget').value;
-        hint.textContent='';hint.hidden=true;field.removeAttribute('aria-describedby');
-      }
+      field.value=review?.cap_usd||$('run-budget').value;
+      hint.textContent=`This cap applies to the resumed run's own model calls; ${DECIMAL.test(String(spent))?`the USD ${spent} already spent`:'spend already recorded'} is not counted against it.`;
+      hint.hidden=false;field.setAttribute('aria-describedby','resume-hint');
     }
     if(!canResume)$('resume-hint').hidden=true;
     $('open-run').hidden=!finished||status.run_available===false;

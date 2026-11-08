@@ -306,36 +306,38 @@ async function openRow(p){
   p.doc.querySelector('#recent-jobs button.text-button').click();await settle();
 }
 const type=(p,value)=>{const field=p.doc.getElementById('resume-budget');field.value=value;field.dispatchEvent(new p.win.Event('input',{bubbles:true}));};
-test('after a budget stop Review waits for a budget that parses and exceeds the recorded spend',async t=>{
+const HINT=spent=>spent?`This cap applies to the resumed run's own model calls; the USD ${spent} already spent is not counted against it.`:"This cap applies to the resumed run's own model calls; spend already recorded is not counted against it.";
+test('after a budget stop the cap starts at the previous cap and is not compared with the recorded spend',async t=>{
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
   await openRow(p);
-  const button=p.doc.getElementById('resume-run');
-  assert.equal(p.doc.getElementById('resume-hint').textContent,'More than USD 4.00, the spend this run already recorded');
+  const button=p.doc.getElementById('resume-run'),field=p.doc.getElementById('resume-budget');
+  assert.equal(field.value,'10.00');assert.equal(button.disabled,false);
+  assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
   assert.equal(p.doc.getElementById('resume-hint').hidden,false);
-  assert.equal(p.doc.getElementById('resume-budget').getAttribute('aria-describedby'),'resume-hint');
-  for(const [value,enabled] of [['',false],['3.99',false],['4',false],['4.00',false],['4.0',false],['0',false],['-5',false],['1e1',false],['4.001',true],['4.01',true],['12.50',true],['1000',true],['3',false]]){
+  assert.equal(field.getAttribute('aria-describedby'),'resume-hint');
+  for(const [value,enabled] of [['',false],['0',false],['0.00',false],['-5',false],['1e1',false],['abc',false],['3',true],['4.00',true],['0.01',true],['12.50',true]]){
     type(p,value);assert.equal(button.disabled,!enabled,`value ${JSON.stringify(value)}`);
   }
   type(p,'3');await p.click('resume-run');
-  assert.equal(p.calls.filter(call=>call.url==='/api/runs/resume').length,0,'a disabled Review sends nothing');
+  assert.deepEqual(JSON.parse(p.calls.find(call=>call.url==='/api/runs/resume').options.body).cap_usd,'3');
 });
-test('a budget stop whose recorded spend cannot be read keeps Review disabled and says why',async t=>{
+test('the hint says so when the recorded spend cannot be read',async t=>{
   for(const spent of ['unknown',undefined]){
     const row={...ROW_STOPPED,spent_usd:spent,progress:{...ROW_STOPPED.progress,spent_usd:undefined}};
     const p=await page(t,{list:[row],status:row});
-    await openRow(p);type(p,'99');
-    assert.equal(p.doc.getElementById('resume-run').disabled,true,String(spent));
-    assert.match(p.doc.getElementById('resume-hint').textContent,/recorded spend could not be read/i);
+    await openRow(p);
+    assert.equal(p.doc.getElementById('resume-hint').textContent,HINT(''),String(spent));
+    assert.equal(p.doc.getElementById('resume-run').disabled,false);
   }
 });
-test('a stop for another reason starts at the previous cap and needs only a positive amount',async t=>{
+test('a stop for another reason starts at the previous cap with the same hint',async t=>{
   for(const reason of ['checker','provider','interrupted',undefined]){
     const row={...ROW_STOPPED,state:'failed',reason};
     const p=await page(t,{list:[row],status:row});
     await openRow(p);
     const field=p.doc.getElementById('resume-budget'),button=p.doc.getElementById('resume-run');
     assert.equal(field.value,'10.00',String(reason));assert.equal(button.disabled,false);
-    assert.equal(p.doc.getElementById('resume-hint').hidden,true);assert.equal(field.hasAttribute('aria-describedby'),false);
+    assert.equal(p.doc.getElementById('resume-hint').textContent,HINT('4.00'));
     type(p,'0');assert.equal(button.disabled,true);type(p,'');assert.equal(button.disabled,true);type(p,'2.50');assert.equal(button.disabled,false);
   }
 });
@@ -350,8 +352,7 @@ test('a stopped run offers a resume that goes through review and confirmation',a
   const p=await page(t,{list:[ROW_STOPPED],status:ROW_STOPPED});
   await openRow(p);
   const budget=p.doc.getElementById('resume-budget');
-  assert.equal(p.doc.getElementById('resume-run').hidden,false);assert.equal(budget.value,'','a budget stop starts empty');
-  assert.equal(p.doc.getElementById('resume-run').disabled,true);
+  assert.equal(p.doc.getElementById('resume-run').hidden,false);assert.equal(budget.value,'10.00','a budget stop starts at the previous cap');
   type(p,'12.50');assert.equal(p.doc.getElementById('resume-run').disabled,false);await p.click('resume-run');
   const posted=p.calls.filter(call=>call.url==='/api/runs/resume');
   assert.equal(posted.length,1);

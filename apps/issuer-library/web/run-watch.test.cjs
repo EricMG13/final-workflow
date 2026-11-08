@@ -94,7 +94,7 @@ test('polling stops when no run is active',async t=>{
 });
 test('a stopped run leads with the sentence for its reason',async t=>{
   const rows=[
-    ['budget','stopped','Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.'],
+    ['budget','stopped','Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap.'],
     ['checker','stopped','Stopped: a module\'s handoff did not pass its check within the allowed turns.'],
     ['provider','stopped','Stopped: the model provider returned an error or an unknown charge.'],
     ['interrupted','interrupted','Stopped: the run was interrupted before a response was retained.'],
@@ -179,7 +179,7 @@ test('a running run without counts falls back to the module text, or to no text'
   assert.deepEqual(parts(p).lines,[]);
 });
 test('a stopped, failed or interrupted run shows the amber strip with its sentence, spend line and Resume',async t=>{
-  const rows=[['stopped','budget','Stopped','Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.'],
+  const rows=[['stopped','budget','Stopped','Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap.'],
     ['failed','provider','Failed','Stopped: the model provider returned an error or an unknown charge.'],
     ['interrupted','interrupted','Interrupted','Stopped: the run was interrupted before a response was retained.']];
   for(const [state,reason,word,sentence] of rows){
@@ -196,7 +196,7 @@ test('a stop with module codes in its engine message never puts them in the brow
   assert.doesNotMatch(p.built[0].options.body,/CP-/);
   const q=await page(t,{list:[job()]});
   await q.watch();q.state.list=[job({state:'stopped',reason:'budget',issuer:undefined})];await q.watch();
-  assert.equal(q.built[0].options.body,"Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules.");
+  assert.equal(q.built[0].options.body,"Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap.");
   const r=await page(t,{list:[job({issuer:undefined})]});
   await r.watch();r.state.list=[job({state:'complete',issuer:undefined})];await r.watch();
   assert.equal(r.built[0].options.body,'The run complete');
@@ -305,7 +305,7 @@ test('plain state words replace raw states, and bare module codes are named',asy
   assert.equal(p.win.stopText({state:'running',message:'Working'}),'Running: Working');
   assert.equal(text('failed','CP-1 rejected; CP-OS stopped; CP-9 unknown'),'Failed: Financial analysis (CP-1) rejected; CP-OS stopped; CP-9 unknown');
   assert.equal(text('failed','Financial analysis (CP-1) rejected'),'Failed: Financial analysis (CP-1) rejected','an already named code is left alone');
-  assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap. Resume with a higher cap to keep the accepted modules. x');
+  assert.equal(text('stopped','x',{reason:'budget'}),'Stopped: the next model call would pass the spending cap. Resuming keeps the accepted modules; the resumed run has its own cap. x');
 });
 test('Fix 1: dismissing a running strip hides it (and the mark) until the run changes state',async t=>{
   const p=await page(t,{list:[job()]});

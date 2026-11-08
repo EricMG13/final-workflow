@@ -241,7 +241,7 @@ referenced handoffs exist; incomplete writes remain visible as discovery notices
 
 ## Development and reproducible packaging
 
-Build requires Go 1.26 and Python 3.13. Windows runtime dependencies are bundled.
+Build requires Go 1.24 (or newer) and Python 3.13. Windows runtime dependencies are bundled.
 
 ```sh
 cd apps/issuer-library

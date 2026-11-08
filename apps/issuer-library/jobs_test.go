@@ -160,7 +160,7 @@ func TestExplicitStartIsOneShotUnderConcurrentRequests(t *testing.T) {
 	var group sync.WaitGroup
 	results := make(chan int, 2)
 	for range 2 {
-		group.Go(func() { results <- call(app, "POST", "/api/runs/start", payload).Code })
+		spawn(&group, func() { results <- call(app, "POST", "/api/runs/start", payload).Code })
 	}
 	group.Wait()
 	close(results)
@@ -839,7 +839,7 @@ func TestReviewConcurrentStartsAroundAFailedSpawn(t *testing.T) {
 		var lock sync.Mutex
 		seen := map[int]int{}
 		for range 8 {
-			group.Go(func() {
+			spawn(&group, func() {
 				code := call(app, "POST", "/api/runs/start", payload).Code
 				lock.Lock()
 				seen[code]++

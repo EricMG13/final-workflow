@@ -373,7 +373,7 @@ function installNewRun(){
     bar.hidden=!modules.length;
     if(modules.length){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
-            // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
+      // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
       const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=(step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length))||(!active&&!runComplete&&(step==='delivering'||status.progress?.accepted>=modules.length));
       const modulesDone=runComplete||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{

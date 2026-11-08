@@ -322,30 +322,6 @@ function sourceInventory(context) {
   if(!rows.length)return `<div class="missing-state"><div class="empty-symbol">${icon('file-text')}</div><h2>No retained files for this run</h2><p>No module outputs or inputs were found in this run’s folder.</p></div><a class="text-action switch-case" href="#W-Library/cases">Choose another case</a>`;
   return `<div class="source-inventory">${rows.join('')}</div>`;
 }
-function libraryRecords() {
-  return Object.entries(contexts).map(([key,run])=>({key,issuer:run.issuer,issuerKey:run.issuerKey,heading:run.issuerHeading,terms:run.issuerTerms,sector:run.sector,run:run.run,period:run.period,workflow:run.pathway||'none',year:/^\d{4}/.exec(run.asOf||'')?.[0]||'none',asOf:run.asOf||null,first:run.first,modules:contextModules(key),outputs:outputCount(key),reports:reportsBuiltFrom(key).map(r=>r.id)}));
-}
-// Workflow and as-of come only from what a run recorded; anything else is 'none', shown as Not recorded.
-const workflowName=record=>record.workflow==='none'?'':workflowTitle(record.workflow);
-function filterLibrary(records,filters) {
-  const terms=filters.query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-  return records.filter(record=>{
-    if(filters.sector!=='all'&&record.sector!==filters.sector)return false;
-    if(filters.workflow!=='all'&&record.workflow!==filters.workflow)return false;
-    if(filters.year!=='all'&&record.year!==filters.year)return false;
-    if(filters.content==='reports'&&!record.reports.length)return false;
-    if(filters.content==='modules'&&!record.outputs)return false;
-    if(filters.module!=='all'&&!record.modules.includes(filters.module))return false;
-    const searchable=`${record.issuer} ${record.terms.join(' ')} ${record.key} ${record.run} ${record.period} ${workflowName(record)} ${record.sector} ${record.modules.join(' ')}`.toLowerCase();
-    return terms.every(term=>searchable.includes(term));
-  });
-}
-function libraryCount(records) {
-  const issuers=new Set(records.map(r=>r.issuerKey).filter(k=>k!==null)).size,reports=new Set(records.flatMap(r=>r.reports)).size;
-  return `${plural(issuers,'issuer')} · ${plural(records.length,'run')} · ${plural(reports,'report')}`;
-}
-const UNRECORDED_ISSUER='Issuer not recorded';
-const sectorLabel=sector=>sector==='Unclassified'?'Not recorded':sector;
 const badge=(kind,text)=>`<span class="badge badge-${kind}">${esc(text)}</span>`;
 // The acceptance state a report declares, as the badge and muted qualification text every report listing shows.
 const QUALIFICATIONS=['unrun','partial','qualified','blocked'];
@@ -441,54 +417,129 @@ function forecastView(context,id) {
   const built=`<section class="forecast-built"><h2>Built from</h2><div class="table-scroll"><table><thead><tr><th scope="col">Role</th><th scope="col">Run</th><th scope="col">Source</th><th scope="col">SHA-256 prefix</th><th scope="col">Status</th></tr></thead><tbody>${model.sources.map(s=>`<tr><th scope="row">${esc(Object.hasOwn(SOURCE_ROLES,s.role)?SOURCE_ROLES[s.role]:s.role)}</th><td>${run(s)}</td><td>${source(s)}</td><td>${s.sha256===null?'':esc(s.sha256.slice(0,12))}</td><td>${status(s)}</td></tr>`).join('')}</tbody></table></div>${attemptNote(model.sources)}</section>`;
   return `<div class="forecast"><div class="report-tools forecast-tools">${select}${acceptance.html}<a href="${esc(model.download)}" download>Download original HTML</a></div>${cashflowSection(model)}${assumptions}${model.cashflow?`<section class="forecast-limits"><h2>Model limitations</h2><ul>${model.cashflow.limits.map(l=>`<li>${esc(l)}</li>`).join('')}</ul></section>`:''}${why}${built}<details class="model-original"><summary>Published model (original HTML)</summary><div class="frame-host"><p class="frame-status" role="status" hidden></p><iframe id="model-preview" data-download="${esc(model.download)}" data-src="${esc(model.href)}" title="${esc(model.id)} · published model" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer"></iframe></div></details></div>`;
 }
-const workflowCell=values=>[...new Set(values)].map(v=>v==='none'?'<span class="muted">Not recorded</span>':`<span class="badge badge-blue"><i></i>${esc(workflowTitle(v))}</span>`).join(' ');
-// A report built from several runs counts once; a run with no outputs at all says so.
-const reportCell=runs=>{const n=new Set(runs.flatMap(r=>r.reports)).size;return n?badge('navy',plural(n,'report')):runs.some(r=>r.outputs)?'<span class="muted">No report</span>':badge('attention','No saved outputs');};
-const shortPeriod=period=>period.split(' · ')[0];
-function libraryResults(records) {
-  if(window.DESIGN_APP?.problem)return `<div class="library-empty"><h2>The library could not read this workspace</h2><p>Nothing can be listed until it can be read. Check the workspace folder in Settings, or quit and reopen the library.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
-  if(!Object.keys(contexts).length)return `<div class="library-empty"><h2>No runs in this workspace yet</h2><p>Start a new run, or choose another workspace folder in Settings.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
-  if(!records.length)return '<div class="library-empty"><h2>No matching issuers or runs</h2><p>Try a shorter search or remove a filter.</p></div>';
-  const runCells=r=>`<td data-label="Run"><a class="run-link" href="${routeHref('W-Overview','overview',null,r.key)}">${esc(r.run)}</a>${r.issuerKey!==null&&r.issuer!==r.heading?`<span class="recorded-as">Recorded as ${esc(r.issuer)}</span>`:''}</td><td data-label="Workflow">${workflowCell([r.workflow])}</td><td data-label="Period">${esc(shortPeriod(r.period))}</td><td data-label="Reports">${reportCell([r])}</td><td class="row-open">${icon('arrow-right')}</td>`;
-  // A search opens the groups it matches without touching the disclosure the reader chose; a filter that hides runs shows how many remain.
-  const searching=libraryFilters.query.trim()!=='',totals=new Map();
-  for(const r of libraryRecords())totals.set(r.issuerKey,(totals.get(r.issuerKey)||0)+1);
-  let rowNumber=0;const rowId=()=>`run-row-${++rowNumber}`;
-  // Runs of one issuer share a group whatever name each recorded; runs with no recorded issuer share the last one.
-  const heading=g=>g===null?UNRECORDED_ISSUER:records.find(r=>r.issuerKey===g).heading;
-  const keys=[...new Set(records.map(r=>r.issuerKey))].sort((a,b)=>a===null?1:b===null?-1:heading(a).localeCompare(heading(b),undefined,{sensitivity:'base'}));
-  const groups=keys.map(issuer=>{
-    // Newest first: as-of date descending, runs with none recorded last, ties by run id.
-    const runs=records.filter(r=>r.issuerKey===issuer).sort((a,b)=>(b.asOf??'').localeCompare(a.asOf??'')||a.key.localeCompare(b.key)),sectors=[...new Set(runs.map(r=>r.sector).filter(v=>v!=='Unclassified'))];
-    const name=`<th scope="rowgroup"><h2>${esc(heading(issuer))}</h2>${badge('gray',sectors.length===1?sectors[0]:sectors.length?'Sectors vary':'Sector not recorded')}</th>`;
-    if(runs.length===1)return `<tbody class="run-list"><tr class="issuer-row">${name}${runCells(runs[0])}</tr></tbody>`;
-    const groupKey=issuer??'unrecorded',open=searching?searchOpen.get(groupKey)??true:expandedIssuers.has(groupKey),total=totals.get(issuer),periods=[...new Set(runs.map(r=>shortPeriod(r.period)))];
-    return `<tbody class="run-list" data-group="${esc(groupKey)}"><tr class="issuer-row">${name}<td data-label="Run"><button class="run-toggle" type="button" aria-expanded="${open}" aria-controls="${runs.map((_,i)=>`run-row-${rowNumber+i+1}`).join(' ')}">${runs.length<total?`${runs.length} of ${plural(total,'run')}`:plural(runs.length,'run')}${icon('chevron-down')}</button></td><td data-label="Workflow">${workflowCell(runs.map(r=>r.workflow))}</td><td data-label="Period">${periods.length===1?esc(periods[0]):'<span class="muted">Varies</span>'}</td><td data-label="Reports">${reportCell(runs)}</td><td class="row-open"></td></tr>${runs.map(r=>`<tr class="run-row" id="${rowId()}" ${open?'':'hidden'}><td></td>${runCells(r)}</tr>`).join('')}</tbody>`;
-  });
-  return `<table class="case-list"><thead><tr><th scope="col">Issuer</th><th scope="col">Run</th><th scope="col">Workflow</th><th scope="col">Period</th><th scope="col">Reports</th><th scope="col"><span class="sr-only">Open</span></th></tr></thead>${groups.join('')}</table>`;
+// The Library screen. The served catalogue (window.DESIGN_CATALOGUE) is screened and sorted by LibraryLogic (screening.js); this places it. Nothing here calculates, converts or rescales a value.
+const METRIC_NAMES={revenue:'Revenue',ebitda:'EBITDA',leverage:'Leverage',coverage:'Interest coverage',cash:'Closing cash',cashflow:'Cash flow measure'};
+const LIBRARY_COLUMNS=[['name','Issuer / run'],[null,'Sector'],['date','Evidence date'],['leverage','Leverage'],['coverage','Coverage'],['completion','Completeness'],[null,'Deliverable']];
+const catalogueRuns=()=>window.DESIGN_CATALOGUE?.real||[];
+// A date that is not a real calendar day is shown as served, never as another day.
+function libraryDate(value) {
+  if(!value)return '—';
+  const day=new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(day.getTime())||day.toISOString().slice(0,10)!==value?String(value):day.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
 }
-const CHIP_NAMES={sector:'Sector',workflow:'Workflow',year:'As of',content:'Content',module:'Module'};
-const chipValue=(key,value)=>key==='sector'?sectorLabel(value):key==='content'?{modules:'Module outputs',reports:'Saved reports'}[value]:key==='module'?moduleLabel(value)||value:value==='none'?'Not recorded':key==='workflow'?workflowTitle(value):value;
-const libraryChips=()=>Object.entries(CHIP_NAMES).filter(([key])=>libraryFilters[key]!=='all').map(([key,name])=>`<span class="chip"><span>${name}:</span> ${esc(chipValue(key,libraryFilters[key]))}<button type="button" data-library-unset="${key}" aria-label="Remove ${name} filter">${icon('x')}</button></span>`).join('');
-const libraryFiltered=()=>Object.entries(LIBRARY_DEFAULTS).some(([key,value])=>libraryFilters[key]!==value);
+// Only a same-origin path is linked; a record cannot send the reader elsewhere.
+const libraryPath=href=>/^\/[^/\\]/.test(href??'');
+// A value as served: grouping and its own decimals only; no value is missing-as-zero.
+function libraryMetric(metric) {
+  if(LibraryLogic.numberOf(metric)===null)return '—';
+  if(metric.unit==='x')return `${metric.value}×`;
+  const decimals=(String(metric.value).split('.')[1]||'').length;
+  if(decimals>20)return String(metric.value); // beyond what the formatter takes: shown exactly as served
+  return Number(metric.value).toLocaleString('en-GB',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
+}
+// A catalogue row joins the store by folder: a match opens that run's Overview; no match keeps the row without the link.
+const libraryRunKey=run=>Object.keys(contexts).find(key=>contexts[key].folder===run.id)??null;
+const primaryArtifact=run=>run.artifacts.find(a=>a.available&&a.state!=='superseded');
+// A pinned report or published model the store holds opens inside the app; any other file opens in its own tab.
+function libraryArtifactLink(artifact,key,text,cls,aria='') {
+  const pinned=`${artifact.href}&embedded=1`,report=window.DESIGN_WORKSPACE.reports.find(r=>r.href===pinned);
+  const model=window.DESIGN_WORKSPACE.models.find(m=>m.href===pinned),owner=model&&modelOwnRun(model);
+  const inApp=report?routeHref('W-Reports',report.id,null,key&&sameIssuer(report.issuerKey,contexts[key].issuerKey)?key:tracedRun(report)):owner?routeHref('W-Forecast',model.id,null,owner):null;
+  const href=inApp??(libraryPath(artifact.href)?artifact.href:null);
+  if(!href)return `<span>${esc(text)}</span>`;
+  return `<a class="${cls}" href="${esc(href)}" ${inApp?'':'target="_blank" rel="noopener"'} ${aria?`aria-label="${esc(aria)}"`:''}>${esc(text)}${inApp?'':' ↗'}</a>`;
+}
+const libraryOpenText=artifact=>artifact.kind==='model'?'Open model':artifact.relationship==='related'?'Related report':'Open report';
+function libraryRows() {
+  const runs=catalogueRuns(),base=LibraryLogic.filterRuns(runs,{...libraryFilters,search:''});
+  // Search also reads the issuer name and terms the store recorded for the joined run, appended after the served fields.
+  const shadows=base.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,workflow:[run.workflow,held?.issuer,...(held?.issuerTerms||[])].filter(Boolean).join(' ')};});
+  const found=new Set(LibraryLogic.filterRuns(shadows,{search:libraryFilters.search}).map(r=>r.id)),matching=base.filter(r=>found.has(r.id));
+  const rows=libraryState.sortKey?LibraryLogic.sortRuns(matching,libraryState.sortKey,libraryState.direction):matching;
+  if(!rows.some(r=>r.id===libraryState.selected))libraryState.selected=rows[0]?.id??'';
+  return {runs,rows};
+}
+const libraryCount=({runs,rows})=>`${rows.length} of ${plural(runs.length,'run')} · ${plural(new Set(rows.map(r=>r.issuer)).size,'issuer')}`;
+const libraryCell=(primary,secondary,cls='')=>`<td><span class="cell-primary${cls}">${esc(primary)}</span><span class="cell-secondary">${esc(secondary)}</span></td>`;
+const libraryMetricCell=(run,key)=>libraryCell(libraryMetric(run.metrics[key]),run.metrics[key]?.basis||'Not available',run.metrics[key]?'':' missing');
+function libraryCompletion(run) {
+  if(run.completion===null)return libraryCell('Not assessed','Checklist required');
+  const done=run.checkpoints?`${run.checkpoints.done}/${run.checkpoints.total} requirements`:'';
+  return `<td><span class="cell-primary">${esc(run.completion)}%</span><span class="progress-track" aria-hidden="true"><i style="width:${esc(Number(run.completion))}%"></i></span><span class="cell-secondary">${esc(done)}</span></td>`;
+}
+function libraryRow(run,selected) {
+  const key=libraryRunKey(run),artifact=primaryArtifact(run);
+  const identity=`<td><button class="library-run-name" type="button" data-library-select="${esc(run.id)}" aria-expanded="${selected}" aria-controls="run-detail" aria-label="${esc(`View ${run.name}: ${run.title}`)}">${esc(run.name)}<span class="ticker">${esc(run.issuer)}</span></button><span class="cell-secondary">${esc(run.title)}</span>${key?`<a class="run-link" href="${routeHref('W-Overview','overview',null,key)}" aria-label="${esc(`Open run: ${run.name}, ${run.id}`)}">Open run</a>`:''}</td>`;
+  const deliverable=artifact?`<td>${libraryArtifactLink(artifact,key,libraryOpenText(artifact),'report-link',`${libraryOpenText(artifact)}: ${run.name}, ${artifact.label}`)}<span class="cell-secondary">Candidate HTML</span></td>`:libraryCell('Handoffs only','No report');
+  return `<tr${selected?' class="selected"':''}>${identity}<td>${esc(run.sector)}</td>${libraryCell(libraryDate(run.date),run.period)}${libraryMetricCell(run,'leverage')}${libraryMetricCell(run,'coverage')}${libraryCompletion(run)}${deliverable}</tr>`;
+}
+function libraryResults({runs,rows}) {
+  if(!runs.length)return window.DESIGN_APP?.problem?`<div class="library-empty"><h2>The library could not read this workspace</h2><p>Nothing can be listed until it can be read. Check the workspace folder in Settings, or quit and reopen the library.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`:`<div class="library-empty"><h2>No runs in this workspace yet</h2><p>Start a new run, or choose another workspace folder in Settings.</p><a class="text-action" href="#W-Settings/workspace">Open Settings${icon('arrow-right')}</a></div>`;
+  if(!rows.length)return '<div class="library-empty"><h2>No runs match these filters</h2><p>Try a wider range or include unavailable values. Workflow completeness is not assessed for retained runs.</p><button id="library-empty-reset" class="primary-action" type="button">Reset filters</button></div>';
+  const sort=key=>libraryState.sortKey===key?libraryState.direction==='asc'?'ascending':'descending':'none';
+  const head=LIBRARY_COLUMNS.map(([key,label])=>key?`<th scope="col" aria-sort="${sort(key)}"><button type="button" data-library-sort="${key}">${label} <span aria-hidden="true">↕</span></button></th>`:`<th scope="col">${label}</th>`).join('');
+  return `<div class="table-scroll" role="region" aria-label="Issuer runs table; scroll horizontally for all columns" tabindex="0"><table class="library-table"><caption class="sr-only">Issuer runs, credit metrics, completeness and report availability</caption><thead><tr>${head}</tr></thead><tbody>${rows.map(r=>libraryRow(r,r.id===libraryState.selected)).join('')}</tbody></table></div><p class="hint">Dates refer to evidence, not execution. Ratios keep their original definitions.</p>`;
+}
+function libraryNav() {
+  const runs=catalogueRuns(),f=libraryFilters,reports=runs.filter(LibraryLogic.hasReport).length,issuers=[...new Set(runs.map(r=>r.issuer))];
+  const choice=(attrs,active,label,count,mark='')=>`<button type="button" class="nav-choice${active?' active':''}" ${attrs} aria-pressed="${active}">${mark}<span>${esc(label)}</span><span class="count">${count}</span></button>`;
+  return `${choice('data-library-nav="all"',!f.issuer&&!f.availability,'All runs',runs.length)}${choice('data-library-nav="reports"',f.availability==='report',`Reports available`,reports)}<p class="eyebrow">Issuers · ${issuers.length}</p>${issuers.map(id=>{
+    const mine=runs.filter(r=>r.issuer===id),names=new Set(mine.map(r=>r.name));
+    return choice(`data-library-issuer="${esc(id)}" aria-label="${esc(`Filter ${names.size===1?mine[0].name:id}`)}"`,f.issuer===id,names.size===1?mine[0].name:id,mine.length,`<span class="monogram">${esc(id.slice(0,3))}</span>`);
+  }).join('')}`;
+}
+function librarySources(run) {
+  const sources=window.DESIGN_CATALOGUE?.sources||{};
+  const ids=[...new Set([run.identity_source,run.sector_source,...Object.values(run.metrics).map(m=>m?.source),...run.ratings.map(r=>r.source)].filter(Boolean))];
+  const block=id=>{
+    const s=Object.hasOwn(sources,id)?sources[id]:null;
+    if(!s)return `<div id="source-${esc(id)}" tabindex="-1"><p>${esc(id)} · source record not served</p></div>`;
+    const quote=String(s.quote);
+    return `<div id="source-${esc(id)}" tabindex="-1"><p>${esc(`${s.path} · line ${s.line}`)}</p><blockquote>${esc(quote.length>1500?`${quote.slice(0,1500)}… [full capture in linked file]`:quote)}</blockquote>${libraryPath(s.href)?`<a href="${esc(s.href)}" target="_blank" rel="noopener">Open retained source ↗</a>`:''}</div>`;
+  };
+  return `<details class="source-details" id="metric-sources"><summary>Sources &amp; definitions · ${ids.length} references</summary>${ids.map(block).join('')}</details>`;
+}
+function libraryMetricItem(run,name,key) {
+  const metric=run.metrics[key];
+  return `<div class="metric-item"><span class="metric-label">${name}</span><span class="metric-value">${esc(libraryMetric(metric))}${metric&&metric.unit!=='x'&&LibraryLogic.numberOf(metric)!==null?`<small>${esc(metric.unit)}</small>`:''}</span><p>${esc(metric?`${metric.period} · ${metric.basis}`:'Not established for this case.')}</p>${metric?.source?`<button class="tertiary-action" type="button" data-library-source="${esc(metric.source)}">View source ↗</button>`:''}</div>`;
+}
+function libraryDetail({rows}) {
+  const run=rows.find(r=>r.id===libraryState.selected);
+  if(!run)return '';
+  const key=libraryRunKey(run),artifact=primaryArtifact(run);
+  const open=[key?`<a class="secondary-action" href="${routeHref('W-Overview','overview',null,key)}">Open run</a>`:'',artifact?libraryArtifactLink(artifact,key,libraryOpenText(artifact),'primary-action'):libraryPath(run.handoff_href)?`<a class="primary-action" href="${esc(run.handoff_href)}" target="_blank" rel="noopener">Open primary handoff ↗</a>`:''].join('');
+  const done=run.completion===null?['Workflow completeness · Not assessed','A verified checklist for this workflow has not been supplied. Available files and checked ratios do not establish end-to-end completion.']:[`Workflow completeness · ${run.completion}%`,run.checkpoints?`${run.checkpoints.done} of ${run.checkpoints.total} required checkpoints completed. This is workflow progress, not a credit score.`:'This is workflow progress, not a credit score.'];
+  const artifacts=run.artifacts.length?run.artifacts.map(a=>`<li>${a.available?libraryArtifactLink(a,key,a.label,''):`<span>${esc(a.label)} · Unavailable</span>`}<small>${esc(a.issue||(a.state==='superseded'?'Retained failed attempt':`${a.relationship==='related'?'Related annual report · ':''}Candidate · file hashes checked at build`))}</small></li>`).join(''):'<li>No final deliverable has been indexed for this case.</li>';
+  return `<div class="detail-head"><div><p class="eyebrow">Selected run</p><h2>${esc(run.name)}</h2><p class="cell-secondary">${esc(`${run.id} / ${run.title}`)}</p></div><div class="detail-actions">${open}</div></div><div class="detail-layout"><div><p>${esc(run.summary)}</p><h3>Scope &amp; open questions</h3><ul class="gap-list">${run.gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul>${run.ratings.length?`<h3>Dated ratings</h3>${run.ratings.map(r=>`<p>${esc(`${r.label} · ${libraryDate(r.date)}`)}</p>`).join('')}`:''}<div class="completion-box"><strong>${esc(done[0])}</strong>${esc(done[1])}</div></div><div><div class="metric-grid">${Object.entries(METRIC_NAMES).map(([k,n])=>libraryMetricItem(run,n,k)).join('')}</div><h3>Deliverables &amp; revision history</h3><ul class="artifact-list">${artifacts}</ul>${librarySources(run)}</div></div>`;
+}
+const libraryAdvanced=()=>['basis','period','leverageMin','leverageMax','coverageMin','coverageMax'].filter(k=>libraryFilters[k]).length;
+function libraryPanel() {
+  const runs=catalogueRuns(),f=libraryFilters;
+  const values=pick=>[...new Set(runs.map(pick).filter(Boolean))].sort();
+  const select=(key,label,any,items,extra='')=>`<label>${label}<select id="library-${key}" data-library-filter="${key}">${[['',any],...items].map(([v,t])=>`<option value="${esc(v)}" ${f[key]===v?'selected':''}>${esc(t)}</option>`).join('')}</select></label>${extra}`;
+  const plain=v=>[v,v],number=(key,label,hint)=>`<label>${label}<input id="library-${key}" data-library-filter="${key}" type="number" step="any" placeholder="${hint}" value="${esc(f[key])}"></label>`;
+  const advanced=libraryAdvanced();
+  return `<header class="block-head"><h2>Screening criteria</h2><span class="hint">Combined filters</span></header><div class="search-row"><label class="library-search"><span class="sr-only">Search issuer, run or sector</span>${icon('search')}<input id="library-query" data-library-filter="search" type="search" value="${esc(f.search)}" placeholder="Search issuer, run or sector…" autocomplete="off" aria-controls="library-results"></label><button id="library-clear" class="tertiary-action" type="button">Reset filters</button></div><div class="library-filters">${select('sector','Sector','All sectors',values(r=>r.sector).map(plain))}${select('workflow','Workflow','All workflows',values(r=>r.workflow).map(plain))}${select('completion','Completeness','Any completeness',[['75','75% or above'],['50','50% or above'],['100','100% complete'],['unassessed','Not assessed']])}${select('availability','Deliverables','All runs',[['report','Report available'],['handoff','No report available']])}</div><details id="metric-filters" ${advanced?'open':''}><summary>Credit metrics &amp; period <span id="metric-filter-count">${advanced?`· ${advanced} active`:''}</span></summary><div class="library-filters">${select('basis','Leverage basis','All bases · definitions differ',values(r=>r.metrics.leverage?.basis).map(plain))}${select('period','Financial period','All period types',values(r=>r.period_kind).map(plain))}${number('leverageMin','Leverage, minimum (x)','No minimum')}${number('leverageMax','Leverage, maximum (x)','No maximum')}${number('coverageMin','Coverage, minimum (x)','No minimum')}${number('coverageMax','Coverage, maximum (x)','No maximum')}</div><p class="hint">Numeric filters exclude unavailable values. Select a leverage basis to keep definitions consistent; coverage definitions remain visible on each row.</p></details>`;
+}
+// A panel rebuild shows an unreadable number box empty, so its stored 'invalid' bound is dropped to keep the filter and the control in agreement.
+const clearInvalidBounds=()=>['leverageMin','leverageMax','coverageMin','coverageMax'].forEach(k=>{if(libraryFilters[k]==='invalid')libraryFilters[k]='';});
 function libraryView() {
-  const records=libraryRecords(),matches=filterLibrary(records,libraryFilters);
-  const options=(items,value)=>items.map(([key,label])=>`<option value="${esc(key)}" ${value===key?'selected':''}>${esc(label)}</option>`).join('');
-  const recorded=(key,label,order)=>{const values=[...new Set(records.map(r=>r[key]).filter(v=>v!=='none'))].map(v=>[v,label(v)]).sort(order);return records.some(r=>r[key]==='none')?[...values,['none','Not recorded']]:values;};
-  const workflows=recorded('workflow',workflowTitle,(a,b)=>a[1].localeCompare(b[1])),years=recorded('year',String,(a,b)=>b[0].localeCompare(a[0]));
-  const moduleGroups=groups.map(([name,items])=>[name,items.filter(([id])=>records.some(r=>r.modules.includes(id)))]).filter(([,items])=>items.length);
-  const select=(key,label,items)=>`<label class="library-select"><span class="sr-only">${label}</span><select data-library-filter="${key}" class="${libraryFilters[key]==='all'?'':'active'}" aria-controls="library-results">${items}</select></label>`;
-  return `<div class="library-discovery"><form id="library-filters" class="library-filters" role="search" aria-label="Filter issuer library"><label class="library-search"><span class="sr-only">Search issuers or runs</span>${icon('search')}<input id="library-query" data-library-filter="query" type="search" value="${esc(libraryFilters.query)}" placeholder="Search issuer, run ID or year" autocomplete="off" aria-controls="library-results"></label>${select('sector','Sector',options([['all','All sectors'],...[...new Set(records.map(r=>r.sector))].map(s=>[s,sectorLabel(s)])],libraryFilters.sector))}${select('workflow','Workflow',options([['all','Any workflow'],...workflows],libraryFilters.workflow))}${select('year','As of',options([['all','Any year'],...years],libraryFilters.year))}${select('content','Available content',options([['all','All content'],['modules','Module outputs'],['reports','Saved reports']],libraryFilters.content))}${select('module','Contains module',`${options([['all','Any module']],libraryFilters.module)}${moduleGroups.map(([name,items])=>`<optgroup label="${esc(name)}">${options(items.map(([id])=>[id,moduleLabel(id)]),libraryFilters.module)}</optgroup>`).join('')}`)}</form><div class="library-status"><p id="library-count" role="status" aria-live="polite">${libraryCount(matches)}</p><div id="library-chips">${libraryChips()}</div><button id="library-clear" class="tertiary-action" type="button" ${libraryFiltered()?'':'hidden'}>Clear all</button></div></div><div id="library-results">${libraryResults(matches)}</div>`;
+  clearInvalidBounds();
+  const view=libraryRows();
+  return `<div class="library-screen"><nav id="library-nav" class="library-nav" aria-label="Issuers">${libraryNav()}</nav><div class="library-main"><form id="library-filters" class="library-panel" role="search" aria-label="Screen issuer runs">${libraryPanel()}</form><section class="library-results-panel" aria-label="Run results"><p id="library-count" role="status" aria-live="polite">${libraryCount(view)}</p><div id="library-results">${libraryResults(view)}</div></section><section id="run-detail" class="run-detail" aria-label="Selected run details" tabindex="-1" ${view.rows.some(r=>r.id===libraryState.selected)?'':'hidden'}>${libraryDetail(view)}</section></div></div>`;
 }
-function updateLibraryResults() {
-  $('library-filters').querySelectorAll('[data-library-filter]').forEach(control=>{libraryFilters[control.dataset.libraryFilter]=control.value;});
-  const records=filterLibrary(libraryRecords(),libraryFilters);
-  if(libraryFilters.query.trim()==='')searchOpen.clear();
-  $('library-results').innerHTML=libraryResults(records);
-  $('library-count').textContent=libraryCount(records);
-  $('library-chips').innerHTML=libraryChips();
-  $('library-clear').hidden=!libraryFiltered();
-  $('library-filters').querySelectorAll('select[data-library-filter]').forEach(control=>control.classList.toggle('active',control.value!=='all'));
+// Re-places the results from the current filters; the panel itself is only rebuilt on a reset so typing keeps its focus.
+function updateLibrary(panel=false) {
+  if(panel)clearInvalidBounds();
+  const view=libraryRows();
+  if(panel)$('library-filters').innerHTML=libraryPanel();
+  $('library-nav').innerHTML=libraryNav();
+  $('library-count').textContent=libraryCount(view);
+  $('library-results').innerHTML=libraryResults(view);
+  $('run-detail').innerHTML=libraryDetail(view);
+  $('run-detail').hidden=!view.rows.some(r=>r.id===libraryState.selected);
+  const advanced=libraryAdvanced();
+  $('metric-filter-count').textContent=advanced?`· ${advanced} active`:'';
 }
 function reportList(context) {
   const ctx=contexts[context],all=window.DESIGN_WORKSPACE.reports,built=reportsBuiltFrom(context),others=ctx?issuerReports(context).filter(r=>!built.includes(r)):[];
@@ -515,7 +566,7 @@ function settingsView() {
   const app=window.DESIGN_APP||{},issues=app.issues||[];
   return `<div class="settings"><section><h2>Workspace folder</h2><label class="run-field">Folder holding runs and deliverables<input id="workspace-path" value="${esc(app.workspace)}" ${app.policy_locked?'disabled':''} autocomplete="off"></label><p class="hint">${app.policy_locked?'This location is managed by your IT configuration.':'Use a local folder for offline access. Network shares and cloud placeholders need a connection.'}</p><div class="step-actions"><button id="save-workspace" class="primary-action" type="button" ${app.policy_locked?'disabled':''}>Save and reload</button><button id="refresh-library" class="secondary-action" type="button">Refresh library</button><button id="quit-library" class="tertiary-action" type="button">Quit library</button></div><p id="settings-status" role="status" aria-live="polite"></p></section><section><h2>Workspace issues · ${issues.length}</h2>${issues.length?`<ul class="issue-list">${issues.map(issue=>{const at=String(issue).indexOf(': ');return `<li>${at<0?`<span>${esc(issue)}</span>`:`<span class="code">${esc(String(issue).slice(0,at))}</span><span>${esc(String(issue).slice(at+2))}</span>`}</li>`;}).join('')}</ul>`:'<p>None found.</p>'}</section></div>`;
 }
-const HELP=`<div class="help-copy"><h2>Find and read a run</h2><p>Choose a run in the library. The Overview, Modules, Calendar, Forecast, Reports and Evidence tabs keep that run selected. Forecast shows the model published from the run’s files, the assumptions behind it and the handoffs it was built from. Browse by credit question or press / to search a name, section or module code, including absorbed aliases.</p><p>Select a finding’s View source action or a chart mark to open the evidence inspector. Escape returns to your reading position and source trigger.</p><h2>Move between the app and deliverables</h2><p>Reports lists every report in the workspace. A report opens inside the app, with this navigation beside it; its Built from list opens the module outputs it used, and a module output names the deliverables that used it.</p><h2>Start a new run</h2><p>Choose New run. Enter the issuer, workflow and dates, or load a saved context file. Choose the issuer folder, model and maximum USD spend. Validating is offline: the review shows the modules in order, the files no module can read and the report sections this run will not produce. Only Start run can call a model, after you approve the review, and only when the provider key is set in the environment that launched the app. If a module is rejected the run stops, keeps its work and makes no automatic paid retry.</p><p>A finished report has automated checks only: review the handoffs against the sources before relying on it.</p><h2>Runs stay separate</h2><p>Each run lists its own saved outputs. A module without one says so and offers other runs of the same issuer; another issuer is reached through the library. Reports list the runs they were built from, traced by SHA-256. Evidence is dated research, not current underwriting. Missing observations are not zero.</p><h2>Run notices</h2><p>The notice strip names the latest run and its state in words: running with the modules accepted so far, complete with a link to its reports, or stopped, failed or interrupted with the reason and the spend. View activity opens the run’s record. Resume appears on stopped, failed or interrupted notices, except a run stopped by a provider ruling. Dismiss hides the notice in that state on this computer; it never changes the run or its files, and the notice returns when the run reaches another state.</p><h2>Resuming a stopped run</h2><p>A run started from New run that stopped, failed or was interrupted can be resumed from its notice, from Run activity or from Recent runs. The resumed run is a new run: it keeps the accepted modules without a new model call and has its own spending cap, and what the stopped run spent is not counted against it. A run stopped by a provider ruling cannot be resumed.</p><h2>n.a. and n.m. in the cash flow model</h2><p>n.a. means not available: the calculation record has no value for that cell, and the reason is on the cell and under Why cells show n.a. It is never zero. n.m. means not modelled: the record does not model that line.</p><h2>Colour has a job</h2><div class="signal-key"><span><i class="series-0"></i>Blue · data and action</span><span><i class="series-1"></i>Navy · comparison</span><span><i class="signal-conditional"></i>Amber · conditional / attention</span><span>Grey · absent / unassessed</span></div><p>Dashed paths are conditional scenarios. Outflows use direction and signed values, not an adverse credit grade.</p><h2>Work offline, close or reopen</h2><p>The application, fonts and scripts are bundled; workspace files must also be available locally. Reports are sandboxed with external network requests blocked. Closing a tab leaves the library running; Quit library in Settings stops it.</p></div>`;
+const HELP=`<div class="help-copy"><h2>Find and read a run</h2><p>The library screens every retained run and deliverable by sector, workflow, leverage and coverage. Search, Sector, Workflow, Completeness and Deliverables filters narrow the table, and Credit metrics &amp; period sets the leverage basis, financial period and leverage and coverage minimum and maximum. Search also matches the issuer names recorded in the store. Reset filters clears them, and a column heading sorts the table with missing values last. A missing value never matches a numeric filter. Only a few retained runs carry metrics and none has a recorded completeness yet, so most rows show — for Leverage and Coverage and Not assessed. Choose a run in the library. The Overview, Modules, Calendar, Forecast, Reports and Evidence tabs keep that run selected. Forecast shows the model published from the run’s files, the assumptions behind it and the handoffs it was built from. Browse by credit question or press / to search a name, section or module code, including absorbed aliases.</p><p>Select a finding’s View source action or a chart mark to open the evidence inspector. Escape returns to your reading position and source trigger.</p><h2>Move between the app and deliverables</h2><p>Reports lists every report in the workspace. A report opens inside the app, with this navigation beside it; its Built from list opens the module outputs it used, and a module output names the deliverables that used it.</p><h2>Start a new run</h2><p>Choose New run. Enter the issuer, workflow and dates, or load a saved context file. Choose the issuer folder, model and maximum USD spend. Validating is offline: the review shows the modules in order, the files no module can read and the report sections this run will not produce. Only Start run can call a model, after you approve the review, and only when the provider key is set in the environment that launched the app. If a module is rejected the run stops, keeps its work and makes no automatic paid retry.</p><p>A finished report has automated checks only: review the handoffs against the sources before relying on it.</p><h2>Runs stay separate</h2><p>Each run lists its own saved outputs. A module without one says so and offers other runs of the same issuer; another issuer is reached through the library. Reports list the runs they were built from, traced by SHA-256. Evidence is dated research, not current underwriting. Missing observations are not zero.</p><h2>Run notices</h2><p>The notice strip names the latest run and its state in words: running with the modules accepted so far, complete with a link to its reports, or stopped, failed or interrupted with the reason and the spend. View activity opens the run’s record. Resume appears on stopped, failed or interrupted notices, except a run stopped by a provider ruling. Dismiss hides the notice in that state on this computer; it never changes the run or its files, and the notice returns when the run reaches another state.</p><h2>Resuming a stopped run</h2><p>A run started from New run that stopped, failed or was interrupted can be resumed from its notice, from Run activity or from Recent runs. The resumed run is a new run: it keeps the accepted modules without a new model call and has its own spending cap, and what the stopped run spent is not counted against it. A run stopped by a provider ruling cannot be resumed.</p><h2>n.a. and n.m. in the cash flow model</h2><p>n.a. means not available: the calculation record has no value for that cell, and the reason is on the cell and under Why cells show n.a. It is never zero. n.m. means not modelled: the record does not model that line.</p><h2>Colour has a job</h2><div class="signal-key"><span><i class="series-0"></i>Blue · data and action</span><span><i class="series-1"></i>Navy · comparison</span><span><i class="signal-conditional"></i>Amber · conditional / attention</span><span>Grey · absent / unassessed</span></div><p>Dashed paths are conditional scenarios. Outflows use direction and signed values, not an adverse credit grade.</p><h2>Work offline, close or reopen</h2><p>The application, fonts and scripts are bundled; workspace files must also be available locally. Reports are sandboxed with external network requests blocked. Closing a tab leaves the library running; Quit library in Settings stops it.</p></div>`;
 // Modules most likely to state the run's overall credit view come first.
 const CALL_ORDER=['CP-6','CP-2','CP-3','CP-2D','CP-1','CP-0'];
 function firstFinding(id) {

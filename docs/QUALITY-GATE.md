@@ -65,12 +65,15 @@ whole suite, the `test_owner_*` suites or anything whose fixture promotes CP-0/C
 The full suite, slow tests included, runs every Sunday at 01:00 UTC in GitHub Actions
 (`.github/workflows/nightly-tests.yml`, also startable by hand with "Run workflow"):
 
-- eight pytest shards (`tools/nightly_tests.py run`), balanced by test-file size, with the `live`
-  and `browser` markers excluded and provider keys removed; each shard stops after 300 minutes,
+- sixteen pytest shards (`tools/nightly_tests.py run`). Each collects the whole suite and keeps
+  every sixteenth test (`tools/nightly_shard.py`), so a file of slow end-to-end tests spreads over
+  every shard; file-size balancing left one shard with hours of `test_earnings_workflow.py` tests
+  and cut it short (2026-11-08). The `live`
+  and `browser` markers are excluded and provider keys removed; each shard stops after 300 minutes,
   deletes a passing test's `tmp_path` (each workflow store holds about 120 MB of issuer sources;
   module and session fixtures' directories stay to the shard's end, since some are shared across
   modules, e.g. `tests/cpdr_runs.py` `closed_run`), frees unused runner toolchains first and
-  prints its log's last 400 lines, the failure summary or a crash's trace, to the job log;
+  prints its log's last 400 lines (with the 30 slowest tests), the failure summary or a crash's trace, to the job log;
 - the Go server's `go vet` and `go test -race`;
 - a report job (`tools/nightly_tests.py report`) that collects every FAILED and ERROR node id,
   compares them with `tests/nightly-known-failures.txt` and fails only on a failure that is not on
@@ -82,10 +85,10 @@ To triage a failure, start the workflow by hand with `tests` set to the failing 
 job runs, and it prints short tracebacks to the job log.
 
 To accept a pre-existing failure, add its node id to the known list with a reason. Remove a line
-once its test passes again. GitHub runs scheduled workflows from the default branch only, and on
-this private repository the run uses the account's Actions minutes: the first full run
-(2026-11-07) took about 17 runner-hours with three shards cut short, so the schedule is
-weekly (user ruling, 2026-11-07). The names `nightly-tests` and `nightly-known-failures.txt` stay.
+once its test passes again. GitHub runs scheduled workflows from the default branch only. The
+first full run (2026-11-07) took about 17 runner-hours with three shards cut short, so the
+schedule is weekly (user ruling, 2026-11-07, when the repository was private and used the
+account's Actions minutes; it is public since 2026-11-08). The names `nightly-tests` and `nightly-known-failures.txt` stay.
 
 ### CI runs of the issuer library gates
 

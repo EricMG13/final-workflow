@@ -108,9 +108,8 @@ test('layout: the tools Browse modules toggle is auto-width', () => {
   assert.ok(found.includes('width:auto') && !found.includes('width:100%'), found);
 });
 
-test('layout: filters flex, headers stick, long names truncate, groups fit', () => {
-  assert.ok(rule('.library-select').some((b) => b.includes('flex:1 1 140px')));
-  assert.ok(rule('.case-list thead th').some((b) => b.includes('position:sticky')));
+test('layout: filters flow, long names truncate, groups fit', () => {
+  assert.ok(rule('.library-filters').some((b) => b.includes('auto-fit')));
   assert.ok(rule('.issuer h1').some((b) => b.includes('text-overflow:ellipsis')));
   assert.ok(rule('.question-map>section>div').some((b) => b.includes('auto-fit')));
 });
@@ -130,7 +129,6 @@ test('content table cards are bounded and keep their header in view', () => {
   assert.ok(head, 'no .table-scroll thead th rule');
   assert.ok(head[1].includes('position:sticky') && head[1].includes('top:0'), head[1]);
   assert.ok(head[1].includes('background:var(--gray-50)'), head[1]);
-  assert.match(screen, /\.case-list thead th\{[^}]*position:sticky;top:var\(--band-h,101px\)/);
 });
 
 test('the section bar is sticky with its run and module prefix at 720px and below', () => {

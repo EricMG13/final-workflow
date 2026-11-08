@@ -51,6 +51,7 @@ PYTHON_TESTS = (
     "tests/product/test_context.py",
     "tests/test_run_expectations.py",
     "tests/test_expectations_backtest.py",
+    "tests/test_issuer_library_single_run.py",
 )
 PYTEST = ("-m", "pytest", "-q", "-p", "no:cacheprovider", "-m", "not live and not browser")
 

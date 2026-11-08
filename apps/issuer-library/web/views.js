@@ -421,12 +421,20 @@ function forecastView(context,id) {
 const METRIC_NAMES={revenue:'Revenue',ebitda:'EBITDA',leverage:'Leverage',coverage:'Interest coverage',cash:'Closing cash',cashflow:'Cash flow measure'};
 const LIBRARY_COLUMNS=[['name','Issuer / run'],[null,'Sector'],['date','Evidence date'],['leverage','Leverage'],['coverage','Coverage'],['completion','Completeness'],[null,'Deliverable']];
 const catalogueRuns=()=>window.DESIGN_CATALOGUE?.real||[];
-const libraryDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value??'')?new Date(`${value}T12:00:00Z`).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}):'—';
+// A date that is not a real calendar day is shown as served, never as another day.
+function libraryDate(value) {
+  if(!value)return '—';
+  const day=new Date(`${value}T12:00:00Z`);
+  return Number.isNaN(day.getTime())||day.toISOString().slice(0,10)!==value?String(value):day.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'});
+}
+// Only a same-origin path is linked; a record cannot send the reader elsewhere.
+const libraryPath=href=>/^\/[^/\\]/.test(href??'');
 // A value as served: grouping and its own decimals only; no value is missing-as-zero.
 function libraryMetric(metric) {
   if(LibraryLogic.numberOf(metric)===null)return '—';
   if(metric.unit==='x')return `${metric.value}×`;
   const decimals=(String(metric.value).split('.')[1]||'').length;
+  if(decimals>20)return String(metric.value); // beyond what the formatter takes: shown exactly as served
   return Number(metric.value).toLocaleString('en-GB',{minimumFractionDigits:decimals,maximumFractionDigits:decimals});
 }
 // A catalogue row joins the store by folder: a match opens that run's Overview; no match keeps the row without the link.
@@ -437,16 +445,21 @@ function libraryArtifactLink(artifact,key,text,cls,aria='') {
   const pinned=`${artifact.href}&embedded=1`,report=window.DESIGN_WORKSPACE.reports.find(r=>r.href===pinned);
   const model=window.DESIGN_WORKSPACE.models.find(m=>m.href===pinned),owner=model&&modelOwnRun(model);
   const inApp=report?routeHref('W-Reports',report.id,null,key&&sameIssuer(report.issuerKey,contexts[key].issuerKey)?key:tracedRun(report)):owner?routeHref('W-Forecast',model.id,null,owner):null;
-  return `<a class="${cls}" href="${esc(inApp??artifact.href)}" ${inApp?'':'target="_blank" rel="noopener"'} ${aria?`aria-label="${esc(aria)}"`:''}>${esc(text)}${inApp?'':' ↗'}</a>`;
+  const href=inApp??(libraryPath(artifact.href)?artifact.href:null);
+  if(!href)return `<span>${esc(text)}</span>`;
+  return `<a class="${cls}" href="${esc(href)}" ${inApp?'':'target="_blank" rel="noopener"'} ${aria?`aria-label="${esc(aria)}"`:''}>${esc(text)}${inApp?'':' ↗'}</a>`;
 }
 const libraryOpenText=artifact=>artifact.kind==='model'?'Open model':artifact.relationship==='related'?'Related report':'Open report';
 function libraryRows() {
-  const runs=catalogueRuns(),matching=LibraryLogic.filterRuns(runs,libraryFilters);
+  const runs=catalogueRuns(),base=LibraryLogic.filterRuns(runs,{...libraryFilters,search:''});
+  // Search also reads the issuer name and terms the store recorded for the joined run; the displayed issuer stays as served.
+  const shadows=base.map(run=>{const held=contexts[libraryRunKey(run)];return {...run,issuer:[run.issuer,held?.issuer,...(held?.issuerTerms||[])].join(' ')};});
+  const found=new Set(LibraryLogic.filterRuns(shadows,{search:libraryFilters.search}).map(r=>r.id)),matching=base.filter(r=>found.has(r.id));
   const rows=libraryState.sortKey?LibraryLogic.sortRuns(matching,libraryState.sortKey,libraryState.direction):matching;
   if(!rows.some(r=>r.id===libraryState.selected))libraryState.selected=rows[0]?.id??'';
   return {runs,rows};
 }
-const libraryCount=({runs,rows})=>`${rows.length} of ${runs.length} runs · ${new Set(rows.map(r=>r.issuer)).size} issuers`;
+const libraryCount=({runs,rows})=>`${rows.length} of ${plural(runs.length,'run')} · ${plural(new Set(rows.map(r=>r.issuer)).size,'issuer')}`;
 const libraryCell=(primary,secondary,cls='')=>`<td><span class="cell-primary${cls}">${esc(primary)}</span><span class="cell-secondary">${esc(secondary)}</span></td>`;
 const libraryMetricCell=(run,key)=>libraryCell(libraryMetric(run.metrics[key]),run.metrics[key]?.basis||'Not available',run.metrics[key]?'':' missing');
 function libraryCompletion(run) {
@@ -456,7 +469,7 @@ function libraryCompletion(run) {
 }
 function libraryRow(run,selected) {
   const key=libraryRunKey(run),artifact=primaryArtifact(run);
-  const identity=`<td><button class="issuer-title" type="button" data-library-select="${esc(run.id)}" aria-expanded="${selected}" aria-controls="run-detail" aria-label="${esc(`View ${run.name}: ${run.title}`)}">${esc(run.name)}<span class="ticker">${esc(run.issuer)}</span></button><span class="cell-secondary">${esc(run.title)}</span>${key?`<a class="run-link" href="${routeHref('W-Overview','overview',null,key)}" aria-label="${esc(`Open run: ${run.name}, ${run.id}`)}">Open run</a>`:''}</td>`;
+  const identity=`<td><button class="library-run-name" type="button" data-library-select="${esc(run.id)}" aria-expanded="${selected}" aria-controls="run-detail" aria-label="${esc(`View ${run.name}: ${run.title}`)}">${esc(run.name)}<span class="ticker">${esc(run.issuer)}</span></button><span class="cell-secondary">${esc(run.title)}</span>${key?`<a class="run-link" href="${routeHref('W-Overview','overview',null,key)}" aria-label="${esc(`Open run: ${run.name}, ${run.id}`)}">Open run</a>`:''}</td>`;
   const deliverable=artifact?`<td>${libraryArtifactLink(artifact,key,libraryOpenText(artifact),'report-link',`${libraryOpenText(artifact)}: ${run.name}, ${artifact.label}`)}<span class="cell-secondary">Candidate HTML</span></td>`:libraryCell('Handoffs only','No report');
   return `<tr${selected?' class="selected"':''}>${identity}<td>${esc(run.sector)}</td>${libraryCell(libraryDate(run.date),run.period)}${libraryMetricCell(run,'leverage')}${libraryMetricCell(run,'coverage')}${libraryCompletion(run)}${deliverable}</tr>`;
 }
@@ -479,10 +492,10 @@ function librarySources(run) {
   const sources=window.DESIGN_CATALOGUE?.sources||{};
   const ids=[...new Set([run.identity_source,run.sector_source,...Object.values(run.metrics).map(m=>m?.source),...run.ratings.map(r=>r.source)].filter(Boolean))];
   const block=id=>{
-    const s=sources[id];
+    const s=Object.hasOwn(sources,id)?sources[id]:null;
     if(!s)return `<div id="source-${esc(id)}" tabindex="-1"><p>${esc(id)} · source record not served</p></div>`;
     const quote=String(s.quote);
-    return `<div id="source-${esc(id)}" tabindex="-1"><p>${esc(`${s.path} · line ${s.line}`)}</p><blockquote>${esc(quote.length>1500?`${quote.slice(0,1500)}… [full capture in linked file]`:quote)}</blockquote><a href="${esc(s.href)}" target="_blank" rel="noopener">Open retained source ↗</a></div>`;
+    return `<div id="source-${esc(id)}" tabindex="-1"><p>${esc(`${s.path} · line ${s.line}`)}</p><blockquote>${esc(quote.length>1500?`${quote.slice(0,1500)}… [full capture in linked file]`:quote)}</blockquote>${libraryPath(s.href)?`<a href="${esc(s.href)}" target="_blank" rel="noopener">Open retained source ↗</a>`:''}</div>`;
   };
   return `<details class="source-details" id="metric-sources"><summary>Sources &amp; definitions · ${ids.length} references</summary>${ids.map(block).join('')}</details>`;
 }
@@ -494,7 +507,7 @@ function libraryDetail({rows}) {
   const run=rows.find(r=>r.id===libraryState.selected);
   if(!run)return '';
   const key=libraryRunKey(run),artifact=primaryArtifact(run);
-  const open=[key?`<a class="secondary-action" href="${routeHref('W-Overview','overview',null,key)}">Open run</a>`:'',artifact?libraryArtifactLink(artifact,key,libraryOpenText(artifact),'primary-action'):run.handoff_href?`<a class="primary-action" href="${esc(run.handoff_href)}" target="_blank" rel="noopener">Open primary handoff ↗</a>`:''].join('');
+  const open=[key?`<a class="secondary-action" href="${routeHref('W-Overview','overview',null,key)}">Open run</a>`:'',artifact?libraryArtifactLink(artifact,key,libraryOpenText(artifact),'primary-action'):libraryPath(run.handoff_href)?`<a class="primary-action" href="${esc(run.handoff_href)}" target="_blank" rel="noopener">Open primary handoff ↗</a>`:''].join('');
   const done=run.completion===null?['Workflow completeness · Not assessed','A verified checklist for this workflow has not been supplied. Available files and checked ratios do not establish end-to-end completion.']:[`Workflow completeness · ${run.completion}%`,run.checkpoints?`${run.checkpoints.done} of ${run.checkpoints.total} required checkpoints completed. This is workflow progress, not a credit score.`:'This is workflow progress, not a credit score.'];
   const artifacts=run.artifacts.length?run.artifacts.map(a=>`<li>${a.available?libraryArtifactLink(a,key,a.label,''):`<span>${esc(a.label)} · Unavailable</span>`}<small>${esc(a.issue||(a.state==='superseded'?'Retained failed attempt':`${a.relationship==='related'?'Related annual report · ':''}Candidate · file hashes checked at build`))}</small></li>`).join(''):'<li>No final deliverable has been indexed for this case.</li>';
   return `<div class="detail-head"><div><p class="eyebrow">Selected run</p><h2>${esc(run.name)}</h2><p class="cell-secondary">${esc(`${run.id} / ${run.title}`)}</p></div><div class="detail-actions">${open}</div></div><div class="detail-layout"><div><p>${esc(run.summary)}</p><h3>Scope &amp; open questions</h3><ul class="gap-list">${run.gaps.map(g=>`<li>${esc(g)}</li>`).join('')}</ul>${run.ratings.length?`<h3>Dated ratings</h3>${run.ratings.map(r=>`<p>${esc(`${r.label} · ${libraryDate(r.date)}`)}</p>`).join('')}`:''}<div class="completion-box"><strong>${esc(done[0])}</strong>${esc(done[1])}</div></div><div><div class="metric-grid">${Object.entries(METRIC_NAMES).map(([k,n])=>libraryMetricItem(run,n,k)).join('')}</div><h3>Deliverables &amp; revision history</h3><ul class="artifact-list">${artifacts}</ul>${librarySources(run)}</div></div>`;

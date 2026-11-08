@@ -97,11 +97,23 @@ test('Library lists every catalogue row; each run folder opens its Overview and 
   }
 });
 
-test('Library search narrows the rows to the issuer searched',t=>{
+test('Library search finds every run of the issuer searched',t=>{
   const w=screens(workspace,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
   const box=d.getElementById('library-query');
+  for(const [query,want] of Object.entries(key.library.search)){
+    box.value=query;box.dispatchEvent(new w.Event('input',{bubbles:true}));
+    assert.deepEqual(renderedKeys(d),sorted(want),`search "${query}"`);
+  }
   box.value=expected.filter_cases.c_search_issuer_name.filters.search;box.dispatchEvent(new w.Event('input',{bubbles:true}));
   assert.deepEqual(rowIds(d),expected.filter_cases.c_search_issuer_name.expected_ids);
+});
+
+test('A metric with more than 20 decimals is shown as served and does not blank the other rows',t=>{
+  const forged=structuredClone(workspace),run=forged.catalogue.real.find(r=>r.id==='tdg-002'),long=`1.${'0'.repeat(100)}1`;
+  run.metrics.leverage.value=long;
+  const w=screens(forged,'W-Library/cases').window,d=w.document;t.after(()=>w.close());
+  assert.equal(rowIds(d).length,forged.catalogue.real.length);
+  assert.ok(text(d.querySelector('[data-library-select="tdg-002"]').closest('tr')).includes(long));
 });
 
 test('Reports for a run list the same issuer by identity, not by display name',async t=>{

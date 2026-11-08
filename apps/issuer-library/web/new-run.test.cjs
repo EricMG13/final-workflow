@@ -340,3 +340,11 @@ test('a resume that keeps nothing says why and that every module runs again',asy
   await openRow(p);await p.click('resume-run');
   assert.ok([...p.doc.querySelectorAll('#run-review .matrix-note')].some(n=>n.textContent===`Resumes run ${ID}. ${note} Every module runs again.`));
 });
+test('the page list poll never speaks for a tab that can notify; only the watcher does',async t=>{
+  const p=await page(t,{list:[ROW_RUNNING],status:ROW_RUNNING});
+  p.win.Notification=class{static permission='granted';static requestPermission=async()=>'granted';};
+  p.calls.length=0;await p.tick();
+  const lists=p.calls.map(c=>c.url).filter(url=>url.split('?')[0]==='/api/runs/list');
+  assert.ok(lists.length>0,'the page polled the run list');
+  assert.deepEqual([...new Set(lists)],['/api/runs/list?notify=0']);
+});

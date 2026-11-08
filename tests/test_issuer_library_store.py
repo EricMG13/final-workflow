@@ -3255,3 +3255,14 @@ def test_the_grid_of_a_crlf_model_equals_the_lf_grid_cell_for_cell():
     grid, problem = store.read_cashflow(lf, handoff)
     assert grid is not None and problem is None
     assert store.read_cashflow(crlf, handoff.replace("\n", "\r\n")) == (grid, None)
+
+
+@pytest.mark.parametrize("separator", ["\x0c", " ", "\x85"])
+def test_source_lines_are_physical_lines_whatever_the_text_contains(separator):
+    # Answer key: "## Next" is on physical line 3 (newline-only), as the table reader counts.
+    text = f"# Title\nText{separator}more text\n## Next\n\n| A |\n| - |\n| x{separator}y |\nTail\n"
+    sections = store.parse_source(text)
+    assert [(s["heading"], s["line"]) for s in sections] == [("Title", 1), ("Next", 3)]
+    table = sections[1]["blocks"][0]
+    assert (table["line"], [r["line"] for r in table["rows"]]) == (5, [7])
+    assert sections[0]["blocks"][0]["end"] == 2

@@ -151,7 +151,8 @@ function installNewRun(){
   async function recent(){
     if(listing)return;listing=true;
     try{
-      const jobs=await appRequest(runListUrl());
+      // Only the app-wide watcher builds the browser notice, so this page's poll never speaks for the tab.
+      const jobs=await appRequest('/api/runs/list?notify=0');
       const key=JSON.stringify(jobs);if(key===lastRows){controls();return;}
       if(!jobs.length){const link=textNode('a','Issuer library');link.href='#W-Library/cases';$('recent-jobs').replaceChildren('No runs started from this app are recorded in this workspace yet. Earlier runs are in the ',link,'.');lastRows=key;activeListed=false;controls();return;}
       const active=job=>WORKFLOW_ACTIVE.includes(job.state);

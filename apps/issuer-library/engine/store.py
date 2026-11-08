@@ -152,11 +152,85 @@ def physical_lines(text: str) -> list[str]:
     return lines
 
 
-def parse_source(text):
+EQUITY_HEADERS = [
+    "Reported equity movement",
+    "Common shares (individual)",
+    "Common stock par",
+    "APIC",
+    "Accumulated deficit",
+    "Accumulated other comprehensive loss",
+    "Treasury shares (individual)",
+    "Treasury stock value",
+    "Noncontrolling interests",
+    "Total",
+]
+
+
+def equity_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
+    """The retained equity statement at `lines[i]` (the ```text fence): a delimited
+    transcription, not prose. Its explicitly supplied column order governs this table."""
+    start = i + 1
+    rows = []
+    i += 1
+    while i < len(lines) and lines[i] != "```":
+        label, values = lines[i].split(":", 1)
+        row = [label] + [c.strip() for c in values.split("|")]
+        if len(row) != len(EQUITY_HEADERS):
+            raise ValueError(f"Malformed equity transcription at {i + 1}")
+        rows.append({"line": i + 1, "cells": row})
+        i += 1
+    if i == len(lines):
+        raise ValueError("Unclosed equity transcription")
+    block = {
+        "type": "table",
+        "line": start,
+        "headers": list(EQUITY_HEADERS),
+        "rows": rows,
+        "financial": True,
+    }
+    return block, i + 1
+
+
+def source_table_cells(value: str) -> list[str]:
+    return [c.strip() for c in re.split(r"(?<!\\)\|", value.strip().strip("|"))]
+
+
+def table_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
+    """The pipe table whose header is `lines[i]`; the separator row follows it."""
+    start = i + 1
+    headers = source_table_cells(lines[i])
+    i += 2
+    rows = []
+    while i < len(lines) and lines[i].startswith("|"):
+        row = source_table_cells(lines[i])
+        if len(row) != len(headers):
+            raise ValueError(f"Malformed table at line {i + 1}")
+        rows.append({"line": i + 1, "cells": row})
+        i += 1
+    return {"type": "table", "line": start, "headers": headers, "rows": rows}, i
+
+
+def text_block(lines: list[str], i: int) -> tuple[dict[str, Any], int]:
+    """The paragraph starting at `lines[i]`, up to a blank line or the next structure."""
+    start = i + 1
+    parts = [lines[i]]
+    i += 1
+    while (
+        i < len(lines)
+        and lines[i].strip()
+        and not lines[i].startswith(("#", "|", "- ", "<!-- table-id:"))
+        and not re.match(r"\d+\. ", lines[i])
+    ):
+        parts.append(lines[i])
+        i += 1
+    return {"type": "text", "line": start, "end": i, "text": "\n".join(parts)}, i
+
+
+def parse_source(text: str) -> list[dict[str, Any]]:
     """Keep every nonblank body line in one typed block with its source locator."""
-    lines = text.splitlines()
-    sections = []
-    current = None
+    lines = physical_lines(text)
+    sections: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -165,88 +239,23 @@ def parse_source(text):
             current = {"heading": heading[2], "level": len(heading[1]), "line": i + 1, "blocks": []}
             sections.append(current)
             i += 1
-            continue
-        if not line.strip():
+        elif not line.strip() or re.fullmatch(r"<!-- table-id: [\w.-]+ -->", line):
+            # Blank, or a transport identifier preserved in the downloadable original.
             i += 1
-            continue
-        if re.fullmatch(r"<!-- table-id: [\w.-]+ -->", line):
-            # A transport identifier, preserved in the downloadable original.
-            i += 1
-            continue
-        if current is None:
+        elif current is None:
             raise ValueError("Body before first heading")
-        start = i + 1
-        if line == "```text" and current["heading"].startswith("T4.4 —"):
-            # The retained equity statement is a delimited transcription, not
-            # prose. Its explicitly supplied column order governs this table.
-            headers = [
-                "Reported equity movement",
-                "Common shares (individual)",
-                "Common stock par",
-                "APIC",
-                "Accumulated deficit",
-                "Accumulated other comprehensive loss",
-                "Treasury shares (individual)",
-                "Treasury stock value",
-                "Noncontrolling interests",
-                "Total",
-            ]
-            rows = []
-            i += 1
-            while i < len(lines) and lines[i] != "```":
-                label, values = lines[i].split(":", 1)
-                row = [label] + [c.strip() for c in values.split("|")]
-                if len(row) != len(headers):
-                    raise ValueError(f"Malformed equity transcription at {i + 1}")
-                rows.append({"line": i + 1, "cells": row})
-                i += 1
-            if i == len(lines):
-                raise ValueError("Unclosed equity transcription")
-            current["blocks"].append(
-                {
-                    "type": "table",
-                    "line": start,
-                    "headers": headers,
-                    "rows": rows,
-                    "financial": True,
-                }
-            )
-            i += 1
-        elif (
-            line.startswith("|")
-            and i + 1 < len(lines)
-            and re.fullmatch(r"\|[\s:|\-]+\|", lines[i + 1])
-        ):
-
-            def cells(value):
-                return [c.strip() for c in re.split(r"(?<!\\)\|", value.strip().strip("|"))]
-
-            headers = cells(line)
-            i += 2
-            rows = []
-            while i < len(lines) and lines[i].startswith("|"):
-                row = cells(lines[i])
-                if len(row) != len(headers):
-                    raise ValueError(f"Malformed table at line {i + 1}")
-                rows.append({"line": i + 1, "cells": row})
-                i += 1
-            current["blocks"].append(
-                {"type": "table", "line": start, "headers": headers, "rows": rows}
-            )
         else:
-            parts = [line]
-            i += 1
-            while (
-                i < len(lines)
-                and lines[i].strip()
-                and not lines[i].startswith(("#", "|", "- ", "<!-- table-id:"))
-                and not re.match(r"\d+\. ", lines[i])
+            if line == "```text" and current["heading"].startswith("T4.4 —"):
+                block, i = equity_block(lines, i)
+            elif (
+                line.startswith("|")
+                and i + 1 < len(lines)
+                and re.fullmatch(r"\|[\s:|\-]+\|", lines[i + 1])
             ):
-                parts.append(lines[i])
-                i += 1
-            current["blocks"].append(
-                {"type": "text", "line": start, "end": i, "text": "\n".join(parts)}
-            )
+                block, i = table_block(lines, i)
+            else:
+                block, i = text_block(lines, i)
+            current["blocks"].append(block)
     return sections
 
 

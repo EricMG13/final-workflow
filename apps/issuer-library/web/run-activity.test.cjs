@@ -43,7 +43,7 @@ test('the run activity page lists each event in order with its text',async t=>{
     '09:00:04Delivery started',
     '09:00:05Report delivered',
   ]);
-  assert.equal(text(p.doc.querySelector('.activity-summary')),'running: Working · running Title CP-1, turn 1 of 24');
+  assert.equal(text(p.doc.querySelector('.activity-summary')),'Running · running Title CP-1, turn 1 of 24');
   assert.equal(text(p.doc.querySelector('#run-activity h2')),'Run activity · '+ID);
   assert.equal(text(p.doc.querySelector('.activity-log caption')),'Events (UTC)');
   assert.ok(p.doc.querySelector('.activity-flow'));

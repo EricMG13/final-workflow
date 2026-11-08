@@ -4,10 +4,11 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(path.join(__dirname,'actions.js'),'utf8');
 const grab=(name,indent)=>{const m=source.match(new RegExp(`^${indent}function ${name}\\([^)]*\\)\\{[\\s\\S]*?\\n${indent}\\}`,'m'));assert.ok(m,name);return m[0];};
 const line=start=>{const m=source.match(new RegExp(`^const ${start}.*$`,'m'));assert.ok(m,start);return m[0];};
+const oneLine=name=>{const m=source.match(new RegExp(`^function ${name}\\(.*$`,'m'));assert.ok(m,name);return m[0];};
 function spendText(status){
   const elements={};
   const context=vm.createContext({elements,$:id=>elements[id]??={hidden:false,textContent:'',dataset:{}},review:null});
-  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),grab('stopSentence',''),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('showStatus','  ')].join('\n'),context);
+  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),line('STATE_WORD'),line('stateWord'),grab('nameModuleCodes',''),line('resumable'),oneLine('stopSentence'),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('showStatus','  ')].join('\n'),context);
   context.showStatus(status);
   return elements['run-spend'].textContent;
 }

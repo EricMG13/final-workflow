@@ -612,7 +612,7 @@ function updateWorkspaceChrome(module) {
   rail('Reports').hidden=!window.DESIGN_WORKSPACE.reports.length&&!Object.keys(contexts).length;
   if(ctx) {
     rail('Research workspace').href=routeHref('W-Overview','overview');
-    rail('Run activity').href=routeHref('CP-OS','activity');
+    rail('Run activity').href=(typeof shownRunHref==='function'&&shownRunHref())||routeHref('CP-OS','activity');
     rail('Reports').href=routeHref('W-Reports','list');
   }
   const app=window.DESIGN_APP||{};

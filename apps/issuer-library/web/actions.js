@@ -13,7 +13,23 @@ const textNode=(tag,value)=>{const node=document.createElement(tag);node.textCon
 // Why a run stopped, in words a reader can act on. The redacted message follows the sentence.
 const STOP_COPY={budget:'Stopped: the next model call would pass the spending cap; a new run needs a higher cap.',checker:'Stopped: a module\'s handoff did not pass its check within the allowed turns.',provider:'Stopped: the model provider returned an error or an unknown charge.',interrupted:'Stopped: the run was interrupted before a response was retained.',ruling:'Failed: a provider ruling or pause is in force.'};
 function stopSentence(status){return WORKFLOW_ACTIVE.includes(status.state)||status.state==='complete'?'':STOP_COPY[status.reason]||'';}
-function stopText(status){const sentence=stopSentence(status);return sentence?(status.message?`${sentence} ${status.message}`:sentence):`${status.state}: ${status.message||''}`;}
+// A raw state or engine prefix is never shown: the five states have plain words.
+const STATE_WORD={running:'Running',complete:'Complete',stopped:'Stopped',failed:'Failed',interrupted:'Interrupted'};
+const stateWord=state=>STATE_WORD[state]||'Not running';
+// A bare module code in an engine message becomes "<module name> (<code>)" where the run names it.
+function nameModuleCodes(text,details){
+  const list=Array.isArray(details)?details:[];
+  return String(text).replace(/(?<!\()\bCP-[A-Z0-9]+\b(?!\))/g,code=>{const title=list.find(item=>item?.id===code)?.title;return title&&title!==code?`${title} (${code})`:code;});
+}
+// hasDesc: the caller also prints describeModule, which says more than the engine's message for a running job.
+function stopText(status,hasDesc=false){
+  const sentence=stopSentence(status),message=status.message?nameModuleCodes(status.message,status.module_details):'';
+  if(sentence)return message?`${sentence} ${message}`:sentence;
+  const word=stateWord(status.state);
+  return message&&!(hasDesc&&WORKFLOW_ACTIVE.includes(status.state))?`${word}: ${message}`:word;
+}
+// Whether a finished run can be reviewed again with its accepted work retained (New run's Resume).
+const resumable=status=>!WORKFLOW_ACTIVE.includes(status.state)&&status.state!=='complete'&&status.state!=='reviewed';
 function describeModule(status,modules,nameOf){
   const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state);
   // A stop after every module was accepted happened in delivery, not in the last module.
@@ -57,7 +73,7 @@ async function loadRunActivity(section){
     const status=await appRequest(`/api/runs/status?id=${encodeURIComponent(id)}`),record=await appRequest(`/api/runs/events?id=${encodeURIComponent(id)}`);
     const modules=Array.isArray(status.modules)?status.modules:[],details=Array.isArray(status.module_details)?status.module_details:[];
     const titleOf=code=>details.find(item=>item?.id===code)?.title||code||'';
-    const head=stopText(status),desc=describeModule(status,modules,titleOf),events=Array.isArray(record.events)?record.events:[];
+    const desc=describeModule(status,modules,titleOf),head=stopText(status,!!desc),events=Array.isArray(record.events)?record.events:[];
     const parts=[textNode('p',desc?`${head} · ${desc}`:head),textNode('p',spendText(status))];
     parts[0].className='activity-summary';
     if(events.length){
@@ -77,33 +93,115 @@ async function loadRunActivity(section){
   }
 }
 // The app-wide run watcher: one list request at load, then every 5 s while a run is active. It sets
-// runMark (the title prefix) and the rail mark, and notifies when a run this page saw running finishes.
+// runMark (the title prefix), the rail mark and the run-state strip, and notifies when a run this page
+// saw running finishes.
 let runMark='',titleBase='';
-const runWatch={timer:null,busy:false,states:new Map(),finished:null,last:null};
+const runWatch={timer:null,busy:false,states:new Map(),last:null,jobs:[],shown:null,memory:{}};
 function applyTitle(){if(titleBase)document.title=`${runMark}${titleBase} · Issuer Library`;}
 function runTarget(job){return `${job.state==='complete'?'W-Reports/list':'W-Overview/overview'}?c=${encodeURIComponent(job.id)}`;}
 function reloadApp(){location.reload();}
 function describeMark(job){
-  const modules=Array.isArray(job.modules)?job.modules:[],accepted=job.progress?.accepted;
+  const modules=Array.isArray(job.modules)?job.modules:[],accepted=job.progress?.accepted,word=stateWord(job.state).toLowerCase();
   if(WORKFLOW_ACTIVE.includes(job.state)){
     const count=modules.length&&Number.isInteger(accepted)?`${accepted}/${modules.length}`:'';
-    return{mark:count?`● ${count} · `:'● ',symbol:'●',label:count?`Run running, ${accepted} of ${modules.length} modules`:'Run running'};
+    return{mark:count?`● ${count} · `:'● ',symbol:'●',label:`Run activity — run ${word}`,kind:'running'};
   }
   const done=job.state==='complete';
-  return{mark:done?'✓ ':'! ',symbol:done?'✓':'!',label:`Run ${job.state}`};
+  return{mark:done?'✓ ':'! ',symbol:done?'✓':'!',label:`Run activity — run ${word}`,kind:done?'complete':'stopped'};
+}
+// Dismissals are kept per viewer, as the state each job id was dismissed in. Without storage the notice
+// stays dismissed for this page only, and the next load shows it again.
+const DISMISS_KEY='issuer-library.run-strip-dismissed';
+function readDismissed(){
+  let stored={};
+  try{const value=JSON.parse(localStorage.getItem(DISMISS_KEY)||'{}');if(value&&typeof value==='object'&&!Array.isArray(value))stored=value;}
+  catch(error){console.warn('Run notice dismissals could not be read; a dismissed notice shows again after a reload',error);}
+  return{...stored,...runWatch.memory};
+}
+function dismissRun(job){
+  runWatch.memory[job.id]=job.state;
+  try{localStorage.setItem(DISMISS_KEY,JSON.stringify(readDismissed()));}
+  catch(error){console.warn('Run notice dismissal could not be saved; the notice shows again after a reload',error);}
+}
+// The active job if any; otherwise the most recently started job that is not running, unless dismissed
+// in its present state. The list is newest first, and a job that left it keeps the last one seen.
+function chooseShown(jobs){
+  const active=jobs.find(job=>WORKFLOW_ACTIVE.includes(job.state));
+  if(active)return active;
+  const dismissed=readDismissed(),candidate=jobs.find(job=>STATE_WORD[job.state])||runWatch.last;
+  return candidate&&STATE_WORD[candidate.state]&&dismissed[candidate.id]!==candidate.state?candidate:null;
+}
+const jobRoute=(place,job)=>`#${place}?c=${encodeURIComponent(job.id)}`;
+function stripView(job){
+  const word=stateWord(job.state),title=`Run ${word.toLowerCase()} · ${job.issuer||job.id}`;
+  const activity={label:'View activity',href:jobRoute('CP-OS/activity',job),reload:true};
+  if(WORKFLOW_ACTIVE.includes(job.state)){
+    const modules=Array.isArray(job.modules)?job.modules:[],accepted=job.progress?.accepted;
+    const details=Array.isArray(job.module_details)?job.module_details:[];
+    const desc=describeModule(job,modules,id=>details.find(item=>item?.id===id)?.title||id);
+    const count=modules.length&&Number.isInteger(accepted)?`${accepted} of ${modules.length} modules accepted`:desc;
+    return{tone:'brand',icon:'activity',title,lines:count?[count]:[],actions:[activity]};
+  }
+  if(job.state==='complete')return{tone:'grey',icon:'circle-check',title,lines:[],actions:[{label:'View reports',href:jobRoute('W-Reports/list',job),reload:true}]};
+  const actions=[activity];
+  if(resumable(job))actions.push({label:'Resume',href:`#W-NewRun/run?resume=${encodeURIComponent(job.id)}`,reload:false});
+  return{tone:'amber',icon:'triangle-alert',title,lines:[stopText(job),spendText(job)],actions};
+}
+function showRunStrip(job){
+  const strip=document.getElementById('run-strip');
+  if(!strip)return;
+  if(!job){strip.hidden=true;strip.removeAttribute('data-key');strip.replaceChildren();return;}
+  const view=stripView(job),key=`${job.id}|${job.state}`;
+  // Only a change of state is announced: a poll that moves the count rewrites the quiet line in place.
+  const line=strip.querySelector('.strip-text');
+  if(strip.dataset.key===key&&!strip.hidden&&line&&view.lines.length){line.textContent=view.lines[0];return;}
+  strip.dataset.key=key;strip.dataset.tone=view.tone;strip.hidden=false;
+  const icon=document.createElement('span');icon.className='strip-icon';icon.dataset.icon=view.icon;icon.setAttribute('aria-hidden','true');
+  const body=document.createElement('div');body.className='strip-body';
+  const title=textNode('strong',view.title);title.className='strip-title';body.append(title);
+  view.lines.forEach((line,i)=>{const node=textNode('p',line);node.className=i===0?'strip-text':'strip-text strip-spend';node.setAttribute('aria-live','off');body.append(node);});
+  const actions=document.createElement('div');actions.className='strip-actions';
+  for(const action of view.actions){const link=textNode('a',action.label);link.href=action.href;link.dataset.stripLink=action.reload?'reload':'go';actions.append(link);}
+  body.append(actions);
+  const close=document.createElement('button'),mark=document.createElement('img');
+  close.type='button';close.className='strip-close';close.title='Dismiss';close.setAttribute('aria-label','Dismiss run notice');
+  mark.src='icons/x.svg';mark.alt='';close.append(mark);
+  strip.replaceChildren(icon,body,close);
 }
 function showRunMark(job){
-  const view=job?describeMark(job):{mark:'',symbol:'',label:''},rail=document.getElementById('run-mark');
+  const view=job?describeMark(job):{mark:'',symbol:'',label:'',kind:''},rail=document.getElementById('run-mark');
   runMark=view.mark;
-  if(rail){rail.hidden=!job;rail.textContent=view.symbol;rail.setAttribute('aria-label',view.label);}
+  if(rail){rail.hidden=!job;rail.textContent=view.symbol;rail.dataset.state=view.kind;}
+  const link=document.querySelector('.rail [data-place="Run activity"]');
+  if(link){
+    if(job){link.setAttribute('aria-label',view.label);link.setAttribute('href',jobRoute('CP-OS/activity',job));}
+    else{link.removeAttribute('aria-label');link.setAttribute('href',current?.context?routeHref('CP-OS','activity'):'#CP-OS/activity');}
+  }
   applyTitle();
 }
+// The Run activity rail link goes to the job the strip shows; null leaves the selected run's link.
+function shownRunHref(){return runWatch.shown?jobRoute('CP-OS/activity',runWatch.shown):null;}
+function presentRun(){
+  const shown=chooseShown(runWatch.jobs);
+  runWatch.shown=shown;
+  if(shown&&!WORKFLOW_ACTIVE.includes(shown.state))runWatch.last=shown;
+  showRunMark(shown);showRunStrip(shown);
+}
+document.addEventListener('click',event=>{
+  const close=event.target.closest?.('#run-strip .strip-close'),link=event.target.closest?.('#run-strip a[data-strip-link]');
+  if(close&&runWatch.shown){dismissRun(runWatch.shown);presentRun();return;}
+  if(!link)return;
+  event.preventDefault();
+  if(!mayDiscardDraft())return;
+  location.hash=link.getAttribute('href');
+  if(link.dataset.stripLink==='reload')reloadApp();
+});
 const canNotify=()=>typeof Notification!=='undefined'&&Notification.permission==='granted';
 // A tab that cannot build the browser notice says so, so the server still shows the native one.
 const runListUrl=()=>canNotify()?'/api/runs/list':'/api/runs/list?notify=0';
 function notifyFinished(job){
   if(!canNotify())return;
-  const note=new Notification('Issuer Library',{body:job.state==='complete'?`${job.issuer||'The'} run complete`:stopSentence(job)||job.message||`Run ${job.state}`,tag:job.id});
+  const note=new Notification('Issuer Library',{body:job.state==='complete'?`${job.issuer||'The'} run complete`:stopSentence(job)||job.message||`Run ${stateWord(job.state).toLowerCase()}`,tag:job.id});
   note.onclick=()=>{window.focus();if(mayDiscardDraft()){location.hash=runTarget(job);reloadApp();}};
 }
 async function watchRuns(){
@@ -112,13 +210,11 @@ async function watchRuns(){
   try{
     const jobs=await appRequest(runListUrl()),active=jobs.filter(job=>WORKFLOW_ACTIVE.includes(job.state));
     for(const job of jobs){
-      if(runWatch.states.get(job.id)==='running'&&job.state!=='running'){runWatch.finished=job.id;notifyFinished(job);}
+      if(runWatch.states.get(job.id)==='running'&&job.state!=='running')notifyFinished(job);
       runWatch.states.set(job.id,job.state);
     }
-    // A finished run that has left the list keeps the last description seen.
-    const shown=active[0]||jobs.find(job=>job.id===runWatch.finished)||runWatch.last;
-    runWatch.last=shown;
-    showRunMark(shown);
+    runWatch.jobs=jobs;
+    presentRun();
     if(active.length&&!runWatch.timer)runWatch.timer=setInterval(watchRuns,5000);
     if(!active.length&&runWatch.timer){clearInterval(runWatch.timer);runWatch.timer=null;}
   }catch(error){console.warn('Run watch failed; the next check will retry while a run is active',error);}
@@ -148,6 +244,19 @@ function installNewRun(){
     if(!wanted&&watch){clearInterval(watch);watch=null;}
   }
   function titleOf(id){return (Array.isArray(review?.module_details)?review.module_details:[]).find(item=>item?.id===id)?.title||id;}
+  // Shows one recorded run's progress panel: a Recent-runs click, or the run strip's Resume link.
+  function openJob(job){
+    const modules=Array.isArray(job.modules)?job.modules:[],details=Array.isArray(job.module_details)?job.module_details:[];
+    review={...job,modules,module_details:details};running=WORKFLOW_ACTIVE.includes(job.state);stage('progress');showStatus(job);controls();if(running)poll();
+  }
+  // #W-NewRun/run?resume=<id> opens that run's panel once; the query is then dropped so a revisit does not reopen it.
+  async function openRequested(){
+    const id=new URLSearchParams(location.hash.split('?')[1]||'').get('resume');
+    if(!id||$('new-run').hidden||busy||running)return;
+    history.replaceState(null,'','#W-NewRun/run');
+    try{const job=(await appRequest(runListUrl())).find(item=>item.id===id);if(job)openJob(job);else message('That run is no longer in the recent list.');}
+    catch(error){message('Could not open that run. Details: '+error.message);}
+  }
   async function recent(){
     if(listing)return;listing=true;
     try{
@@ -164,7 +273,7 @@ function installNewRun(){
         const modules=Array.isArray(job.modules)?job.modules:[],details=Array.isArray(job.module_details)?job.module_details:[];
         const row=document.createElement('tr'),owner=document.createElement('th'),button=textNode('button',job.issuer||job.id);
         owner.scope='row';button.type='button';button.className='text-button';button.title=job.id;
-        button.addEventListener('click',()=>{review={...job,modules,module_details:details};running=active(job);stage('progress');showStatus(job);controls();if(running)poll();});
+        button.addEventListener('click',()=>openJob(job));
         owner.append(button);
         const workflow=textNode('td','');
         if(job.pathway){const badge=textNode('span',workflowTitle(job.pathway));badge.className='badge badge-blue';badge.prepend(document.createElement('i'));workflow.append(badge);}else workflow.textContent='—';
@@ -193,8 +302,11 @@ function installNewRun(){
     if(modules.length){
       const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
       const deliveryStop=step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length);
+      // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
+      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=deliveryStop||(step==='delivering'&&!active&&!runComplete);
+      const modulesDone=runComplete||deliveryStop||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{
-        const isComplete=runComplete||deliveryStop||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
+        const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&['started','running','repairing'].includes(step),isStopped=isCurrent&&!active&&status.state!=='complete';
         const li=document.createElement('li');li.dataset.status=isComplete?'complete':isCurrent?'current':'incomplete';li.title=id;
         if(isStopped)li.setAttribute('data-stopped','');
         const marker=document.createElement('span');marker.className='step-marker';marker.setAttribute('aria-hidden','true');
@@ -205,21 +317,30 @@ function installNewRun(){
         li.append(marker,text);
         return li;
       }));
-      const mark=runComplete?bar.lastElementChild:bar.children[current];
+      const delivery=document.createElement('li');
+      delivery.dataset.status=delivered?'complete':delivering?'current':'incomplete';
+      if(deliveryStopped&&!delivered)delivery.setAttribute('data-stopped','');
+      const deliveryMarker=document.createElement('span');deliveryMarker.className='step-marker';deliveryMarker.setAttribute('aria-hidden','true');
+      if(delivered){const tick=document.createElement('img');tick.src='icons/check.svg';tick.alt='';deliveryMarker.append(tick);}else deliveryMarker.textContent=String(modules.length+1);
+      const deliveryText=document.createElement('div');deliveryText.append(textNode('strong','Report delivery'));
+      const deliveryNote=delivered?'Delivered':deliveryStopped?'Stopped':delivering?'Delivering':'';
+      if(deliveryNote)deliveryText.append(textNode('span',deliveryNote));
+      delivery.append(deliveryMarker,deliveryText);bar.append(delivery);
+      const mark=delivered||delivering||deliveryStopped?delivery:bar.children[current];
       if(mark)mark.setAttribute('aria-current','step');
     }
-    const head=stopText(status),desc=describeModule(status,modules,titleOf);
+    const desc=describeModule(status,modules,titleOf),head=stopText(status,!!desc);
     $('run-progress').textContent=desc?`${head} · ${desc}`:head;
     $('run-identity').textContent=review?.issuer?`${review.issuer} · ${workflowTitle(review.pathway)} · as of ${displayDate(review.as_of)} · ${review.id}`:review?.id||'';
     $('run-spend').textContent=spendText(status);
     const finished=!WORKFLOW_ACTIVE.includes(status.state);
     $('another-run').hidden=!finished;
     // A run that ended without a report can be reviewed again with its accepted work retained.
-    const resumable=finished&&status.state!=='complete'&&status.state!=='reviewed';
-    $('resume-field').hidden=!resumable;$('resume-run').hidden=!resumable;
+    const canResume=resumable(status);
+    $('resume-field').hidden=!canResume;$('resume-run').hidden=!canResume;
     const field=$('resume-budget');
     // Set once per run, so a poll never overwrites what the reader typed.
-    if(resumable&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=review?.cap_usd||$('run-budget').value;}
+    if(canResume&&field.dataset.run!==review?.id){field.dataset.run=review?.id;field.value=review?.cap_usd||$('run-budget').value;}
     $('open-run').hidden=!finished||status.run_available===false;
     $('open-run').textContent=status.state==='complete'?'Open deliverables':'Open run';
     $('open-run').dataset.route=runTarget({state:status.state,id:status.id||review?.id});
@@ -337,13 +458,14 @@ function installNewRun(){
   // The store is read at load, so a finished run needs a reload to appear.
   $('open-run').addEventListener('click',()=>{location.hash=$('open-run').dataset.route;location.reload();});
   window.addEventListener('beforeunload',event=>{if(running){event.preventDefault();event.returnValue='';}});
+  window.addEventListener('hashchange',openRequested);
   controls();
   return{show(){
     if(!$('context-editor').hasAttribute('src')){
       contextLoaded=watchFrame($('context-editor'),document.querySelector('#context-step .frame-status'),'Loading run context form…','The run context form did not load.');
       $('context-editor').src='context-form.html';
     }
-    recent();
+    recent();openRequested();
     document.querySelector('#new-run .run-step:not([hidden]) h2').focus({preventScroll:true});
   }};
 }

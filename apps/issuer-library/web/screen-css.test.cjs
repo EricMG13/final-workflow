@@ -177,3 +177,11 @@ test('every custom property screen.css reads without a fallback is defined in sc
   assert.deepEqual([...new Set(bare.filter((name) => !defined.has(name)))], []);
   assert.match(screen, /\.ref\{[^}]*color:var\(--muted\)/);
 });
+
+test('the amber run mark glyph and the amber strip text hold 4.5:1 on their backgrounds', () => {
+  const token = (name) => screen.match(new RegExp(`--${name}:(#[0-9a-f]{6})`, 'i'))[1];
+  const mark = screen.match(/\.run-mark\[data-state=stopped\]\{background:var\(--([a-z-]+)\);color:var\(--([a-z-]+)\)/);
+  assert.ok(mark, 'amber mark rule');
+  assert.ok(contrast(token(mark[2]), token(mark[1])) >= 4.5, `${mark[2]} on ${mark[1]}`);
+  assert.ok(contrast(token('amber'), token('amber-bg')) >= 4.5);
+});

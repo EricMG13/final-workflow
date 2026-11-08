@@ -1527,6 +1527,20 @@ def test_the_grid_prefers_recorded_derived_rows_and_falls_back_without_them(tmp_
     assert row(plain, senior)["cells"][3]["display"] == "3.00x"
 
 
+def test_recorded_derived_reasons_read_in_words(tmp_path):
+    senior = "Senior secured leverage (secured debt / Adj EBITDA)"
+    expected = {
+        "NOT_STATED": "a component is not in the handoffs",
+        "ZERO_OR_NEGATIVE_DENOMINATOR": "a divisor is zero",
+    }
+    for code, words in expected.items():
+        record = calculation_record()
+        record["values"]["FY2024"]["senior_secured_multiple"] = amount(None, code)
+        cashflow, _ = cashflow_of(tmp_path / code, extra=cashflow_files(record))
+        cell = row(cashflow, senior)["cells"][3]
+        assert (cell["display"], cell["reason"]) == (NA, words)
+
+
 def test_senior_secured_leverage_needs_every_secured_instrument_carrying_value(tmp_path):
     broken = ANNUAL_MD.replace("Principal 500; carrying 500", "Principal 500")
     cashflow, _ = cashflow_of(tmp_path, extra=cashflow_files(annual=broken))

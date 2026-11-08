@@ -616,6 +616,22 @@ def test_the_model_page_lists_the_derived_table() -> None:
     assert "20.58%" in page
 
 
+def test_a_repeated_register_label_reads_on_the_page_as_the_store_says() -> None:
+    published, values = derived_values(
+        b"| Tranche I term loans | Principal 1,871 |",
+        b"| Term loans aggregate | carrying 1,871 |",
+    )
+    assert values["FY2024"]["senior_secured_debt"]["reason"] == "UNCLASSIFIED_ROW"
+    facts = {
+        f["fact_id"]: f
+        for f in json.loads(published.files["model-view.json"])["modules"][0]["facts"]
+    }
+    for key in ("senior_secured_debt", "senior_secured_multiple"):
+        assert facts[f"derived.{key}.FY2024"]["limitation"] == (
+            "the debt register repeats a row label: Term loans aggregate"
+        )
+
+
 def test_the_register_is_read_as_the_store_reads_it() -> None:
     # The store's CARRYING is case-sensitive: "Carrying 910" is no carrying value, so the
     # revolver is not an unclassified row; 20020 is the hand-summed T4.18 total.

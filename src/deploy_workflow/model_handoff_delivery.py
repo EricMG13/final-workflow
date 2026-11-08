@@ -324,6 +324,8 @@ CARRYING = re.compile(r"carrying\s+(\d[\d,]*(?:\.\d+)?)", re.ASCII)
 REGISTER_DATE = re.compile(r"\b([A-Z][a-z]{2}) (\d{1,2}), (\d{4})\b", re.ASCII)
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 UNCLASSIFIED_PHRASE = "the debt register has a row that cannot be classified"
+REPEATED_NOTE = "repeated row label: "
+REPEATED_PHRASE = "the debt register repeats a row label: "
 LABEL_LIMIT = 200
 CELL_LIMIT = 4000
 
@@ -368,7 +370,7 @@ def _secured_register(reader: _AnnualReader, anchor: str) -> _Register:
         if low in seen and carrying is not None:
             return _Register(
                 when,
-                Cell(None, "UNCLASSIFIED_ROW", note=f"repeated row label: {label[:LABEL_LIMIT]}"),
+                Cell(None, "UNCLASSIFIED_ROW", note=f"{REPEATED_NOTE}{label[:LABEL_LIMIT]}"),
             )
         seen.add(low)
         if label in exact:
@@ -575,6 +577,8 @@ def _fact_unit(key: str, ratio_keys: tuple[str, ...]) -> str:
 def _limitation(cell: Cell) -> str | None:
     if cell.value is not None:
         return cell.note
+    if cell.reason == "UNCLASSIFIED_ROW" and cell.note and cell.note.startswith(REPEATED_NOTE):
+        return REPEATED_PHRASE + cell.note[len(REPEATED_NOTE) :]
     if cell.reason == "UNCLASSIFIED_ROW":
         return f"{UNCLASSIFIED_PHRASE}: {cell.note}"
     return cell.note or cell.reason or "Missing source input"

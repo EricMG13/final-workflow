@@ -63,12 +63,16 @@
     },
     "ratings": [
       {
-        "label": "S&P B+",
+        "label": "B+",
+        "agency": "S&P",
+        "scope": "issuer",
         "date": "2025-05-15",
         "source": "ctx_rating_sp"
       },
       {
-        "label": "Moody's (P)B2",
+        "label": "(P)B2",
+        "agency": "Moody's",
+        "scope": "issuer",
         "date": "2025-05-20",
         "source": "ctx_rating_moodys"
       }

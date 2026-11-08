@@ -606,15 +606,12 @@ def _instructions(
     module: str,
     routes: Sequence[MarkdownRoute],
     *,
-    ordered: Sequence[str],
-    provisional: bool,
+    run_type: str,
+    legal_documents: str,
 ) -> bytes:
+    provisional = run_type == "primary" or legal_documents == "draft"
     paragraph = PROVISIONAL_PARAGRAPH if provisional and module == "CP-4" else ""
-    consumer = (
-        f"{CONSUMER_SENTENCE}\n\n"
-        if provisional and module in CONSUMERS and "CP-4" in ordered
-        else ""
-    )
+    consumer = f"{CONSUMER_SENTENCE}\n\n" if provisional and module in CONSUMERS else ""
     selectors = "\n".join(_selector(r) for r in routes if r.module_id == module)
     sections = [(path, (ROOT / path).read_text(encoding="utf-8")) for path in METHODS[module]]
     if module == "CP-1":
@@ -783,11 +780,8 @@ def prepare(  # noqa: PLR0913 - one keyword per run setting; retained is the res
             run,
             m,
             layout.routes,
-            ordered=ordered,
-            provisional=(
-                settings.run.run_type == "primary"
-                or settings.attachments.legal_documents == "draft"
-            ),
+            run_type=settings.run.run_type,
+            legal_documents=settings.attachments.legal_documents,
         )
         for m in ordered
     }
@@ -902,8 +896,9 @@ def _cells(line: str) -> list[str]:
 
 
 def _body(lines: list[str], heading: str, level: int) -> list[str]:
-    """The lines under one heading, or none when it is missing or repeated: the report adapter
-    already refuses that, so this check adds no second complaint about it."""
+    """The lines under one heading, or none when it is missing or repeated. The report adapter
+    refuses that itself; here a missing section reads as empty, so the label checks still name it
+    as lacking Provisional."""
     try:
         return [line for _, line in section(lines, heading, (level,))]
     except ValueError:
@@ -913,7 +908,7 @@ def _body(lines: list[str], heading: str, level: int) -> list[str]:
 def _register(lines: list[str]) -> list[list[str]] | None:
     """The register's data rows; None when the heading, the exact header or a row is missing."""
     rows: list[list[str]] = []
-    for line in _body(lines, REGISTER_HEADING, 3):
+    for line in _body(_body(lines, "Findings", 2), REGISTER_HEADING, 3):
         found = table_row(line)
         if found is not None:
             rows.append(_cells(found))

@@ -203,12 +203,33 @@ def test_out_of_scope_instructions_are_the_bytes_built_without_this_change(tmp_p
         assert instructions_of(prepared, module) == removed, module
 
 
-def test_consumer_sentence_needs_cp4_in_the_run(tmp_path):
-    prepared = prepared_for(
-        tmp_path, "credit_snapshot", "primary", "draft", ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-5"]
-    )
+def test_consumer_sentence_is_written_in_scope_even_without_cp4(tmp_path):
+    modules = ["CP-0", "CP-1", "CP-1A", "CP-2", "CP-5"]
+    prepared = prepared_for(tmp_path, "credit_snapshot", "primary", "draft", modules)
     assert "CP-4" not in prepared.ordered
-    assert cpos_launch.CONSUMER_SENTENCE.encode() not in instructions_of(prepared, "CP-5")
+    assert cpos_launch.CONSUMER_SENTENCE.encode() in instructions_of(prepared, "CP-5")
+
+
+def test_a_register_outside_findings_is_missing(tmp_path):
+    case = next(c for c in CASES if c["id"] == "executed-only-no-labels")
+    prepared = prepared_for(tmp_path, case["pathway"], case["run_type"], case["legal_documents"])
+    raw = case_answer(case, prepared)
+    start = raw.index("### Legal document register")
+    end = raw.index("## Calculations")
+    block = raw[start:end]
+    moved = raw.replace(block, "").replace("## Calculations\n\n", "## Calculations\n\n" + block, 1)
+    assert moved.index(block) > moved.index("## Calculations")
+    task = HandoffTask(
+        prepared.plan.run,
+        "CP-4",
+        instructions_of(prepared, "CP-4"),
+        {"annual.txt": b"Net sales", "context": b"{}"},
+        case_handoffs(case),
+        1,
+        (),
+    )
+    issues = _checked_handoff(task, moved.encode(), checker(prepared.layout))
+    assert new_categories(issues) == {"register_missing"}, issues
 
 
 def test_cp4_scope_is_decided_by_the_paragraph_alone(tmp_path):

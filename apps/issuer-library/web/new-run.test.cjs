@@ -102,12 +102,21 @@ test('a stopped run does not claim its rejected module is still running',async t
   assert.equal(items[1].querySelector('span:not(.step-marker)').textContent,'Stopped here');
   const open=p.doc.getElementById('open-run');assert.equal(open.hidden,false);assert.equal(open.textContent,'Open run');
 });
+test('a stop between modules keeps the accepted module ticked and says it stopped after it',async t=>{
+  const p=await page(t,{status:{state:'failed',reason:'provider',message:'handoff refused',progress:{step:'stopped',stopped_during:'accepted',module:'CP-0',accepted:1},run_available:true,id:ID}});
+  p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
+  assert.equal(progressLines(p)[1],'Stopped after Source readiness\u00a0(1\u00a0of\u00a02).');
+  const items=[...p.doc.querySelectorAll('#module-stages li')],note=li=>li.querySelector('span:not(.step-marker)')?.textContent;
+  assert.deepEqual(items.map(li=>li.dataset.status),['complete','incomplete','incomplete']);
+  assert.equal(note(items[0]),'Accepted');assert.notEqual(items[0].querySelector('img'),null);
+  assert.deepEqual(items.map(li=>li.hasAttribute('data-stopped')),[false,false,false]);
+});
 test('a budget stop names the module it stopped in, from the server job shape',async t=>{
   const p=await page(t,{status:{state:'stopped',reason:'budget',message:'next call over cap',started_at:'2026-11-08T09:00:00Z',spent_usd:'8.90',progress:{step:'stopped',stopped_during:'running',module:'CP-1',accepted:1,turn:2,max_turns:32,spent_usd:'8.90',held_usd:'1.60',cap_usd:'10'},run_available:true,id:ID}});
   p.context();p.folder('N/annual.txt');await p.click('review-run');p.confirm();await p.click('start-run');
   const items=[...p.doc.querySelectorAll('#module-stages li')],note=li=>li.querySelector('span:not(.step-marker)')?.textContent;
   assert.equal(items[0].dataset.status,'complete');assert.equal(note(items[0]),'Accepted');
-  assert.equal(items[1].hasAttribute('data-stopped'),true);assert.match(note(items[1]),/^Stopped/);
+  assert.equal(items[1].dataset.status,'current');assert.equal(items[1].hasAttribute('data-stopped'),true);assert.equal(note(items[1]),'Stopped here');
   assert.equal(items[1].getAttribute('aria-current'),'step');
   assert.equal(items[2].dataset.status,'incomplete');assert.equal(items[2].hasAttribute('data-stopped'),false);assert.equal(items[2].hasAttribute('aria-current'),false);
 });

@@ -8,7 +8,7 @@ const oneLine=name=>{const m=source.match(new RegExp(`^function ${name}\\(.*$`,'
 function spendText(status){
   const elements={};
   const context=vm.createContext({elements,$:id=>elements[id]??={hidden:false,textContent:'',dataset:{},setAttribute(){},removeAttribute(){},replaceChildren(){}},review:null,textNode:(tag,value)=>({tag,textContent:value,className:'',title:'',append(){}})});
-  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),line('STATE_WORD'),line('stateWord'),grab('nameModuleCodes',''),line('resumable'),line('DECIMAL'),oneLine('stopSentence'),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('descSentence',''),grab('summaryLines',''),oneLine('shortRunId'),grab('showStatus','  ')].join('\n'),context);
+  vm.runInContext([line('WORKFLOW_ACTIVE'),line('workflowTitle'),line('STOP_COPY'),line('STATE_WORD'),line('stateWord'),grab('nameModuleCodes',''),line('resumable'),line('moduleStep'),line('DECIMAL'),oneLine('stopSentence'),grab('stopText',''),grab('runTarget',''),grab('spendText',''),grab('titleOf','  '),grab('describeModule',''),grab('descSentence',''),grab('summaryLines',''),oneLine('shortRunId'),grab('showStatus','  ')].join('\n'),context);
   context.showStatus(status);
   return elements['run-spend'].textContent;
 }
@@ -24,7 +24,7 @@ test('a recorded spend wins over progress, and progress is the fallback while ru
 });
 test('a stop after every module was accepted reads as a delivery stop, not a module stop',()=>{
   const context=vm.createContext({});
-  vm.runInContext([line('WORKFLOW_ACTIVE'),grab('describeModule','')].join('\n'),context);
+  vm.runInContext([line('WORKFLOW_ACTIVE'),line('moduleStep'),grab('describeModule','')].join('\n'),context);
   const say=(state,progress)=>context.describeModule({state,progress},['CP-2','CP-6'],id=>'Title '+id);
   assert.equal(say('failed',{module:'CP-6',step:'stopped',stopped_during:'delivering',accepted:2}),'stopped while delivering the report');
   assert.equal(say('failed',{module:'CP-6',step:'stopped',accepted:2}),'stopped while delivering the report');

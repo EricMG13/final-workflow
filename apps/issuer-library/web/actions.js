@@ -38,18 +38,21 @@ function stopText(status,hasDesc=false){
 // Whether a finished run can be reviewed again with its accepted work retained (New run's Resume): the states jobs.go resumes.
 // A ruling or pause is not a stop that more budget or a retry can change, so it is never resumable.
 const resumable=status=>['stopped','failed','interrupted'].includes(status.state)&&status.reason!=='ruling';
+// The module step, with a stop between modules (after module_accepted, before the next module_started) read as the accepted step:
+// progress.module is then the module that was accepted, not one the run stopped in.
+const moduleStep=p=>p?.step==='stopped'&&p.stopped_during==='accepted'?'accepted':p?.step;
 function describeModule(status,modules,nameOf){
-  const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state);
+  const p=status.progress||{},moduleId=p.module,active=WORKFLOW_ACTIVE.includes(status.state),step=moduleStep(p);
   // A stop after every module was accepted happened in delivery, not in the last module.
   if(p.step==='delivering')return active?'delivering the report':'stopped while delivering the report';
   if(p.step==='stopped'&&(p.stopped_during==='delivering'||(modules.length>0&&p.accepted>=modules.length)))return 'stopped while delivering the report';
   if(p.step==='delivered')return 'report delivered';
   if(!moduleId)return '';
   const index=modules.indexOf(moduleId),where=index>=0?` (${index+1} of ${modules.length})`:'',turn=p.turn&&p.max_turns?`, turn ${p.turn} of ${p.max_turns}`:'';
-  if(p.step==='running')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${turn||where}`;
-  if(p.step==='repairing')return `${active?'repairing':'stopped while repairing'} ${nameOf(moduleId)} after a rejected draft${turn}`;
-  if(p.step==='started')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${where}`;
-  if(p.step==='accepted')return `${nameOf(moduleId)} accepted${where}`;
+  if(step==='running')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${turn||where}`;
+  if(step==='repairing')return `${active?'repairing':'stopped while repairing'} ${nameOf(moduleId)} after a rejected draft${turn}`;
+  if(step==='started')return `${active?'running':'stopped during'} ${nameOf(moduleId)}${where}`;
+  if(step==='accepted')return `${active||p.step!=='stopped'?`${nameOf(moduleId)} accepted`:`stopped after ${nameOf(moduleId)}`}${where}`;
   if(p.step==='stopped')return `stopped during ${nameOf(moduleId)}${where}`;
   return '';
 }
@@ -397,9 +400,9 @@ function installNewRun(){
     const bar=$('module-stages');
     bar.hidden=!modules.length;
     if(modules.length){
-      const current=modules.indexOf(status.progress?.module),step=status.progress?.step,active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
+      const current=modules.indexOf(status.progress?.module),rawStep=status.progress?.step,step=moduleStep(status.progress),active=WORKFLOW_ACTIVE.includes(status.state),runComplete=status.state==='complete';
       // Report delivery follows the last accepted module: ahead, current while delivering, done, or stopped.
-      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=(step==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length))||(!active&&!runComplete&&(step==='delivering'||status.progress?.accepted>=modules.length));
+      const delivering=step==='delivering'&&active,delivered=runComplete||step==='delivered',deliveryStopped=(rawStep==='stopped'&&(status.progress.stopped_during==='delivering'||status.progress.accepted>=modules.length))||(!active&&!runComplete&&(step==='delivering'||status.progress?.accepted>=modules.length));
       const modulesDone=runComplete||deliveryStopped||step==='delivering'||step==='delivered';
       bar.replaceChildren(...modules.map((id,i)=>{
         const isComplete=modulesDone||i<current||(i===current&&step==='accepted'),isCurrent=i===current&&(['started','running','repairing'].includes(step)||(step==='stopped'&&!deliveryStopped)),isStopped=isCurrent&&!active&&status.state!=='complete';

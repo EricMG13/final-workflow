@@ -309,8 +309,8 @@ th .source-link:hover{color:var(--blue-700);text-decoration:underline;text-under
 .cashflow tbody th[scope=row],.cashflow .band-row th{position:sticky;left:0;z-index:1;background:#fff;text-align:left;white-space:nowrap}
 .cashflow .band-row th{background:var(--gray-50);font:600 var(--fs-compact)/18px 'Red Hat Text',sans-serif;color:var(--text-tertiary)}
 .cashflow tbody tr:hover>th[scope=row]{background:var(--gray-25)}
-/* At desktop widths the row labels wrap in a 22rem column and cells use 12px side padding, so the 11 period columns fit a 1236 px box. */
-.cashflow th,.cashflow td{padding-left:12px;padding-right:12px}.cashflow tbody th[scope=row]{white-space:normal;width:14rem;min-width:12rem;max-width:22rem}
+/* Row labels wrap in a column of at least 12rem and at most 22rem; cells use 12px side padding, so the 11 period columns fit a 1236 px box. */
+.cashflow th,.cashflow td{padding-left:12px;padding-right:12px}.cashflow tbody th[scope=row]{white-space:normal;width:12rem;min-width:12rem;max-width:22rem}
 .cashflow .col-sub{display:block}
 .cashflow-notes,.cashflow-na ul{margin:10px 0 0;padding-left:18px;color:var(--muted);font-size:var(--fs-label)}
 .cashflow-na{margin-top:10px;font-size:var(--fs-label);color:var(--muted)}.cashflow-na summary{cursor:pointer;font-weight:600;color:var(--text-secondary)}.cashflow-na ul{margin-top:6px}

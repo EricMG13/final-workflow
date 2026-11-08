@@ -252,7 +252,7 @@ for(const [run,expected] of Object.entries(forecast.runs).filter(([,e])=>e.model
       assert.equal(text(cells[3]),b.changed?'Changed since publication':'Matches publication',b.role);
       assert.ok(cells[3].querySelector('.badge'),`${b.role} status is a badge`);
       assert.ok(cells[3].querySelector('.badge').classList.contains(b.changed?'badge-attention':'badge-gray'),b.role);
-      if(b.output===null){assert.equal(link,null,`${b.role} must not link`);assert.equal(cells[1].textContent,b.path);}
+      if(b.output===null){assert.equal(link,null,`${b.role} must not link`);assert.equal(cells[1].textContent,b.path.split('/').at(-1),`${b.role} shows the file name, as a linked source does`);assert.equal(cells[1].querySelector('[title]')?.getAttribute('title'),b.path,`${b.role} keeps the full path in a title`);}
       else{assert.ok(link,`${b.role} has no link`);assert.equal(link.textContent,b.output.split('/').at(-1));}
     });
     // The sources come from different attempts, and the note says which files, as a fact.
@@ -587,12 +587,10 @@ test('The section pager names models on Forecast and reports on Reports, and sec
   await go(w,'W-Reports/list?c=tdg-002');
   assert.equal(d.getElementById('previous-section').getAttribute('aria-label'),'Previous report');
   assert.equal(d.getElementById('next-section').getAttribute('aria-label'),'Next report');
-  await go(w,'W-Evidence/sources?c=tdg-002');
-  const evidence=d.getElementById('previous-section');
-  if(evidence)assert.equal(evidence.getAttribute('aria-label'),'Previous section');
-  await go(w,'W-Calendar/calendar?c=tdg-002');
-  const other=d.getElementById('previous-section');
-  if(other)assert.equal(other.getAttribute('aria-label'),'Previous section');
+  // An analytical module with several sections keeps the default labels.
+  await go(w,'CP-1/summary?c=tdg-002');
+  assert.equal(d.getElementById('previous-section').getAttribute('aria-label'),'Previous section');
+  assert.equal(d.getElementById('next-section').getAttribute('aria-label'),'Next section');
 });
 
 test('Library runs inside an issuer group are newest first, with runs of no recorded date last and ties by run id',t=>{
@@ -636,8 +634,11 @@ test('Help explains run notices, resuming a stopped run and n.a. and n.m. in the
   const heads=[...d.querySelectorAll('.help-copy h2')].map(text);
   for(const name of ['Run notices','Resuming a stopped run','n.a. and n.m. in the cash flow model'])assert.ok(heads.includes(name),name);
   const body=name=>text([...d.querySelectorAll('.help-copy h2')].find(h=>text(h)===name).nextElementSibling);
-  assert.match(body('Run notices'),/Dismiss/);
-  assert.match(body('Resuming a stopped run'),/accepted/);assert.match(body('Resuming a stopped run'),/higher maximum USD spend/);
+  const notices=body('Run notices');
+  for(const state of ['running','complete','stopped','failed','interrupted'])assert.match(notices,new RegExp(state),state);
+  assert.match(notices,/Dismiss/);
+  assert.match(notices,/Resume appears on stopped, failed or interrupted notices, except a run stopped by a provider ruling\./);
+  assert.equal(body('Resuming a stopped run'),'A run started from New run that stopped, failed or was interrupted can be resumed from its notice, from Run activity or from Recent runs. The resumed run is a new run: it keeps the accepted modules without a new model call and has its own spending cap, and what the stopped run spent is not counted against it. A run stopped by a provider ruling cannot be resumed.');
   const na=body('n.a. and n.m. in the cash flow model');
   assert.match(na,/n\.a\. means not available/);assert.match(na,/Why cells show n\.a\./);assert.match(na,/never zero/);assert.match(na,/n\.m\. means not modelled/);
 });

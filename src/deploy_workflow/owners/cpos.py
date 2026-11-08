@@ -27,7 +27,7 @@ import hashlib
 import json
 import re
 import warnings
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from pathlib import Path
@@ -253,6 +253,18 @@ def _handoff(  # noqa: PLR0913 - existing signature
     raise ValueError(f"cpos_module_failed: {task.module_id}: {'; '.join(feedback)}")
 
 
+def _refuse_decided_stale(ordered: Sequence[str], specs: Mapping[str, RetainedHandoff]) -> None:
+    """Refuse, before any call, a retained module whose pinned upstream is not exactly the
+    modules placed before it: the pins alone decide that, so no call may precede the refusal."""
+    for position, module_id in enumerate(ordered):
+        spec = specs.get(module_id)
+        if spec is None:
+            continue
+        earlier = set(ordered[:position])
+        if set(spec.upstream) != earlier:
+            raise ValueError(f"cpos_retained_stale: {module_id}")
+
+
 def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrator; events is one more observer
     manifest: Path,
     directory: Path,
@@ -344,6 +356,7 @@ def run_handoffs(  # noqa: C901, PLR0912, PLR0913, PLR0915 -- legacy orchestrato
     sources = _pinned_inputs(manifest.parent, request.sources)
     instructions = _pinned_inputs(manifest.parent, request.instructions)
     retained = _pinned_inputs(manifest.parent, request.retained_handoffs)
+    _refuse_decided_stale(ordered, request.retained_handoffs)
     source_hashes = {name: _sha(raw) for name, raw in sources.items()}
     for module_id, retained_spec in request.retained_handoffs.items():
         if retained_spec.source_hashes != source_hashes:

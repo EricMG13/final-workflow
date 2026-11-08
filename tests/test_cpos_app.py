@@ -624,6 +624,55 @@ def test_a_resume_replays_accepted_handoffs_and_calls_only_the_rest(tmp_path, pr
     assert json.loads(record.read_text())["module_execution"]["CP-0"] == "retained-response-replay"
 
 
+def stopped_after(tmp_path, provider, kept):
+    """A covenant run whose provider answers `kept` modules and rejects the rest."""
+    folder, _ = started(tmp_path, provider)
+    request = json.loads((folder / "job.json").read_text())
+    routes = bridge.launch(request, folder, tmp_path / "preview").layout.routes
+    provider.answer = lambda context: (
+        answer(context, routes) if context["module_id"] in kept else "# Not a handoff"
+    )
+    bridge.start(folder)
+    assert status_of(folder)["state"] == "stopped"
+    return folder, request, routes
+
+
+def resume_calls(folder, request, routes, provider):
+    """Review and Start a resume; the modules it called, its review and its Start status."""
+    second = resumed(folder, request, cap_usd="50")
+    result = bridge.review(second)
+    bridge.write_json(second / "review.json", result)
+    seen = {}
+
+    def record(context):
+        seen[context["module_id"]] = sorted(context["handoffs"])
+        return answer(context, routes)
+
+    provider.answer = record
+    before = len(provider.calls)
+    bridge.start(second)
+    return [m for m, _, _ in provider.calls[before:]], result, status_of(second), seen
+
+
+def test_a_resume_after_cp2_calls_the_rest_in_the_fresh_order_and_completes(tmp_path, provider):
+    # Hand key: COVENANT order is CP-0, CP-1, CP-1A, CP-2, CP-4, CP-2D, CP-3C, CP-5.
+    kept = {"CP-0", "CP-1", "CP-1A", "CP-2"}
+    folder, request, routes = stopped_after(tmp_path, provider, kept)
+    called, result, status, _ = resume_calls(folder, request, routes, provider)
+    assert result["retained_modules"] == ["CP-0", "CP-1", "CP-1A", "CP-2"]
+    assert called == ["CP-4", "CP-2D", "CP-3C", "CP-5"]
+    assert status["state"] == "complete"
+
+
+def test_a_resume_after_cp1a_runs_in_the_reviewed_order_and_cp4_sees_cp2(tmp_path, provider):
+    folder, request, routes = stopped_after(tmp_path, provider, {"CP-0", "CP-1", "CP-1A"})
+    called, result, status, seen = resume_calls(folder, request, routes, provider)
+    assert called == ["CP-2", "CP-4", "CP-2D", "CP-3C", "CP-5"]
+    assert result["modules"] == ["CP-0", "CP-1", "CP-1A", *called]
+    assert "CP-2" in seen["CP-4"]
+    assert status["state"] == "complete"
+
+
 def accepted_response(run_dir, module="CP-0"):
     """CP-OS's record of the accepted answer: the response whose review has no issues."""
     (path,) = run_dir.glob(f"requests/{module}/*/1.response.md")

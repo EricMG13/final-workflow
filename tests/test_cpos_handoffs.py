@@ -684,6 +684,34 @@ def test_empty_or_invalid_retained_answer_refuses_without_calling_executor(
     assert len(list((tmp_path / "state").rglob("*.response.md"))) == 1
 
 
+def test_a_retained_pin_the_order_contradicts_is_refused_before_any_call(
+    tmp_path: Path,
+) -> None:
+    path = retained_job(tmp_path, ["CP-0", "CP-2"])
+    data = json.loads(path.read_bytes())
+    del data["retained_handoffs"]["CP-2"]["upstream"]["CP-1"]
+    path.write_text(json.dumps(data))
+
+    def no_execute(task: HandoffTask) -> bytes:
+        pytest.fail(f"{task.module_id} was called before a stale refusal the pins decide")
+
+    with pytest.raises(ValueError, match="cpos_retained_stale: CP-2"):
+        run_handoffs(path, tmp_path / "state", execute=no_execute, check=checked)
+
+
+def test_every_pathway_resumes_in_the_fresh_order_for_every_kept_prefix() -> None:
+    from deploy_vii.contracts import PATHWAY_MODULES
+    from deploy_vii.registry import plan
+    from deploy_workflow.owners.cpos_launch import NOT_ANALYTICAL
+
+    for modules in PATHWAY_MODULES.values():
+        requested = tuple(m for m in modules if m not in NOT_ANALYTICAL)
+        fresh = plan(requested)
+        for kept in range(1, len(fresh) + 1):
+            pins = {m: fresh[:i] for i, m in enumerate(fresh[:kept])}
+            assert plan(requested, retained=pins) == fresh
+
+
 def test_replay_needs_no_duplicate_response_map_when_all_inputs_are_retained(
     tmp_path: Path,
 ) -> None:

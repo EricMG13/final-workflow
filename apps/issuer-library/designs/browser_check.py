@@ -546,7 +546,10 @@ def new_run(  # noqa: PLR0915, RUF100
     status = page.inner_text("#run-progress")
     if start == "stop":
         note(
-            status.startswith("stopped") and "no automatic paid retry" in status,
+            status.startswith(
+                "Stopped: a module's handoff did not pass its check within the allowed turns."
+            )
+            and "no automatic paid retry" in status,
             f"{name}: a rejected module stops the run: {status[:90]}",
         )
         note(

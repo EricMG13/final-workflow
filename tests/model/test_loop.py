@@ -36,7 +36,7 @@ from deploy_workflow import owner_workflow as owner_module
 from deploy_workflow.model import adapter as adapter_module
 from deploy_workflow.model import loop as loop_module
 from deploy_workflow.model.adapter import AdapterReply, recorded_adapter
-from deploy_workflow.model.budget import Budget, RunStopped
+from deploy_workflow.model.budget import Budget, RunStopped, read_reservation_snapshot
 from deploy_workflow.model.loop import (
     RepairPrompt,
     StepStopped,
@@ -439,6 +439,23 @@ def test_a_failing_turn_redaction_dispatches_nothing_and_still_settles(
     (record,) = rig.records()
     assert record["error_class"] == "BadTurn" and record["cost_status"] == "computed"
     assert Decimal(record["settled_usd"]) == Decimal("0.004") and record["tool_calls"] == []
+
+
+def test_a_failing_pricing_settles_the_hold_unknown_and_records_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    assert _stop(rig).reason == "BadTurn"
+    (marker,) = read_reservation_snapshot(tmp_path / "store")
+    assert marker.status is not None  # settled, not left held
+    (record,) = rig.records()
+    assert record["cost_status"] == "unknown" and record["settled_usd"] is None
+    assert "ArithmeticError" in record["error"]
+    assert rig.budget.spent == Decimal(record["reserved_usd"]) > 0
 
 
 # ---------------------------------------------------------------- repair (F2)
@@ -1935,4 +1952,58 @@ def test_the_reopen_note_names_the_search_only_for_a_step_with_pack_tools() -> N
     narrative = spec("narrative", sources=False, inputs="projection")
     assert loop_module._reopen_note("narrative", narrative) == head + " and call read_inputs again."
     both = spec("x", sources=True, inputs="projection")
-    assert loop_module._reopen_note("x", both) == head + " and call read_inputs again" + SEARCH_AGAIN + "."
+    assert (
+        loop_module._reopen_note("x", both)
+        == head + " and call read_inputs again" + SEARCH_AGAIN + "."
+    )
+
+
+def test_a_stopped_pricing_failure_still_exports_as_the_ok_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from deploy_workflow.model.record import LOOP_STOPS
+
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    rig = _live_with_sol_hold(tmp_path, monkeypatch, [_body(("search_pack", {"query": "x"}))])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    _stop(rig)
+    (record,) = rig.records()
+    assert record["error_class"] in LOOP_STOPS
+    assert _export(rig, tmp_path / "out.jsonl") == 1
+
+
+def test_a_pricing_failure_on_a_non_ok_reply_keeps_the_providers_class(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: Any, **_kwargs: Any) -> Any:
+        raise ArithmeticError("pricing broke")
+
+    usage = Usage(input_tokens=100, output_tokens=50)
+    reply = AdapterReply(
+        "sent_usage", None, None, None, "IdleTimeout", None, 100.0, 101.0, usage=usage
+    )
+    rig = make_rig(tmp_path, [reply])
+    monkeypatch.setattr(loop_module, "price_usage", broken)
+    assert _stop(rig).reason == "IdleTimeout"
+    (record,) = rig.records()
+    assert record["error_class"] == "IdleTimeout" and record["cost_status"] == "unknown"
+    assert "ArithmeticError" in record["error"]
+
+
+def test_a_pricing_failure_whose_str_raises_is_still_recorded_and_stops(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class Opaque(ArithmeticError):
+        def __str__(self) -> str:
+            raise ValueError("no text")
+
+    def opaque(*_args: Any, **_kwargs: Any) -> Any:
+        raise Opaque
+
+    rig = make_rig(tmp_path, [ok(read_identity(), gap_submit())])
+    monkeypatch.setattr(loop_module, "price_usage", opaque)
+    assert _stop(rig).reason == "BadTurn"
+    (record,) = rig.records()
+    assert record["cost_status"] == "unknown" and rig.budget.spent > 0

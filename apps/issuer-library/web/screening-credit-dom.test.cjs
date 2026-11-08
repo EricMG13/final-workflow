@@ -241,11 +241,20 @@ test('issuers differing only in case are one nav entry and one issuer in the cou
   entries[0].click();
   assert.equal(entries[0].dataset.libraryIssuer,'TDG');
   assert.deepEqual(sorted(p.ids()),sorted(key.runs.filter(r=>r.issuer.toLowerCase()==='tdg').map(r=>r.id)));
-  assert.equal(p.d.querySelector('#library-nav .nav-choice.active [data-x]'),null);
 });
 
 test('an address issuer matching a recorded issuer in another case still filters',t=>{
   const key=fixture('issuer-case-cases.json'),p=page(t,'W-Library/cases?issuer=tdg&runs=any',{real:key.runs,sources:{}});
   assert.deepEqual(sorted(p.ids()),sorted(key.runs.filter(r=>r.issuer.toLowerCase()==='tdg').map(r=>r.id)));
   assert.match(p.w.location.hash,/issuer=tdg/,'stored as given');
+});
+
+test('the nav entry of a case-folded issuer is active and toggles the filter off',t=>{
+  const key=fixture('issuer-case-cases.json'),p=page(t,'W-Library/cases?issuer=tdg&runs=any',{real:key.runs,sources:{}});
+  const entry=()=>p.d.querySelector('#library-nav [data-library-issuer="TDG"]');
+  assert.ok(entry().classList.contains('active'));
+  assert.equal(entry().getAttribute('aria-pressed'),'true');
+  entry().click();
+  assert.equal(p.ids().length,key.runs.length,'filter cleared: every run under Any');
+  assert.ok(!entry().classList.contains('active'));
 });

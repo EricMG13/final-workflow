@@ -25,8 +25,11 @@ The library lists a run folder under `runs/` only when both hold
   manifest, the delivered `view.json` and `workflow.json` name the same run. The report is not
   rebuilt, so a later renderer change does not unlist a run.
 - **On the current methodology:** every module was answered in this run (not reused from another
-  run, not synthetic), and the instructions it was sent, still matching their pinned hash, carry
-  exactly the method text the launcher sends that module today (`cpos_launch.method_text`).
+  run, not synthetic). The request record beside its accepted answer still has the fingerprint
+  CP-OS named its folder by, so it holds the instructions actually sent, and their method block
+  is exactly what the launcher sends that module today (`cpos_launch.method_text`): no section
+  changed, added or dropped. The completion record, delivery manifest and delivered copies must
+  name the same modules and handoffs.
 
 Everything else is left out, with its reason in the command output and in a collapsed list at the
 end of the page. On 2026-11-09 no retained run qualifies: the launcher runs predate a change to

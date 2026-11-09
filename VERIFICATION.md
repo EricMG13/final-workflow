@@ -10,6 +10,15 @@ entries below retain their historical case scope.
 
 Older entries are in [docs/VERIFICATION-ARCHIVE.md](docs/VERIFICATION-ARCHIVE.md), verbatim and in their original order; new entries go here.
 
+## 2026-11-09 — Static Issuer Library: completed runs on the current methodology, no server (branch `claude/busy-bell-obfret`)
+
+Scope: `apps/issuer-library/update_library.py`, `static/`, `src/deploy_workflow/library_index.py`, the package's two `.cmd` wrappers; Linux, offline. No provider was called.
+- Listing rule (owner instruction: "only include runs on the latest methodology"): CP-OS completion hash chain (completion record → delivery manifest → delivery folder → report, handoffs and delivered copies), one run identity, and every module answered in the run on exactly today's `cpos_launch.method_text`, read from the request record whose fingerprint (`cpos.request_fingerprint`, now shared with CP-OS) names its folder. `method_sections`/`method_text` refactor: `_instructions` bytes identical to HEAD for 49 module/pathway pairs (reviewer's check).
+- On this repository's 44 run folders, 0 are listed. The 4 launcher runs predate the 2026-11-07 change to CP-1's `STEP_CONTRACTS` (financials, narrative, readiness) or replayed CP-0..CP-1A from an earlier run; the rest record no method text or no completion.
+- Tests: `test_library_index.py` 37 (synthetic run folders built by hand; one CP-OS run executed end to end with the fake provider and listed, then unlisted when a method section changes or a CP-1 step is dropped; one copy of the retained live run `web-04cd…` passing the hash chain with its own recorded method standing in as current), `test_update_library.py` 7, `logic.test.cjs` 5 (Node), `test_library_page_browser.py` 2 (Chromium over `file://`, every other request blocked: 0 requests, 0 script errors, hostile issuer text shown as text, report opened), packaging 8, launcher 117, CP-OS handoffs 60 and comparison 30 after the fingerprint refactor. Quality gate: 0 findings.
+- Independent adversarial review (subagent): 2 medium and several low findings, all fixed with a test each — a dropped method section still counted as current; a module only the manifest named went unchecked; `workflow.json` pins stood outside the hash chain (now the fingerprinted request record); one malformed folder aborted the update; absent identity passed; spend shown as `5.0E-7`; delivered copies not compared; hidden files tolerated; a stray folder without a receipt could unlist a run; links skipped silently; writing through a `library` link.
+- Not verified: Windows (the `.cmd` wrappers, Edge over `file://`, the package); a run listed from a live model call on today's methodology (none exists; the owner runs the Copilot test locally); the Go application is unchanged and still present.
+
 ## 2026-11-08 — Issuer Library: Library screening screen, offline: retained workspace; no provider called (branch `claude/library-screening-tests`)
 
 Scope: the Library screening screen (L2, L3 tests, L4 docs and Help), macOS only, the 59 retained records; no provider call.

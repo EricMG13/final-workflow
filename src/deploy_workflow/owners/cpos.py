@@ -196,6 +196,13 @@ def _retain_review(path: Path, raw: bytes) -> None:
     _put(path, raw)
 
 
+def request_fingerprint(inputs: Mapping[str, object]) -> str:
+    """The name of a module's request folder: the sha256 of everything the request was given,
+    instructions included. Each ``<n>.request.json`` there holds these inputs plus its attempt and
+    feedback, so a reader can check that the folder still holds what it was named for."""
+    return _sha(json.dumps(inputs, sort_keys=True).encode())
+
+
 def _handoff(  # noqa: PLR0913 - existing signature
     task: HandoffTask,
     directory: Path,
@@ -216,8 +223,7 @@ def _handoff(  # noqa: PLR0913 - existing signature
     }
     if task.draft is not None:
         inputs["repair_draft_sha256"] = _sha(task.draft)
-    encoded = json.dumps(inputs, sort_keys=True).encode()
-    fingerprint = _sha(encoded)
+    fingerprint = request_fingerprint(inputs)
     folder = directory / "requests" / task.module_id / fingerprint
     feedback: tuple[str, ...] = ()
     for attempt in range(1, max_attempts + 1):

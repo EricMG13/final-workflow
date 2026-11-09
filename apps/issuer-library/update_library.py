@@ -97,6 +97,8 @@ def render_page(template: str, data: dict[str, Any], parts: dict[str, str]) -> s
 
 def write_page(page_dir: Path, html: str) -> Path:
     """Replace ``page_dir/index.html`` whole, through a temporary file beside it."""
+    if page_dir.is_symlink() or (page_dir.exists() and not page_dir.is_dir()):
+        raise SystemExit(f"Not written: {page_dir} is a link or a file, not the library folder")
     page_dir.mkdir(exist_ok=True)
     target = page_dir / "index.html"
     descriptor, name = tempfile.mkstemp(dir=page_dir, prefix=".index-", suffix=".tmp")

@@ -74,6 +74,7 @@ class RunSpec:
     version: str = ""
     settled: tuple[str | None, ...] = ("0.10", "0.20")
     view_issuer: str | None = None
+    sent_extra: str = ""  # Text sent after the method block, such as a section since dropped.
 
 
 def make_run(workspace: Path, folder: str, **changes) -> Path:
@@ -100,7 +101,7 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
     instructions, handoffs, selected = {}, {}, {}
     for module in modules:
         text = f"# {module} for {issuer_name}\n\nSelected method, verbatim:\n\n"
-        text += method_block(module, spec.version) + "\n"
+        text += method_block(module, spec.version) + spec.sent_extra + "\n"
         instructions[module] = {
             "path": f"instructions/{module}.md",
             "sha256": put(run_dir / f"instructions/{module}.md", text.encode()),
@@ -108,7 +109,20 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
         answer = HANDOFF.format(
             module=module, name=issuer_name, as_of=as_of, bottom=f"{module} bottom line."
         )
-        path = f"requests/{module}/{sha(module.encode())}/1.response.md"
+        # As CP-OS keeps it: the folder is named by the sha256 of the request's inputs.
+        inputs = {
+            "run": run,
+            "module_id": module,
+            "instructions": text,
+            "sources": {},
+            "handoffs": {},
+            "retained_response_sha256": None,
+        }
+        folder_sha = sha(json.dumps(inputs, sort_keys=True).encode())
+        request = {**inputs, "attempt": 1, "feedback": []}
+        raw_request = json.dumps(request, sort_keys=True, indent=2).encode()
+        put(run_dir / f"requests/{module}/{folder_sha}/1.request.json", raw_request)
+        path = f"requests/{module}/{folder_sha}/1.response.md"
         handoffs[module] = {"path": path, "sha256": put(run_dir / path, answer.encode())}
         selected[module] = path
     put(run_dir / "workflow.json", json.dumps({"run": run, "instructions": instructions}).encode())
@@ -152,6 +166,17 @@ def make_run(workspace: Path, folder: str, **changes) -> Path:
     put(run_dir / "live/calls.jsonl", "".join(json.dumps(c) + "\n" for c in calls).encode())
     put(run_dir / "live/loop.json", json.dumps({"config": "sol-medium"}).encode())
     return run_dir
+
+
+def rewrite_manifest(run_dir: Path, change) -> None:
+    """Replace the delivery manifest with a changed one and point the completion record at it."""
+    (old,) = run_dir.glob("delivery-*.json")
+    manifest = json.loads(old.read_text())
+    change(manifest)
+    old.unlink()
+    raw = json.dumps(manifest, indent=2).encode()
+    new_sha = put(run_dir / f"delivery-{sha(raw)}.json", raw)
+    rewrite_completion(run_dir, lambda record: record.update(delivery_manifest_sha256=new_sha))
 
 
 def rewrite_completion(run_dir: Path, change) -> None:

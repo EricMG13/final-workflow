@@ -97,6 +97,17 @@ def test_the_command_reports_what_it_listed_and_why_others_are_not_shown(
     assert str(tmp_path.resolve() / "library/index.html") in out
 
 
+def test_a_linked_library_folder_is_not_written_through(tmp_path, stand_in_method):
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    workspace = tmp_path / "workspace"
+    (workspace / "runs").mkdir(parents=True)
+    (workspace / "library").symlink_to(elsewhere)
+    with pytest.raises(SystemExit, match="is a link or a file"):
+        update_library.update(workspace, built_at=STAMP)
+    assert list(elsewhere.iterdir()) == []
+
+
 def test_a_missing_workspace_is_refused(tmp_path):
     with pytest.raises(SystemExit, match="Workspace not found"):
         update_library.update(tmp_path / "absent")

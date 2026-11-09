@@ -548,6 +548,10 @@ def method_sections(module: str) -> list[tuple[str, str]]:
     return sections
 
 
+# The method block follows this line and runs to the end of a module's instructions.
+METHOD_MARK = "Selected method, verbatim:\n\n"
+
+
 def method_heading(name: str, text: str) -> str:
     """The heading that names one method section and the sha256 of its text."""
     return f"=== {name} sha256 {_sha(text.encode())} ==="
@@ -603,7 +607,7 @@ def _instructions(
             if selectors
             else ""
         )
-        + f"Selected method, verbatim:\n\n{method}\n"
+        + f"{METHOD_MARK}{method}\n"
     ).encode()
 
 

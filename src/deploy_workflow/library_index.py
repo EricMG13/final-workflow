@@ -10,8 +10,10 @@ current methodology:
   still have their hashes, and the manifest, the delivery's ``view.json`` and ``workflow.json``
   name the same run. The report is not rebuilt: a renderer change since the run does not unlist it.
 - current methodology: each module was answered in this run (not replayed from another run, not
-  synthetic), and the instructions it was sent, still matching their pinned hash, carry exactly the
-  method text the launcher sends that module today (``cpos_launch.method_text``).
+  synthetic). The request record beside its accepted answer still has the fingerprint CP-OS named
+  its folder by (``cpos.request_fingerprint``), so it holds the instructions actually sent, and
+  their method block is exactly the one the launcher sends that module today
+  (``cpos_launch.method_text``): no section changed, added or dropped.
 
 Every other run folder is left out with its reason. Nothing here runs analysis, calls a provider
 or writes a file.
@@ -24,7 +26,7 @@ import json
 import os
 import re
 import stat
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
@@ -43,6 +45,8 @@ EXECUTION_WORDS = {
     "synthetic": "Synthetic",
 }
 _COMPLETED = re.compile(r"^completed-([0-9a-f]{64})\.json$")
+_RESPONSE = re.compile(r"^requests/([A-Z0-9-]+)/([0-9a-f]{64})/([1-9][0-9]*)\.response\.md$")
+_HEADING = re.compile(r"^=== (\S+) sha256 [0-9a-f]{64} ===$", re.MULTILINE)
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _IDENTITY = ("run_id", "issuer_id", "issuer_name", "as_of", "pathway")
 
@@ -137,15 +141,15 @@ def delivery_folder(folder: Path, report_sha256: str) -> tuple[str, Mapping[str,
     deliveries = folder / "deliveries"
     names = sorted(os.listdir(deliveries)) if deliveries.is_dir() else []
     for name in names:
-        if name.startswith("."):
-            continue
         relative = f"deliveries/{name}"
+        if name.startswith(".") or not os.path.lexists(folder / relative / "delivery.json"):
+            continue  # Not a delivery: it has no receipt.
         receipt = json_object(read_inside(folder, f"{relative}/delivery.json"), "delivery.json")
         files = receipt.get("files")
         if not isinstance(files, dict) or files.get("report.html") != report_sha256:
             continue
-        present = {entry for entry in os.listdir(folder / relative) if not entry.startswith(".")}
-        if present != set(files) | {"delivery.json"}:
+        # Exactly, as CP-OS checks a publication: hidden entries count too.
+        if set(os.listdir(folder / relative)) != set(files) | {"delivery.json"}:
             raise Refused(f"{relative} does not hold exactly the files its delivery.json lists")
         for entry, digest in files.items():
             read_pinned(folder, f"{relative}/{entry}", digest)
@@ -153,9 +157,19 @@ def delivery_folder(folder: Path, report_sha256: str) -> tuple[str, Mapping[str,
     raise Refused("no delivery folder holds the report the completion record names")
 
 
-def same_identity(left: Mapping[str, Any], right: Mapping[str, Any], what: str) -> None:
+def run_identity(run: Mapping[str, Any]) -> dict[str, str]:
+    """The run's identity from ``workflow.json``: each part a non-empty string."""
     for key in _IDENTITY:
-        if left.get(key) != right.get(key):
+        if not isinstance(run.get(key), str) or not run[key].strip():
+            raise Refused(f"workflow.json does not state the run's {key}")
+    return {key: run[key] for key in _IDENTITY}
+
+
+def same_identity(other: object, identity: Mapping[str, str], what: str) -> None:
+    if not isinstance(other, dict):
+        raise Refused(f"{what} does not name its run")
+    for key, value in identity.items():
+        if other.get(key) != value:
             raise Refused(f"{what} names a different run ({key})")
 
 
@@ -169,17 +183,25 @@ def verified_delivery(folder: Path, completion: Mapping[str, Any]) -> dict[str, 
         raise Refused("the completion record names no report")
     name = f"delivery-{manifest_sha}.json"
     manifest = json_object(read_pinned(folder, name, manifest_sha), name)
-    relative, _ = delivery_folder(folder, report_sha)
+    relative, files = delivery_folder(folder, report_sha)
     view = json_object(read_inside(folder, f"{relative}/view.json"), "view.json")
-    handoffs = manifest.get("handoffs")
-    modules = completion.get("modules")
+    handoffs, modules = manifest.get("handoffs"), completion.get("modules")
+    execution = completion.get("module_execution")
     if not isinstance(handoffs, dict) or not isinstance(modules, dict) or not modules:
         raise Refused("the delivery records no handoffs")
+    if (
+        not isinstance(execution, dict)
+        or set(handoffs) != set(modules)
+        or set(modules) != set(execution)
+    ):
+        raise Refused("the completion record and the delivery manifest name different modules")
     for module, path in modules.items():
-        pin = handoffs.get(module)
+        pin = handoffs[module]
         if not isinstance(pin, dict) or pin.get("path") != path:
             raise Refused(f"the delivery does not record {module}'s handoff")
         read_pinned(folder, str(path), pin.get("sha256"))
+        if files.get(f"{module}.md") != pin["sha256"]:
+            raise Refused(f"the delivery's copy of {module}'s handoff is not the one it names")
     return {
         "manifest": manifest,
         "view": view,
@@ -189,25 +211,55 @@ def verified_delivery(folder: Path, completion: Mapping[str, Any]) -> dict[str, 
     }
 
 
-def instruction_text(folder: Path, workflow: Mapping[str, Any], module: str) -> str:
-    pins = workflow.get("instructions")
-    pin = pins.get(module) if isinstance(pins, dict) else None
-    if not isinstance(pin, dict) or not isinstance(pin.get("path"), str):
-        raise Refused(f"{module}: the instructions it was sent are not recorded")
-    raw = read_pinned(folder, pin["path"], pin.get("sha256"))
-    return raw.decode("utf-8", errors="replace").replace("\r\n", "\n")
+def sent_instructions(folder: Path, module: str, response: str, identity: Mapping[str, str]) -> str:
+    """The instructions a module's accepted answer was given, from the request record beside it.
+
+    CP-OS named the request folder by the fingerprint of the request's inputs, and the completion
+    record names the answer in that folder, so a record that still has that fingerprint is the
+    request actually sent.
+    """
+    from deploy_workflow.owners.cpos import request_fingerprint
+
+    match = _RESPONSE.match(response)
+    if not match or match[1] != module:
+        raise Refused(f"{module}: its answer is not in a CP-OS request folder")
+    relative = f"requests/{module}/{match[2]}/{match[3]}.request.json"
+    request = json_object(read_inside(folder, relative), relative)
+    inputs = {key: value for key, value in request.items() if key not in {"attempt", "feedback"}}
+    if request.get("attempt") != int(match[3]) or request_fingerprint(inputs) != match[2]:
+        raise Refused(f"{relative} is not the request its folder was named for")
+    if request.get("module_id") != module or request.get("retained_response_sha256") is not None:
+        raise Refused(f"{relative} is not a request answered in this run")
+    same_identity(request.get("run"), identity, f"the {module} request")
+    instructions = request.get("instructions")
+    if not isinstance(instructions, str):
+        raise Refused(f"{relative} records no instructions")
+    return instructions
+
+
+def method_difference(block: str, module: str, headings: MethodHeadings) -> str:
+    """Which method sections differ between what was sent and what is selected today."""
+    sent = set(_HEADING.findall(block))
+    current = headings(module)
+    changed = [name for name, heading in current if heading not in block]
+    dropped = sorted(sent - {name for name, _ in current})
+    parts = [f"{', '.join(changed)} changed"] if changed else []
+    parts += [f"{', '.join(dropped)} no longer selected"] if dropped else []
+    return "; ".join(parts) or "method text changed"
 
 
 def check_methodology(
     folder: Path,
-    workflow: Mapping[str, Any],
+    delivered: Mapping[str, Any],
     execution: Mapping[str, Any],
-    modules: Iterable[str],
+    identity: Mapping[str, str],
     method: tuple[MethodText, MethodHeadings],
 ) -> None:
-    """Refuse unless every module was answered here on the method text it would be sent today."""
+    """Refuse unless every module was answered here on exactly the method it would be sent today."""
+    from deploy_workflow.owners.cpos_launch import METHOD_MARK
+
     method_text, method_headings = method
-    for module in modules:
+    for module, pin in delivered["handoffs"].items():
         how = execution.get(module)
         if how not in ANSWERED:
             word = EXECUTION_WORDS.get(str(how), f"recorded as {how!r}")
@@ -215,11 +267,11 @@ def check_methodology(
         current = method_text(module)
         if current is None:
             raise Refused(f"{module}: no current method is selected for this module")
-        text = instruction_text(folder, workflow, module)
-        if current not in text:
-            changed = [name for name, heading in method_headings(module) if heading not in text]
-            detail = ", ".join(changed) or "method text"
-            raise Refused(f"{module}: not on the current methodology ({detail} changed)")
+        text = sent_instructions(folder, module, pin["path"], identity).replace("\r\n", "\n")
+        _, mark, block = text.partition(METHOD_MARK)
+        if not mark or block != current + "\n":
+            detail = method_difference(block, module, method_headings)
+            raise Refused(f"{module}: not on the current methodology ({detail})")
 
 
 def reader_summary(text: str) -> dict[str, Any] | None:
@@ -287,10 +339,14 @@ def execution_record(folder: Path) -> dict[str, Any]:
         "config": loop.get("config") if isinstance(loop.get("config"), str) else None,
         "models": models,
         "calls": len(calls),
-        "spend_usd": str(sum(known, Decimal(0))) if calls else None,
+        "spend_usd": format(sum(known, Decimal(0)), "f") if calls else None,
         "unknown_charges": len(settled) - len(known),
         "started_at": started[0] if started else None,
     }
+
+
+def text_or_none(value: object) -> str | None:
+    return value if isinstance(value, str) else None
 
 
 def link(page_dir: Path, target: Path) -> str:
@@ -333,25 +389,26 @@ def admit_run(
     run = workflow.get("run")
     if not isinstance(run, dict):
         raise Refused("workflow.json names no run")
+    identity = run_identity(run)
     completion = report_completion(folder)
     delivered = verified_delivery(folder, completion)
-    manifest_run, view_run = delivered["manifest"].get("run"), delivered["view"].get("run")
-    if not isinstance(manifest_run, dict) or not isinstance(view_run, dict):
-        raise Refused("the delivery does not name its run")
-    same_identity(manifest_run, run, "the delivery manifest")
-    same_identity(view_run, run, "the delivered report")
-    execution = completion.get("module_execution")
-    if not isinstance(execution, dict):
-        raise Refused("the completion record does not say how each module was produced")
-    check_methodology(folder, workflow, execution, delivered["handoffs"], method)
+    same_identity(delivered["manifest"].get("run"), identity, "the delivery manifest")
+    same_identity(delivered["view"].get("run"), identity, "the delivered report")
+    execution = completion["module_execution"]
+    check_methodology(folder, delivered, execution, identity, method)
     report = folder / delivered["folder"] / "report.html"
+    requested = run.get("requested_modules")
+    cap = completion.get("provider_cap_usd")
     return {
         "id": folder.name,
-        **{key: run.get(key) for key in (*_IDENTITY, "case_kind", "method_version")},
-        "requested_modules": list(run.get("requested_modules") or []),
+        **identity,
+        **{key: text_or_none(run.get(key)) for key in ("case_kind", "method_version")},
+        "requested_modules": [m for m in requested if isinstance(m, str)]
+        if isinstance(requested, list)
+        else [],
         "modules": module_entries(folder, page_dir, delivered, execution),
-        "scope": completion.get("scope") if isinstance(completion.get("scope"), str) else "",
-        "cap_usd": completion.get("provider_cap_usd"),
+        "scope": text_or_none(completion.get("scope")) or "",
+        "cap_usd": cap if decimal_text(cap) is not None else None,
         "report": {"href": link(page_dir, report), "sha256": delivered["report_sha256"]},
         "execution": execution_record(folder),
     }
@@ -410,12 +467,20 @@ def build_library(
     names = sorted(os.listdir(runs_dir)) if runs_dir.is_dir() else []
     for name in names:
         folder = runs_dir / name
-        if name.startswith(".") or folder.is_symlink() or not folder.is_dir():
+        # A name the file system could not decode is shown with replacement characters.
+        shown = name.encode("utf-8", "surrogateescape").decode("utf-8", "replace")
+        if name.startswith(".") or not (folder.is_symlink() or folder.is_dir()):
+            continue  # Hidden entries and plain files are not run folders.
+        if folder.is_symlink():
+            library.excluded.append((shown, "a link to another folder; not followed"))
             continue
         try:
             library.runs.append(admit_run(folder, page_dir, method))
-        except (Refused, OSError) as error:
-            library.excluded.append((name, str(error)))
+        except Refused as error:
+            library.excluded.append((shown, str(error)))
+        except (OSError, ValueError, TypeError, KeyError, RecursionError) as error:
+            # One unreadable folder must not stop the others from being listed.
+            library.excluded.append((shown, f"unreadable run record ({type(error).__name__})"))
     mark_latest(library.runs)
     # Issuer A to Z; within an issuer the latest evidence date first, then the run folder.
     library.runs.sort(key=lambda r: r["id"])

@@ -16,6 +16,7 @@ Excel files are analytical inputs only; no deliverable is an Excel workbook.
 
 | What | Where |
 |---|---|
+| The static library (no server): run the workflow, then update `library/index.html` | [`apps/issuer-library/README.md`](apps/issuer-library/README.md#static-library-no-server-no-port-no-compiled-executable) |
 | The app: Windows launch, New run, workspace, local session, discovery contract, packaging | [`apps/issuer-library/README.md`](apps/issuer-library/README.md) |
 | What the product is for, and its approved direction | [`apps/issuer-library/PRODUCT.md`](apps/issuer-library/PRODUCT.md) |
 | Design system: colours, type, components | [`apps/issuer-library/DESIGN.md`](apps/issuer-library/DESIGN.md), [`DESIGN-SOURCES.md`](apps/issuer-library/DESIGN-SOURCES.md) |
@@ -43,6 +44,18 @@ go run . --workspace "$(cd ../.. && pwd)"
 It opens the browser on the signed-in Library over this repository's `runs/` and `deliverables/`.
 Without the two variables the Library reports that it cannot read the workspace. The Windows
 package needs neither: see the app README.
+
+## Update the static library
+
+After a run completes, rebuild the library page; it opens from disk with no server:
+
+```bash
+uv run python apps/issuer-library/update_library.py --workspace "$PWD"
+```
+
+It writes only `library/index.html` (git-ignored) and lists only runs CP-OS completed with a
+verified report in which every module ran on the current methodology; the output says why each
+other run folder is left out.
 
 ## Repository map
 

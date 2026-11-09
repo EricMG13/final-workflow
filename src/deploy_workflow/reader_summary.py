@@ -164,6 +164,25 @@ def _unmatched_numbers(section: str, rest: str) -> tuple[str, ...]:
     return tuple(issues.values())
 
 
+def _bounds(text: str, heading: re.Match[str]) -> tuple[int, int]:
+    """Where the section under ``heading`` starts and ends: at the next level-2 or -3 heading."""
+    following = NEXT_HEADING.search(text, heading.end())
+    return heading.end(), following.start() if following else len(text)
+
+
+def reader_tables(text: str) -> list[list[list[str]]]:
+    """The tables under the handoff's one ``### Reader summary``, header rows included.
+
+    Empty when the heading is missing or repeated; ``reader_issues`` says which.
+    """
+    text = text.replace("\r\n", "\n")
+    headings = list(HEADING.finditer(text))
+    if len(headings) != 1:
+        return []
+    start, end = _bounds(text, headings[0])
+    return _tables(text[start:end])
+
+
 def reader_issues(text: str) -> tuple[str, ...]:
     """Every problem with the handoff's reader section; empty when it is valid."""
     text = text.replace("\r\n", "\n")
@@ -172,9 +191,7 @@ def reader_issues(text: str) -> tuple[str, ...]:
         return ("Reader summary section is missing",)
     if len(headings) > 1:
         return ("Reader summary appears more than once",)
-    start = headings[0].end()
-    following = NEXT_HEADING.search(text, start)
-    end = following.start() if following else len(text)
+    start, end = _bounds(text, headings[0])
     section, rest = text[start:end], text[: headings[0].start()] + text[end:]
     if not FIRST_UNDER_FINDINGS.search(text, 0, headings[0].start()):
         return ("Reader summary must come first under ## Findings",)

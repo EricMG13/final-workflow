@@ -536,6 +536,30 @@ def _selector(route: MarkdownRoute) -> str:
     return f"- `### {route.heading}`: {what}"
 
 
+def method_sections(module: str) -> list[tuple[str, str]]:
+    """The selected method a module is sent, as (name, text) sections in instruction order.
+
+    Each section is written into the instructions under a ``=== name sha256 hex ===`` heading, so
+    a run's retained instructions record exactly which method it ran.
+    """
+    sections = [(path, (ROOT / path).read_text(encoding="utf-8")) for path in METHODS[module]]
+    if module == "CP-1":
+        sections += [(f"STEP_CONTRACTS[{step}]", STEP_CONTRACTS[step]) for step in CP1_STEPS]
+    return sections
+
+
+def method_heading(name: str, text: str) -> str:
+    """The heading that names one method section and the sha256 of its text."""
+    return f"=== {name} sha256 {_sha(text.encode())} ==="
+
+
+def method_text(module: str) -> str:
+    """The method block exactly as a module's instructions carry it."""
+    return "\n\n".join(
+        f"{method_heading(name, text)}\n{text}" for name, text in method_sections(module)
+    )
+
+
 def _instructions(
     run: Run,
     module: str,
@@ -545,12 +569,7 @@ def _instructions(
     legal_documents: str,
 ) -> bytes:
     selectors = "\n".join(_selector(r) for r in routes if r.module_id == module)
-    sections = [(path, (ROOT / path).read_text(encoding="utf-8")) for path in METHODS[module]]
-    if module == "CP-1":
-        sections += [(f"STEP_CONTRACTS[{step}]", STEP_CONTRACTS[step]) for step in CP1_STEPS]
-    method = "\n\n".join(
-        f"=== {name} sha256 {_sha(text.encode())} ===\n{text}" for name, text in sections
-    )
+    method = method_text(module)
     opening = OPENING.get(module)
     return (
         f"# {module} for {run.issuer_name} ({run.issuer_id}), as of {run.as_of}\n\n"

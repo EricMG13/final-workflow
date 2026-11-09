@@ -44,11 +44,56 @@ def clear_runtime(target: Path, runtime: Path, manifest: Path) -> None:
     runtime.mkdir()
 
 
+# Windows wrappers, one batch line per entry. Untested on Windows from this build host;
+# Smoke-test.ps1 on the target host is the acceptance.
+_PYTHON = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
+_DOCUMENTS = (
+    'if not defined WORKSPACE for /f "usebackq delims=" %%D in '
+    "(`powershell -NoProfile -Command \"[Environment]::GetFolderPath('MyDocuments')\"`) "
+    'do set "WORKSPACE=%%D\\FinalWorkflow"'
+)
+WRAPPERS = {
+    "Run workflow.cmd": [
+        "@echo off",
+        "rem Start a CP-OS run with the launcher's own options (see README.md). Without --live",
+        "rem it only prepares and reviews the run; --live with a ruling is the paid run.",
+        f'{_PYTHON} "%~dp0engine\\run_workflow.py" %*',
+        "exit /b %errorlevel%",
+    ],
+    "Update library.cmd": [
+        "@echo off",
+        "setlocal",
+        "rem Rebuild the Issuer Library page from the workspace's completed runs, then open it.",
+        "rem Workspace: the first argument, else FINAL_WORKFLOW_WORKSPACE, else",
+        "rem Documents\\FinalWorkflow.",
+        'set "WORKSPACE=%~1"',
+        'if not defined WORKSPACE set "WORKSPACE=%FINAL_WORKFLOW_WORKSPACE%"',
+        _DOCUMENTS,
+        'if not defined WORKSPACE set "WORKSPACE=%USERPROFILE%\\Documents\\FinalWorkflow"',
+        f'{_PYTHON} "%~dp0engine\\update_library.py" --workspace "%WORKSPACE%"',
+        "if errorlevel 1 (",
+        "  pause",
+        "  exit /b 1",
+        ")",
+        'start "" "%WORKSPACE%\\library\\index.html"',
+    ],
+}
+
+
 def bundle(target: Path, architecture: str | None) -> None:
     engine = target / "engine"
     engine.mkdir(exist_ok=True)
-    for name in ["bridge.py", "store.py", "catalog.json"]:
+    for name in ["bridge.py", "store.py", "catalog.json", "run_workflow.py"]:
         shutil.copyfile(APP / "engine" / name, engine / name)
+    # The static library: its update script and page parts (not their tests), and the two
+    # double-click wrappers that run the launcher and the update with the bundled Python.
+    shutil.copyfile(APP / "update_library.py", engine / "update_library.py")
+    if (engine / "static").exists():
+        shutil.rmtree(engine / "static")
+    tests = shutil.ignore_patterns("*.test.cjs", "*_check.cjs")
+    shutil.copytree(APP / "static", engine / "static", ignore=tests)
+    for name, lines in WRAPPERS.items():
+        (target / name).write_text("\n".join(lines) + "\n", encoding="ascii", newline="\r\n")
     shutil.copyfile(ROOT / "cases/context/research-minimal.json", engine / "smoke-context.json")
     shutil.copyfile(APP / "packaging/Smoke-test.ps1", target / "Smoke-test.ps1")
     if (engine / "src").exists():

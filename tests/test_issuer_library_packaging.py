@@ -32,7 +32,11 @@ def fake_zip(folder: Path, name: str, files: dict[str, str]) -> Path:
 def offline(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> list[str]:
     """Fake sources and downloads; returns the names of the files 'downloaded'."""
     app, root, cache = tmp_path / "repo/apps/issuer-library", tmp_path / "repo", tmp_path / "cache"
-    for name in ["engine/bridge.py", "engine/store.py", "engine/catalog.json"]:
+    for name in [
+        *("engine/bridge.py", "engine/store.py", "engine/catalog.json", "engine/run_workflow.py"),
+        *("update_library.py", "static/template.html", "static/app.js"),
+        *("static/logic.test.cjs", "static/browser_check.cjs"),
+    ]:
         (app / name).parent.mkdir(parents=True, exist_ok=True)
         (app / name).write_text("x")
     (app / "packaging").mkdir()
@@ -130,6 +134,26 @@ def test_a_mac_build_has_no_runtime_to_clear(tmp_path: Path, offline: list[str])
     runtime.bundle(target, None)
     assert not (target / "engine/runtime").exists()
     assert offline == []
+
+
+def test_the_package_ships_the_static_library_and_its_two_windows_wrappers(
+    tmp_path: Path, offline: list[str]
+) -> None:
+    target = tmp_path / "windows-amd64"
+    target.mkdir()
+    runtime.bundle(target, None)
+    engine = target / "engine"
+    assert (engine / "update_library.py").is_file() and (engine / "run_workflow.py").is_file()
+    assert sorted(p.name for p in (engine / "static").iterdir()) == ["app.js", "template.html"]
+    for name in ["Run workflow.cmd", "Update library.cmd"]:
+        raw = (target / name).read_bytes()
+        assert raw.startswith(b"@echo off\r\n") and b"\n" not in raw.replace(b"\r\n", b"")
+    run = (target / "Run workflow.cmd").read_text()
+    python = '"%~dp0engine\\runtime\\python.exe" -I -B -X utf8'
+    assert f'{python} "%~dp0engine\\run_workflow.py" %*' in run
+    update = (target / "Update library.cmd").read_text()
+    assert '--workspace "%WORKSPACE%"' in update
+    assert 'start "" "%WORKSPACE%\\library\\index.html"' in update
 
 
 def test_a_linked_engine_folder_is_refused_before_anything_is_deleted(tmp_path: Path) -> None:

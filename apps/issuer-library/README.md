@@ -1,5 +1,43 @@
 # Offline Issuer Library
 
+## Static library: no server, no port, no compiled executable
+
+Two separate Python steps, which need only the bundled Python (or a checkout):
+
+1. **Run the workflow**: `Run workflow.cmd` (or `python -m deploy_workflow.owners.cpos_launch`
+   from a checkout) takes the launcher's own options, below. Without `--live` it only prepares and
+   reviews; `--live` with a ruling is the paid run, which publishes the report.
+2. **Update the library**: `Update library.cmd [workspace]` (or
+   `python apps/issuer-library/update_library.py --workspace <folder>`) rebuilds
+   `<workspace>/library/index.html` and opens it. The page holds its data, styles, script and
+   fonts, opens from disk (`file://`), blocks every network request by its content security policy
+   and opens reports and handoffs as their original files. Without an argument the wrapper uses
+   `FINAL_WORKFLOW_WORKSPACE`, else `Documents\FinalWorkflow`. It writes nothing but
+   `library/index.html`; update it again after new runs.
+
+The library lists a run folder under `runs/` only when both hold
+(`src/deploy_workflow/library_index.py`):
+
+- **Completed by CP-OS:** a `completed-<sha256>.json` record named by its own hash, of the
+  launcher's report kind, names a `delivery-<sha256>.json` manifest named by its own hash; one
+  `deliveries/<id>/` folder holds exactly the files its `delivery.json` lists, with those hashes,
+  including the report the completion record names; the handoffs still have their hashes; and the
+  manifest, the delivered `view.json` and `workflow.json` name the same run. The report is not
+  rebuilt, so a later renderer change does not unlist a run.
+- **On the current methodology:** every module was answered in this run (not reused from another
+  run, not synthetic), and the instructions it was sent, still matching their pinned hash, carry
+  exactly the method text the launcher sends that module today (`cpos_launch.method_text`).
+
+Everything else is left out, with its reason in the command output and in a collapsed list at the
+end of the page. On 2026-11-09 no retained run qualifies: the launcher runs predate a change to
+CP-1's step contracts, or reused an earlier run's CP-0 to CP-1A, and older run folders record no
+method text. `deliverables/` is not read. Each listed run shows its evidence date, pathway, model
+and effort, exact recorded spend (unknown charges counted, never zeroed), its scope statement, and
+each module's reader summary quoted from the handoff. "Latest" is per issuer by evidence date;
+runs sharing that date are all marked and counted.
+
+The Go application described below remains in this repository until its removal is approved.
+
 A local application for preparing issuer runs, launching the existing CP-OS
 workflow, screening dated results and reading deliverables in one interface.
 The library reads historical evidence; New run writes fresh intake, execution and

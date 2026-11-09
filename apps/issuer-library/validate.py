@@ -36,6 +36,7 @@ NODE_TESTS = (
     "web/run-watch.test.cjs",
     "web/run-activity.test.cjs",
     "web/draft-guard.test.cjs",
+    "static/logic.test.cjs",
 )
 PYTHON_TESTS = (
     "tests/test_issuer_library_store.py",
@@ -50,6 +51,8 @@ PYTHON_TESTS = (
     "tests/test_pathway_handoff_charts.py",
     "tests/product/test_context.py",
     "tests/test_run_expectations.py",
+    "tests/test_library_index.py",
+    "tests/test_update_library.py",
 )
 PYTEST = ("-m", "pytest", "-q", "-p", "no:cacheprovider", "-m", "not live and not browser")
 
